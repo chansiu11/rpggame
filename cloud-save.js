@@ -43,6 +43,12 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
     const auth=authMod.getAuth(app);
     const db=storeMod.getFirestore(app);
     await authMod.setPersistence(auth,authMod.browserLocalPersistence);
+    await new Promise(resolve=>{
+      let done=false;
+      const finish=()=>{if(done)return;done=true;try{unsub?.();}catch(e){}resolve();};
+      let unsub=authMod.onAuthStateChanged(auth,finish,finish);
+      setTimeout(finish,2500);
+    });
 
     async function profile(uid){
       const snap=await storeMod.getDoc(storeMod.doc(db,'users',uid));
