@@ -1,15 +1,11 @@
-// Firebase 콘솔 > 프로젝트 설정 > 내 앱 > 웹 앱 구성 값을 아래에 넣으세요.
-// 웹 클라이언트용 firebaseConfig는 공개 설정입니다.
-// 서비스 계정 키나 Admin SDK 비밀키는 절대 GitHub에 올리지 마세요.
-window.ECHOES_FIREBASE_CONFIG = null;
-
-/* 예시
+// Firebase 웹 앱 설정
+// 주의: 서비스 계정 JSON / Admin SDK 비밀키는 GitHub에 올리지 마세요.
 window.ECHOES_FIREBASE_CONFIG = {
-  apiKey: "...",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project",
-  storageBucket: "your-project.firebasestorage.app",
-  messagingSenderId: "...",
-  appId: "..."
+  apiKey: "AIzaSyDqyxUPUS_LdddpoWf2RgtMgHq8fXAsqBw",
+  authDomain: "rpggame-ba6e0.firebaseapp.com",
+  projectId: "rpggame-ba6e0",
+  storageBucket: "rpggame-ba6e0.firebasestorage.app",
+  messagingSenderId: "86107049862",
+  appId: "1:86107049862:web:04e2be8459c12b1def2607",
+  measurementId: "G-3KHDG345BE"
 };
-*/
