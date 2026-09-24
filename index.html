@@ -111,11 +111,11 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2, MAX_LEVEL=100, PLAYER_HP_PER_LEVEL=18, PLAYER_DAMAGE_PER_LEVEL=3.4, OVERWORLD_H=4000, WORLD = {w:9600,h:5000}, SAVE_KEY = 'echoes_wild_save_v1', OPT_KEY='echoes_wild_options_v1', KEYS_KEY='echoes_keys_v1', LAYOUT_KEY='echoes_touch_layout_v1';
 const WORLD_DIFFICULTIES={
- veryEasy:{name:'매우 쉬움',hp:1.00,damage:1.30,speed:1.20},
- easy:{name:'쉬움',hp:1.40,damage:1.65,speed:1.32},
- normal:{name:'보통',hp:1.90,damage:2.05,speed:1.48},
- hard:{name:'어려움',hp:2.80,damage:2.80,speed:1.70},
- veryHard:{name:'매우 어려움',hp:4.20,damage:4.00,speed:1.95}
+ veryEasy:{name:'매우 쉬움',hp:.85,damage:.90,speed:.95},
+ easy:{name:'쉬움',hp:1.05,damage:1.05,speed:1.02},
+ normal:{name:'보통',hp:1.35,damage:1.30,speed:1.12},
+ hard:{name:'어려움',hp:1.85,damage:1.70,speed:1.28},
+ veryHard:{name:'매우 어려움',hp:2.60,damage:2.30,speed:1.45}
 };
 function worldDifficulty(id=player?.difficulty){return WORLD_DIFFICULTIES[id]||WORLD_DIFFICULTIES.normal;}
 function difficultyName(id=player?.difficulty){return worldDifficulty(id).name;}
@@ -319,7 +319,7 @@ const PERKS=[
 const RUNES=[
  {id:'cycle',name:'순환의 룬',glyph:'↻',source:'바람의 균열',desc:'완벽한 대쉬에 성공하면 기력을 14 추가 회복합니다. 대쉬의 이점을 살리는 전술입니다.'},
  {id:'echo',name:'반향의 룬',glyph:'◇',source:'거울의 균열',desc:'패링 성공 뒤 4초 안의 다음 기본 공격 피해가 45% 증가합니다.'},
- {id:'dawn',name:'여명의 룬',glyph:'✧',source:'불씨의 균열',desc:'무기 기술 Q의 재사용 대기시간이 6초에서 4.8초로 줄어듭니다.'}
+ {id:'dawn',name:'여명의 룬',glyph:'✧',source:'불씨의 균열',desc:'무기 기술 Q의 재사용 대기시간을 추가로 20% 줄입니다.'}
 ];
 const RIFTS=[
  {id:'windrift',name:'바람의 균열',x:2190,y:3570,r:250,color:'#a5d3a6',rune:'cycle',waves:[['sprout','sprout'],['wolf','sprout'],['wolf','sentry','sprout']]},
@@ -628,11 +628,11 @@ function basicMeleeHit(reach,arc,damage,finalHit=false){let hits=0;for(const e o
  if(finalHit&&e.kind!=='boss'){const a=player.attackAngle,c=combatCenter(e),tx=c.x+Math.cos(a)*270,ty=c.y+Math.sin(a)*270,spot=freeBodySpot(tx,ty,e.r+5);skill2Knocks.push({e,x:spot.x,y:spot.y,t:.42,max:.42});ring(c.x,c.y,58,'#ffe3a0',.32);burst(c.x,c.y,'#ffe3a0',12,150);}
  }return hits;}
 const SKILLS=[
- {name:'바람 가르기',level:2,cost:24,cool:5,color:'#a5f1d8',desc:'검기를 부채꼴로 방출합니다.'},
- {name:'섬광 돌진',level:5,cost:32,cool:7,color:'#9ddfff',desc:'전방으로 돌진하며 지나간 적을 공격합니다.'},
- {name:'달빛 회전',level:10,cost:38,cool:9,color:'#d2b4ff',desc:'몸을 회전해 주변 적을 밀어냅니다.'},
- {name:'대지 내려찍기',level:15,cost:44,cool:11,color:'#ffd18b',desc:'높이 들었다 내려찍어 넓은 충격파를 만듭니다.'},
- {name:'별빛 개화',level:24,cost:55,cool:16,color:'#ffcaeb',desc:'양팔을 펼쳐 별빛 탄막을 방출합니다.'}
+ {name:'바람 가르기',level:2,cost:24,cool:3.5,color:'#a5f1d8',desc:'검기를 부채꼴로 방출합니다.'},
+ {name:'섬광 돌진',level:5,cost:32,cool:5,color:'#9ddfff',desc:'전방으로 돌진하며 지나간 적을 공격합니다.'},
+ {name:'달빛 회전',level:10,cost:38,cool:6.5,color:'#d2b4ff',desc:'몸을 회전해 주변 적을 밀어냅니다.'},
+ {name:'대지 내려찍기',level:15,cost:44,cool:8,color:'#ffd18b',desc:'높이 들었다 내려찍어 넓은 충격파를 만듭니다.'},
+ {name:'별빛 개화',level:24,cost:55,cool:11,color:'#ffcaeb',desc:'양팔을 펼쳐 별빛 탄막을 방출합니다.'}
 ];
 function flourish(x,y,color,r=90,style=0){effects.push({type:'flourish',x,y,color,r,style,t:.65,max:.65});ring(x,y,r,color,.5);burst(x,y,color,options.quality==='low'?10:22,150);}
 function hitSecretStatue(){
@@ -658,11 +658,11 @@ function attack(){
  sound(player.weapon===2?'bow':'swing');
 }
 const HIDDEN_SKILLS=[
- {name:'성흔·섬광 포획',level:1,cost:28,cool:5.5,color:'#9feaff',desc:'준비 자세 뒤 키를 떼면 이동키로 바라본 방향으로 초고속 돌진합니다. 돌진 경로의 적은 플레이어 돌진 거리보다 더 멀리 진행 방향으로 날아가며 0.5초 기절합니다.'},
- {name:'성흔·월식 추격',level:1,cost:34,cool:7.5,color:'#d6a8ff',desc:'키를 떼면 아주 가까운 주변에 원형 피해를 줍니다. 적중한 표식은 3초 유지되며, 다시 사용할 때 현재 위치에서 가장 가까운 표식 대상부터 뒤로 순간이동해 방어를 깨고 1초 기절시킵니다.'},
- {name:'성흔·무한 검압',level:1,cost:42,cool:10,color:'#8fffe1',desc:'누르는 동안 최대 5초 유지됩니다. 이동 속도가 80% 감소하고 가장 가까운 적을 계속 바라보며, 좁은 범위를 빠르게 연속 베어 피해와 0.1초 기절을 반복합니다. 종료 순간 강한 마무리 베기로 적을 전방에 날립니다.'},
- {name:'성흔·천극 질주',level:1,cost:48,cool:12,color:'#ffd083',desc:'누르는 동안 최대 4초 돌진하며 이동키로 방향을 부드럽게 조절합니다. 적을 자연스럽게 앞에 끌고 가며, 종료 시 앞의 적을 폭발과 함께 날려 보냅니다.'},
- {name:'성흔·삼연 성흔',level:1,cost:70,cool:19,color:'#ff9ee8',desc:'사용 중 이동할 수 없습니다. 0.5초 준비 후 1초 간격으로 세 번 순간돌진하고 1초 뒤 강력한 마무리 일격을 가합니다. 마우스 조준이 활성화되어 있으면 마우스 방향을 우선하며, 아니면 이동키 방향을 사용합니다.'}
+ {name:'성흔·섬광 포획',level:1,cost:28,cool:4,color:'#9feaff',desc:'준비 자세 뒤 키를 떼면 이동키로 바라본 방향으로 초고속 돌진합니다. 돌진 경로의 적은 플레이어 돌진 거리보다 더 멀리 진행 방향으로 날아가며 0.5초 기절합니다.'},
+ {name:'성흔·월식 추격',level:1,cost:34,cool:5.5,color:'#d6a8ff',desc:'키를 떼면 매우 넓은 주변에 원형 피해를 줍니다. 범위는 이전의 5배이며, 적중한 표식은 3초 유지됩니다. 다시 사용할 때 현재 위치에서 가장 가까운 표식 대상부터 뒤로 순간이동해 방어를 깨고 1초 기절시킵니다.'},
+ {name:'성흔·무한 검압',level:1,cost:42,cool:7,color:'#8fffe1',desc:'누르는 동안 최대 5초 유지됩니다. 이동 속도가 80% 감소하고 가장 가까운 적을 계속 바라보며, 좁은 범위를 빠르게 연속 베어 피해와 0.1초 기절을 반복합니다. 종료 순간 강한 마무리 베기로 적을 전방에 날립니다.'},
+ {name:'성흔·천극 질주',level:1,cost:48,cool:8.5,color:'#ffd083',desc:'누르는 동안 최대 4초 돌진하며 이동키로 방향을 부드럽게 조절합니다. 적을 자연스럽게 앞에 끌고 가며, 종료 시 앞의 적을 폭발과 함께 날려 보냅니다.'},
+ {name:'성흔·삼연 성흔',level:1,cost:70,cool:13.5,color:'#ff9ee8',desc:'사용 중 이동할 수 없습니다. 0.5초 준비 후 1초 간격으로 세 번 순간돌진하고 1초 뒤 강력한 마무리 일격을 가합니다. 마우스 조준이 활성화되어 있으면 마우스 방향을 우선하며, 아니면 이동키 방향을 사용합니다.'}
 ];
 function skillInfo(i){if(!SKILLS[i])return null;const sword=[['가로 베기','약 1초 동안 세 번 이어 베는 연속 검격입니다.'],['섬광 돌진','버튼을 눌렀다 뗄 때 발동합니다. 이전보다 5배 빠른 속도로 0.5초 돌진하며 경로에 닿은 일반 적을 종점 주변으로 날려 보냅니다.'],['회전 베기','약 1.2초 동안 다섯 번 회전하며 주변을 공격합니다.'],['별빛 돌진','짧게 누르면 좁은 범위에 2초 피해를 줍니다. 0.3초 이상 누르면 최대 1초 돌진하며 맞은 일반 적을 앞에 붙잡아 반복 피해를 준 뒤 좁은 범위 공격으로 마무리합니다.'],['연속 교차 베기','약 1.5초 동안 일곱 번 교차 검격을 이어가는 긴 연속 공격입니다.']],bow=[['삼연 사격','부채꼴로 화살 3발을 발사합니다.'],['관통 사격','빠른 관통 화살을 발사합니다.'],['후퇴 사격','뒤로 이동하며 화살 5발을 발사합니다.'],['확산 사격','넓은 전방에 화살 7발을 발사합니다.'],['집중 화살비','관통 화살 9발을 전방에 집중합니다.']];if(player.weapon===3)return {...HIDDEN_SKILLS[i]};const [name,desc]=(player.weapon===2?bow:sword)[i];return {...SKILLS[i],name,desc};}
 function hiddenTargets(){return enemies.filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert));}
@@ -692,7 +692,7 @@ function beginHiddenSkillInput(index){
 function releaseHiddenSkillInput(index){const h=hiddenSkillHold;if(!h||h.index!==index||player.weapon!==3)return false;if(h.kind==='channel3'){finishHiddenChannel3();return true;}if(h.kind==='dash4'){finishHiddenDash4();return true;}if(h.kind==='combo5'){finishHiddenCombo5();return true;}if(h.kind!=='prepare')return false;hiddenSkillHold=null;player.cast=0;player.attackCd=Math.min(player.attackCd,.1);if(h.followup)return triggerHiddenFollowup();const releaseFacing=h.index===0?hiddenMoveFacing(h.facing):h.facing;return triggerHiddenPrepared(h.index,releaseFacing);}
 function triggerHiddenPrepared(index,a){if(!hiddenCommit(index)){player.skillPose=-1;return false;}const s=HIDDEN_SKILLS[index];player.facing=a;player.attackAngle=a;
  if(index===0){player.cast=.24;player.attackCd=.28;hiddenSkillEvents.push({kind:'dash1',a,t:HIDDEN_DASH1_DURATION,max:HIDDEN_DASH1_DURATION,caught:new Map(),lastX:player.x,lastY:player.y});effects.push({type:'riftCut',x:player.x+Math.cos(a)*180,y:player.y+Math.sin(a)*180,a,len:390,width:44,color:s.color,t:.34,max:.34});sound('dodge');return true;}
- if(index===1){player.cast=.22;player.attackCd=.25;const radius=78,hits=hiddenDamageRadius(player.x,player.y,radius,1.25,true,.18);effects.push({type:'nova',x:player.x,y:player.y,r:88,color:s.color,t:.5,max:.5});effects.push({type:'starSeal',x:player.x,y:player.y,r:82,color:'#ffffff',t:.42,max:.42});for(let j=0;j<12;j++){const aa=j*TAU/12;effects.push({type:'line',x:player.x+Math.cos(aa)*14,y:player.y+Math.sin(aa)*14,x2:player.x+Math.cos(aa)*82,y2:player.y+Math.sin(aa)*82,color:j%2?s.color:'#ffffff',t:.24,max:.24});}if(hits.length){hiddenSkillFollowup={targets:hits,expires:realTime+3,fx:0};toast('<b>월식 표식</b> · 3초 동안 가장 가까운 표식부터 R로 추격');}else hiddenSkillFollowup=null;shake=Math.max(shake,7);sound('hit');return true;}
+ if(index===1){player.cast=.22;player.attackCd=.25;const radius=390,hits=hiddenDamageRadius(player.x,player.y,radius,1.25,true,.18);effects.push({type:'nova',x:player.x,y:player.y,r:410,color:s.color,t:.62,max:.62});effects.push({type:'starSeal',x:player.x,y:player.y,r:390,color:'#ffffff',t:.55,max:.55});for(let j=0;j<16;j++){const aa=j*TAU/16;effects.push({type:'line',x:player.x+Math.cos(aa)*22,y:player.y+Math.sin(aa)*22,x2:player.x+Math.cos(aa)*390,y2:player.y+Math.sin(aa)*390,color:j%2?s.color:'#ffffff',t:.32,max:.32});}if(hits.length){hiddenSkillFollowup={targets:hits,expires:realTime+3,fx:0};toast('<b>월식 표식</b> · 3초 동안 가장 가까운 표식부터 R로 추격');}else hiddenSkillFollowup=null;shake=Math.max(shake,7);sound('hit');return true;}
  return false;
 }
 function triggerHiddenFollowup(){const f=hiddenSkillFollowup;if(!f||realTime>f.expires)return false;const valid=f.targets.filter(e=>e&&!e.dead&&!e.riftSleeping);if(!valid.length){hiddenSkillFollowup=null;return false;}const target=valid.sort((a,b)=>combatDistance(a,player)-combatDistance(b,player))[0];f.targets=valid.filter(e=>e!==target);if(!f.targets.length)hiddenSkillFollowup=null;const c=combatCenter(target),fa=Number.isFinite(target.facing)?target.facing:Math.atan2(c.y-player.y,c.x-player.x),behind=freeBodySpot(c.x-Math.cos(fa)*(combatRadius(target)+player.r+32),c.y-Math.sin(fa)*(combatRadius(target)+player.r+32),player.r);const ox=player.x,oy=player.y;player.x=behind.x;player.y=behind.y;player.facing=Math.atan2(c.y-player.y,c.x-player.x);bodyGridValid=false;target.poise=0;if(Number.isFinite(target.shield))target.shield=0;if(Number.isFinite(target.shieldBroken))target.shieldBroken=Math.max(target.shieldBroken,2);hitEnemy(target,damageValue(2.7),false,player);if(!target.dead){target.stun=Math.max(target.stun,1);target.state='stunned';}floating(c.x,c.y-55,'SHIELD BREAK','#ffd6ff',true);effects.push({type:'riftCut',x:(ox+player.x)/2,y:(oy+player.y)/2,a:Math.atan2(player.y-oy,player.x-ox),len:Math.hypot(player.x-ox,player.y-oy)+100,width:48,color:'#d9a9ff',t:.45,max:.45});effects.push({type:'nova',x:c.x,y:c.y,r:150,color:'#ffffff',t:.55,max:.55});burst(c.x,c.y,'#e6b8ff',30,220);ring(c.x,c.y,145,'#ffffff',.5);player.cast=.25;player.attackCd=.3;player.skillPose=1;shake=Math.max(shake,11);sound('parry');return true;}
@@ -1094,12 +1094,12 @@ function closeModal(){if(layoutEditing){finishLayoutEditor(false);return;}if(mod
 function header(kicker,title,closable=true){return `<div class="panel-head"><div><div class="eyebrow">${kicker}</div><h2>${title}</h2></div>${closable?'<button class="close" data-action="close" aria-label="닫기">×</button>':''}</div>`;}
 function footer(text='메뉴를 여는 동안 게임은 일시정지됩니다.',buttons='<button class="primary" data-action="close">모험 계속하기</button>'){return `<div class="panel-foot"><span>${text}</span><div class="actions">${buttons}</div></div>`;}
 function showNewGame(){const difficulties=[
- ['veryEasy','매우 쉬움','기존 도전자 모드와 같은 강도입니다. 적 체력은 그대로지만 받는 피해와 적 공격 템포가 기존보다 높습니다.'],
- ['easy','쉬움','매우 쉬움보다 적 체력과 공격력이 확실히 높아지고 공격 템포도 빨라집니다.'],
- ['normal','보통','적 체력 약 1.9배·공격력 약 2배. 회피·쉴드·장비 조합이 본격적으로 필요합니다.'],
- ['hard','어려움','적 체력과 공격력이 약 2.8배까지 뛰며 공격 템포도 크게 빨라집니다.'],
- ['veryHard','매우 어려움','최고 난이도. 적 체력 약 4.2배·공격력 4배이며 공격 패턴도 매우 빠릅니다.']
- ];openPanel('new',header('A NEW JOURNEY','월드 난이도를 선택하세요')+`<p class="lede">난이도는 월드의 몬스터·보스 체력, 공격력과 공격 템포에 적용됩니다.<br><b>매우 쉬움도 기존 도전자 모드와 같은 강도</b>이므로 이전 기본 난이도보다 쉽지는 않습니다.</p><div class="grid two">${difficulties.map(([id,name,desc],i)=>{const d=WORLD_DIFFICULTIES[id];return `<div class="card"><div class="icon">${['◇','✦','◆','✧','★'][i]}</div><h3>${name}</h3><p>${desc}</p><div class="stat-row"><span>적 체력</span><b>×${d.hp.toFixed(2)}</b></div><div class="stat-row"><span>적 공격력</span><b>×${d.damage.toFixed(2)}</b></div><div class="stat-row"><span>공격 템포</span><b>×${d.speed.toFixed(2)}</b></div><button class="${id==='normal'?'primary':''}" data-action="begin" data-value="${id}">${name}으로 시작</button></div>`;}).join('')}</div>${saveAvailable?'<div class="tip">새 여정을 시작하면 이 계정의 기존 저장을 덮어씁니다. 필요하면 기존 여정을 먼저 내보내세요.</div>':''}`+footer('PC: 키보드·마우스 / 터치 기기: 화면 버튼','<button class="quiet" data-action="close">돌아가기</button>'));}
+ ['veryEasy','매우 쉬움','전투 입문용으로 크게 완화했습니다. 적 체력·공격력·공격 템포가 모두 낮습니다.'],
+ ['easy','쉬움','기본 수치에 가까운 난이도입니다. 패링과 대쉬를 익히면서 진행하기 좋습니다.'],
+ ['normal','보통','적 체력과 공격력이 적당히 강화됩니다. 장비와 쉴드 활용이 중요해집니다.'],
+ ['hard','어려움','적 체력·공격력과 공격 템포가 크게 올라가며 실수가 더 위험합니다.'],
+ ['veryHard','매우 어려움','최고 난이도. 완화 후에도 적 수치와 공격 템포가 가장 높아 숙련된 전투가 필요합니다.']
+ ];openPanel('new',header('A NEW JOURNEY','월드 난이도를 선택하세요')+`<p class="lede">난이도는 월드의 몬스터·보스 체력, 공격력과 공격 템포에 적용됩니다.<br><b>전체 난이도를 이전보다 낮췄습니다.</b> 단계가 올라갈수록 적 체력·공격력·공격 템포가 확실히 증가합니다.</p><div class="grid two">${difficulties.map(([id,name,desc],i)=>{const d=WORLD_DIFFICULTIES[id];return `<div class="card"><div class="icon">${['◇','✦','◆','✧','★'][i]}</div><h3>${name}</h3><p>${desc}</p><div class="stat-row"><span>적 체력</span><b>×${d.hp.toFixed(2)}</b></div><div class="stat-row"><span>적 공격력</span><b>×${d.damage.toFixed(2)}</b></div><div class="stat-row"><span>공격 템포</span><b>×${d.speed.toFixed(2)}</b></div><button class="${id==='normal'?'primary':''}" data-action="begin" data-value="${id}">${name}으로 시작</button></div>`;}).join('')}</div>${saveAvailable?'<div class="tip">새 여정을 시작하면 이 계정의 기존 저장을 덮어씁니다. 필요하면 기존 여정을 먼저 내보내세요.</div>':''}`+footer('PC: 키보드·마우스 / 터치 기기: 화면 버튼','<button class="quiet" data-action="close">돌아가기</button>'));}
 const guideCards=cards=>'<div class="grid tutorial two">'+cards.map(([name,body])=>`<div class="card"><h3>${name}</h3><p>${body}</p></div>`).join('')+'</div>';
 function tutorialContent(touch){return [
  {tag:'01 / 04 · FIRST STEPS',title:touch?'손을 댄 곳에서 시작하세요':'모험은 한 걸음에서',body:'<p class="lede">네 지역을 자유롭게 탐험해 세 수호자의 인장을 모으세요. 작은 적은 기본 배율, 큰 적은 크기에 맞춰 줌아웃됩니다. 가까운 적만 카메라가 따라갑니다.</p>'+guideCards(touch?[
@@ -1728,13 +1728,13 @@ const weaponData=[
  {name:'바람결 활',d:23,range:600,arc:0,cool:.5,cost:13},
  {name:'성흔의 대검',d:48,range:112,arc:2.08,cool:.38,cost:0}
 ];
-const SKILL_COST=[24,32,38,44,55],SKILL_CD=[5,7,9,11,16];
+const SKILL_COST=[24,32,38,44,55],SKILL_CD=[3.5,5,6.5,8,11];
 const HIDDEN_SKILLS=[
- {name:'성흔·섬광 포획',cost:28,cool:5.5,color:'#9feaff'},
- {name:'성흔·월식 추격',cost:34,cool:7.5,color:'#d6a8ff'},
- {name:'성흔·무한 검압',cost:42,cool:10,color:'#8fffe1'},
- {name:'성흔·천극 질주',cost:48,cool:12,color:'#ffd083'},
- {name:'성흔·삼연 성흔',cost:70,cool:19,color:'#ff9ee8'}
+ {name:'성흔·섬광 포획',cost:28,cool:4,color:'#9feaff'},
+ {name:'성흔·월식 추격',cost:34,cool:5.5,color:'#d6a8ff'},
+ {name:'성흔·무한 검압',cost:42,cool:7,color:'#8fffe1'},
+ {name:'성흔·천극 질주',cost:48,cool:8.5,color:'#ffd083'},
+ {name:'성흔·삼연 성흔',cost:70,cool:13.5,color:'#ff9ee8'}
 ];
 const SWORD_CFG=[
  {duration:1.00,hits:[.16,.45,.76],mult:[.82,.92,1.22],arc:[1.75,2.05,2.35],reach:[8,12,18],step:[8,8,12]},
@@ -1837,7 +1837,7 @@ function startBowSkill(i){if(!skillReady(i)||!commitSkill(i))return false;const 
 function hiddenCanStart(i,follow=false){if(!me||me.weapon!==3||me.stun>0||me.exhaust>0||me.block||me.dash>0||me.skillHold||me.skillEvent)return false;if(follow)return true;return me.attackCd<=0&&me.cool[i]<=0}
 function beginHidden(i){const follow=i===1&&me.followMarked&&performance.now()<me.followUntil;if(!hiddenCanStart(i,follow))return false;const s=HIDDEN_SKILLS[i],a=aimAngle();me.a=a;me.skillPose=i;triggerPvpShake(i,i===4?1.12:1,true);if(i===2){if(!commitSkill(i,s.cost,s.cool))return false;me.skillHold={kind:'hidden3',index:i,elapsed:0,max:5,a,tick:0,fx:0};me.skillKind='hidden3';me.attackCd=.1;ring(me.x,me.y,78,s.color,.35,true);return true}if(i===3){if(!commitSkill(i,s.cost,s.cool))return false;me.skillHold={kind:'hidden4',index:i,elapsed:0,max:4,a,tick:0,fx:0,caught:false};me.skillKind='hidden4';me.attackCd=.1;me.inv=.12;ring(me.x,me.y,82,s.color,.35,true);return true}if(i===4){if(!commitSkill(i,s.cost,s.cool))return false;const fa=hidden5Angle(a);me.skillHold={kind:'hidden5',index:i,elapsed:0,max:3.65,a:fa,next:0,fx:0};me.a=fa;me.skillKind='hidden5';me.attackCd=.12;starFx(me.x,me.y,118,s.color,.38,true);ring(me.x,me.y,68,s.color,.3,true);return true}me.skillHold={kind:'hiddenPrepare',index:i,elapsed:0,a,fx:0,follow};me.skillKind='prepare';me.attackCd=.08;ring(me.x,me.y,42,s.color,.25,true);return true}
 function releaseHidden(i){const h=me.skillHold;if(!h||h.index!==i)return;if(h.kind==='hidden3'){finishHidden3();return}if(h.kind==='hidden4'){finishHidden4();return}if(h.kind==='hidden5'){finishHidden5(true);return}if(h.kind!=='hiddenPrepare')return;me.skillHold=null;me.skillKind='';if(h.follow){hiddenFollow();return}const a=i===0?moveAngle(h.a):h.a;triggerHiddenPrepared(i,a)}
-function triggerHiddenPrepared(i,a){const s=HIDDEN_SKILLS[i];if(!commitSkill(i,s.cost,s.cool)){me.skillPose=-1;return}me.a=a;if(i===0){me.skillEvent={kind:'hidden1',index:0,elapsed:0,max:.24,a,hit:false,startX:me.x,startY:me.y};me.skillKind='hidden1';me.attackDuration=.24;me.attackAnim=.24;me.attackCd=.28;rift(me.x+Math.cos(a)*180,me.y+Math.sin(a)*180,a,390,44,s.color,.34,true);return}if(i===1){const r=78,d=fighterAttack(me)*1.25;circleAttack(me.x,me.y,r,d,.18,{color:s.color});if(targetNear(r+enemy.r)){me.followMarked=true;me.followUntil=performance.now()+3000;starFx(enemy.x,enemy.y,48,'#d9a9ff',.4,true)}else{me.followMarked=false;me.followUntil=0}starFx(me.x,me.y,82,'#ffffff',.42,true);ring(me.x,me.y,88,s.color,.5,true);pvpShake=Math.max(pvpShake,7)}}
+function triggerHiddenPrepared(i,a){const s=HIDDEN_SKILLS[i];if(!commitSkill(i,s.cost,s.cool)){me.skillPose=-1;return}me.a=a;if(i===0){me.skillEvent={kind:'hidden1',index:0,elapsed:0,max:.24,a,hit:false,startX:me.x,startY:me.y};me.skillKind='hidden1';me.attackDuration=.24;me.attackAnim=.24;me.attackCd=.28;rift(me.x+Math.cos(a)*180,me.y+Math.sin(a)*180,a,390,44,s.color,.34,true);return}if(i===1){const r=390,d=fighterAttack(me)*1.25;circleAttack(me.x,me.y,r,d,.18,{color:s.color});if(targetNear(r+enemy.r)){me.followMarked=true;me.followUntil=performance.now()+3000;starFx(enemy.x,enemy.y,64,'#d9a9ff',.5,true)}else{me.followMarked=false;me.followUntil=0}starFx(me.x,me.y,390,'#ffffff',.55,true);ring(me.x,me.y,410,s.color,.62,true);pvpShake=Math.max(pvpShake,7)}}
 function hiddenFollow(){if(!me.followMarked||performance.now()>me.followUntil||!enemy)return;me.followMarked=false;me.followUntil=0;const fa=enemy.a,dist=enemy.r+me.r+34;me.x=clamp(enemy.x-Math.cos(fa)*dist,25,W-25);me.y=clamp(enemy.y-Math.sin(fa)*dist,25,H-25);me.a=Math.atan2(enemy.y-me.y,enemy.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a});circleAttack(enemy.x,enemy.y,82,fighterAttack(me)*2.7,1,{color:'#d9a9ff',breakShield:true});nova(enemy.x,enemy.y,150,'#ffffff',.55,true);rift((me.x+enemy.x)/2,(me.y+enemy.y)/2,me.a,180,48,'#d9a9ff',.45,true);burst(enemy.x,enemy.y,'#e6b8ff',30,220);pvpShake=Math.max(pvpShake,11)}
 function finishHidden3(){const h=me.skillHold;if(!h||h.kind!=='hidden3')return;me.skillHold=null;me.skillKind='';me.skillPose=-1;me.attackCd=.22;const a=h.a;const hit=enemyInRect(a,70,68,11);rectAttack(a,70,68,11,fighterAttack(me)*1.45,.24,{color:'#8fffe1',force:420,forceA:a});if(hit)net({t:'forceMove',x:clamp(enemy.x+Math.cos(a)*240,25,W-25),y:clamp(enemy.y+Math.sin(a)*240,25,H-25),t:.44,stun:.24});nova(me.x+Math.cos(a)*42,me.y+Math.sin(a)*42,105,'#8fffe1',.42,true);pvpShake=Math.max(pvpShake,8)}
 function finishHidden4(){const h=me.skillHold;if(!h||h.kind!=='hidden4')return;me.skillHold=null;me.skillKind='';me.skillPose=-1;me.attackCd=.22;const a=h.a,cx=me.x+Math.cos(a)*95,cy=me.y+Math.sin(a)*95;if(targetNear(220)){circleAttack(cx,cy,135,fighterAttack(me)*2.05,.28,{color:'#ffd083',force:520,forceA:a});net({t:'forceMove',x:clamp(enemy.x+Math.cos(a)*260,25,W-25),y:clamp(enemy.y+Math.sin(a)*260,25,H-25),t:.42,stun:.28})}starFx(cx,cy,190,'#ffd083',.52,true);nova(cx,cy,210,'#ffffff',.62,true);pvpShake=Math.max(pvpShake,12)}
