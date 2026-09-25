@@ -151,14 +151,14 @@ const rand=seeded(487123), rnd=(a,b)=>a+rand()*(b-a), choose=arr=>arr[Math.floor
 const canvas=$('game'), ctx=canvas.getContext('2d',{alpha:false});
 const mini=$('minimap'), mc=mini.getContext('2d');
 let W=innerWidth,H=innerHeight,DPR=1,camera={x:920,y:2880},mode='title',modal=null,previousModal=null;
-let player,entities=[],projectiles=[],effects=[],floaters=[],obstacles=[],decor=[],objects=[],enemies=[],saveAvailable=false;
+let player,entities=[],projectiles=[],remoteSkillProjectiles=[],effects=[],floaters=[],obstacles=[],decor=[],objects=[],enemies=[],saveAvailable=false;
 let worldTime=0,realTime=0,hitstop=0,shake=0,damageFlash=0,lastRegion=-1,bannerTimer=0,hudTimer=0,saveTimer=0,frameMs=16,renderFailed=false;
 let miniMapTimer=0,nearbyTimer=0,npcTimer=0;const PERF={nearAI:.12,farAI:.28,miniMap:.25,nearby:.08,npc:.10,maxEffectsHigh:560,maxEffectsLow:320};
 let activeBoss=null,nearby=null,mapWaypoint=null,tutorialPage=0,menuTab='gear',questTab='side',introTimer=0,pendingAttack=false;
 let multiplayerMode=false,multiRemotePlayers=new Map(),multiNetTimer=0,multiPartyInvite=null;
 let multiWorldLeader=false,multiWorldReady=false,multiWorldSyncTimer=0,multiWorldFullSyncTimer=0,multiWorldFullSyncPending=true,multiSharedAvailableItems=new Set(),multiMobLastSent=new Map();
 let multiNetSeq=0,multiLastSendX=0,multiLastSendY=0,multiLastSendAt=0,multiInstantMoveSeqFloor=0;
-let multiSkillFxSeq=0,multiSkillFxState={seq:0,slot:0,skillId:'',weapon:0,x:0,y:0,a:0},multiSkillPosePulseUntil=0,multiContinuousFxAt=0,multiDeathSeq=0;
+let multiSkillFxSeq=0,multiExactFxSeq=0,multiSkillFxState={seq:0,slot:0,skillId:'',weapon:0,x:0,y:0,a:0},multiSkillPosePulseUntil=0,multiContinuousFxAt=0,multiDeathSeq=0;
 let detectedTouch=matchMedia('(pointer:coarse)').matches||(navigator.maxTouchPoints>0&&matchMedia('(hover:none)').matches);
 let touchMode=detectedTouch,VIEW_SCALE=1,BASE_VIEW_SCALE=1,VIEW_W=W,VIEW_H=H;
 let stickPointer=null,touchAttackPointer=null,touchSprint=false;
@@ -2061,6 +2061,8 @@ function syncRemotePlayers(list){
 }
 function sendSharedSkillFx(slot,skillId,weapon=player?.weapon,a=player?.facing){
  if(!multiplayerMode||!window.EchoesMulti?.connected||!player)return;
+ for(const e of effects)e._netSkillFxSent=true;
+ for(const p of projectiles)p._netSkillFxSent=true;
  multiSkillFxSeq++;multiSkillFxState={seq:multiSkillFxSeq,slot:clamp(Number(slot)||0,0,4),skillId:String(skillId||''),weapon:Number(weapon)||0,x:player.x,y:player.y,a:Number(a)||0};
  multiContinuousFxAt=realTime;multiSkillPosePulseUntil=Math.max(multiSkillPosePulseUntil,realTime+.55);
  window.EchoesMulti.skillFx(multiSkillFxState);
@@ -2068,7 +2070,45 @@ function sendSharedSkillFx(slot,skillId,weapon=player?.weapon,a=player?.facing){
 function sendSharedSkillFxFrame(slot,skillId,weapon=player?.weapon,a=player?.facing,interval=.12){
  if(!multiplayerMode||!window.EchoesMulti?.connected||!player)return;
  if(realTime-multiContinuousFxAt<interval)return;
- multiContinuousFxAt=realTime;sendSharedSkillFx(slot,skillId,weapon,a);
+ multiContinuousFxAt=realTime;multiSkillFxSeq++;
+ multiSkillFxState={seq:multiSkillFxSeq,slot:clamp(Number(slot)||0,0,4),skillId:String(skillId||''),weapon:Number(weapon)||0,x:player.x,y:player.y,a:Number(a)||0};
+ multiSkillPosePulseUntil=Math.max(multiSkillPosePulseUntil,realTime+.55);
+ window.EchoesMulti.skillFx(multiSkillFxState);
+}
+const NET_SKILL_EFFECT_TYPES=new Set(['particle','ring','line','slash','riftCut','nova','starSeal','flourish']);
+function packExactSkillEffect(e){
+ if(!e||!NET_SKILL_EFFECT_TYPES.has(e.type))return null;
+ const out={type:e.type,color:String(e.color||'#ffffff').slice(0,24)};
+ for(const k of ['x','y','x2','y2','vx','vy','t','max','size','r','a','arc','len','width','style'])if(Number.isFinite(Number(e[k])))out[k]=Number(e[k]);
+ return out;
+}
+function flushExactSkillVisuals(){
+ if(!multiplayerMode||!window.EchoesMulti?.connected||!player)return;
+ const skillActive=player.skillPose>=0||multiSkillPosePulseUntil>realTime||!!activeSwordSkill||!!hiddenSkillHold||!!secondSkillDash||!!fourthSkillHold||!!fourthSkillField||hiddenSkillEvents.length>0;
+ if(!skillActive)return;
+ const batch=[];
+ for(const e of effects){if(e._netSkillFxSent)continue;e._netSkillFxSent=true;const q=packExactSkillEffect(e);if(q)batch.push(q);}
+ const shots=[];
+ for(const p of projectiles){if(p._netSkillFxSent||p.owner!=='player')continue;p._netSkillFxSent=true;shots.push({x:p.x,y:p.y,vx:p.vx,vy:p.vy,a:p.a,kind:String(p.kind||'orb').slice(0,16),r:Number(p.r)||6,t:Number(p.t)||.5});}
+ if(!batch.length&&!shots.length)return;
+ window.EchoesMulti.skillEffects({seq:++multiExactFxSeq,effects:batch.slice(-90),projectiles:shots.slice(-24)});
+}
+function applyRemoteExactSkillEffects(msg){
+ if(!multiplayerMode||!msg||msg.playerId===window.EchoesMulti?.state?.selfId)return;
+ const rp=multiRemotePlayers.get(msg.playerId);if(rp){rp.remoteExactFxUntil=realTime+.8;rp.lastExactFxSeq=Math.max(Number(rp.lastExactFxSeq)||0,Number(msg.seq)||0);}
+ for(const raw of Array.isArray(msg.effects)?msg.effects:[]){
+  if(!raw||!NET_SKILL_EFFECT_TYPES.has(raw.type))continue;
+  const e={type:raw.type,color:String(raw.color||'#ffffff').slice(0,24),_netSkillFxSent:true,_remoteExact:true};
+  for(const k of ['x','y','x2','y2','vx','vy','t','max','size','r','a','arc','len','width','style'])if(Number.isFinite(Number(raw[k])))e[k]=Number(raw[k]);
+  if(!Number.isFinite(e.t))e.t=.25;if(!Number.isFinite(e.max))e.max=e.t;
+  effects.push(e);
+ }
+ for(const raw of Array.isArray(msg.projectiles)?msg.projectiles:[]){
+  if(!raw)continue;const x=Number(raw.x),y=Number(raw.y),vx=Number(raw.vx),vy=Number(raw.vy);if(![x,y,vx,vy].every(Number.isFinite))continue;
+  remoteSkillProjectiles.push({x,y,vx,vy,a:Number(raw.a)||Math.atan2(vy,vx),kind:String(raw.kind||'orb').slice(0,16),r:clamp(Number(raw.r)||6,2,24),t:clamp(Number(raw.t)||.5,.05,2.5)});
+ }
+ if(effects.length>700)effects.splice(0,effects.length-700);
+ if(remoteSkillProjectiles.length>160)remoteSkillProjectiles.splice(0,remoteSkillProjectiles.length-160);
 }
 function replayRemoteSwordSignature(rp,id,slot,x,y,a){
  const raw=swordSkillById(id);if(!raw)return false;
@@ -2144,7 +2184,7 @@ function syncInstantPlayerMove(){
 }
 function bindMultiplayerEvents(){
  const m=window.EchoesMulti;if(!m||m.__gameBound)return;m.__gameBound=true;
- m.on('players',syncRemotePlayers);m.on('player:state',mergeRemotePlayerState);m.on('skill:fx',applyRemoteSkillFx);
+ m.on('players',syncRemotePlayers);m.on('player:state',mergeRemotePlayerState);m.on('skill:fx',applyRemoteSkillFx);m.on('skill:effects',applyRemoteExactSkillEffects);
  m.on('player:self',msg=>{if(!multiplayerMode||!msg?.player||!player)return;const p=msg.player,ackSeq=Number(p.seq)||0;if(multiInstantMoveSeqFloor&&ackSeq<multiInstantMoveSeqFloor)return;if(multiInstantMoveSeqFloor&&ackSeq>=multiInstantMoveSeqFloor)multiInstantMoveSeqFloor=0;const dx=(Number(p.x)||player.x)-player.x,dy=(Number(p.y)||player.y)-player.y,d=Math.hypot(dx,dy);if(d>260){player.x=Number(p.x)||player.x;player.y=Number(p.y)||player.y;}else if(d>8){player.x+=dx*.12;player.y+=dy*.12;}});
  m.on('boss',applySharedBossState);m.on('bosses',list=>(list||[]).forEach(applySharedBossState));m.on('boss:defeated',msg=>{if(msg?.killerId!==m.state.selfId)return;const e=enemies.find(v=>v.id===msg?.boss?.id);if(e)defeatEnemy(e,true);});
  m.on('world:role',role=>{multiWorldLeader=!!role?.isLeader;multiWorldSyncTimer=0;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=false;multiMobLastSent.clear();});
@@ -2464,6 +2504,7 @@ function drawEffects(ground=false){for(const e of effects){const progress=1-e.t/
  if(e.type==='slash'){ctx.strokeStyle=e.color;ctx.lineWidth=7;ctx.beginPath();ctx.arc(e.x,e.y,e.r,e.a-e.arc/2,e.a+e.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,e.r-7,e.a-e.arc/2+.1,e.a+e.arc/2-.1);ctx.stroke();}ctx.restore();}}
 function drawRemoteSkillOverlay(rp,x,y,a){
  const livePose=Number(rp.skillPose),poseActive=Number.isFinite(livePose)&&livePose>=0,ttl=(Number(rp.remoteSkillVisualUntil)||0)>realTime;
+ if((Number(rp.remoteExactFxUntil)||0)>realTime)return;
  if(!poseActive&&!ttl)return;
  const slot=Math.floor(clamp(poseActive?livePose:(Number(rp.remoteSkillSlot)>=0?Number(rp.remoteSkillSlot):0),0,4));
  const weapon=Math.floor(clamp(Number(rp.weapon),0,4)),pulse=.65+.35*Math.sin(realTime*28),r=72+slot*22;
@@ -2505,6 +2546,7 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#192a2c';ctx.
  const renderList=[];for(const o of objects)if(visible(o))renderList.push({y:o.y,kind:'object',o});for(const o of obstacles)if(visible(o))renderList.push({y:o.y+(o.type==='house'?o.h*.4:0),kind:o.type,o});for(const e of enemies)if(!e.dead&&!e.riftSleeping&&visible(e))renderList.push({y:e.y,kind:'enemy',o:e});if(multiplayerMode)for(const rp of multiRemotePlayers.values()){const x=Number.isFinite(rp.rx)?rp.rx:rp.x,y=Number.isFinite(rp.ry)?rp.ry:rp.y;if(visible({x,y}))renderList.push({y,kind:'remote',o:rp});}renderList.push({y:player.y,kind:'player'});renderList.sort((a,b)=>a.y-b.y);
  for(const d of renderList){if(d.kind==='tree')drawTree(d.o);else if(d.kind==='rock')drawRock(d.o);else if(d.kind==='house')drawHouse(d.o);else if(d.kind==='object')drawObject(d.o);else if(d.kind==='enemy')drawEnemy(d.o);else if(d.kind==='remote')drawRemotePlayer(d.o);else drawPlayer();}
  for(const p of projectiles){const color=p.owner==='player'?(p.kind==='arrow'?'#dddcc1':'#c4ecda'):'#edc899';if(p.kind==='orb'||p.kind==='star'){glow(ctx,p.x,p.y,17,color+'30');circle(ctx,p.x,p.y,5,color);circle(ctx,p.x,p.y,2,'#f7f0d4');}else{const len=p.kind==='charged'?29:p.kind==='wave'?48:20;line(ctx,p.x-Math.cos(p.a)*len,p.y-Math.sin(p.a)*len,p.x,p.y,color,p.kind==='wave'?6:p.kind==='charged'?4:2);polygon(ctx,[[p.x+Math.cos(p.a)*5,p.y+Math.sin(p.a)*5],[p.x+Math.cos(p.a+2.5)*7,p.y+Math.sin(p.a+2.5)*7],[p.x+Math.cos(p.a-2.5)*7,p.y+Math.sin(p.a-2.5)*7]],color);}}
+ for(const p of remoteSkillProjectiles){const color=p.kind==='arrow'?'#dddcc1':'#c4ecda';if(p.kind==='orb'||p.kind==='star'){glow(ctx,p.x,p.y,17,color+'30');circle(ctx,p.x,p.y,5,color);circle(ctx,p.x,p.y,2,'#f7f0d4');}else{const len=p.kind==='charged'?29:p.kind==='wave'?48:20;line(ctx,p.x-Math.cos(p.a)*len,p.y-Math.sin(p.a)*len,p.x,p.y,color,p.kind==='wave'?6:p.kind==='charged'?4:2);polygon(ctx,[[p.x+Math.cos(p.a)*5,p.y+Math.sin(p.a)*5],[p.x+Math.cos(p.a+2.5)*7,p.y+Math.sin(p.a+2.5)*7],[p.x+Math.cos(p.a-2.5)*7,p.y+Math.sin(p.a-2.5)*7]],color);}}
  drawEffects(false);drawLockMarker();
  if(nearby&&mode==='play'){ctx.strokeStyle='#dcd4a47a';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(nearby.x,nearby.y+6,28,13,0,0,TAU);ctx.stroke();}
  for(const f of floaters){ctx.globalAlpha=clamp(f.t*2,0,1);if(f.damage){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.rot||0);ctx.font='900 '+(f.big?22:16)+'px system-ui';ctx.textAlign='center';ctx.lineWidth=f.big?5:4;ctx.strokeStyle='#391619cc';ctx.strokeText(f.text,0,0);ctx.fillStyle=f.color;ctx.fillText(f.text,0,0);ctx.restore();}else worldText(f.text,f.x,f.y-(1-f.t/f.max)*30,f.color,f.big?18:13);}ctx.globalAlpha=1;
@@ -2576,6 +2618,7 @@ function update(dt){if(multiplayerMode){
  if(player.stun>0){player.moving=false;}else if(player.dodge>0){moveBody(player,player.dx*(720+player.perks.flow*40)*dt,player.dy*(720+player.perks.flow*40)*dt);}else if(!(standardSkillHold||activeSwordSkill||secondSkillDash||fourthSkillHold?.dashing||hiddenSkillHold?.kind==='dash4'||hiddenSkillHold?.kind==='prepare'||hiddenSkillHold?.kind==='holdPrepare'||hiddenSkillHold?.kind==='combo5'||secondSkillArmed||(fourthSkillHold&&!fourthSkillHold.dashing)||player.moveLock>0)){const sprint=(touchSprint||keys.has('ShiftLeft')||keys.has('ShiftRight'))&&player.moving&&player.stam>5&&hiddenSkillHold?.kind!=='channel3';const channelScale=hiddenSkillHold?.kind==='channel3'?.2:1;const combatMoveScale=(player.parry>0||player.basicMoveSlow>0)?.2:1;const speed=(sprint?BASE_SPRINT_SPEED:177)*equipmentMoveScale()*combatMoveScale*channelScale;if(sprint){player.stam-=dt*15;player.stamDelay=.45;}moveBody(player,mx*speed*dt,my*speed*dt);}
  if(['prepare','dash4','channel3','combo5'].includes(hiddenSkillHold?.kind)){player.facing=hiddenSkillHold.facing;}else if(lockedTarget||touchAim.active)aim();else if(n>.1&&!mouse.active){player.facing=Math.atan2(my,mx);}else if(mouse.active)aim();player.training.move+=Math.hypot(player.x-oldX,player.y-oldY);
  if(player.stamDelay<=0&&player.dodge<=0)player.stam=Math.min(player.maxStam,player.stam+(2+player.perks.breath*.5)*dt);if((mouse.down||touchAttackPointer!==null||keys.has('KeyZ'))&&player.attackCd<=0)attack();
+ flushExactSkillVisuals();
  for(const e of enemies){
   if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
    e.flash=Math.max(0,(e.flash||0)-dt);if(e.timer>0)e.timer=Math.max(0,e.timer-dt);
@@ -2590,7 +2633,9 @@ function update(dt){if(multiplayerMode){
    if(e._aiAcc>=interval){const step=Math.min(e._aiAcc,.35);e._aiAcc=0;updateEnemy(e,step);}
   }
   if(modal)break;
- }if(!modal)updateProjectiles(dt);if(!modal)updateRift(dt);resolveBodyOverlaps();animateBody(player,dt);for(const e of enemies)if(!e.dead&&distance(e,player)<1100)animateBody(e,dt);
+ }if(!modal)updateProjectiles(dt);
+ for(const p of remoteSkillProjectiles){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;}remoteSkillProjectiles=remoteSkillProjectiles.filter(p=>p.t>0);
+ if(!modal)updateRift(dt);resolveBodyOverlaps();animateBody(player,dt);for(const e of enemies)if(!e.dead&&distance(e,player)<1100)animateBody(e,dt);
  for(const e of effects){e.t-=dt;if(e.type==='particle'){e.x+=e.vx*dt;e.y+=e.vy*dt;e.vx*=Math.max(0,1-dt*2.5);e.vy*=Math.max(0,1-dt*2.5);}if(e.type==='hazard'&&e.t<=0&&!e.triggered){e.triggered=true;if(e.sourceId){const source=enemies.find(o=>o.id===e.sourceId);if(!source||source.dead||source.stun>0||source.castId!==e.castId)continue;}flourish(e.x,e.y,e.color||'#e8b498',e.r,3);if(distance(player,e)<e.r+player.r)hitPlayer(e.damage,e,false);}}
  effects=effects.filter(e=>e.t>0);const effectCap=options.quality==='low'?PERF.maxEffectsLow:PERF.maxEffectsHigh;if(effects.length>effectCap)effects.splice(0,effects.length-effectCap);for(const f of floaters){f.t-=dt;if(f.damage){f.x+=(f.vx||0)*dt;f.y+=(f.vy||0)*dt;f.vx=(f.vx||0)*Math.pow(.10,dt);f.vy=(f.vy||0)+145*dt;f.rot=(f.rot||0)*Math.pow(.2,dt);}}floaters=floaters.filter(f=>f.t>0);shake=Math.max(0,shake-dt*25);
  npcTimer+=dt;if(npcTimer>=PERF.npc){const step=npcTimer;npcTimer=0;updateNpcWander(step);}nearbyTimer+=dt;if(nearbyTimer>=PERF.nearby){nearbyTimer=0;nearby=nearestObject();}updateCamera(dt);
