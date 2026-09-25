@@ -47,12 +47,12 @@ const HIDDEN_ITEMS = [
 ];
 
 const bossDefs = [
-  {id:'boss0',name:'고목의 수호자',x:4300,y:1250,maxHp:1200},
-  {id:'boss1',name:'유리 날개의 수호자',x:8350,y:7850,maxHp:1500},
-  {id:'boss2',name:'불씨의 수호자',x:11250,y:2550,maxHp:1850},
-  {id:'boss3',name:'빙정의 군주',x:15400,y:1550,maxHp:2500},
-  {id:'boss4',name:'적월 포식자',x:18100,y:8350,maxHp:3200},
-  {id:'boss5',name:'별의 종언자',x:20500,y:3850,maxHp:3900}
+  {id:'boss0',name:'고목의 수호자',x:4300,y:1250,maxHp:3000},
+  {id:'boss1',name:'유리 날개의 수호자',x:8350,y:7850,maxHp:3750},
+  {id:'boss2',name:'불씨의 수호자',x:11250,y:2550,maxHp:4625},
+  {id:'boss3',name:'빙정의 군주',x:15400,y:1550,maxHp:6250},
+  {id:'boss4',name:'적월 포식자',x:18100,y:8350,maxHp:8000},
+  {id:'boss5',name:'별의 종언자',x:20500,y:3850,maxHp:9750}
 ];
 
 const bosses = new Map(bossDefs.map(b => [b.id, {
