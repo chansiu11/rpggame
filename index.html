@@ -2015,18 +2015,33 @@ function applySharedBossState(b){
  if(!e.dead){e.defeated=false;e.respawn=0;if(e.state==='dead')e.state='idle';}
  else{e.state='dead';e.respawn=Math.max(e.respawn||0,180);}
 }
+function fallbackRemoteSkillFx(rp,p){
+ const slot=Math.floor(clamp(Number(p?.skillPose),0,4)),weapon=Math.floor(clamp(Number(p?.weapon),0,4));
+ let id='';
+ if(weapon===2)id='bow:'+slot;
+ else if(weapon===3)id='hidden:'+slot;
+ else id='remote:sword:'+slot;
+ const x=Number.isFinite(Number(p?.x))?Number(p.x):(rp?.rx??rp?.x),y=Number.isFinite(Number(p?.y))?Number(p.y):(rp?.ry??rp?.y),a=Number(p?.a)||Number(rp?.ra)||0;
+ applyRemoteSkillFx({playerId:p.id,slot,skillId:id,weapon,x,y,a,fallback:true});
+}
 function mergeRemotePlayerState(p){
  if(!p?.id)return;const now=performance.now(),old=multiRemotePlayers.get(p.id),sample={x:Number(p.x)||0,y:Number(p.y)||0,a:Number(p.a)||0,t:now,vx:Number(p.vx)||0,vy:Number(p.vy)||0,seq:Number(p.seq)||0};
  if(!old){
-  const fresh={...p,rx:sample.x,ry:sample.y,ra:sample.a,netAt:now,samples:[sample],deathAnimStart:Number(p.hp)<=0?realTime:0,deathSide:1,lastDeathSeq:Number(p.deathSeq)||0,lastSkillFxSeq:0};
+  const fresh={...p,rx:sample.x,ry:sample.y,ra:sample.a,netAt:now,samples:[sample],deathAnimStart:Number(p.hp)<=0?realTime:0,deathSide:1,lastDeathSeq:Number(p.deathSeq)||0,lastSkillFxSeq:0,fallbackSkillActive:Number(p.skillPose)>=0,lastFallbackSkillAt:0};
   multiRemotePlayers.set(p.id,fresh);
-  if(Number(p.skillFxSeq)>0){fresh.lastSkillFxSeq=Number(p.skillFxSeq);applyRemoteSkillFx({playerId:p.id,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
+  if(Number(p.skillFxSeq)>0){fresh.lastSkillFxSeq=Number(p.skillFxSeq);applyRemoteSkillFx({playerId:p.id,fxSeq:p.skillFxSeq,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
+  else if(Number(p.skillPose)>=0){fresh.lastFallbackSkillAt=realTime;fallbackRemoteSkillFx(fresh,p);}
   return;
  }
  const deathSeq=Number(p.deathSeq)||0,wasAlive=Number(old.hp)>0,isDead=Number(p.hp)<=0;
  if(deathSeq>(Number(old.lastDeathSeq)||0)||(wasAlive&&isDead)){old.deathAnimStart=realTime;old.deathSide=Math.random()<.5?-1:1;old.lastDeathSeq=deathSeq;}else if(!isDead){old.deathAnimStart=0;old.deathSide=0;}
  const fxSeq=Number(p.skillFxSeq)||0;
- if(fxSeq>(Number(old.lastSkillFxSeq)||0)){old.lastSkillFxSeq=fxSeq;applyRemoteSkillFx({playerId:p.id,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
+ let exactFx=false;
+ if(fxSeq>(Number(old.lastSkillFxSeq)||0)){old.lastSkillFxSeq=fxSeq;exactFx=true;applyRemoteSkillFx({playerId:p.id,fxSeq,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
+ const pose=Number(p.skillPose),oldPose=Number(old.skillPose),incomingAnim=Number(p.attackAnim)||0,oldAnim=Number(old.attackAnim)||0;
+ const poseActive=Number.isFinite(pose)&&pose>=0,skillStarted=poseActive&&(!old.fallbackSkillActive||oldPose!==pose||incomingAnim>oldAnim+.12);
+ if(skillStarted&&!exactFx&&realTime-(old.lastFallbackSkillAt||0)>.16){old.lastFallbackSkillAt=realTime;fallbackRemoteSkillFx(old,p);}
+ old.fallbackSkillActive=poseActive;
  Object.assign(old,p);old.netAt=now;old.samples=Array.isArray(old.samples)?old.samples:[];
  if(!old.samples.length||sample.seq>=(old.samples[old.samples.length-1].seq||0)){old.samples.push(sample);if(old.samples.length>8)old.samples.splice(0,old.samples.length-8);}
 }
@@ -2049,7 +2064,13 @@ function applyRemoteSkillFx(msg){
  if(weapon===3){color=HIDDEN_SKILLS[slot]?.color||'#d8b5ff';accent='#ffffff';}
  else if(weapon===2){color=SKILLS[slot]?.color||'#9ddfff';accent='#ffffff';}
  else if(id){const th=swordStyleFxForSkill(id);color=th.main;sub=th.sub;accent=th.accent;}
- if(id.startsWith('bow:')){
+ if(id.startsWith('remote:sword:')){
+  const fallbackColors=['#61f0c7','#9ddfff','#ffd18b','#d2b4ff','#ffcaeb'],fc=fallbackColors[slot]||'#61f0c7';
+  effects.push({type:'slash',x:x+Math.cos(a)*65,y:y+Math.sin(a)*65,a,arc:2.15+slot*.18,r:145+slot*26,color:fc,t:.42,max:.42});
+  effects.push({type:'riftCut',x:x+Math.cos(a)*105,y:y+Math.sin(a)*105,a,len:300+slot*55,width:38+slot*7,color:'#ffffff',t:.40,max:.40});
+  effects.push({type:'nova',x,y,r:85+slot*22,color:fc,t:.38,max:.38});
+  for(let j=-2;j<=2;j++){const aa=a+j*.12;effects.push({type:'line',x,y,x2:x+Math.cos(aa)*(220+slot*45),y2:y+Math.sin(aa)*(220+slot*45),color:j===0?'#ffffff':fc,t:.30,max:.30});}
+ }else if(id.startsWith('bow:')){
   for(let j=-2;j<=2;j++){const aa=a+j*.13;effects.push({type:'line',x,y,x2:x+Math.cos(aa)*(170+slot*30),y2:y+Math.sin(aa)*(170+slot*30),color:j===0?accent:color,t:.28,max:.28});}
   effects.push({type:'nova',x,y,r:70+slot*14,color,t:.34,max:.34});
  }else if(id.startsWith('hidden:')){
@@ -2408,6 +2429,7 @@ function drawEffects(ground=false){for(const e of effects){const progress=1-e.t/
  if(e.type==='nova'){ctx.save();ctx.translate(e.x,e.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*.9);ctx.strokeStyle=e.color;for(let k=0;k<4;k++){ctx.lineWidth=5-k;ctx.beginPath();ctx.arc(0,0,e.r*(.15+progress*.85)*(1-k*.08),0,TAU);ctx.stroke();}for(let k=0;k<16;k++){const a=k*TAU/16+progress*.5,r=e.r*(.25+.72*progress);line(ctx,Math.cos(a)*e.r*.08,Math.sin(a)*e.r*.08,Math.cos(a)*r,Math.sin(a)*r,k%2?'#ffffff':e.color,3*(1-progress)+1);}glow(ctx,0,0,e.r*.55,e.color+'44');ctx.restore();}
  if(e.type==='slash'){ctx.strokeStyle=e.color;ctx.lineWidth=7;ctx.beginPath();ctx.arc(e.x,e.y,e.r,e.a-e.arc/2,e.a+e.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,e.r-7,e.a-e.arc/2+.1,e.a+e.arc/2-.1);ctx.stroke();}ctx.restore();}}
 function drawRemotePlayer(rp){
+ if(Number(rp.hp)<=0&&!rp.deathAnimStart){rp.deathAnimStart=realTime;rp.deathSide=rp.deathSide||1;}
  if(Number(rp.hp)<=0&&rp.deathAnimStart&&realTime-rp.deathAnimStart>=1.05)return;
  const x=Number.isFinite(rp.rx)?rp.rx:rp.x,y=Number.isFinite(rp.ry)?rp.ry:rp.y,a=Number.isFinite(rp.ra)?rp.ra:(Number(rp.a)||0);
  const party=window.EchoesMulti?.state?.party,mine=party?.members||[],sameParty=mine.includes(rp.id),pvpField=!sameParty&&!safeNameAt(player.x,player.y)&&!safeNameAt(x,y);
