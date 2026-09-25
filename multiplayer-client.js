@@ -4,8 +4,8 @@ const listeners=new Map();
 const state={
   socket:null,connected:false,connecting:false,selfId:null,
   players:new Map(),bosses:new Map(),party:null,pendingInvite:null,
-  world:null,worldRole:{leaderId:null,isLeader:false},worldSnapshot:{mobs:[],items:[],updatedAt:0},takenItems:new Set(),
-  profile:null,lastError:'',partyMax:4,reconnectTimer:null,reconnectAttempts:0,manualClose:false
+  world:null,worldRole:{leaderId:null,isLeader:false},worldSnapshot:{mobs:[],items:[],updatedAt:0},worldRevision:0,takenItems:new Set(),
+  profile:null,lastError:'',partyMax:4,reconnectTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
 };
 function emit(type,payload){
   const set=listeners.get(type);if(!set)return;
@@ -27,6 +27,9 @@ function send(data){
 function normalizeBoss(b){
   return {...b,hp:Number(b.hp)||0,maxHp:Math.max(1,Number(b.maxHp)||1),alive:b.alive!==false,respawnInMs:Math.max(0,Number(b.respawnInMs)||0)};
 }
+function requestWorldResync(){
+  const now=performance.now();if(now-(state.lastWorldResyncAt||0)<900)return;state.lastWorldResyncAt=now;send({type:'world:resync',revision:state.worldRevision||0});
+}
 function handle(msg){
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='hello:ok'){
@@ -34,7 +37,7 @@ function handle(msg){
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
     state.worldRole=msg.worldRole||{leaderId:null,isLeader:false,serverAuthority:true};
-    state.worldSnapshot=msg.worldSnapshot||{mobs:[],items:[],updatedAt:0};
+    state.worldSnapshot=msg.worldSnapshot||{mobs:[],items:[],updatedAt:0};state.worldRevision=Number(state.worldSnapshot.revision)||0;
     state.takenItems=new Set(msg.takenItemIds||[]);
     emit('ready',{selfId:state.selfId,world:state.world,bosses:[...state.bosses.values()]});
     emit('world:role',state.worldRole);
@@ -47,7 +50,7 @@ function handle(msg){
   if(msg.type==='players'){
     const next=new Map();
     for(const p of msg.players||[]){if(p.id===state.selfId)continue;const old=state.players.get(p.id)||{};next.set(p.id,{...old,...p,netReceivedAt:performance.now()});}
-    state.players=next;emit('players',[...state.players.values()]);return;
+    state.players=next;if(Number(msg.revision)>state.worldRevision)requestWorldResync();emit('players',[...state.players.values()]);return;
   }
   if(msg.type==='player:self'){emit('player:self',msg);return;}
   if(msg.type==='player:state'){
@@ -72,8 +75,8 @@ function handle(msg){
   if(msg.type==='world:role'){state.worldRole={leaderId:msg.leaderId||null,isLeader:!!msg.isLeader,serverAuthority:msg.serverAuthority!==false};emit('world:role',state.worldRole);return;}
   if(msg.type==='world:authority'){state.worldRole={...state.worldRole,serverAuthority:true};emit('world:role',state.worldRole);return;}
   if(msg.type==='world:mobAttack'){emit('world:mobAttack',msg);return;}
-  if(msg.type==='world:snapshot'){state.worldSnapshot=msg.snapshot||{mobs:[],items:[],updatedAt:0};emit('world:snapshot',state.worldSnapshot);return;}
-  if(msg.type==='world:mobsDelta'){emit('world:mobsDelta',msg.mobs||[]);return;}
+  if(msg.type==='world:snapshot'){state.worldSnapshot=msg.snapshot||{mobs:[],items:[],updatedAt:0};state.worldRevision=Number(state.worldSnapshot.revision)||state.worldRevision||0;emit('world:snapshot',state.worldSnapshot);return;}
+  if(msg.type==='world:mobsDelta'){const rev=Number(msg.revision)||0;if(rev&&state.worldRevision&&rev>state.worldRevision+1)requestWorldResync();if(rev)state.worldRevision=Math.max(state.worldRevision||0,rev);emit('world:mobsDelta',msg.mobs||[]);return;}
   if(msg.type==='world:itemTaken'){if(msg.itemId)state.takenItems.add(msg.itemId);emit('world:itemTaken',msg);return;}
   if(msg.type==='world:itemSpawn'){emit('world:itemSpawn',msg.item||{});return;}
   if(msg.type==='world:mobPatch'){emit('world:mobPatch',msg.mob||{});return;}
