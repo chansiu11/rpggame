@@ -1015,9 +1015,18 @@ function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color){
  else if(id==='voidDance'){effects.push({type:'starSeal',x:player.x,y:player.y,r:72,color,t:.22,max:.22});}
 }
 function swordSkillById(id){return SWORD_SKILL_LIBRARY.find(s=>s.id===id)||null;}
+const SWORD_RANGE_SCALE=1.35,SWORD_DASH_SKILLS=new Set(['flashRush','mirrorStep','quakeRush','skyFall','phantomSwap']);
+function balancedSwordSkill(sk){
+ if(!sk?.cfg)return sk;
+ const cfg={...sk.cfg};
+ if(Array.isArray(cfg.reach))cfg.reach=cfg.reach.map(v=>Math.round(v*SWORD_RANGE_SCALE));
+ if(Array.isArray(cfg.step))cfg.step=cfg.step.map(v=>Math.round(v*(SWORD_DASH_SKILLS.has(sk.id)?1.55:1.18)));
+ if(SWORD_DASH_SKILLS.has(sk.id)){cfg.dashSkill=true;cfg.rangeScale=SWORD_RANGE_SCALE;}
+ return {...sk,cfg};
+}
 function isNormalSwordWeapon(){return player&&[0,1,4].includes(player.weapon);}
 function swordSkillIdAt(slot){const list=player?.weapon===4?player.adminSwordSkills:player?.equippedSwordSkills;return Array.isArray(list)?list[slot]||null:null;}
-function swordSkillAt(slot){return swordSkillById(swordSkillIdAt(slot));}
+function swordSkillAt(slot){return balancedSwordSkill(swordSkillById(swordSkillIdAt(slot)));}
 function swordTrainerNear(){const smith=objects.find(o=>o.id==='smith');return !!smith&&distance(player,smith)<165;}
 function learnSwordSkill(id){const sk=swordSkillById(id);if(!sk||!swordSkillAllowed(id)||player.learnedSwordSkills.includes(id))return;if(!swordTrainerNear()){toast('검술은 대장장이 로웬 근처에서 습득할 수 있습니다.');return;}if(player.level<sk.level){toast('레벨 '+sk.level+'부터 습득할 수 있습니다.');return;}if(player.gold<sk.price){toast('골드가 '+(sk.price-player.gold)+' G 부족합니다.');return;}player.gold-=sk.price;player.learnedSwordSkills.push(id);const empty=player.equippedSwordSkills.findIndex(v=>!v);if(empty>=0)player.equippedSwordSkills[empty]=id;sound('reward');toast('<b>검술 습득 · '+sk.name+'</b><br>'+sk.price+' G 사용');saveGame(false);showSkills(true,true);}
 function equipSwordSkill(id,slot){slot=Math.floor(Number(slot));const sk=swordSkillById(id);if(!sk||slot<0||slot>4)return;const adminMode=player.weapon===4||admin.allSkillSets;if(!adminMode&&(!swordSkillAllowed(id)||!player.learnedSwordSkills.includes(id)))return;const list=adminMode?player.adminSwordSkills:player.equippedSwordSkills;for(let i=0;i<list.length;i++)if(list[i]===id)list[i]=null;list[slot]=id;player.skillCds[slot]=0;sound('click');if(!adminMode)saveGame(false);showSkills(!adminMode&&[2,3].includes(player.weapon),true);}
@@ -1081,12 +1090,13 @@ function beginHiddenSkillInput(index){
  if(index===0)return triggerHiddenPrepared(0,hiddenMoveFacing(a));
  if(index===1)return follow?triggerHiddenFollowup():triggerHiddenPrepared(1,a);
  if(!hiddenCommit(index)){player.skillPose=-1;return false;}
+ sendSharedSkillFx(index,'hidden:'+index,3,a);
  if(index===2){hiddenSkillHold={index,kind:'channel3',elapsed:0,facing:a,tick:0,fx:0};player.cast=.1;player.attackAnim=.12;player.attackCd=.1;ring(player.x,player.y,78,s.color,.35);sound('swing');return true;}
  if(index===3){hiddenSkillHold={index,kind:'dash4',elapsed:0,facing:a,tick:0,fx:0,caught:new Map()};player.cast=.1;player.attackAnim=.12;player.attackCd=.1;player.invuln=Math.max(player.invuln,.12);ring(player.x,player.y,82,s.color,.35);sound('dodge');return true;}
  hiddenSkillHold={index,kind:'combo5',elapsed:0,facing:hiddenSkill5Facing(a),nextStep:0,fx:0,caught:new Map()};player.cast=.12;player.attackAnim=.12;player.attackCd=.12;effects.push({type:'starSeal',x:player.x,y:player.y,r:118,color:s.color,t:.38,max:.38});ring(player.x,player.y,68,s.color,.3);sound('swing');return true;
 }
 function releaseHiddenSkillInput(index){const h=hiddenSkillHold;if(!h||h.index!==index||player.weapon!==3)return false;if(h.kind==='channel3'){finishHiddenChannel3();return true;}if(h.kind==='dash4'){finishHiddenDash4();return true;}if(h.kind==='combo5'){finishHiddenCombo5();return true;}return false;}
-function triggerHiddenPrepared(index,a){if(!hiddenCommit(index)){player.skillPose=-1;return false;}const s=HIDDEN_SKILLS[index];player.facing=a;player.attackAngle=a;
+function triggerHiddenPrepared(index,a){if(!hiddenCommit(index)){player.skillPose=-1;return false;}const s=HIDDEN_SKILLS[index];player.facing=a;player.attackAngle=a;sendSharedSkillFx(index,'hidden:'+index,3,a);
  if(index===0){player.cast=.24;player.attackCd=.28;hiddenSkillEvents.push({kind:'dash1',a,t:HIDDEN_DASH1_DURATION,max:HIDDEN_DASH1_DURATION,caught:new Map(),lastX:player.x,lastY:player.y});effects.push({type:'riftCut',x:player.x+Math.cos(a)*180,y:player.y+Math.sin(a)*180,a,len:390,width:44,color:s.color,t:.34,max:.34});sound('dodge');return true;}
  if(index===1){player.cast=.22;player.attackCd=.25;const radius=390,hits=hiddenDamageRadius(player.x,player.y,radius,1.25,true,.18);effects.push({type:'nova',x:player.x,y:player.y,r:410,color:s.color,t:.62,max:.62});effects.push({type:'starSeal',x:player.x,y:player.y,r:390,color:'#ffffff',t:.55,max:.55});for(let j=0;j<16;j++){const aa=j*TAU/16;effects.push({type:'line',x:player.x+Math.cos(aa)*22,y:player.y+Math.sin(aa)*22,x2:player.x+Math.cos(aa)*390,y2:player.y+Math.sin(aa)*390,color:j%2?s.color:'#ffffff',t:.32,max:.32});}if(hits.length){hiddenSkillFollowup={targets:hits,expires:realTime+3,fx:0};toast('<b>월식 표식</b> · 3초 동안 가장 가까운 표식부터 R로 추격');}else hiddenSkillFollowup=null;shake=Math.max(shake,7);sound('hit');return true;}
  return false;
@@ -1311,6 +1321,7 @@ function startSwordSkill(slot){
  player.skillCds[slot]=sk.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=slot;player.cast=cfg.duration;player.attackDuration=cfg.duration;player.attackAnim=cfg.duration;player.attackAngle=player.facing;player.attackArc=cfg.arc[0];player.heavy=true;player.attackCd=cfg.duration;player.combo=0;player.comboTimer=0;queuePostSkillMoveLock(cfg.duration);
  const motionTarget=(lockedTarget&&enemies.includes(lockedTarget)&&!lockedTarget.dead?lockedTarget:enemies.filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)&&distance(e,player)<300).sort((a,b)=>distance(a,player)-distance(b,player))[0])||null;
  activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:Math.random()<.5?-1:1,fx:0,carryIds:new Set()};
+ sendSharedSkillFx(slot,sk.id,player.weapon,player.facing);
  ring(player.x,player.y,24,swordStyleFxForSkill(sk.id).main,.22);sound('swing');updateSkillTray();return true;
 }
 const SWORD_CARRY_MODES=new Set(['blinkThrust','chaseCombo','stationaryFlurry','orbitStrike','mirrorBackstab','phantomSwap','quakeLine','guardPierce','tempest','earthSlam','skyFall','holdThunder','holdVortex','holdShadow']);
@@ -1886,6 +1897,21 @@ function syncRemotePlayers(list){
  const keep=new Set();for(const p of list||[]){if(!p?.id)continue;keep.add(p.id);mergeRemotePlayerState(p);}
  for(const id of [...multiRemotePlayers.keys()])if(!keep.has(id))multiRemotePlayers.delete(id);
 }
+function sendSharedSkillFx(slot,skillId,weapon=player?.weapon,a=player?.facing){
+ if(!multiplayerMode||!window.EchoesMulti?.connected||!player)return;
+ window.EchoesMulti.skillFx({slot,skillId:String(skillId||''),weapon,x:player.x,y:player.y,a:Number(a)||0});
+}
+function applyRemoteSkillFx(msg){
+ if(!multiplayerMode||!msg||msg.playerId===window.EchoesMulti?.state?.selfId)return;
+ const rp=multiRemotePlayers.get(msg.playerId),x=Number(msg.x)||(rp?.rx??rp?.x),y=Number(msg.y)||(rp?.ry??rp?.y),a=Number(msg.a)||0;
+ if(!Number.isFinite(x)||!Number.isFinite(y))return;
+ const id=String(msg.skillId||''),slot=clamp(Number(msg.slot)||0,0,4),weapon=Number(msg.weapon)||0;
+ let color='#d7c181';if(weapon===3)color=HIDDEN_SKILLS[slot]?.color||'#d8b5ff';else if(id)color=swordStyleFxForSkill(id).main;
+ effects.push({type:'starSeal',x,y,r:72+slot*11,color,t:.34,max:.34});
+ effects.push({type:'slash',x:x+Math.cos(a)*42,y:y+Math.sin(a)*42,a,arc:1.8+slot*.16,r:105+slot*18,color,t:.30,max:.30});
+ effects.push({type:'riftCut',x:x+Math.cos(a)*78,y:y+Math.sin(a)*78,a,len:180+slot*32,width:24+slot*5,color,t:.32,max:.32});
+ ring(x,y,48+slot*9,color,.3);burst(x,y,color,8+slot*2,120+slot*15);
+}
 function syncInstantPlayerMove(){
  if(!multiplayerMode||!window.EchoesMulti?.connected||!player)return;
  const now=performance.now(),seq=++multiNetSeq;multiInstantMoveSeqFloor=seq;multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;
@@ -1893,7 +1919,7 @@ function syncInstantPlayerMove(){
 }
 function bindMultiplayerEvents(){
  const m=window.EchoesMulti;if(!m||m.__gameBound)return;m.__gameBound=true;
- m.on('players',syncRemotePlayers);m.on('player:state',mergeRemotePlayerState);
+ m.on('players',syncRemotePlayers);m.on('player:state',mergeRemotePlayerState);m.on('skill:fx',applyRemoteSkillFx);
  m.on('player:self',msg=>{if(!multiplayerMode||!msg?.player||!player)return;const p=msg.player,ackSeq=Number(p.seq)||0;if(multiInstantMoveSeqFloor&&ackSeq<multiInstantMoveSeqFloor)return;if(multiInstantMoveSeqFloor&&ackSeq>=multiInstantMoveSeqFloor)multiInstantMoveSeqFloor=0;const dx=(Number(p.x)||player.x)-player.x,dy=(Number(p.y)||player.y)-player.y,d=Math.hypot(dx,dy);if(d>260){player.x=Number(p.x)||player.x;player.y=Number(p.y)||player.y;}else if(d>8){player.x+=dx*.12;player.y+=dy*.12;}});
  m.on('boss',applySharedBossState);m.on('bosses',list=>(list||[]).forEach(applySharedBossState));m.on('boss:defeated',msg=>{if(msg?.killerId!==m.state.selfId)return;const e=enemies.find(v=>v.id===msg?.boss?.id);if(e)defeatEnemy(e,true);});
  m.on('world:role',role=>{multiWorldLeader=!!role?.isLeader;multiWorldSyncTimer=0;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=false;multiMobLastSent.clear();});
