@@ -52,6 +52,7 @@ function handle(msg){
   if(msg.type==='party:update'){state.party=msg.party||null;emit('party',state.party);return;}
   if(msg.type==='party:invite'){state.pendingInvite=msg;emit('party:invite',msg);return;}
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
+  if(msg.type==='session:replaced'){emit('session:replaced',msg);return;}
   if(msg.type==='notice'){emit('notice',msg.message||'');return;}
 }
 function connect(profile={}){
@@ -65,7 +66,7 @@ function connect(profile={}){
     const timer=setTimeout(()=>{if(!settled){settled=true;try{ws.close();}catch{}state.connecting=false;reject(new Error('멀티플레이 서버 연결 시간이 초과되었습니다.'));}},9000);
     ws.addEventListener('open',()=>{
       state.connected=true;state.connecting=false;
-      send({type:'hello',name:profile.name||'Player',level:profile.level||1,weapon:profile.weapon||0});
+      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0});
       emit('connection',{connected:true});
     });
     ws.addEventListener('message',e=>{
