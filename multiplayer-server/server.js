@@ -70,6 +70,11 @@ function id(prefix='p'){return prefix + crypto.randomBytes(5).toString('hex');}
 function cleanName(v){
   return String(v||'Player').replace(/[<>]/g,'').trim().slice(0,20) || 'Player';
 }
+function cleanAccountId(v,name=''){
+  const raw=String(v||'').trim().slice(0,128);
+  if(raw)return raw.replace(/[^A-Za-z0-9_:\-.]/g,'');
+  return 'name:'+String(name||'player').trim().toLowerCase().replace(/[^a-z0-9가-힣_\-]/g,'').slice(0,40);
+}
 function clamp(v,a,b){v=Number(v);return Number.isFinite(v)?Math.max(a,Math.min(b,v)):a;}
 function safeSend(ws,data){
   if(ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify(data));
@@ -238,7 +243,7 @@ const wss=new WebSocketServer({server});
 wss.on('connection',(ws)=>{
   const player={
     id:id('p_'),ws,name:'Player',x:800,y:3100,a:0,hp:100,maxHp:100,
-    level:1,weapon:0,partyId:null,updatedAt:Date.now(),ready:false,lastBossHitAt:0
+    level:1,weapon:0,partyId:null,accountId:'',updatedAt:Date.now(),ready:false,lastBossHitAt:0
   };
   players.set(player.id,player);
 
@@ -249,6 +254,12 @@ wss.on('connection',(ws)=>{
     if(!player.ready){
       if(msg.type!=='hello')return;
       player.name=cleanName(msg.name);
+      player.accountId=cleanAccountId(msg.accountId,player.name);
+      const replaced=[...players.values()].filter(p=>p!==player&&p.ready&&p.accountId===player.accountId);
+      for(const old of replaced){
+        safeSend(old.ws,{type:'session:replaced',message:'같은 계정이 다른 기기에서 접속했습니다.'});
+        setTimeout(()=>{try{old.ws.close(4001,'duplicate account session');}catch{}},80);
+      }
       player.level=Math.floor(clamp(msg.level,1,100));
       player.weapon=Math.floor(clamp(msg.weapon,0,3));
       player.ready=true;
