@@ -64,6 +64,7 @@ function handle(msg){
   if(msg.type==='world:role'){state.worldRole={leaderId:msg.leaderId||null,isLeader:!!msg.isLeader};emit('world:role',state.worldRole);return;}
   if(msg.type==='world:snapshot'){state.worldSnapshot=msg.snapshot||{mobs:[],items:[],updatedAt:0};emit('world:snapshot',state.worldSnapshot);return;}
   if(msg.type==='world:itemTaken'){if(msg.itemId)state.takenItems.add(msg.itemId);emit('world:itemTaken',msg);return;}
+  if(msg.type==='world:itemSpawn'){emit('world:itemSpawn',msg.item||{});return;}
   if(msg.type==='world:mobPatch'){emit('world:mobPatch',msg.mob||{});return;}
   if(msg.type==='pvp:hit'){emit('pvp:hit',msg);return;}
   if(msg.type==='pvp:confirm'){emit('pvp:confirm',msg);return;}
@@ -116,6 +117,7 @@ window.EchoesMulti={
   });},
   sendWorldSnapshot(snapshot){if(state.connected&&state.worldRole?.isLeader)send({type:'world:snapshot',...(snapshot||{})});},
   itemTaken(itemId){if(itemId)send({type:'world:itemTaken',itemId});},
+  itemSpawn(item){if(item?.id)send({type:'world:itemSpawn',item});},
   damageMob(mobId,damage){if(mobId)send({type:'world:mobDamage',mobId,damage});},
   pvpDamage(targetId,damage,range=180,kind='melee'){if(targetId)send({type:'pvp:damage',targetId,damage,range,kind});},
   damageBoss(bossId,damage){send({type:'boss:damage',bossId,damage});},
