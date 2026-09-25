@@ -169,7 +169,7 @@ if(!['auto','touch','keyboard'].includes(options.controlMode))options.controlMod
 const keys=new Set(),mouse={x:W*.65,y:H*.5,down:false,right:false,active:false},joy={x:0,y:0,active:false};
 let audioCtx=null,ambientNext=0;
 let lockedTarget=null,bufferedAction=null,activeRift=null,riftSerial=0;
-let activeSwordSkill=null,fourthSkillHold=null,fourthSkillField=null,secondSkillDash=null,secondSkillArmed=false,skillTrayPress=null,standardSkillHold=null,skill2Knocks=[],hiddenSkillEvents=[],hiddenSkillHold=null,hiddenSkillFollowup=null;
+let activeSwordSkill=null,fourthSkillHold=null,fourthSkillField=null,secondSkillDash=null,secondSkillArmed=false,skillTrayPress=null,standardSkillHold=null,skillComboState={tier:0,lastKey:'',expires:0,mult:1},skill2Knocks=[],hiddenSkillEvents=[],hiddenSkillHold=null,hiddenSkillFollowup=null;
 let saveRecoveryMessage='';
 const layoutItems=[...document.querySelectorAll('[data-touch],[data-weapon],.hud-menu button,#sprintButton,#minimapBox')].map(el=>{const id=el.dataset.touch?'action_'+el.dataset.touch:el.dataset.weapon!=null?'weapon_'+el.dataset.weapon:el.dataset.open?'menu_'+el.dataset.open:el.id;el.dataset.layout=id;return {id,el,originalStyle:el.getAttribute('style')||''};});
 let touchLayouts={portrait:{},landscape:{}},layoutDraft=null,layoutEditing=false,layoutDrag=null,layoutBarDrag=null;
@@ -748,7 +748,7 @@ function cancelSwordSkill(){activeSwordSkill=null;fourthSkillHold=null;fourthSki
 function resetInputs(){heldPhysical.clear();if($('skillTray'))$('skillTray').classList.add('hidden');desktopShield=false;if(player){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=false;}resetTouchInputs();bufferedAction=null;cancelSwordSkill();keys.clear();mouse.down=false;mouse.right=false;joy.x=joy.y=0;joy.active=false;pendingAttack=false;$('stickKnob').style.transform='';}
 function xpNeed(){return 70+player.level*42;}
 function addXp(n){if(player.level>=MAX_LEVEL){player.level=MAX_LEVEL;player.xp=0;return;}player.xp+=n;while(player.xp>=xpNeed()&&player.level<MAX_LEVEL){player.xp-=xpNeed();player.level++;player.perkPoints++;recalculateEquipment(false);const unlocked=SWORD_SKILL_LIBRARY.find(sk=>sk.level===player.level);if(unlocked)toast('새 검술 습득 가능 · '+unlocked.name+' · 대장장이 로웬에게서 배울 수 있습니다.');player.hp=Math.min(player.maxHp,player.hp+30);player.stam=player.maxStam;ring(player.x,player.y,115,'#eed390',.9);burst(player.x,player.y,'#e9cf8d',30);toast('<b>LEVEL '+player.level+'</b> · 특성 포인트 +1 <kbd>I</kbd>');sound('reward');}if(player.level>=MAX_LEVEL){player.level=MAX_LEVEL;player.xp=0;}}
-function damageValue(mult=1){const w=WEAPONS[player.weapon]||WEAPONS[0],up=player.upgrades[player.weapon]||0;return (w.damage+up*3+(player.level-1)*PLAYER_DAMAGE_PER_LEVEL)*mult;}
+function damageValue(mult=1){const w=WEAPONS[player.weapon]||WEAPONS[0],up=player.upgrades[player.weapon]||0,combo=skillActionActive()?skillComboState.mult:1;return (w.damage+up*3+(player.level-1)*PLAYER_DAMAGE_PER_LEVEL)*mult*combo;}
 function useStam(amount){if(admin.free)return true;if(player.stam<amount){if(realTime-(player.lowStamAt||0)>.8){floating(player.x,player.y-42,'기력 부족','#dbc990');player.lowStamAt=realTime;}return false;}player.stam-=amount;player.stamDelay=.5;return true;}
 function canAct(){return mode==='play'&&!modal&&player.hp>0&&(player.stun||0)<=0;}
 function isSharedWorldItem(o){return !!o&&['loot','herb','ore','chest'].includes(o.type);}
@@ -887,6 +887,37 @@ const SWORD_SKILL_LIBRARY=[
  {id:'earthRend',name:'대지 절단',level:30,price:920,cost:52,cool:10,color:'#ffd18b',desc:'무거운 두 번의 베기 뒤 지면을 가르는 충격파로 마무리합니다.',cfg:{duration:1.08,hits:[.28,.82],mult:[1.18,2.55],arc:[1.8,2.45],reach:[22,48],step:[4,14],mode:'slam'}},
  {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:11.5,color:'#fff0b0',desc:'네 번의 검격을 이어 마지막 공격에서 전방으로 검압을 날립니다.',cfg:{duration:1.28,hits:[.16,.43,.72,1.02],mult:[.62,.74,.88,1.62],arc:[1.45,1.65,1.9,2.35],reach:[14,18,24,34],step:[7,8,10,14],mode:'wave'}}
 ];
+const SWORD_SKILL_IDENTITY={
+ windSlash:{trait:'연계 시작 · 마지막 검풍',fx:'청록 바람 궤적'},
+ flashRush:{trait:'고속 접근 · 직선 관통',fx:'푸른 섬광 잔상'},
+ moonSpin:{trait:'주변 제압 · 전방위 회전',fx:'보랏빛 월륜'},
+ starRush:{trait:'돌파 · 연속 전진 압박',fx:'분홍 별가루 궤적'},
+ crossBloom:{trait:'다단 연격 · 콤보 유지',fx:'금빛 교차 검화'},
+ crescent:{trait:'넓은 이연참 · 거리 압박',fx:'하늘빛 초승달'},
+ guardBreak:{trait:'강한 경직 · 방어 압박',fx:'주황 파쇄 균열'},
+ tempest:{trait:'다수전 · 고속 회전 난무',fx:'민트 폭풍 고리'},
+ earthRend:{trait:'강공 · 지면 충격 범위',fx:'황금 지면 균열'},
+ dawnArc:{trait:'중거리 마무리 · 검압 발사',fx:'백금 여명 파동'}
+};
+function skillComboBegin(key){
+ const chained=skillComboState.tier>0&&realTime<=skillComboState.expires&&skillComboState.lastKey&&skillComboState.lastKey!==key;
+ skillComboState.tier=chained?Math.min(5,skillComboState.tier+1):1;skillComboState.lastKey=key;skillComboState.expires=realTime+1.4;skillComboState.mult=1+(skillComboState.tier-1)*.08;
+ if(skillComboState.tier>1){floating(player.x,player.y-72,'SKILL COMBO ×'+skillComboState.tier,'#ffe3a0',true);ring(player.x,player.y,46+skillComboState.tier*6,'#ffe3a0',.28);sound('reward');}
+}
+function skillComboUpdate(){if(skillComboState.tier&&realTime>skillComboState.expires){skillComboState={tier:0,lastKey:'',expires:0,mult:1};}}
+function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color){
+ const x=player.x+Math.cos(ang)*Math.min(reach*.45,70),y=player.y+Math.sin(ang)*Math.min(reach*.45,70);
+ if(id==='windSlash'){effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(ang)*reach*1.25,y2:player.y+Math.sin(ang)*reach*1.25,color,t:.22,max:.22});if(finalHit)fireProjectile(player.x+Math.cos(ang)*32,player.y+Math.sin(ang)*32,ang,500,damageValue(.42),'player','wave',2);}
+ else if(id==='flashRush'){effects.push({type:'riftCut',x,y,a:ang,len:150+hitIndex*35,width:18,color,t:.18,max:.18});if(finalHit)burst(x,y,color,14,210);}
+ else if(id==='moonSpin'){ring(player.x,player.y,reach+24,color,.22);effects.push({type:'starSeal',x:player.x,y:player.y,r:reach+36,color,t:.2,max:.2});}
+ else if(id==='starRush'){effects.push({type:'line',x:player.x-Math.cos(ang)*35,y:player.y-Math.sin(ang)*35,x2:player.x+Math.cos(ang)*reach,y2:player.y+Math.sin(ang)*reach,color,t:.24,max:.24});if(finalHit)effects.push({type:'starSeal',x,y,r:88,color,t:.42,max:.42});}
+ else if(id==='crossBloom'){effects.push({type:'slash',x,y,a:ang+(hitIndex%2?.72:-.72),arc:1.15,r:reach+22,color,t:.18,max:.18});if(finalHit)effects.push({type:'starSeal',x,y,r:72,color:'#fff3cf',t:.35,max:.35});}
+ else if(id==='crescent'){effects.push({type:'slash',x,y,a:ang+(hitIndex?.32:-.32),arc:2.9,r:reach+34,color,t:.32,max:.32});if(finalHit)fireProjectile(player.x+Math.cos(ang)*30,player.y+Math.sin(ang)*30,ang,430,damageValue(.56),'player','wave',2);}
+ else if(id==='guardBreak'){effects.push({type:'riftCut',x,y,a:ang,len:110+hitIndex*45,width:12+hitIndex*8,color,t:.22,max:.22});if(finalHit){ring(x,y,76,color,.34);burst(x,y,'#fff1cf',18,190);}}
+ else if(id==='tempest'){for(let j=0;j<2;j++)effects.push({type:'slash',x:player.x,y:player.y,a:ang+j*Math.PI/2+hitIndex*.55,arc:TAU,r:reach+20+j*10,color:j?color:'#dfffee',t:.2,max:.2});}
+ else if(id==='earthRend'){if(finalHit){for(let j=-2;j<=2;j++)effects.push({type:'line',x,y,x2:x+Math.cos(ang+j*.22)*160,y2:y+Math.sin(ang+j*.22)*160,color:j?'#ffd18b':'#ffffff',t:.4,max:.4});ring(x,y,130,color,.44);}}
+ else if(id==='dawnArc'){effects.push({type:'line',x:player.x,y:player.y,x2:x+Math.cos(ang)*85,y2:y+Math.sin(ang)*85,color:hitIndex%2?color:'#ffffff',t:.24,max:.24});if(finalHit)effects.push({type:'nova',x,y,r:105,color:'#fff0b0',t:.45,max:.45});}
+}
 function swordSkillById(id){return SWORD_SKILL_LIBRARY.find(s=>s.id===id)||null;}
 function isNormalSwordWeapon(){return player&&[0,1,4].includes(player.weapon);}
 function swordSkillIdAt(slot){const list=player?.weapon===4?player.adminSwordSkills:player?.equippedSwordSkills;return Array.isArray(list)?list[slot]||null:null;}
@@ -937,7 +968,7 @@ function hiddenConeTargets(a,range=210,arc=1.55){const out=[];for(const e of hid
 function hiddenWideSlashTargets(a,forward=185,halfWidth=190,back=28){const out=[];const ca=Math.cos(a),sa=Math.sin(a);for(const e of hiddenTargets()){const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,front=dx*ca+dy*sa,side=-dx*sa+dy*ca,r=combatRadius(e);if(front>=-back-r&&front<=forward+r&&Math.abs(side)<=halfWidth+r)out.push(e);}return out;}
 function nearestHiddenTarget(maxRange=520){let best=null,bd=maxRange;for(const e of hiddenTargets()){const d=combatDistance(e,player);if(d<bd){bd=d;best=e;}}return best;}
 function hiddenSkillCanStart(index,allowFollow=false){if(!canAct()||player.weapon!==3||player.exhaust>0||player.parry>0||player.dodge>0||hiddenSkillHold)return false;if(allowFollow)return true;return player.cast<=0&&player.attackCd<=0&&player.skillCds[index]<=0;}
-function hiddenCommit(index){const s=HIDDEN_SKILLS[index];if(!s||!useStam(s.cost))return false;player.skillCds[index]=s.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=index;player.combo=0;player.comboTimer=0;player.heavy=true;updateSkillTray();return true;}
+function hiddenCommit(index){const s=HIDDEN_SKILLS[index];if(!s||!useStam(s.cost))return false;skillComboBegin('hidden:'+index);player.skillCds[index]=s.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=index;player.combo=0;player.comboTimer=0;player.heavy=true;updateSkillTray();return true;}
 function hiddenPrepareFx(h,dt){h.fx-=dt;if(h.fx>0)return;h.fx=.11;const c=HIDDEN_SKILLS[h.index].color,r=38;ring(player.x,player.y,r,c,.22);effects.push({type:'starSeal',x:player.x,y:player.y,r:92,color:c,t:.24,max:.24});for(let j=0;j<4;j++){const a=h.facing+(j-1.5)*.28,d=78;effects.push({type:'line',x:player.x+Math.cos(a)*14,y:player.y+Math.sin(a)*14,x2:player.x+Math.cos(a)*d,y2:player.y+Math.sin(a)*d,color:j%2?'#ffffff':c,t:.18,max:.18});}}
 function beginHiddenSkillInput(index){
  const s=HIDDEN_SKILLS[index];if(!s||player.weapon!==3||!canAct())return false;
@@ -1113,7 +1144,7 @@ function startSwordSkill(slot){
  const sk=skillInfo(slot),cfg=sk?.cfg;
  if(!sk||sk.locked||!cfg||!canAct()||!isNormalSwordWeapon())return false;
  if(activeSwordSkill||player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[slot]>0)return false;
- if(!useStam(sk.cost))return false;aim();
+ if(!useStam(sk.cost))return false;aim();skillComboBegin('sword:'+sk.id);
  player.skillCds[slot]=sk.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=slot;player.cast=cfg.duration;player.attackDuration=cfg.duration;player.attackAnim=cfg.duration;player.attackAngle=player.facing;player.attackArc=cfg.arc[0];player.heavy=true;player.attackCd=cfg.duration;player.combo=0;player.comboTimer=0;queuePostSkillMoveLock(cfg.duration);
  activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration};
  ring(player.x,player.y,24,sk.color,.22);sound('swing');updateSkillTray();return true;
@@ -1132,6 +1163,7 @@ function performSwordSkillHit(seq,hitIndex){
  const side=hitIndex%2?1:-1;
  effects.push({type:'slash',x:player.x,y:player.y-12,a:ang+side*(cfg.mode==='spin'?.55:.16),arc:cfg.mode==='spin'?TAU:cfg.arc[hitIndex],r:reach+8,color:sk.color,t:.24,max:.24});
  if(cfg.mode==='cross'&&hitIndex%2===1)effects.push({type:'slash',x:player.x,y:player.y-12,a:ang-side*.42,arc:1.35,r:reach,color:sk.color,t:.20,max:.20});
+ swordSignatureFx(sk.id,hitIndex,finalHit,ang,reach,sk.color);
  if(finalHit){flourish(player.x+Math.cos(ang)*Math.min(48,reach*.35),player.y+Math.sin(ang)*Math.min(48,reach*.35),sk.color,cfg.mode==='slam'?92:54,cfg.mode==='spin'?1:0);sound('hit');}else sound('swing');
 }
 function updateSwordSkill(dt){
@@ -1144,7 +1176,7 @@ function updateSwordSkill(dt){
 function executeSkillNow(index){
  const s=skillInfo(index);if(!s||!canAct()||player.level<s.level)return false;
  if(player.weapon!==2)return startSwordSkill(index);
- if(player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[index]>0)return false;if(!useStam(s.cost))return false;aim();
+ if(player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[index]>0)return false;if(!useStam(s.cost))return false;aim();skillComboBegin('bow:'+index);
  player.skillCds[index]=s.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=index;player.cast=player.attackAnim=player.attackDuration=[.5,.38,.65,.75,.8][index];player.attackAngle=player.facing;player.attackArc=TAU;player.heavy=true;player.attackCd=player.cast;player.combo=0;player.comboTimer=0;queuePostSkillMoveLock(player.cast);
  const a=player.facing;const fire=(angle,speed,damage,pierce=1)=>fireProjectile(player.x,player.y,angle,speed,damageValue(damage),'player','arrow',pierce);
  if(index===0)for(let j=-1;j<=1;j++)fire(a+j*.15,680,1.35);
@@ -1152,10 +1184,15 @@ function executeSkillNow(index){
  if(index===2){moveBody(player,-Math.cos(a)*100,-Math.sin(a)*100);player.invuln=Math.max(player.invuln,.22);for(let j=-2;j<=2;j++)fire(a+j*.12,680,1.3);}
  if(index===3)for(let j=-3;j<=3;j++)fire(a+j*.09,600+j*25,1.5,2);
  if(index===4)for(let j=-4;j<=4;j++)fire(a+j*.08,850,1.8,3);
+ if(index===0){for(let j=-1;j<=1;j++)effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(a+j*.15)*135,y2:player.y+Math.sin(a+j*.15)*135,color:s.color,t:.22,max:.22});}
+ if(index===1){effects.push({type:'riftCut',x:player.x+Math.cos(a)*70,y:player.y+Math.sin(a)*70,a,len:190,width:14,color:s.color,t:.26,max:.26});}
+ if(index===2){effects.push({type:'nova',x:player.x,y:player.y,r:72,color:s.color,t:.32,max:.32});effects.push({type:'line',x:player.x,y:player.y,x2:player.x-Math.cos(a)*120,y2:player.y-Math.sin(a)*120,color:'#ffffff',t:.26,max:.26});}
+ if(index===3){for(let j=0;j<3;j++)ring(player.x+Math.cos(a)*(45+j*24),player.y+Math.sin(a)*(45+j*24),32+j*11,s.color,.2+j*.04);}
+ if(index===4){effects.push({type:'starSeal',x:player.x,y:player.y,r:96,color:s.color,t:.42,max:.42});effects.push({type:'nova',x:player.x+Math.cos(a)*80,y:player.y+Math.sin(a)*80,r:120,color:'#ffffff',t:.36,max:.36});}
  ring(player.x,player.y,25,s.color,.25);sound('bow');updateSkillTray();return true;
 }
 function queuePostSkillMoveLock(duration){player.postSkillLockTimer=Math.max(player.postSkillLockTimer||0,Math.max(0,duration||0));}
-function updateCombat(dt){updateStandardSkillPrepare(dt);updateHiddenSkills(dt);updateSpecialSwordSkills(dt);if(player.postSkillLockTimer>0){const before=player.postSkillLockTimer;player.postSkillLockTimer=Math.max(0,before-dt);if(before>0&&player.postSkillLockTimer===0)player.moveLock=Math.max(player.moveLock,.05+dt);}if(admin.free){player.stam=player.maxStam;player.shield=player.maxShield;player.shieldBroken=0;}if(admin.noCooldown)player.skillCds.fill(0);
+function updateCombat(dt){skillComboUpdate();updateStandardSkillPrepare(dt);updateHiddenSkills(dt);updateSpecialSwordSkills(dt);if(player.postSkillLockTimer>0){const before=player.postSkillLockTimer;player.postSkillLockTimer=Math.max(0,before-dt);if(before>0&&player.postSkillLockTimer===0)player.moveLock=Math.max(player.moveLock,.05+dt);}if(admin.free){player.stam=player.maxStam;player.shield=player.maxShield;player.shieldBroken=0;}if(admin.noCooldown)player.skillCds.fill(0);
  player.exhaust=Math.max(0,player.exhaust-dt);player.cast=Math.max(0,player.cast-dt);for(let i=0;i<5;i++)player.skillCds[i]=Math.max(0,player.skillCds[i]-dt);player.skillCd=player.skillCds[0];
  if(player.pendingSlam){player.pendingSlam.t-=dt;if(player.pendingSlam.t<=0){const p=player.pendingSlam;player.pendingSlam=null;for(const e of enemies)if(!e.dead&&combatDistance(e,p)<p.r+combatRadius(e))hitEnemy(e,p.damage,true);effects.push({type:'slash',x:p.x,y:p.y,a:player.facing,arc:1.5,r:p.r,color:'#ffd18b',t:.3,max:.3});burst(p.x,p.y,'#ffd18b',12,85);sound('hit');}}
 }
@@ -1171,8 +1208,8 @@ function showSkills(forceSword=false){
  }
  const adminSword=player.weapon===4,near=swordTrainerNear(),slots=adminSword?player.adminSwordSkills:player.equippedSwordSkills;
  const equipped='<div class="card selected"><div class="eyebrow">'+(adminSword?'ADMIN ALL ARTS':'EQUIPPED ARTS')+'</div><h3>'+(adminSword?'관리자의 만능검':'장착 검술')+'</h3>'+slots.map((id,i)=>'<div class="stat-row"><span>'+keyName(keybinds[keys[i]])+'</span><b>'+(swordSkillById(id)?.name||'미장착')+'</b></div>').join('')+'</div>';
- const cards=SWORD_SKILL_LIBRARY.map(sk=>{const learned=adminSword||player.learnedSwordSkills.includes(sk.id),levelOk=player.level>=sk.level||adminSword,canLearn=!adminSword&&!learned&&near&&levelOk&&player.gold>=sk.price;const equip=learned?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">'+keys.map((k,i)=>'<button class="small '+(slots[i]===sk.id?'selected':'')+'" data-action="equipSwordSkill" data-value="'+sk.id+':'+i+'">'+keyName(keybinds[k])+'</button>').join('')+'</div>':'<button data-action="learnSwordSkill" data-value="'+sk.id+'" '+(!canLearn?'disabled':'')+'>'+(!levelOk?'Lv.'+sk.level+' 필요':!near?'로웬 근처에서 습득':player.gold<sk.price?sk.price+' G 필요':'검술 습득 · '+sk.price+' G')+'</button>';return '<div class="card '+(learned?'selected':'')+'"><div class="eyebrow">'+(adminSword?'ADMIN UNLOCKED':learned?'습득 완료':'습득 가능 Lv.'+sk.level)+'</div><h3>'+sk.name+'</h3><p>'+sk.desc+'</p><div class="price">'+sk.cost+' 지구력 · 재사용 '+sk.cool+'초'+(adminSword?'':' · 습득 '+sk.price+' G')+'</div>'+equip+'</div>';}).join('');
- openPanel('skills',header(adminSword?'ADMIN MASTER BLADE':'SWORD ARTS',adminSword?'관리자의 만능검 · 모든 일반 검술':'장검·쌍검 검술 습득과 장착')+equipped+'<div class="grid two">'+cards+'</div><div class="tip">'+(adminSword?'관리자 검은 모든 검술이 즉시 해금되어 있습니다. 각 검술 아래 Q/R/T/G/V 버튼으로 시험할 슬롯을 바꿀 수 있습니다.':'검술은 대장장이 로웬 가까이에서 골드로 습득합니다. 배운 검술은 언제든 Q/R/T/G/V 다섯 슬롯에 원하는 조합으로 장착할 수 있습니다.'+(near?'<br><b>현재 로웬 근처이므로 새 검술을 습득할 수 있습니다.</b>':''))+'</div>'+footer());
+ const cards=SWORD_SKILL_LIBRARY.map(sk=>{const learned=adminSword||player.learnedSwordSkills.includes(sk.id),levelOk=player.level>=sk.level||adminSword,canLearn=!adminSword&&!learned&&near&&levelOk&&player.gold>=sk.price;const equip=learned?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">'+keys.map((k,i)=>'<button class="small '+(slots[i]===sk.id?'selected':'')+'" data-action="equipSwordSkill" data-value="'+sk.id+':'+i+'">'+keyName(keybinds[k])+'</button>').join('')+'</div>':'<button data-action="learnSwordSkill" data-value="'+sk.id+'" '+(!canLearn?'disabled':'')+'>'+(!levelOk?'Lv.'+sk.level+' 필요':!near?'로웬 근처에서 습득':player.gold<sk.price?sk.price+' G 필요':'검술 습득 · '+sk.price+' G')+'</button>';return '<div class="card '+(learned?'selected':'')+'"><div class="eyebrow">'+(adminSword?'ADMIN UNLOCKED':learned?'습득 완료':'습득 가능 Lv.'+sk.level)+'</div><h3>'+sk.name+'</h3><p>'+sk.desc+'</p><p><b>'+SWORD_SKILL_IDENTITY[sk.id].trait+'</b><br><span style="opacity:.78">연출 · '+SWORD_SKILL_IDENTITY[sk.id].fx+'</span></p><div class="price">'+sk.cost+' 지구력 · 재사용 '+sk.cool+'초'+(adminSword?'':' · 습득 '+sk.price+' G')+'</div>'+equip+'</div>';}).join('');
+ openPanel('skills',header(adminSword?'ADMIN MASTER BLADE':'SWORD ARTS',adminSword?'관리자의 만능검 · 모든 일반 검술':'장검·쌍검 검술 습득과 장착')+equipped+'<div class="grid two">'+cards+'</div><div class="tip">'+(adminSword?'관리자 검은 모든 검술이 즉시 해금되어 있습니다. 각 검술 아래 Q/R/T/G/V 버튼으로 시험할 슬롯을 바꿀 수 있습니다.':'검술은 대장장이 로웬 가까이에서 골드로 습득합니다. 배운 검술은 언제든 Q/R/T/G/V 다섯 슬롯에 원하는 조합으로 장착할 수 있습니다.<br><b>스킬 콤보:</b> 서로 다른 스킬을 1.4초 안에 이어 쓰면 최대 5연계까지 올라가며 단계마다 스킬 피해가 8% 증가합니다.'+(near?'<br><b>현재 로웬 근처이므로 새 검술을 습득할 수 있습니다.</b>':''))+'</div>'+footer());
 }
 function hitEnemy(e,amount,heavy=false,source=player){
  if(e.riftSleeping)return;if(e.dead||(e.type==='finalBoss'&&!e.alert))return;const serverMob=multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId;
@@ -1221,7 +1258,7 @@ function updateShield(dt){
 function hitPlayer(damage,source,parryable=true){if(mode!=='play'||(modal&&!source?.pvp)||player.hp<=0||admin.god)return 'ignored';const a=Math.atan2(source.y-player.y,source.x-player.x);
  if(player.invuln>0){if(player.dodge>0&&!source.perfectDodged){source.perfectDodged=true;player.stam=Math.min(player.maxStam,player.stam+6+(player.rune==='cycle'?14:0));floating(player.x,player.y-54,'완벽한 대쉬','#abe0cb',true);}return 'dodged';}
  if(player.parry>0&&parryable&&Math.abs(angleDiff(a,player.facing))<1.7){const perfect=player.perfectWindow>0;player.perfectWindow=0;player.shieldDelay=1.4;if(perfect){player.shield=Math.max(0,player.shield-4);if(player.shield===0){player.parry=0;player.shieldBroken=1.5;player.shieldNeedsRelease=true;}player.stam=clamp(player.stam+28,0,player.maxStam);player.invuln=.28;player.parryCd=.22;player.stats.parries++;if(player.rune==='echo')player.riposte=4;player.training.parry=true;floating(player.x,player.y-64,'PERFECT PARRY','#b3e6e0',true);ring(player.x,player.y,100,'#b8f2e5',.5);burst(player.x,player.y,'#d6f5e7',24,190);sound('parry');hitstop=.11;if(options.shake)shake=6;if(source.kind){source.stun=source.kind==='boss'?1.5:2.0;source.state='stunned';source.poise=0;}return 'parried';}const cost=Math.max(12,damage*1.4),before=player.shield;player.shield=Math.max(0,before-cost);ring(player.x,player.y,29,'#a4d8e1',.18);if(player.shield>0){sound('block');floating(player.x,player.y-48,'쉴드 −'+Math.ceil(cost),'#adc7ca');return 'blocked';}player.parry=0;player.shieldBroken=1.5;player.shieldDelay=1.5;player.shieldNeedsRelease=true;sound('break');floating(player.x,player.y-48,'쉴드 소진','#edc28a');damage*=Math.max(0,1-before/cost);if(damage<=0)return 'blocked';}
- damage=Math.round(damage*(1-armorReduction()));if(damage>0){player.hp=Math.max(0,player.hp-damage);if(damage>=player.maxHp*.30)damageFlash=.24;player.hurt=.25;player.invuln=.65;player.comboTimer=0;player.stun=Math.max(player.stun||0,damage>=player.maxHp*.18?.42:.24);if(skillActionActive())cancelSwordSkill();damageFloating(player.x,player.y-35,damage,source?Math.atan2(player.y-source.y,player.x-source.x):player.facing,true);burst(player.x,player.y,'#ebbd8d',8,90);sound('hurt');if(options.shake)shake=4;}if(player.hp<=0)showDefeat();return 'hit';}
+ damage=Math.round(damage*(1-armorReduction()));if(damage>0){player.hp=Math.max(0,player.hp-damage);if(damage>=player.maxHp*.30)damageFlash=.24;player.hurt=.25;player.invuln=.65;player.comboTimer=0;player.stun=Math.max(player.stun||0,damage>=player.maxHp*.18?.42:.24);if(skillActionActive()){cancelSwordSkill();skillComboState={tier:0,lastKey:'',expires:0,mult:1};}damageFloating(player.x,player.y-35,damage,source?Math.atan2(player.y-source.y,player.x-source.x):player.facing,true);burst(player.x,player.y,'#ebbd8d',8,90);sound('hurt');if(options.shake)shake=4;}if(player.hp<=0)showDefeat();return 'hit';}
 const shieldSlot=document.querySelector('[data-act="parry"]');
 shieldSlot.addEventListener('pointerdown',e=>{if(!canAct())return;e.preventDefault();desktopShield=true;captureTouch(shieldSlot,e);parry();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])shieldSlot.addEventListener(event,()=>{desktopShield=false;releaseShield();});
