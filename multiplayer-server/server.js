@@ -73,6 +73,9 @@ const bosses = new Map(bossDefs.map(b => [b.id, {
 
 const players = new Map();
 const parties = new Map();
+let worldLeaderId=null;
+let worldSnapshot={mobs:[],items:[],updatedAt:0};
+const takenItems=new Set();
 
 function id(prefix='p'){return prefix + crypto.randomBytes(5).toString('hex');}
 function cleanName(v){
@@ -84,6 +87,19 @@ function cleanAccountId(v,name=''){
   return 'name:'+String(name||'player').trim().toLowerCase().replace(/[^a-z0-9가-힣_\-]/g,'').slice(0,40);
 }
 function clamp(v,a,b){v=Number(v);return Number.isFinite(v)?Math.max(a,Math.min(b,v)):a;}
+function safeZoneName(x,y){
+  if(Math.hypot(x-760,y-3010)<430)return '이끼빛 마을';
+  if(Math.hypot(x-6000,y-3020)<690)return '황금잎 광장';
+  return null;
+}
+function sanitizeEquip(v,fallback){return String(v||fallback||'').replace(/[^A-Za-z0-9_\-]/g,'').slice(0,40);}
+function electWorldLeader(){
+  const next=[...players.values()].find(p=>p.ready);
+  const nextId=next?.id||null;
+  if(nextId===worldLeaderId)return;
+  worldLeaderId=nextId;
+  for(const p of players.values())if(p.ready)safeSend(p.ws,{type:'world:role',leaderId:worldLeaderId,isLeader:p.id===worldLeaderId});
+}
 function safeSend(ws,data){
   if(ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify(data));
 }
@@ -97,6 +113,9 @@ function publicPlayer(p){
   return {
     id:p.id,name:p.name,x:p.x,y:p.y,a:p.a,
     hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
+    equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
+    attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,
+    combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
     partyId:p.partyId||null,updatedAt:p.updatedAt
   };
 }
@@ -221,6 +240,57 @@ function handlePvpHit(player,msg){
     parryable:msg.parryable!==false
   });
 }
+
+function sanitizeWorldSnapshot(msg){
+  const mobs=Array.isArray(msg.mobs)?msg.mobs.slice(0,500).map(m=>({
+    id:String(m.id||'').slice(0,50),type:String(m.type||'').slice(0,40),
+    x:clamp(m.x,0,WORLD.width),y:clamp(m.y,0,WORLD.height),
+    hp:clamp(m.hp,0,9999999),maxHp:clamp(m.maxHp,1,9999999),
+    dead:!!m.dead,state:String(m.state||'idle').slice(0,20),
+    facing:clamp(m.facing,-20,20),alert:!!m.alert
+  })).filter(m=>m.id):[];
+  const items=Array.isArray(msg.items)?msg.items.slice(0,2200).map(o=>({
+    id:String(o.id||'').slice(0,70),type:String(o.type||'').slice(0,30),
+    x:clamp(o.x,0,WORLD.width),y:clamp(o.y,0,WORLD.height),
+    lootKind:String(o.lootKind||'').slice(0,30),amount:clamp(o.amount,0,999999),fixed:!!o.fixed
+  })).filter(o=>o.id&&!takenItems.has(o.id)):[];
+  return {mobs,items,updatedAt:Date.now()};
+}
+function handleWorldSnapshot(player,msg){
+  if(player.id!==worldLeaderId)return;
+  worldSnapshot=sanitizeWorldSnapshot(msg);
+  broadcast({type:'world:snapshot',snapshot:worldSnapshot},player.ws);
+}
+function handleItemTaken(player,msg){
+  const itemId=String(msg.itemId||'').slice(0,70);if(!itemId)return;
+  takenItems.add(itemId);
+  worldSnapshot.items=worldSnapshot.items.filter(o=>o.id!==itemId);
+  broadcast({type:'world:itemTaken',itemId,by:player.id});
+}
+function handleMobDamage(player,msg){
+  const mobId=String(msg.mobId||'').slice(0,50),mob=worldSnapshot.mobs.find(m=>m.id===mobId);
+  if(!mob||mob.dead)return;
+  if(Math.hypot(player.x-mob.x,player.y-mob.y)>900)return;
+  const damage=clamp(msg.damage,0,1800);if(damage<=0)return;
+  mob.hp=Math.max(0,mob.hp-damage);if(mob.hp<=0)mob.dead=true;
+  const patch={id:mob.id,hp:mob.hp,maxHp:mob.maxHp,dead:mob.dead,by:player.id};
+  broadcast({type:'world:mobPatch',mob:patch});
+}
+function handlePvpDamage(player,msg){
+  const target=players.get(String(msg.targetId||''));if(!target||!target.ready||target.id===player.id)return;
+  if(player.partyId&&target.partyId&&player.partyId===target.partyId)return;
+  const safeA=safeZoneName(player.x,player.y),safeB=safeZoneName(target.x,target.y);
+  if(safeA||safeB){safeSend(player.ws,{type:'notice',message:'마을 안전구역에서는 PVP를 할 수 없습니다.'});return;}
+  const maxRange=clamp(msg.range,80,760);
+  if(Math.hypot(player.x-target.x,player.y-target.y)>maxRange+70)return;
+  const damage=clamp(msg.damage,1,650);
+  target.hp=Math.max(0,target.hp-damage);
+  safeSend(target.ws,{type:'pvp:hit',attackerId:player.id,attackerName:player.name,damage,hp:target.hp,maxHp:target.maxHp});
+  safeSend(player.ws,{type:'pvp:confirm',targetId:target.id,damage,hp:target.hp,maxHp:target.maxHp});
+  if(target.hp<=0){
+    broadcast({type:'pvp:defeated',targetId:target.id,targetName:target.name,killerId:player.id,killerName:player.name});
+  }
+}
 function handleMessage(player,msg){
   if(!msg || typeof msg!=='object')return;
   if(msg.type==='state'){
@@ -231,9 +301,20 @@ function handleMessage(player,msg){
     player.maxHp=clamp(msg.maxHp,1,999999);
     player.level=Math.floor(clamp(msg.level,1,100));
     player.weapon=Math.floor(clamp(msg.weapon,0,3));
+    player.equippedHead=sanitizeEquip(msg.equippedHead,'wandererHood');
+    player.equippedChest=sanitizeEquip(msg.equippedChest,'travelerCoat');
+    player.equippedShield=sanitizeEquip(msg.equippedShield,'woodenShield');
+    player.attackAnim=clamp(msg.attackAnim,0,5);player.attackDuration=clamp(msg.attackDuration,.05,5);
+    player.strikePose=Math.floor(clamp(msg.strikePose,0,8));player.skillPose=Math.floor(clamp(msg.skillPose,-1,8));
+    player.combo=Math.floor(clamp(msg.combo,0,10));player.parry=clamp(msg.parry,0,2);player.dodge=clamp(msg.dodge,0,2);
+    player.dx=clamp(msg.dx,-1,1);player.dy=clamp(msg.dy,-1,1);player.walk=clamp(msg.walk,0,1);player.phase=clamp(msg.phase,-1e6,1e6);
     player.updatedAt=Date.now();
     return;
   }
+  if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}
+  if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}
+  if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}
+  if(msg.type==='pvp:damage'){handlePvpDamage(player,msg);return;}
   if(msg.type==='party:create'){createParty(player);return;}
   if(msg.type==='party:invite'){
     const r=inviteParty(player,msg.targetId);
@@ -264,7 +345,7 @@ function handleMessage(player,msg){
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,players:players.size,parties:parties.size,bosses:bossSnapshot(),world:WORLD}));
+    res.end(JSON.stringify({ok:true,players:players.size,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
@@ -282,7 +363,9 @@ const wss=new WebSocketServer({server});
 wss.on('connection',(ws)=>{
   const player={
     id:id('p_'),ws,name:'Player',x:800,y:3100,a:0,hp:100,maxHp:100,
-    level:1,weapon:0,partyId:null,accountId:'',updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
+    level:1,weapon:0,equippedHead:'wandererHood',equippedChest:'travelerCoat',equippedShield:'woodenShield',
+    attackAnim:0,attackDuration:.26,strikePose:0,skillPose:-1,combo:0,parry:0,dodge:0,dx:0,dy:0,walk:0,phase:0,
+    partyId:null,accountId:'',updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
   };
   players.set(player.id,player);
 
@@ -303,16 +386,21 @@ wss.on('connection',(ws)=>{
       player.weapon=Math.floor(clamp(msg.weapon,0,3));
       player.ready=true;
       clearTimeout(helloTimer);
+      if(!worldLeaderId)worldLeaderId=player.id;
       safeSend(ws,{
         type:'hello:ok',
         selfId:player.id,
         world:{...WORLD,biomes:BIOMES,landmarks:LANDMARKS,hiddenItems:HIDDEN_ITEMS},
         players:[...players.values()].filter(p=>p.ready).map(publicPlayer),
         bosses:bossSnapshot(),
+        worldRole:{leaderId:worldLeaderId,isLeader:player.id===worldLeaderId},
+        worldSnapshot,
+        takenItemIds:[...takenItems],
         partyMax:PARTY_MAX,
         bossRespawnMs:BOSS_RESPAWN_MS
       });
       broadcast({type:'player:join',player:publicPlayer(player)},ws);
+      electWorldLeader();
       return;
     }
     handleMessage(player,msg);
@@ -323,6 +411,7 @@ wss.on('connection',(ws)=>{
     leaveParty(player);
     players.delete(player.id);
     if(player.ready)broadcast({type:'player:leave',id:player.id});
+    if(player.id===worldLeaderId)electWorldLeader();
   });
   ws.on('error',()=>{});
 });
