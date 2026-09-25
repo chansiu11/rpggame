@@ -1141,6 +1141,7 @@ function updateHiddenSkills(dt){
  for(const ev of hiddenSkillEvents){ev.t-=dt;const elapsed=ev.max-ev.t;if(ev.kind==='dash1'){const ox=player.x,oy=player.y;moveBody(player,Math.cos(ev.a)*HIDDEN_DASH1_SPEED*dt,Math.sin(ev.a)*HIDDEN_DASH1_SPEED*dt);player.facing=ev.a;player.invuln=Math.max(player.invuln,.08);for(const e of hiddenTargets()){const c=combatCenter(e);if(segmentDistance(c.x,c.y,[ox,oy],[player.x,player.y])<96+combatRadius(e)&&!ev.caught.has(e.id)){ev.caught.set(e.id,e);hitEnemy(e,damageValue(.72),false,player);}}sharedPvpSegmentHit(ox,oy,player.x,player.y,96,damageValue(.72),false,ev.pvpCaught||(ev.pvpCaught=new Set()));effects.push({type:'riftCut',x:(ox+player.x)/2,y:(oy+player.y)/2,a:ev.a,len:Math.max(80,Math.hypot(player.x-ox,player.y-oy)+90),width:55,color:rand()>.5?'#ffffff':'#9feaff',t:.18,max:.18});if(ev.t<=0&&!ev.done){ev.done=true;let i=0;for(const e of ev.caught.values()){if(!e||e.dead)continue;const lateral=(i++-(ev.caught.size-1)/2)*22,throwDistance=560,tx=e.x+Math.cos(ev.a)*throwDistance-Math.sin(ev.a)*lateral,ty=e.y+Math.sin(ev.a)*throwDistance+Math.cos(ev.a)*lateral;if(e.kind!=='boss'){const spot=freeBodySpot(tx,ty,e.r+4);skill2Knocks.push({e,x:spot.x,y:spot.y,t:.58,max:.58});e.stun=Math.max(e.stun,.5);e.state='stunned';}else{e.stun=Math.max(e.stun,.25);e.state='stunned';}}const x=player.x+Math.cos(ev.a)*80,y=player.y+Math.sin(ev.a)*80;effects.push({type:'nova',x,y,r:180,color:'#9feaff',t:.55,max:.55});effects.push({type:'starSeal',x,y,r:150,color:'#ffffff',t:.45,max:.45});burst(x,y,'#bff6ff',30,230);shake=Math.max(shake,11);sound('hit');}}
 
  }
+ if(hiddenSkillEvents.length){const ev=hiddenSkillEvents[0];const idx=Number(ev.index)||0;player.skillPose=idx;sendSharedSkillFxFrame(idx,'hidden:'+idx,3,ev.a||player.facing,.10);}
  hiddenSkillEvents=hiddenSkillEvents.filter(ev=>ev.t>0&&!ev.done);if(player.weapon===3&&!hiddenSkillHold&&!hiddenSkillEvents.length)player.skillPose=-1;
 }
 function hiddenSkillStatusText(){if(player.weapon!==3)return '';if(hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires)return '2번 추격 가능 · 표식 '+hiddenSkillFollowup.targets.length+' · '+Math.max(0,hiddenSkillFollowup.expires-realTime).toFixed(1)+'초';if(!hiddenSkillHold)return '';const h=hiddenSkillHold;if(h.kind==='holdPrepare')return '스킬 '+(h.index+1)+' 준비 자세 · '+Math.min(100,Math.round(h.elapsed/.5*100))+'% · 0.5초 후 발동';if(h.kind==='prepare')return (h.followup?'월식 추격 준비':'스킬 '+(h.index+1)+' 준비 자세')+' · 키를 떼면 발동';if(h.kind==='channel3')return '3번 무한 검압 · '+Math.max(0,5-h.elapsed).toFixed(1)+'초';if(h.kind==='dash4')return '4번 천극 질주 · '+Math.max(0,4-h.elapsed).toFixed(1)+'초';if(h.kind==='combo5')return '5번 삼연 성흔 · '+(h.nextStep<3?'순간돌진 '+h.nextStep+' / 3':'마무리 준비')+' · '+Math.max(0,3.5-h.elapsed).toFixed(1)+'초';return '';}
@@ -1243,6 +1244,7 @@ function updateSpecialSwordSkills(dt){
   }
  }
  if(fourthSkillField){
+  sendSharedSkillFxFrame(3,'remote:sword:3',player.weapon,player.facing,.11);
   const f=fourthSkillField;f.t-=dt;f.tick-=dt;
   if(f.tick<=0){f.tick=.25;const targets=nearbyFourthTargets(f.x,f.y,FOURTH_FIELD_RADIUS);for(const e of targets)hitEnemy(e,damageValue(.32),false);const pvpHits=sharedPvpRadiusHit(f.x,f.y,FOURTH_FIELD_RADIUS,damageValue(.32),false,true);ring(f.x,f.y,FOURTH_FIELD_RADIUS,'#ffcaeb',.18);if(targets.length||pvpHits)burst(f.x,f.y,'#ffcaeb',8,85);}
   if(f.t<=0){fourthSkillField=null;player.skillPose=-1;}
@@ -2029,7 +2031,7 @@ function fallbackRemoteSkillFx(rp,p){
 function mergeRemotePlayerState(p){
  if(!p?.id)return;const now=performance.now(),old=multiRemotePlayers.get(p.id),sample={x:Number(p.x)||0,y:Number(p.y)||0,a:Number(p.a)||0,t:now,vx:Number(p.vx)||0,vy:Number(p.vy)||0,seq:Number(p.seq)||0};
  if(!old){
-  const fresh={...p,rx:sample.x,ry:sample.y,ra:sample.a,netAt:now,samples:[sample],deathAnimStart:Number(p.hp)<=0?realTime:0,deathSide:1,lastDeathSeq:Number(p.deathSeq)||0,lastSkillFxSeq:0,fallbackSkillActive:Number(p.skillPose)>=0,lastFallbackSkillAt:0};
+  const fresh={...p,rx:sample.x,ry:sample.y,ra:sample.a,netAt:now,samples:[sample],deathAnimStart:Number(p.hp)<=0?realTime:0,deathSide:1,lastDeathSeq:Number(p.deathSeq)||0,lastSkillFxSeq:0,fallbackSkillActive:Number(p.skillPose)>=0,lastFallbackSkillAt:0,remoteSkillVisualUntil:Number(p.skillPose)>=0?realTime+.75:0,remoteSkillSlot:Number(p.skillPose)>=0?Math.floor(clamp(Number(p.skillPose),0,4)):-1,remoteSkillId:String(p.skillFxId||'')};
   multiRemotePlayers.set(p.id,fresh);
   if(Number(p.skillFxSeq)>0){fresh.lastSkillFxSeq=Number(p.skillFxSeq);applyRemoteSkillFx({playerId:p.id,fxSeq:p.skillFxSeq,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
   else if(Number(p.skillPose)>=0){fresh.lastFallbackSkillAt=realTime;fallbackRemoteSkillFx(fresh,p);}
@@ -2039,10 +2041,11 @@ function mergeRemotePlayerState(p){
  if(deathSeq>(Number(old.lastDeathSeq)||0)||(wasAlive&&isDead)){old.deathAnimStart=realTime;old.deathSide=Math.random()<.5?-1:1;old.lastDeathSeq=deathSeq;}else if(!isDead){old.deathAnimStart=0;old.deathSide=0;}
  const fxSeq=Number(p.skillFxSeq)||0;
  let exactFx=false;
- if(fxSeq>(Number(old.lastSkillFxSeq)||0)){old.lastSkillFxSeq=fxSeq;exactFx=true;applyRemoteSkillFx({playerId:p.id,fxSeq,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
+ if(fxSeq>(Number(old.lastSkillFxSeq)||0)){old.lastSkillFxSeq=fxSeq;exactFx=true;old.remoteSkillVisualUntil=realTime+.78;old.remoteSkillSlot=Math.floor(clamp(Number(p.skillFxSlot),0,4));old.remoteSkillId=String(p.skillFxId||'');applyRemoteSkillFx({playerId:p.id,fxSeq,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
  const pose=Number(p.skillPose),oldPose=Number(old.skillPose),incomingAnim=Number(p.attackAnim)||0,oldAnim=Number(old.attackAnim)||0;
  const poseActive=Number.isFinite(pose)&&pose>=0,skillStarted=poseActive&&(!old.fallbackSkillActive||oldPose!==pose||incomingAnim>oldAnim+.12);
- if(skillStarted&&!exactFx&&realTime-(old.lastFallbackSkillAt||0)>.16){old.lastFallbackSkillAt=realTime;fallbackRemoteSkillFx(old,p);}
+ if(poseActive){old.remoteSkillVisualUntil=Math.max(old.remoteSkillVisualUntil||0,realTime+.34);old.remoteSkillSlot=Math.floor(clamp(pose,0,4));}
+ if(skillStarted&&!exactFx&&realTime-(old.lastFallbackSkillAt||0)>.16){old.lastFallbackSkillAt=realTime;old.remoteSkillVisualUntil=realTime+.75;old.remoteSkillSlot=Math.floor(clamp(pose,0,4));fallbackRemoteSkillFx(old,p);}
  old.fallbackSkillActive=poseActive;
  Object.assign(old,p);old.netAt=now;old.samples=Array.isArray(old.samples)?old.samples:[];
  if(!old.samples.length||sample.seq>=(old.samples[old.samples.length-1].seq||0)){old.samples.push(sample);if(old.samples.length>8)old.samples.splice(0,old.samples.length-8);}
@@ -2064,7 +2067,7 @@ function sendSharedSkillFxFrame(slot,skillId,weapon=player?.weapon,a=player?.fac
 }
 function applyRemoteSkillFx(msg){
  if(!multiplayerMode||!msg||msg.playerId===window.EchoesMulti?.state?.selfId)return;
- const rp=multiRemotePlayers.get(msg.playerId);if(rp&&Number(msg.fxSeq)>0)rp.lastSkillFxSeq=Math.max(Number(rp.lastSkillFxSeq)||0,Number(msg.fxSeq)||0);
+ const rp=multiRemotePlayers.get(msg.playerId);if(rp){if(Number(msg.fxSeq)>0)rp.lastSkillFxSeq=Math.max(Number(rp.lastSkillFxSeq)||0,Number(msg.fxSeq)||0);rp.remoteSkillVisualUntil=realTime+.78;rp.remoteSkillSlot=Math.floor(clamp(Number(msg.slot),0,4));rp.remoteSkillId=String(msg.skillId||'');}
  const x=Number.isFinite(Number(msg.x))?Number(msg.x):(rp?.rx??rp?.x),y=Number.isFinite(Number(msg.y))?Number(msg.y):(rp?.ry??rp?.y),a=Number(msg.a)||0;
  if(!Number.isFinite(x)||!Number.isFinite(y))return;
  const id=String(msg.skillId||''),slot=clamp(Number(msg.slot)||0,0,4),weapon=Number(msg.weapon)||0;
@@ -2438,13 +2441,16 @@ function drawEffects(ground=false){for(const e of effects){const progress=1-e.t/
  if(e.type==='nova'){ctx.save();ctx.translate(e.x,e.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*.9);ctx.strokeStyle=e.color;for(let k=0;k<4;k++){ctx.lineWidth=5-k;ctx.beginPath();ctx.arc(0,0,e.r*(.15+progress*.85)*(1-k*.08),0,TAU);ctx.stroke();}for(let k=0;k<16;k++){const a=k*TAU/16+progress*.5,r=e.r*(.25+.72*progress);line(ctx,Math.cos(a)*e.r*.08,Math.sin(a)*e.r*.08,Math.cos(a)*r,Math.sin(a)*r,k%2?'#ffffff':e.color,3*(1-progress)+1);}glow(ctx,0,0,e.r*.55,e.color+'44');ctx.restore();}
  if(e.type==='slash'){ctx.strokeStyle=e.color;ctx.lineWidth=7;ctx.beginPath();ctx.arc(e.x,e.y,e.r,e.a-e.arc/2,e.a+e.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,e.r-7,e.a-e.arc/2+.1,e.a+e.arc/2-.1);ctx.stroke();}ctx.restore();}}
 function drawRemoteSkillOverlay(rp,x,y,a){
- const slot=Math.floor(clamp(Number(rp.skillPose),0,4)),anim=Number(rp.attackAnim)||0;if(!(slot>=0&&slot<=4&&anim>0))return;
+ const livePose=Number(rp.skillPose),poseActive=Number.isFinite(livePose)&&livePose>=0,ttl=(Number(rp.remoteSkillVisualUntil)||0)>realTime;
+ if(!poseActive&&!ttl)return;
+ const slot=Math.floor(clamp(poseActive?livePose:(Number(rp.remoteSkillSlot)>=0?Number(rp.remoteSkillSlot):0),0,4));
  const weapon=Math.floor(clamp(Number(rp.weapon),0,4)),pulse=.65+.35*Math.sin(realTime*28),r=72+slot*22;
  let color=weapon===3?(HIDDEN_SKILLS[slot]?.color||'#d8b5ff'):weapon===2?(SKILLS[slot]?.color||'#9ddfff'):['#61f0c7','#8fdcff','#ffd16f','#d4a4ff','#ff9fd5'][slot];
  ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.72;
  ctx.strokeStyle=color;ctx.lineWidth=5+slot*.7;ctx.beginPath();ctx.arc(x,y-7,r*pulse,a-1.1,a+1.1);ctx.stroke();
  ctx.strokeStyle='#ffffff';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+Math.cos(a)*(145+slot*38),y-10+Math.sin(a)*(145+slot*38));ctx.stroke();
  for(let j=-2;j<=2;j++){const aa=a+j*.18;ctx.strokeStyle=j===0?'#ffffff':color;ctx.lineWidth=j===0?2.5:1.5;ctx.beginPath();ctx.moveTo(x-Math.cos(aa)*25,y-Math.sin(aa)*25-8);ctx.lineTo(x+Math.cos(aa)*(95+slot*22),y+Math.sin(aa)*(95+slot*22)-8);ctx.stroke();}
+ ctx.strokeStyle=color;ctx.lineWidth=2;ctx.globalAlpha=.48;ctx.beginPath();ctx.arc(x,y-8,(48+slot*12)*pulse,realTime*3,realTime*3+Math.PI*1.45);ctx.stroke();
  ctx.globalAlpha=.32;ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y-8,34+slot*8,0,TAU);ctx.fill();ctx.restore();
 }
 function drawRemotePlayer(rp){
