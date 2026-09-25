@@ -685,7 +685,7 @@ function buildSharedWorldSnapshot(includeItems=true){
 }
 function buildServerWorldBootstrap(){
  const mobs=enemies.filter(e=>e.type!=='dummy'&&!e.riftId).map(e=>({...mobNetState(e),speed:e.speed||0,damage:e.damage||0,reach:e.reach||0,wind:e.wind||0,r:e.r||18}));
- const nav=obstacles.filter(o=>o.solid).slice(0,1800).map(o=>o.box?{x:o.x,y:o.y,box:true,w:o.w,h:o.h}:{x:o.x,y:o.y,r:groundRadius(o)});
+ const nav=obstacles.filter(o=>o.solid).slice(0,2200).map(o=>o.box?{x:o.x,y:o.y,box:true,w:o.w,h:o.h}:{x:o.x,y:o.y,r:groundRadius(o)});
  for(const p of pools)nav.push({x:p.x,y:p.y,ellipse:true,rx:p.rx,ry:p.ry});
  return {mobs,obstacles:nav};
 }
@@ -1865,6 +1865,10 @@ function update(dt){if(multiplayerMode){
  if(player.stamDelay<=0&&player.dodge<=0)player.stam=Math.min(player.maxStam,player.stam+(12+player.perks.breath*2)*dt);if((mouse.down||touchAttackPointer!==null||keys.has('KeyZ'))&&player.attackCd<=0)attack();
  for(const e of enemies){
   if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
+   e.flash=Math.max(0,(e.flash||0)-dt);if(e.timer>0)e.timer=Math.max(0,e.timer-dt);
+   const sd2=(e.x-player.x)*(e.x-player.x)+(e.y-player.y)*(e.y-player.y);
+   if(e.type!=='finalBoss'&&sd2<115600&&player.bestiary[e.type]===undefined)player.bestiary[e.type]=0;
+   if(e.kind==='boss'&&!e.dead&&e.alert&&sd2<302500)activeBoss=e;
    if(!e.dead&&Number.isFinite(e._netX)){const age=clamp((performance.now()-(e._netAt||performance.now()))/1000,0,.12),tx=e._netX+(e._netVX||0)*age*.35,ty=e._netY+(e._netVY||0)*age*.35,dist=Math.hypot(tx-e.x,ty-e.y);if(dist>220){e.x=tx;e.y=ty;}else{const rate=1-Math.exp(-dt*(dist>55?18:12));e.x+=(tx-e.x)*rate;e.y+=(ty-e.y)*rate;}bodyGridValid=false;}continue;
   }
   const d2=(e.x-player.x)*(e.x-player.x)+(e.y-player.y)*(e.y-player.y),critical=e.kind==='boss'||e.alert||e.riftId||e.type==='dummy'||d2<640000;
