@@ -2065,18 +2065,31 @@ function sendSharedSkillFxFrame(slot,skillId,weapon=player?.weapon,a=player?.fac
  if(realTime-multiContinuousFxAt<interval)return;
  multiContinuousFxAt=realTime;sendSharedSkillFx(slot,skillId,weapon,a);
 }
+function replayRemoteSwordSignature(rp,id,slot,x,y,a){
+ const raw=swordSkillById(id);if(!raw)return false;
+ const cfg=balancedSwordSkill(raw,slot)?.cfg||raw.cfg||{},hits=Math.max(1,Array.isArray(cfg.hits)?cfg.hits.length:1);
+ if(rp&&realTime-(rp.lastRemoteSignatureAt||0)<.115)return true;
+ let hitIndex=rp?Math.floor(rp.remoteSignatureStep||0)%hits:0;if(rp){rp.remoteSignatureStep=(hitIndex+1)%hits;rp.lastRemoteSignatureAt=realTime;}
+ const reach=Array.isArray(cfg.reach)?Number(cfg.reach[Math.min(hitIndex,cfg.reach.length-1)])||110:110,finalHit=hitIndex===hits-1;
+ const saved=player;
+ try{
+  player={...saved,x,y,facing:a,attackAngle:a};
+  swordSignatureFx(id,hitIndex,finalHit,a,reach,raw.color);
+ }finally{player=saved;}
+ return true;
+}
 function applyRemoteSkillFx(msg){
  if(!multiplayerMode||!msg||msg.playerId===window.EchoesMulti?.state?.selfId)return;
- const rp=multiRemotePlayers.get(msg.playerId);if(rp){if(Number(msg.fxSeq)>0)rp.lastSkillFxSeq=Math.max(Number(rp.lastSkillFxSeq)||0,Number(msg.fxSeq)||0);rp.remoteSkillVisualUntil=realTime+.78;rp.remoteSkillSlot=Math.floor(clamp(Number(msg.slot),0,4));rp.remoteSkillId=String(msg.skillId||'');}
+ const rp=multiRemotePlayers.get(msg.playerId);if(rp){if(Number(msg.fxSeq)>0)rp.lastSkillFxSeq=Math.max(Number(rp.lastSkillFxSeq)||0,Number(msg.fxSeq)||0);rp.remoteSkillVisualUntil=realTime+.78;rp.remoteSkillSlot=Math.floor(clamp(Number(msg.slot),0,4));if(String(msg.skillId||''))rp.remoteSkillId=String(msg.skillId||'');}
  const x=Number.isFinite(Number(msg.x))?Number(msg.x):(rp?.rx??rp?.x),y=Number.isFinite(Number(msg.y))?Number(msg.y):(rp?.ry??rp?.y),a=Number(msg.a)||0;
  if(!Number.isFinite(x)||!Number.isFinite(y))return;
  const id=String(msg.skillId||''),slot=clamp(Number(msg.slot)||0,0,4),weapon=Number(msg.weapon)||0;
  let color='#d7c181',sub='#ffffff',accent='#d7c181';
  if(weapon===3){color=HIDDEN_SKILLS[slot]?.color||'#d8b5ff';accent='#ffffff';}
  else if(weapon===2){color=SKILLS[slot]?.color||'#9ddfff';accent='#ffffff';}
- else if(id){const th=swordStyleFxForSkill(id);color=th.main;sub=th.sub;accent=th.accent;}
+ else if(id&&swordSkillById(id)){const th=swordStyleFxForSkill(id);color=th.main;sub=th.sub;accent=th.accent;}
  if(id.startsWith('remote:sword:')){
-  const fallbackColors=['#61f0c7','#9ddfff','#ffd18b','#d2b4ff','#ffcaeb'],fc=fallbackColors[slot]||'#61f0c7';
+  const known=String(rp?.remoteSkillId||''),fc=swordSkillById(known)?swordStyleFxForSkill(known).main:'#e8e2d2';
   effects.push({type:'slash',x:x+Math.cos(a)*65,y:y+Math.sin(a)*65,a,arc:2.15+slot*.18,r:145+slot*26,color:fc,t:.42,max:.42});
   effects.push({type:'riftCut',x:x+Math.cos(a)*105,y:y+Math.sin(a)*105,a,len:300+slot*55,width:38+slot*7,color:'#ffffff',t:.40,max:.40});
   effects.push({type:'nova',x,y,r:85+slot*22,color:fc,t:.38,max:.38});
@@ -2088,6 +2101,8 @@ function applyRemoteSkillFx(msg){
   effects.push({type:'starSeal',x,y,r:125+slot*24,color,t:.5,max:.5});
   effects.push({type:'nova',x,y,r:150+slot*28,color:accent,t:.5,max:.5});
   for(let j=0;j<6+slot;j++){const aa=j*TAU/(6+slot);effects.push({type:'riftCut',x:x+Math.cos(aa)*65,y:y+Math.sin(aa)*65,a:aa,len:180+slot*35,width:24+slot*5,color:j%2?accent:color,t:.34,max:.34});}
+ }else if(swordSkillById(id)&&!['thunderDrive','meteorBreaker','lunarBind','prismLance','voidDance'].includes(id)){
+  replayRemoteSwordSignature(rp,id,slot,x,y,a);
  }else if(id==='windSlash'){
   effects.push({type:'riftCut',x:x+Math.cos(a)*150,y:y+Math.sin(a)*150,a,len:380,width:44,color,t:.42,max:.42});
   effects.push({type:'line',x,y,x2:x+Math.cos(a)*410,y2:y+Math.sin(a)*410,color:sub,t:.34,max:.34});
@@ -2444,12 +2459,17 @@ function drawRemoteSkillOverlay(rp,x,y,a){
  const livePose=Number(rp.skillPose),poseActive=Number.isFinite(livePose)&&livePose>=0,ttl=(Number(rp.remoteSkillVisualUntil)||0)>realTime;
  if(!poseActive&&!ttl)return;
  const slot=Math.floor(clamp(poseActive?livePose:(Number(rp.remoteSkillSlot)>=0?Number(rp.remoteSkillSlot):0),0,4));
- const weapon=Math.floor(clamp(Number(rp.weapon),0,4)),pulse=.65+.35*Math.sin(realTime*28),r=72+slot*22;
- let color=weapon===3?(HIDDEN_SKILLS[slot]?.color||'#d8b5ff'):weapon===2?(SKILLS[slot]?.color||'#9ddfff'):['#61f0c7','#8fdcff','#ffd16f','#d4a4ff','#ff9fd5'][slot];
+ const weapon=Math.floor(clamp(Number(rp.weapon),0,4)),pulse=.65+.35*Math.sin(realTime*28),r=72+slot*22,remoteId=String(rp.remoteSkillId||'');
+ let color;
+ if(weapon===3)color=HIDDEN_SKILLS[slot]?.color||'#d8b5ff';
+ else if(weapon===2)color=SKILLS[slot]?.color||'#9ddfff';
+ else if(swordSkillById(remoteId))color=swordStyleFxForSkill(remoteId).main;
+ else color='#e8e2d2';
  ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.72;
+ const remoteTheme=swordSkillById(remoteId)?swordStyleFxForSkill(remoteId):null,overlaySub=remoteTheme?.sub||'#ffffff',overlayAccent=remoteTheme?.accent||'#ffffff';
  ctx.strokeStyle=color;ctx.lineWidth=5+slot*.7;ctx.beginPath();ctx.arc(x,y-7,r*pulse,a-1.1,a+1.1);ctx.stroke();
- ctx.strokeStyle='#ffffff';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+Math.cos(a)*(145+slot*38),y-10+Math.sin(a)*(145+slot*38));ctx.stroke();
- for(let j=-2;j<=2;j++){const aa=a+j*.18;ctx.strokeStyle=j===0?'#ffffff':color;ctx.lineWidth=j===0?2.5:1.5;ctx.beginPath();ctx.moveTo(x-Math.cos(aa)*25,y-Math.sin(aa)*25-8);ctx.lineTo(x+Math.cos(aa)*(95+slot*22),y+Math.sin(aa)*(95+slot*22)-8);ctx.stroke();}
+ ctx.strokeStyle=overlayAccent;ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x+Math.cos(a)*(145+slot*38),y-10+Math.sin(a)*(145+slot*38));ctx.stroke();
+ for(let j=-2;j<=2;j++){const aa=a+j*.18;ctx.strokeStyle=j===0?overlaySub:color;ctx.lineWidth=j===0?2.5:1.5;ctx.beginPath();ctx.moveTo(x-Math.cos(aa)*25,y-Math.sin(aa)*25-8);ctx.lineTo(x+Math.cos(aa)*(95+slot*22),y+Math.sin(aa)*(95+slot*22)-8);ctx.stroke();}
  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.globalAlpha=.48;ctx.beginPath();ctx.arc(x,y-8,(48+slot*12)*pulse,realTime*3,realTime*3+Math.PI*1.45);ctx.stroke();
  ctx.globalAlpha=.32;ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y-8,34+slot*8,0,TAU);ctx.fill();ctx.restore();
 }
