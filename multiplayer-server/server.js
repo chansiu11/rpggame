@@ -12,6 +12,7 @@ const MOB_NET_TICK_MS = 100;
 const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
 const MAX_SOCKET_BUFFER = 512 * 1024;
+const SPAWN_LAYOUT_VERSION = 'regional-clusters-v1';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
   sentry:{speed:65,damage:16,reach:360,wind:1.05,kind:'ranged',r:18},golem:{speed:55,damage:27,reach:116,wind:1.2,kind:'slam',r:26},
@@ -234,6 +235,7 @@ function markMobDirty(m){if(m?.id)dirtyMobIds.add(m.id);}
 function syncBossMob(boss){const m=authoritativeMobs.get(boss.id);if(!m)return;m.hp=boss.hp;m.maxHp=boss.maxHp;m.dead=!boss.alive;m.respawnAt=boss.respawnAt||0;if(m.dead){m.state='dead';m.targetId=null;m.alert=false;}else if(m.state==='dead'){m.state='idle';m.x=m.sx;m.y=m.sy;}markMobDirty(m);}
 function bootstrapAuthoritativeWorld(player,msg){
   if(mobsBootstrapped&&authoritativeMobs.size){safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});return;}
+  if(String(msg.spawnLayoutVersion||'')!==SPAWN_LAYOUT_VERSION){safeSend(player.ws,{type:'notice',message:'몬스터 스폰 배치가 업데이트되었습니다. 게임 페이지를 새로고침해 주세요.'});return;}
   const list=Array.isArray(msg.mobs)?msg.mobs.slice(0,900):[];if(!list.length)return;authoritativeMobs.clear();navGrid.clear();
   for(const raw of list){
     const id=String(raw.id||'').slice(0,50),type=String(raw.type||'').slice(0,40),def=MOB_TYPES[type];if(!id||!def||type==='dummy'||id.startsWith('rift_'))continue;
@@ -245,7 +247,7 @@ function bootstrapAuthoritativeWorld(player,msg){
   }
   const nav=Array.isArray(msg.obstacles)?msg.obstacles.slice(0,2200):[];
   for(const raw of nav){const x=Number(raw.x),y=Number(raw.y);if(!Number.isFinite(x)||!Number.isFinite(y))continue;const o={x:clamp(x,0,WORLD.width),y:clamp(y,0,WORLD.height),box:!!raw.box,ellipse:!!raw.ellipse};if(o.ellipse){o.rx=clamp(raw.rx,8,1400);o.ry=clamp(raw.ry,8,1400);}else if(o.box){o.w=clamp(raw.w,8,800);o.h=clamp(raw.h,8,800);}else o.r=clamp(raw.r,4,120);addNavObstacle(o);}
-  mobsBootstrapped=authoritativeMobs.size>0;worldRevision++;worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=worldRevision;broadcast({type:'world:snapshot',snapshot:serverWorldSnapshot()});console.log('[world-bootstrap]',player.id,'mobs',authoritativeMobs.size,'nav',nav.length);
+  mobsBootstrapped=authoritativeMobs.size>0;worldRevision++;worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=worldRevision;broadcast({type:'world:snapshot',snapshot:serverWorldSnapshot()});console.log('[world-bootstrap]',player.id,'layout',SPAWN_LAYOUT_VERSION,'mobs',authoritativeMobs.size,'nav',nav.length);
 }
 function validMobTarget(m,p){return !!p?.ready&&p.hp>0&&(m.kind==='boss'||!safeZoneAt(p.x,p.y));}
 function nearestMobTarget(m){let best=null,bestD=m.kind==='boss'?900:720;for(const p of players.values()){if(!validMobTarget(m,p))continue;const d=Math.hypot(p.x-m.x,p.y-m.y);if(d<bestD){best=p;bestD=d;}}return best;}
