@@ -144,6 +144,7 @@ window.EchoesMulti={
   get serverUrl(){return url();},
   sendState(p){if(!state.connected||!p)return;send({type:'state',
     x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
+    swordStyle:p.swordStyle||'',swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):[],
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
     attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,
     combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
