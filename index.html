@@ -1066,7 +1066,7 @@ function hiddenDamageRadius(x,y,r,mult,heavy=false,stun=0){const hits=[];for(con
 function hiddenConeTargets(a,range=210,arc=1.55){const out=[];for(const e of hiddenTargets()){const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,d=Math.hypot(dx,dy),ea=Math.atan2(dy,dx);if(d<=range+combatRadius(e)&&Math.abs(angleDiff(ea,a))<=arc/2+combatRadius(e)/Math.max(d,45))out.push(e);}return out;}
 function hiddenWideSlashTargets(a,forward=185,halfWidth=190,back=28){const out=[];const ca=Math.cos(a),sa=Math.sin(a);for(const e of hiddenTargets()){const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,front=dx*ca+dy*sa,side=-dx*sa+dy*ca,r=combatRadius(e);if(front>=-back-r&&front<=forward+r&&Math.abs(side)<=halfWidth+r)out.push(e);}return out;}
 function nearestHiddenTarget(maxRange=520){let best=null,bd=maxRange;for(const e of hiddenTargets()){const d=combatDistance(e,player);if(d<bd){bd=d;best=e;}}return best;}
-function hiddenSkillCanStart(index,allowFollow=false){if(!canAct()||player.weapon!==3||player.exhaust>0||player.parry>0||player.dodge>0||hiddenSkillHold)return false;if(allowFollow)return true;return player.cast<=0&&player.attackCd<=0&&(player.hiddenSkillCds?.[index]||0)<=0;}
+function hiddenSkillCanStart(index,allowFollow=false){if(!canAct()||player.weapon!==3||player.exhaust>0||player.parry>0||player.dodge>0||hiddenSkillHold)return false;if(allowFollow)return true;return (player.hiddenSkillCds?.[index]||0)<=0;}
 function hiddenCommit(index){const s=skillInfo(index);if(!s||player.weapon!==3||!useStam(s.cost))return false;skillComboBegin('hidden:'+index);if(!Array.isArray(player.hiddenSkillCds))player.hiddenSkillCds=[0,0,0,0,0];player.hiddenSkillCds[index]=s.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.hiddenSkillCds[0];player.skillPose=index;player.combo=0;player.comboTimer=0;player.heavy=true;updateSkillTray();return true;}
 function hiddenPrepareFx(h,dt){h.fx-=dt;if(h.fx>0)return;h.fx=.11;const c=HIDDEN_SKILLS[h.index].color,r=38;ring(player.x,player.y,r,c,.22);effects.push({type:'starSeal',x:player.x,y:player.y,r:92,color:c,t:.24,max:.24});for(let j=0;j<4;j++){const a=h.facing+(j-1.5)*.28,d=78;effects.push({type:'line',x:player.x+Math.cos(a)*14,y:player.y+Math.sin(a)*14,x2:player.x+Math.cos(a)*d,y2:player.y+Math.sin(a)*d,color:j%2?'#ffffff':c,t:.18,max:.18});}}
 function beginHiddenSkillInput(index){
@@ -1074,7 +1074,7 @@ function beginHiddenSkillInput(index){
  const follow=index===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires&&hiddenSkillFollowup.targets.some(e=>e&&!e.dead&&!e.riftSleeping);
  if(!hiddenSkillCanStart(index,follow))return false;
  triggerSkillShake(index,index===4?1.12:1);
- const a=hiddenSkillFacing();player.facing=a;player.skillPose=index;player.attackAngle=a;cancelShieldForSkill();
+ const a=hiddenSkillFacing();player.cast=0;player.attackCd=0;player.facing=a;player.skillPose=index;player.attackAngle=a;cancelShieldForSkill();
  if(index===0)return triggerHiddenPrepared(0,hiddenMoveFacing(a));
  if(index===1)return follow?triggerHiddenFollowup():triggerHiddenPrepared(1,a);
  if(!hiddenCommit(index)){player.skillPose=-1;return false;}
