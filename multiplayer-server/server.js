@@ -379,10 +379,12 @@ function handlePvpDamage(player,msg){
   if(safeA||safeB){safeSend(player.ws,{type:'notice',message:'마을 안전구역에서는 PVP를 할 수 없습니다.'});return;}
   const maxRange=clamp(msg.range,80,760);
   if(Math.hypot(player.x-target.x,player.y-target.y)>maxRange+70)return;
-  const damage=clamp(msg.damage,1,650);
+  const damage=clamp(msg.damage,1,650),kx=clamp(msg.knockbackX,-280,280),ky=clamp(msg.knockbackY,-280,280),stun=clamp(msg.stun,0,.65);
   target.hp=Math.max(0,target.hp-damage);
-  safeSend(target.ws,{type:'pvp:hit',attackerId:player.id,attackerName:player.name,damage,hp:target.hp,maxHp:target.maxHp});
-  safeSend(player.ws,{type:'pvp:confirm',targetId:target.id,damage,hp:target.hp,maxHp:target.maxHp});
+  let targetX=target.x,targetY=target.y;
+  if(target.hp>0&&(Math.abs(kx)+Math.abs(ky)>1)){targetX=clamp(target.x+kx,40,WORLD.width-40);targetY=clamp(target.y+ky,40,WORLD.height-40);}
+  safeSend(target.ws,{type:'pvp:hit',attackerId:player.id,attackerName:player.name,damage,hp:target.hp,maxHp:target.maxHp,knockbackX:kx,knockbackY:ky,knockDuration:clamp(.18+Math.hypot(kx,ky)/900,.16,.42),stun,targetX,targetY});
+  safeSend(player.ws,{type:'pvp:confirm',targetId:target.id,damage,hp:target.hp,maxHp:target.maxHp,knockbackX:kx,knockbackY:ky,targetX,targetY});
   if(target.hp<=0){
     broadcast({type:'pvp:defeated',targetId:target.id,targetName:target.name,killerId:player.id,killerName:player.name});
   }
