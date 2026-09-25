@@ -262,6 +262,26 @@ function handleWorldSnapshot(player,msg){
   worldSnapshot=sanitizeWorldSnapshot(msg);
   broadcast({type:'world:snapshot',snapshot:worldSnapshot},player.ws);
 }
+function handleWorldMobDelta(player,msg){
+  if(player.id!==worldLeaderId||!Array.isArray(msg.mobs))return;
+  const byId=new Map(worldSnapshot.mobs.map(m=>[m.id,m]));
+  const changed=[];
+  for(const raw of msg.mobs.slice(0,500)){
+    const id=String(raw.id||'').slice(0,50);if(!id)continue;
+    const prev=byId.get(id)||{id,type:String(raw.type||'').slice(0,40),x:0,y:0,hp:1,maxHp:1,dead:false,state:'idle',facing:0,alert:false};
+    const m={
+      ...prev,id,type:String(raw.type||prev.type||'').slice(0,40),
+      x:clamp(raw.x,0,WORLD.width),y:clamp(raw.y,0,WORLD.height),
+      hp:clamp(raw.hp,0,9999999),maxHp:clamp(raw.maxHp,1,9999999),
+      dead:!!raw.dead,state:String(raw.state||prev.state||'idle').slice(0,20),
+      facing:clamp(raw.facing,-20,20),alert:!!raw.alert
+    };
+    byId.set(id,m);changed.push(m);
+  }
+  if(!changed.length)return;
+  worldSnapshot.mobs=[...byId.values()];worldSnapshot.updatedAt=Date.now();
+  broadcast({type:'world:mobsDelta',mobs:changed,serverTime:worldSnapshot.updatedAt},player.ws);
+}
 function handleItemTaken(player,msg){
   const itemId=String(msg.itemId||'').slice(0,70);if(!itemId)return;
   takenItems.add(itemId);
@@ -329,6 +349,7 @@ function handleMessage(player,msg){
     return;
   }
   if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}
+  if(msg.type==='world:mobsDelta'){handleWorldMobDelta(player,msg);return;}
   if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}
   if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}
   if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}
@@ -421,13 +442,15 @@ wss.on('connection',(ws)=>{
         bossRespawnMs:BOSS_RESPAWN_MS
       });
       broadcast({type:'player:join',player:publicPlayer(player)},ws);
+      console.log('[ws-open]',player.id,'players',players.size);
       electWorldLeader();
       return;
     }
     handleMessage(player,msg);
   });
 
-  ws.on('close',()=>{
+  ws.on('close',(code)=>{
+    if(player.ready)console.log('[ws-close]',player.id,'code',code,'players',players.size);
     clearTimeout(helloTimer);
     leaveParty(player);
     players.delete(player.id);
