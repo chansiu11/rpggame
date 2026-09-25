@@ -422,6 +422,11 @@ function blockedByBody(o,x,y,others){const oc=bodyCenter(o),offX=oc.x-o.x,offY=o
 function groundRadius(o){return o.type==='tree'?6*(o.scale||1):o.type==='rock'?o.r*.58:o.r;}
 function roundObstacleAt(x,y,r){return candidates(x,y,r+80).find(b=>b.solid&&!b.box&&(b.type==='tree'||b.type==='rock')&&Math.hypot(x-b.x,y-b.y)<r+groundRadius(b));}
 function moveBody(o,dx,dy){
+ if(multiplayerMode&&window.EchoesMulti?.connected&&o!==player&&o.type!=='dummy'&&!o.riftId){
+  const control={knockbackX:clamp(dx,-180,180),knockbackY:clamp(dy,-180,180)};
+  if(o.kind==='boss')window.EchoesMulti.damageBoss(o.id,0,control);else window.EchoesMulti.damageMob(o.id,0,control);
+  return;
+ }
  if(!bodyGridValid)rebuildBodyGrid();const length=Math.hypot(dx,dy);if(length<.00001)return;const steps=Math.max(1,Math.ceil(length/5)),sx=dx/steps,sy=dy/steps,stepLength=length/steps;
  for(let n=0;n<steps;n++){
   // Living enemies no longer behave like solid walls. Static scenery still blocks normally;
@@ -441,7 +446,10 @@ function moveBody(o,dx,dy){
  }
 }
 function pushBodyStatic(o,dx,dy){const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/5));for(let i=0;i<steps;i++){if(!solidAt(o.x+dx/steps,o.y,o.r))o.x+=dx/steps;if(!solidAt(o.x,o.y+dy/steps,o.r))o.y+=dy/steps;}syncBody(o);}
-function bodyWeight(o){if(multiplayerMode&&!multiWorldLeader&&o!==player&&o.type!=='dummy'&&!o.riftId)return 0;return o.type==='dummy'||o.kind==='boss'?0:1;}
+function bodyWeight(o){
+ if(multiplayerMode&&window.EchoesMulti?.connected&&o!==player&&o.type!=='dummy'&&!o.riftId)return 0;
+ return o.type==='dummy'||o.kind==='boss'?0:1;
+}
 function resolveBodyOverlaps(){
  if(!bodyGridValid)rebuildBodyGrid();
  // Soft separation: normal mobs and the player split overlap correction evenly.
@@ -570,12 +578,12 @@ function clearKeyConflict(){document.querySelectorAll('[data-action="bindKey"]')
 function captureKey(e){e.preventDefault();clearKeyConflict();if(e.code==='Escape'){keyCapture=null;$('keyPrompt').textContent='변경을 취소했습니다.';return;}if(!/^(Key[A-Z]|Digit[0-9]|Space|Tab|ShiftLeft|ShiftRight|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(e.code)||e.ctrlKey||e.altKey||e.metaKey){$('keyPrompt').textContent='문자·숫자·방향키·Space·Shift·Tab 중에서 고르세요.';return;}const action=keyCapture;delete keybinds[action];keybinds[action]=e.code;try{localStorage.setItem(accountStorageKey(KEYS_KEY),JSON.stringify(keybinds));}catch(err){toast('키 변경은 적용했지만 브라우저에 저장하지 못했습니다.');}keyCapture=null;resetInputs();showKeySettings(true);updateKeyLabels();}
 function updateKeyLabels(){for(const el of document.querySelectorAll('[data-act]')){const c={attack:'KeyZ',dash:'Space',parry:'KeyC',skill:'KeyQ',potion:'KeyF'}[el.dataset.act];if(c&&el.querySelector('kbd'))el.querySelector('kbd').textContent=keyName(keybinds[c]);}for(const el of document.querySelectorAll('[data-weapon]'))el.querySelector('kbd').textContent=keyName(keybinds['Digit'+(+el.dataset.weapon+1)]);}
 let lootSerial=0;
-function dropLoot(x,y,kind,amount=1,fixedId=null){
- if(multiplayerMode&&!multiWorldLeader&&!fixedId)return null;
+function dropLoot(x,y,kind,amount=1,fixedId=null,serverConfirmed=false){
+ if(multiplayerMode&&!multiWorldLeader&&!serverConfirmed&&!fixedId)return null;
  const p=freeBodySpot(x,y,12),same=objects.find(o=>o.type==='loot'&&!o.fixed&&o.lootKind===kind&&distance(o,p)<180);
- if(same&&!fixedId){same.amount+=amount;if(multiplayerMode&&multiWorldLeader&&window.EchoesMulti?.connected){multiSharedAvailableItems.add(same.id);window.EchoesMulti.itemSpawn(sharedWorldItemData(same));}return same;}
+ if(same&&!fixedId){same.amount+=amount;if(multiplayerMode&&(multiWorldLeader||serverConfirmed)&&window.EchoesMulti?.connected){multiSharedAvailableItems.add(same.id);window.EchoesMulti.itemSpawn(sharedWorldItemData(same));}return same;}
  const o={type:'loot',id:fixedId||'loot'+Date.now().toString(36)+(lootSerial++),x:p.x,y:p.y,r:13,lootKind:kind,amount,fixed:!!fixedId};objects.push(o);
- if(multiplayerMode&&multiWorldLeader&&window.EchoesMulti?.connected){multiSharedAvailableItems.add(o.id);window.EchoesMulti.itemSpawn(sharedWorldItemData(o));}
+ if(multiplayerMode&&(multiWorldLeader||serverConfirmed)&&window.EchoesMulti?.connected){multiSharedAvailableItems.add(o.id);window.EchoesMulti.itemSpawn(sharedWorldItemData(o));}
  return o;
 }
 function prepareLoot(){objects=objects.filter(o=>o.type!=='loot');if(!player.ownedWeapons.includes(1))dropLoot(1190,3250,'weapon1',1,'gear_twins');if(!player.ownedWeapons.includes(2))dropLoot(1360,2920,'weapon2',1,'gear_bow');}
@@ -675,6 +683,12 @@ function buildSharedWorldSnapshot(includeItems=true){
  const out={mobs};if(includeItems)out.items=objects.filter(isSharedWorldItem).filter(o=>!multiWorldReady||multiSharedAvailableItems.has(o.id)).map(sharedWorldItemData);
  return out;
 }
+function buildServerWorldBootstrap(){
+ const mobs=enemies.filter(e=>e.type!=='dummy'&&!e.riftId).map(e=>({...mobNetState(e),speed:e.speed||0,damage:e.damage||0,reach:e.reach||0,wind:e.wind||0,r:e.r||18}));
+ const nav=obstacles.filter(o=>o.solid).slice(0,1800).map(o=>o.box?{x:o.x,y:o.y,box:true,w:o.w,h:o.h}:{x:o.x,y:o.y,r:groundRadius(o)});
+ for(const p of pools)nav.push({x:p.x,y:p.y,ellipse:true,rx:p.rx,ry:p.ry});
+ return {mobs,obstacles:nav};
+}
 function mobNetState(e){return {id:e.id,type:e.type,x:Math.round(e.x*10)/10,y:Math.round(e.y*10)/10,hp:e.hp,maxHp:e.maxHp,dead:!!e.dead,state:e.state||'idle',facing:Math.round((e.facing||0)*100)/100,alert:!!e.alert};}
 function buildSharedMobDelta(force=false){
  const changed=[];
@@ -683,10 +697,8 @@ function buildSharedMobDelta(force=false){
  }
  return changed;
 }
-function applySharedMobDelta(list){if(!Array.isArray(list))return;const now=performance.now();for(const m of list){const e=enemies.find(v=>v.id===m.id);if(!e)continue;const nx=Number(m.x),ny=Number(m.y),px=Number.isFinite(e._netX)?e._netX:e.x,py=Number.isFinite(e._netY)?e._netY:e.y,dt=Math.max(.03,(now-(e._netAt||now-100))/1000);e._netVX=Number.isFinite(nx)?clamp((nx-px)/dt,-1500,1500):0;e._netVY=Number.isFinite(ny)?clamp((ny-py)/dt,-1500,1500):0;e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;
- if(multiWorldLeader){e.x=e._netX;e.y=e._netY;} 
- e.facing=Number(m.facing)||0;e.state=m.state||e.state;e.alert=!!m.alert;if(e.kind!=='boss'){e.maxHp=Math.max(1,Number(m.maxHp)||e.maxHp);e.hp=clamp(Number(m.hp)||0,0,e.maxHp);e.dead=!!m.dead;if(e.dead)e.state='dead';}}
- bodyGridValid=false;
+function applySharedMobDelta(list){
+ if(!Array.isArray(list))return;const now=performance.now();for(const m of list)applyServerMobState(m,now);bodyGridValid=false;
 }
 function applySharedItemSpawn(item){
  if(!item?.id)return;multiSharedAvailableItems.add(item.id);
@@ -695,34 +707,34 @@ function applySharedItemSpawn(item){
  if(o){o.x=item.x;o.y=item.y;o.lootKind=item.lootKind;o.amount=item.amount;return;}
  objects.push({type:'loot',id:item.id,x:item.x,y:item.y,r:13,lootKind:item.lootKind,amount:item.amount,fixed:!!item.fixed});
 }
+function applyServerMobState(m,now=performance.now()){
+ if(!m?.id)return null;let e=enemies.find(v=>v.id===m.id);
+ if(!e&&ENEMY_TYPES[m.type])e=addEnemy(m.type,Number(m.x)||0,Number(m.y)||0,m.id);if(!e)return null;
+ const nx=Number(m.x),ny=Number(m.y),px=Number.isFinite(e._netX)?e._netX:e.x,py=Number.isFinite(e._netY)?e._netY:e.y,dt=Math.max(.03,(now-(e._netAt||now-100))/1000);
+ e._netVX=Number.isFinite(nx)?clamp((nx-px)/dt,-1800,1800):0;e._netVY=Number.isFinite(ny)?clamp((ny-py)/dt,-1800,1800):0;e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;
+ if(Math.hypot(e.x-e._netX,e.y-e._netY)>420){e.x=e._netX;e.y=e._netY;}
+ if(Number.isFinite(Number(m.facing)))e.facing=Number(m.facing);if(typeof m.state==='string')e.state=m.state;if(m.alert!==undefined)e.alert=!!m.alert;
+ if(m.targetId!==undefined)e.serverTargetId=m.targetId||null;if(m.attackType!==undefined)e.attackType=m.attackType||e.attackType;if(Number.isFinite(Number(m.timer)))e.timer=Math.max(0,Number(m.timer));
+ if(Number.isFinite(Number(m.windTotal))&&Number(m.windTotal)>0)e.windTotal=Number(m.windTotal);if(Number.isFinite(Number(m.locked)))e.locked=Number(m.locked);if(Number.isFinite(Number(m.range))&&Number(m.range)>0)e.range=Number(m.range);
+ if(Number.isFinite(Number(m.maxHp)))e.maxHp=Math.max(1,Number(m.maxHp));if(Number.isFinite(Number(m.hp)))e.hp=clamp(Number(m.hp),0,e.maxHp);if(m.dead!==undefined)e.dead=!!m.dead;if(e.dead)e.state='dead';return e;
+}
+
 function applySharedWorldSnapshot(snapshot){
- if(!snapshot||!Array.isArray(snapshot.mobs))return;
- const now=performance.now(),items=Array.isArray(snapshot.items)?snapshot.items:null;
- if(Number(snapshot.updatedAt)>0||snapshot.mobs.length||(items&&items.length))multiWorldReady=true;
- if(items){
-  multiSharedAvailableItems=new Set(items.map(o=>o.id));
-  const lootIds=new Set(items.filter(o=>o.type==='loot').map(o=>o.id));
-  objects=objects.filter(o=>o.type!=='loot'||!multiplayerMode||lootIds.has(o.id)||!multiWorldReady);
-  for(const item of items)applySharedItemSpawn(item);
+ if(!snapshot||!Array.isArray(snapshot.mobs))return;const now=performance.now(),items=Array.isArray(snapshot.items)?snapshot.items:null,ready=snapshot.ready!==false&&snapshot.mobs.length>0;
+ if(ready)multiWorldReady=true;
+ if(items&&snapshot.ready!==false){
+  multiSharedAvailableItems=new Set(items.map(o=>o.id));const lootIds=new Set(items.filter(o=>o.type==='loot').map(o=>o.id));
+  objects=objects.filter(o=>o.type!=='loot'||!multiplayerMode||lootIds.has(o.id)||!multiWorldReady);for(const item of items)applySharedItemSpawn(item);
  }
- for(const m of snapshot.mobs){
-  const e=enemies.find(v=>v.id===m.id);if(!e)continue;
-  const nx=Number(m.x),ny=Number(m.y),prevX=Number.isFinite(e._netX)?e._netX:e.x,prevY=Number.isFinite(e._netY)?e._netY:e.y,prevAt=e._netAt||now-350,dt=Math.max(.05,(now-prevAt)/1000);
-  e._netVX=Number.isFinite(nx)?clamp((nx-prevX)/dt,-1500,1500):0;e._netVY=Number.isFinite(ny)?clamp((ny-prevY)/dt,-1500,1500):0;
-  e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;
-  if(multiWorldLeader||Math.hypot(e.x-e._netX,e.y-e._netY)>420){e.x=e._netX;e.y=e._netY;}
-  e.facing=Number(m.facing)||0;e.state=m.state||e.state;e.alert=!!m.alert;
-  if(e.kind!=='boss'){e.maxHp=Math.max(1,Number(m.maxHp)||e.maxHp);e.hp=clamp(Number(m.hp)||0,0,e.maxHp);e.dead=!!m.dead;if(e.dead)e.state='dead';}
- }
+ if(!ready)return;
+ const ids=new Set();for(const m of snapshot.mobs){ids.add(m.id);applyServerMobState(m,now);}
+ if(multiplayerMode&&window.EchoesMulti?.connected)for(const e of enemies){if(e.type==='dummy'||e.riftId)continue;if(!ids.has(e.id)){e.dead=true;e.state='dead';e._serverMissing=true;}else e._serverMissing=false;}
  bodyGridValid=false;
 }
 function applySharedMobPatch(m){
- if(!m?.id)return;const e=enemies.find(v=>v.id===m.id);if(!e||e.kind==='boss')return;
- const wasDead=e.dead;e.maxHp=Math.max(1,Number(m.maxHp)||e.maxHp);e.hp=clamp(Number(m.hp)||0,0,e.maxHp);
- if(m.dead&&!wasDead){
-  if(multiWorldLeader)defeatEnemy(e);
-  else{e.dead=true;e.hp=0;e.state='dead';e.respawn=160;burst(e.x,e.y,e.color,12,80);}
- }else if(!m.dead){e.dead=false;if(e.state==='dead')e.state='idle';}
+ if(!m?.id)return;const e=enemies.find(v=>v.id===m.id);if(!e||e.kind==='boss')return;const wasDead=e.dead;applyServerMobState(m);
+ if(m.dead&&!wasDead){if(m.by===window.EchoesMulti?.state?.selfId)defeatEnemy(e,true);else{e.dead=true;e.hp=0;e.state='dead';e.respawn=160;burst(e.x,e.y,e.color,12,80);}}
+ else if(!m.dead){e.dead=false;if(e.state==='dead')e.state='idle';}
 }
 function sharedPvpPoint(rp){return {x:Number.isFinite(rp?.rx)?rp.rx:Number(rp?.x)||0,y:Number.isFinite(rp?.ry)?rp.ry:Number(rp?.y)||0};}
 function sharedPvpPartyMember(id){return !!window.EchoesMulti?.state?.party?.members?.includes(id);}
@@ -1036,19 +1048,34 @@ function toggleSkillTray(){$('skillTray').classList.toggle('hidden');updateSkill
 function updateSkillTray(){if(!$('skillTray'))return;for(const b of $('skillTray').querySelectorAll('[data-skill]')){const i=+b.dataset.skill,s=skillInfo(i),locked=player.level<s.level,follow=player.weapon===3&&i===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires;b.disabled=locked||(!follow&&player.skillCds[i]>0)||player.exhaust>0;const html='<b>'+s.name+'</b><span>'+(locked?'Lv.'+s.level:follow?'추격 가능 · '+Math.max(0,hiddenSkillFollowup.expires-realTime).toFixed(1)+'초':player.skillCds[i]>0?player.skillCds[i].toFixed(1)+'초':s.cost+' 지구력')+'</span><small>'+keyName(keybinds[['KeyQ','KeyR','KeyT','KeyG','KeyV'][i]])+'</small>';if(b._lastHTML!==html){b.innerHTML=html;b._lastHTML=html;}}updateSkillCooldownHud();}
 function updateSkillCooldownHud(){const hud=$('skillCooldownHud');if(!hud||!player)return;const keys=['KeyQ','KeyR','KeyT','KeyG','KeyV'];for(const el of hud.querySelectorAll('[data-skill-cd]')){const i=+el.dataset.skillCd,s=skillInfo(i),cd=Math.max(0,player.skillCds[i]||0),locked=player.level<s.level,follow=player.weapon===3&&i===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires;el.classList.toggle('locked',locked);el.classList.toggle('cooling',!locked&&cd>0&&!follow);const state=locked?'Lv.'+s.level:follow?'FOLLOW':cd>0?cd.toFixed(cd>=10?0:1)+'초':'READY';const html='<kbd>'+keyName(keybinds[keys[i]])+'</kbd><span class="skill-cd-name">'+esc(s.name)+'</span><span class="skill-cd-time">'+state+'</span>';if(el._lastHTML!==html){el.innerHTML=html;el._lastHTML=html;}}}
 function showSkills(){const hidden=player.weapon===3,tip=hidden?'성흔의 대검은 입력 방식부터 다릅니다. 1·2·5번은 누르는 동안 준비 자세로 이동이 봉인되고 키를 떼면 발동합니다. 3번은 누르는 동안 최대 5초 검압을 유지하며 이동속도가 80% 감소하고, 4번은 누르는 동안 최대 4초 질주하며 이동키로 진행 방향을 조절합니다. 2번 적중 후 표식은 3초 유지되며 여러 적이 표식되면 R을 누를 때마다 현재 위치에서 가장 가까운 표식 대상부터 순서대로 추격합니다. 5번은 사용 중 이동이 완전히 봉인됩니다. 0.5초 준비 후 이동키 방향으로 순간돌진하고 1초 간격으로 두 번 더 반복한 뒤, 1초 후 강력한 마무리 일격을 가합니다. 각 순간돌진 직전에 이동키로 방향을 다시 정할 수 있으며 손을 떼면 즉시 종료됩니다.':player.weapon===2?'활 스킬은 다발 사격·관통·후퇴 사격 등 원거리 제압에 특화되어 있습니다.':'2번 스킬(R)은 고속 돌진, 4번 스킬(G)은 유지 시간에 따라 돌진과 범위 공격이 달라집니다. 칼 기본 공격은 지구력 소모가 없습니다.';openPanel('skills',header(hidden?'FORBIDDEN STIGMA ARTS':'FIVE ARTS',hidden?'성흔의 대검 · 전용 성흔술':'스킬과 5연격')+'<div class="grid two">'+SKILLS.map((_,i)=>{const s=skillInfo(i);return '<div class="card"><h3>'+s.name+' · Lv.'+s.level+'</h3><p>'+s.desc+'</p><p>'+s.cost+' 지구력 · 재사용 '+s.cool+'초 · '+keyName(keybinds[['KeyQ','KeyR','KeyT','KeyG','KeyV'][i]])+'</p><b>'+(player.level>=s.level?'사용 가능':'레벨업으로 해금')+'</b></div>';}).join('')+'</div><div class="tip">'+tip+'</div>'+footer());}
-function hitEnemy(e,amount,heavy=false,source=player){if(e.riftSleeping)return;if(e.dead||(e.type==='finalBoss'&&!e.alert))return;if(isTacticalMob(e)&&e.aiDashEvade>0){floating(e.x,e.y-e.r-18,'회피','#bce8e6');ring(e.x,e.y,e.r+14,'#9fdde3',.18);return;}if(isTacticalMob(e)&&e.guardActive&&source){const incoming=Math.atan2(source.y-e.y,source.x-e.x);if(Math.abs(angleDiff(incoming,e.facing))<1.75){e.guardSawAttack=true;e.flash=.08;ring(e.x,e.y,e.r+17,'#9ddde8',.16);floating(e.x,e.y-e.r-18,'BLOCK','#a9dfe8');sound('block');hitstop=Math.max(hitstop,.018);return;}}const dmg=Math.max(1,Math.round(amount*(e.stun>.4?1.2:1)));
- const sharedMob=multiplayerMode&&window.EchoesMulti?.connected&&e.kind!=='boss'&&e.type!=='dummy'&&!e.riftId;
- if(multiplayerMode&&e.kind==='boss'&&window.EchoesMulti?.connected)window.EchoesMulti.damageBoss(e.id,dmg);
- if(sharedMob)window.EchoesMulti.damageMob(e.id,dmg);
- e.hp-=dmg;e.flash=.15;e.alert=true;e.poise+=heavy?55:14;const hc=combatCenter(e),hitY=e.kind==='boss'?hc.y:e.y-e.r*.4;damageFloating(e.x+rnd(-10,10),e.kind==='boss'?hc.y-30:e.y-e.r-18,dmg,source?Math.atan2(hc.y-source.y,hc.x-source.x):0,heavy);burst(hc.x,hitY,heavy?'#f4d892':'#cbdac8',heavy?16:6,heavy?145:85);sound('hit');if(options.shake)shake=Math.max(shake,heavy?5:2);hitstop=Math.max(hitstop,heavy?.055:.025);
- if(e.type==='dummy'){e.hp=e.maxHp;player.training.attack=true;if(e.state==='idle'){e.timer=.8;e.alert=true;}return;}
- if(e.kind==='boss'){if(e.poise>=130){applyEnemyStun(e,1.7);e.poise=0;floating(e.x,e.y-85,'자세 붕괴','#e7d395',true);sound('parry');}}else{if(e.state!=='windup'&&e.state!=='charge')applyEnemyStun(e,heavy?.75:.15);if(heavy&&!enemyGuardBlocksControl(e)){const a=Math.atan2(e.y-source.y,e.x-source.x);moveBody(e,Math.cos(a)*24,Math.sin(a)*24);}}
+function hitEnemy(e,amount,heavy=false,source=player){
+ if(e.riftSleeping)return;if(e.dead||(e.type==='finalBoss'&&!e.alert))return;const serverMob=multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId;
+ if(!serverMob&&isTacticalMob(e)&&e.aiDashEvade>0){floating(e.x,e.y-e.r-18,'회피','#bce8e6');ring(e.x,e.y,e.r+14,'#9fdde3',.18);return;}
+ if(!serverMob&&isTacticalMob(e)&&e.guardActive&&source){const incoming=Math.atan2(source.y-e.y,source.x-e.x);if(Math.abs(angleDiff(incoming,e.facing))<1.75){e.guardSawAttack=true;e.flash=.08;ring(e.x,e.y,e.r+17,'#9ddde8',.16);floating(e.x,e.y-e.r-18,'BLOCK','#a9dfe8');sound('block');hitstop=Math.max(hitstop,.018);return;}}
+ const dmg=Math.max(1,Math.round(amount*(e.stun>.4?1.2:1))),hc=combatCenter(e),hitY=e.kind==='boss'?hc.y:e.y-e.r*.4;e.flash=.15;
+ damageFloating(e.x+rnd(-10,10),e.kind==='boss'?hc.y-30:e.y-e.r-18,dmg,source?Math.atan2(hc.y-source.y,hc.x-source.x):0,heavy);burst(hc.x,hitY,heavy?'#f4d892':'#cbdac8',heavy?16:6,heavy?145:85);sound('hit');if(options.shake)shake=Math.max(shake,heavy?5:2);hitstop=Math.max(hitstop,heavy?.055:.025);
+ if(serverMob){
+  const a=source?Math.atan2(e.y-source.y,e.x-source.x):e.facing,control={stun:(e.state!=='windup'&&e.state!=='charge')?(heavy?.75:.15):0,knockbackX:heavy?Math.cos(a)*24:0,knockbackY:heavy?Math.sin(a)*24:0};
+  if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,dmg,control);else window.EchoesMulti.damageMob(e.id,dmg,control);return;
+ }
+ e.hp-=dmg;e.alert=true;e.poise+=heavy?55:14;if(e.type==='dummy'){e.hp=e.maxHp;player.training.attack=true;if(e.state==='idle'){e.timer=.8;e.alert=true;}return;}
+ if(e.kind==='boss'){if(e.poise>=130){applyEnemyStun(e,1.7);e.poise=0;floating(e.x,e.y-85,'자세 붕괴','#e7d395',true);sound('parry');}}
+ else{if(e.state!=='windup'&&e.state!=='charge')applyEnemyStun(e,heavy?.75:.15);if(heavy&&!enemyGuardBlocksControl(e)){const a=Math.atan2(e.y-source.y,e.x-source.x);moveBody(e,Math.cos(a)*24,Math.sin(a)*24);}}
  if(e.hp<=0)defeatEnemy(e);
 }
-function defeatEnemy(e){if(multiplayerMode&&!multiWorldLeader&&e.kind!=='boss'&&e.type!=='dummy'&&!e.riftId){e.dead=true;e.hp=0;e.respawn=160;e.state='dead';return;}if(e.type!=='dummy')player.bestiary[e.type]=(player.bestiary[e.type]||0)+1;e.dead=true;e.hp=0;e.respawn=160;e.state='dead';burst(e.x,e.y,e.color,23,130);ring(e.x,e.y,65,e.color);player.stats.kills++;const reg=regionAt(e.x,e.y);if(e.kind!=='boss'&&reg===2)player.stats.frostKills=(player.stats.frostKills||0)+1;if(e.kind!=='boss'&&reg===7)player.stats.abyssKills=(player.stats.abyssKills||0)+1;if(e.gold>0)dropLoot(e.x,e.y,'gold',e.gold);if(player.stats.kills%3===0)dropLoot(e.x+24,e.y,'potion',1);addXp(e.xp);
- if(e.kind==='boss'){e.defeated=true;if(multiplayerMode){dropLoot(e.x+26,e.y,'ore',Math.max(3,Math.ceil((e.gold||0)/90)));dropLoot(e.x-26,e.y,'potion',2);player.hp=player.maxHp;player.shield=player.maxShield;player.stam=player.maxStam;ring(e.x,e.y,250,'#e6cd8c',1.8);sound('reward');toast('<b>'+e.name+' 격파</b><br>공용 월드 보스 · 약 3분 뒤 재소환');saveGame(false);return;}if(!player.seals.includes(e.seal))player.seals.push(e.seal);if(e.type==='frostBoss'){grantEquipment('head','frostCrown');grantEquipment('chest','frostMail');grantEquipment('shield','frostShield');if(player.frostCore<1){player.frostCore=1;toast('<b>빙정 핵 획득</b> · 비밀 제작에 쓰이는 희귀 재료');}}if(e.type==='abyssBoss'){grantEquipment('head','voidVisor');grantEquipment('chest','abyssPlate');if(player.abyssCore<1){player.abyssCore=1;toast('<b>적월 핵 획득</b> · 비밀 제작에 쓰이는 희귀 재료');}}if(e.type==='finalBoss')grantEquipment('shield','astralShield');if(e.type==='finalBoss'){player.stats.final=(player.stats.final||0)+1;toast('<b>'+e.name+' 격파</b><br>월드 보스는 다시 나타납니다.');}else if(e.seal<3){player.stats.bosses=player.seals.filter(x=>x<3).length;dropLoot(e.x+26,e.y,'ore',5);dropLoot(e.x-26,e.y,'potion',2);toast('<b>'+e.name+' 정화</b><br>수호자의 인장 · 광석 +5 · 회복약 +2');}else{dropLoot(e.x+26,e.y,'ore',8);dropLoot(e.x-26,e.y,'potion',2);toast('<b>'+e.name+' 격파</b><br>특수 보스 보상 · 광석 +8 · 회복약 +2');}syncStoryProgress(true);player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;ring(e.x,e.y,250,'#e6cd8c',1.8);sound('reward');saveGame(false);}
- else if(!e.riftId&&player.stats.kills%4===0){dropLoot(e.x,e.y+20,'ore',1);}
- checkQuestNotices();}
+function defeatEnemy(e,serverConfirmed=false){
+ const shared=multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId;if(shared&&!serverConfirmed){e.dead=true;e.hp=0;e.respawn=160;e.state='dead';return;}
+ if(e.type!=='dummy')player.bestiary[e.type]=(player.bestiary[e.type]||0)+1;e.dead=true;e.hp=0;e.respawn=160;e.state='dead';burst(e.x,e.y,e.color,23,130);ring(e.x,e.y,65,e.color);player.stats.kills++;
+ const reg=regionAt(e.x,e.y);if(e.kind!=='boss'&&reg===2)player.stats.frostKills=(player.stats.frostKills||0)+1;if(e.kind!=='boss'&&reg===7)player.stats.abyssKills=(player.stats.abyssKills||0)+1;
+ if(e.gold>0)dropLoot(e.x,e.y,'gold',e.gold,null,serverConfirmed);if(player.stats.kills%3===0)dropLoot(e.x+24,e.y,'potion',1,null,serverConfirmed);addXp(e.xp);
+ if(e.kind==='boss'){
+  e.defeated=true;if(multiplayerMode){dropLoot(e.x+26,e.y,'ore',Math.max(3,Math.ceil((e.gold||0)/90)),null,serverConfirmed);dropLoot(e.x-26,e.y,'potion',2,null,serverConfirmed);player.hp=player.maxHp;player.shield=player.maxShield;player.stam=player.maxStam;ring(e.x,e.y,250,'#e6cd8c',1.8);sound('reward');toast('<b>'+e.name+' 격파</b><br>공용 월드 보스 · 약 3분 뒤 재소환');saveGame(false);return;}
+  if(!player.seals.includes(e.seal))player.seals.push(e.seal);if(e.type==='frostBoss'){grantEquipment('head','frostCrown');grantEquipment('chest','frostMail');grantEquipment('shield','frostShield');if(player.frostCore<1){player.frostCore=1;toast('<b>빙정 핵 획득</b> · 비밀 제작에 쓰이는 희귀 재료');}}
+  if(e.type==='abyssBoss'){grantEquipment('head','voidVisor');grantEquipment('chest','abyssPlate');if(player.abyssCore<1){player.abyssCore=1;toast('<b>적월 핵 획득</b> · 비밀 제작에 쓰이는 희귀 재료');}}if(e.type==='finalBoss')grantEquipment('shield','astralShield');
+  if(e.type==='finalBoss'){player.stats.final=(player.stats.final||0)+1;toast('<b>'+e.name+' 격파</b><br>월드 보스는 다시 나타납니다.');}else if(e.seal<3){player.stats.bosses=player.seals.filter(x=>x<3).length;dropLoot(e.x+26,e.y,'ore',5);dropLoot(e.x-26,e.y,'potion',2);toast('<b>'+e.name+' 정화</b><br>수호자의 인장 · 광석 +5 · 회복약 +2');}else{dropLoot(e.x+26,e.y,'ore',8);dropLoot(e.x-26,e.y,'potion',2);toast('<b>'+e.name+' 격파</b><br>특수 보스 보상 · 광석 +8 · 회복약 +2');}
+  syncStoryProgress(true);player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;ring(e.x,e.y,250,'#e6cd8c',1.8);sound('reward');saveGame(false);
+ }else if(!e.riftId&&player.stats.kills%4===0)dropLoot(e.x,e.y+20,'ore',1,null,serverConfirmed);checkQuestNotices();
+}
 function dash(){if(!canAct()||player.cast>0)return;if(player.dodgeCd>0||player.dodge>0){if(Math.max(player.dodgeCd,player.dodge)<.17)queueAction('dash');return;}if(!useStam(20-4*player.perks.flow))return;let x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y;const n=Math.hypot(x,y);if(n){x/=n;y/=n;}else{x=Math.cos(player.facing);y=Math.sin(player.facing);}player.dx=x;player.dy=y;player.dodge=.2;player.dodgeCd=.55;player.invuln=Math.max(player.invuln,.16);player.attackAnim=0;player.parry=0;player.perfectWindow=0;player.training.dodge=true;player.stats.dodges++;ring(player.x,player.y,33,'#b7dec9',.3);sound('dodge');}
 let desktopShield=false;
 function shieldHeld(){return desktopShield||keys.has('KeyC')||[...touchPointers.values()].some(v=>v.action==='parry');}
@@ -1077,7 +1104,15 @@ function potion(){if(!canAct()||player.potionCd>0)return;if(player.potions<=0){t
 function switchWeapon(index){if(!canAct()||player.exhaust>0||player.cast>0||player.dodge>0||player.attackCd>.1)return;if(!player.ownedWeapons.includes(index)){toast('아직 획득하지 않은 무기입니다. 마을 동쪽의 빛나는 장비를 찾아 주우세요.');return;}secondSkillArmed=false;if(fourthSkillHold&&!fourthSkillHold.dashing)fourthSkillHold=null;if(hiddenSkillHold){hiddenSkillHold=null;player.cast=0;}hiddenSkillFollowup=null;player.skillPose=-1;player.weapon=clamp(index,0,3);player.combo=0;updateHUD();sound('click');}
 function isTacticalMob(e){return !!e&&e.kind!=='boss'&&e.type!=='dummy';}
 function enemyGuardBlocksControl(e){return isTacticalMob(e)&&e.guardActive;}
-function applyEnemyStun(e,duration){if(!e||e.dead||duration<=0)return false;if(enemyGuardBlocksControl(e))return false;if(e.kind==='boss'&&(e.state==='windup'||e.state==='charge')){e.pendingStun=Math.max(e.pendingStun||0,duration);return true;}e.stun=Math.max(e.stun||0,duration);e.state='stunned';return true;}
+function applyEnemyStun(e,duration){
+ if(!e||e.dead||duration<=0)return false;
+ if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
+  const control={stun:duration};if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,0,control);else window.EchoesMulti.damageMob(e.id,0,control);return true;
+ }
+ if(enemyGuardBlocksControl(e))return false;
+ if(e.kind==='boss'&&(e.state==='windup'||e.state==='charge')){e.pendingStun=Math.max(e.pendingStun||0,duration);return true;}
+ e.stun=Math.max(e.stun||0,duration);e.state='stunned';return true;
+}
 function applyPendingBossStun(e){if(e?.kind!=='boss'||!(e.pendingStun>0))return false;const d=e.pendingStun;e.pendingStun=0;e.stun=Math.max(e.stun||0,d);e.state='stunned';return true;}
 function playerAttackThreat(e){
  if(!isTacticalMob(e)||!player||player.hp<=0)return false;
@@ -1447,42 +1482,35 @@ function syncRemotePlayers(list){
 }
 function bindMultiplayerEvents(){
  const m=window.EchoesMulti;if(!m||m.__gameBound)return;m.__gameBound=true;
- m.on('players',syncRemotePlayers);
- m.on('player:state',mergeRemotePlayerState);
- m.on('boss',applySharedBossState);m.on('bosses',list=>(list||[]).forEach(applySharedBossState));
- m.on('world:role',role=>{multiWorldLeader=!!role?.isLeader;multiWorldSyncTimer=.1;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=multiWorldLeader;multiMobLastSent.clear();if(multiplayerMode&&multiWorldLeader)toast('공용 월드 동기화 기준이 이 기기로 변경되었습니다.');});
- m.on('world:snapshot',applySharedWorldSnapshot);
- m.on('world:mobsDelta',applySharedMobDelta);
- m.on('world:itemTaken',msg=>{if(!msg?.itemId)return;multiSharedAvailableItems.delete(msg.itemId);objects=objects.filter(o=>!(o.type==='loot'&&o.id===msg.itemId));});
- m.on('world:itemSpawn',applySharedItemSpawn);
- m.on('world:mobPatch',applySharedMobPatch);
- m.on('party',()=>{if(modal==='party')showParty();});
- m.on('party:invite',invite=>{multiPartyInvite=invite;toast('<b>파티 초대</b> · '+esc(invite.leaderName||'플레이어')+'님이 초대했습니다.');});
+ m.on('players',syncRemotePlayers);m.on('player:state',mergeRemotePlayerState);
+ m.on('player:self',msg=>{if(!multiplayerMode||!msg?.player||!player)return;const p=msg.player,dx=(Number(p.x)||player.x)-player.x,dy=(Number(p.y)||player.y)-player.y,d=Math.hypot(dx,dy);if(d>260){player.x=Number(p.x)||player.x;player.y=Number(p.y)||player.y;}else if(d>8){player.x+=dx*.12;player.y+=dy*.12;}});
+ m.on('boss',applySharedBossState);m.on('bosses',list=>(list||[]).forEach(applySharedBossState));m.on('boss:defeated',msg=>{if(msg?.killerId!==m.state.selfId)return;const e=enemies.find(v=>v.id===msg?.boss?.id);if(e)defeatEnemy(e,true);});
+ m.on('world:role',role=>{multiWorldLeader=!!role?.isLeader;multiWorldSyncTimer=0;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=false;multiMobLastSent.clear();});
+ m.on('world:snapshot',applySharedWorldSnapshot);m.on('world:mobsDelta',applySharedMobDelta);
+ m.on('world:mobAttack',msg=>{
+  const e=enemies.find(v=>v.id===msg?.mobId);if(!e)return;e.attackType=msg.attackType||e.attackType;e.facing=Number(msg.facing)||e.facing;ring(e.x,e.y,e.kind==='boss'?70:38,e.color||'#e1c28d',.22);
+  if(msg.targetId!==m.state.selfId||player.hp<=0)return;const result=hitPlayer(Math.max(0,Number(msg.damage)||e.damage||1),e,true);
+  if(result==='parried'){const a=Math.atan2(e.y-player.y,e.x-player.x),control={stun:1.25,knockbackX:Math.cos(a)*18,knockbackY:Math.sin(a)*18};if(e.kind==='boss')m.damageBoss(e.id,0,control);else m.damageMob(e.id,0,control);}
+ });
+ m.on('world:itemTaken',msg=>{if(!msg?.itemId)return;multiSharedAvailableItems.delete(msg.itemId);objects=objects.filter(o=>!(o.type==='loot'&&o.id===msg.itemId));});m.on('world:itemSpawn',applySharedItemSpawn);m.on('world:mobPatch',applySharedMobPatch);
+ m.on('party',()=>{if(modal==='party')showParty();});m.on('party:invite',invite=>{multiPartyInvite=invite;toast('<b>파티 초대</b> · '+esc(invite.leaderName||'플레이어')+'님이 초대했습니다.');});
  m.on('pvp:hit',msg=>{if(!multiplayerMode||player.hp<=0)return;player.hp=clamp(Number(msg.hp)||0,0,player.maxHp);player.hurt=.22;damageFlash=.22;floating(player.x,player.y-54,'-'+Math.max(1,Math.round(Number(msg.damage)||1)),'#ff8f87',true);sound('hurt');if(player.hp<=0)showDefeat();});
- m.on('pvp:confirm',msg=>{const rp=multiRemotePlayers.get(msg?.targetId);if(rp){rp.hp=Number(msg.hp)||0;rp.maxHp=Number(msg.maxHp)||rp.maxHp;}});
- m.on('pvp:defeated',msg=>{if(msg?.killerId===m.state.selfId)toast('<b>PVP 승리</b> · '+esc(msg.targetName||'플레이어')+' 격파');else if(msg?.targetId===m.state.selfId)toast('<b>PVP 패배</b> · '+esc(msg.killerName||'플레이어')+'에게 쓰러졌습니다.');});
- m.on('notice',message=>{if(message)toast(esc(message));});
- m.on('session:replaced',()=>{if(!currentAccount)return;logoutAccount(true);toast('<b>중복 로그인 감지</b><br>같은 계정이 다른 기기에서 접속하여 이 기기에서는 로그아웃되었습니다.');});
- m.on('reconnecting',v=>{if(multiplayerMode&&realTime-(player.netReconnectNoticeAt||0)>2){player.netReconnectNoticeAt=realTime;toast('통신이 잠시 끊겼습니다. 자동으로 재연결 중입니다…');}});
- m.on('reconnected',()=>{if(multiplayerMode){multiWorldFullSyncPending=!!m.state.worldRole?.isLeader;toast('공용 월드 서버에 다시 연결되었습니다.');}});
- m.on('connection',v=>{if(!v.connected&&multiplayerMode){multiWorldLeader=false;} });
+ m.on('pvp:confirm',msg=>{const rp=multiRemotePlayers.get(msg?.targetId);if(rp){rp.hp=Number(msg.hp)||0;rp.maxHp=Number(msg.maxHp)||rp.maxHp;}});m.on('pvp:defeated',msg=>{if(msg?.killerId===m.state.selfId)toast('<b>PVP 승리</b> · '+esc(msg.targetName||'플레이어')+' 격파');else if(msg?.targetId===m.state.selfId)toast('<b>PVP 패배</b> · '+esc(msg.killerName||'플레이어')+'에게 쓰러졌습니다.');});
+ m.on('notice',message=>{if(message)toast(esc(message));});m.on('session:replaced',()=>{if(!currentAccount)return;logoutAccount(true);toast('<b>중복 로그인 감지</b><br>같은 계정이 다른 기기에서 접속하여 이 기기에서는 로그아웃되었습니다.');});
+ m.on('reconnecting',()=>{if(multiplayerMode&&realTime-(player.netReconnectNoticeAt||0)>2){player.netReconnectNoticeAt=realTime;toast('통신이 잠시 끊겼습니다. 자동으로 재연결 중입니다…');}});
+ m.on('reconnected',()=>{if(multiplayerMode){m.bootstrapWorld(buildServerWorldBootstrap());if(m.state.worldRole?.isLeader)m.sendWorldSnapshot(buildSharedWorldSnapshot(true));toast('공용 월드 서버에 다시 연결되었습니다.');}});
+ m.on('connection',v=>{if(!v.connected&&multiplayerMode)multiWorldLeader=false;});
 }
 async function startOnlineWorld(){
- initAudio();if(!currentAccount){showAuth('login','공용 월드는 로그인 후 이용할 수 있습니다.');return;}
- bindMultiplayerEvents();const m=window.EchoesMulti;if(!m?.enabled){multiplayerServerSetup('공용 월드 서버 주소가 설정되지 않았습니다.');return;}
- let preview=null;
- if(window.EchoesCloud?.enabled){try{preview=await window.EchoesCloud.load();if(preview)localStorage.setItem(accountStorageKey(SAVE_KEY),JSON.stringify(preview));}catch(e){}}
- if(!preview){try{preview=JSON.parse(localStorage.getItem(accountStorageKey(SAVE_KEY))||'null');}catch(e){}}
+ initAudio();if(!currentAccount){showAuth('login','공용 월드는 로그인 후 이용할 수 있습니다.');return;}bindMultiplayerEvents();const m=window.EchoesMulti;if(!m?.enabled){multiplayerServerSetup('공용 월드 서버 주소가 설정되지 않았습니다.');return;}
+ let preview=null;if(window.EchoesCloud?.enabled){try{preview=await window.EchoesCloud.load();if(preview)localStorage.setItem(accountStorageKey(SAVE_KEY),JSON.stringify(preview));}catch(e){}}if(!preview){try{preview=JSON.parse(localStorage.getItem(accountStorageKey(SAVE_KEY))||'null');}catch(e){}}
  try{const accountId=window.EchoesCloud?.currentUid?.()||('user:'+normalizeUser(currentAccount));await m.connect({name:accountRecord()?.displayName||currentAccount,accountId,level:preview?.player?.level||player?.level||1,weapon:preview?.player?.weapon||0});}
  catch(e){showMessage('공용 월드 서버 연결 실패',(e.message||'서버 상태를 확인해 주세요.')+'\n서버에 연결되지 않으면 게임 월드에 입장할 수 없습니다.');return;}
- multiplayerMode=true;multiNetTimer=0;multiNetSeq=0;multiLastSendX=player?.x||0;multiLastSendY=player?.y||0;multiLastSendAt=performance.now();multiWorldLeader=!!m.state.worldRole?.isLeader;multiWorldSyncTimer=.1;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=multiWorldLeader;multiMobLastSent.clear();if(m.state.worldSnapshot)applySharedWorldSnapshot(m.state.worldSnapshot);
- if(mode!=='play'){
-  if(preview){try{loadData(preview);}catch(e){player=newPlayer();player.difficulty='normal';resetWorldState();player.training.complete=true;startPlay();}}
-  else{player=newPlayer();player.difficulty='normal';resetWorldState();player.training.complete=true;startPlay();}
- }
- player.difficulty='normal';applyWorldDifficultyToEnemies(false);(m.state.bosses?.values?Array.from(m.state.bosses.values()):[]).forEach(applySharedBossState);
- toast('<b>공용 월드 접속</b><br>난이도: 보통 고정 · 접속자 '+((m.state.players?.size||0)+1)+'명');
- updateHUD();updateFullscreenUI();
+ multiplayerMode=true;multiNetTimer=0;multiNetSeq=0;multiLastSendX=player?.x||0;multiLastSendY=player?.y||0;multiLastSendAt=performance.now();multiWorldLeader=!!m.state.worldRole?.isLeader;multiWorldSyncTimer=0;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=false;multiMobLastSent.clear();
+ if(mode!=='play'){if(preview){try{loadData(preview);}catch(e){player=newPlayer();player.difficulty='normal';resetWorldState();player.training.complete=true;startPlay();}}else{player=newPlayer();player.difficulty='normal';resetWorldState();player.training.complete=true;startPlay();}}
+ player.difficulty='normal';applyWorldDifficultyToEnemies(false);if(m.state.worldSnapshot)applySharedWorldSnapshot(m.state.worldSnapshot);(m.state.bosses?.values?Array.from(m.state.bosses.values()):[]).forEach(applySharedBossState);
+ m.bootstrapWorld(buildServerWorldBootstrap());if(m.state.worldRole?.isLeader)m.sendWorldSnapshot(buildSharedWorldSnapshot(true));
+ toast('<b>공용 월드 접속</b><br>서버 권한형 동기화 · 난이도 보통 · 접속자 '+((m.state.players?.size||0)+1)+'명');updateHUD();updateFullscreenUI();
 }
 function showPause(){if(mode!=='play')return;openPanel('pause',header('PAUSE','잠시 쉬어가기')+`<div class="grid two"><div class="card"><h3>여정 관리</h3><div class="stat-row"><span>진행</span><b>레벨 ${player.level} · ${Math.floor(player.playtime/60)}분</b></div><p><b>계정: ${esc(accountRecord()?.displayName||accountRecord()?.username||'로그인 필요')}</b><br>로그인한 계정에 30초마다 자동 저장합니다. Firebase 서버 계정이면 다른 기기에서도 같은 계정으로 이어할 수 있습니다.</p><div class="actions" style="display:flex;flex-wrap:wrap;gap:8px"><button data-action="save">지금 저장</button><button data-action="logout">로그아웃</button><button data-action="export">저장 파일 내보내기</button><button data-action="import">저장 파일 불러오기</button></div></div><div class="card"><h3>설정</h3><button data-action="keys">컴퓨터 키 설정</button><button data-action="skills">스킬·연격 안내</button><button data-action="editLayout" style="margin-bottom:12px">버튼 위치 설정</button><label class="check">조작 방식<select id="controlOpt"><option value="auto" ${options.controlMode==='auto'?'selected':''}>기기에 맞게 자동</option><option value="touch" ${options.controlMode==='touch'?'selected':''}>터치 버튼</option><option value="keyboard" ${options.controlMode==='keyboard'?'selected':''}>키보드·마우스</option></select></label>${fullscreenAvailable()?'<button data-action="fullscreen" style="margin:12px 0">'+(fullscreenActive()?'전체화면 종료':'전체화면 전환')+'</button>':''}<h3 style="margin-top:24px">소리</h3><p>음악과 효과음 출력이 이전보다 크게 조정되었습니다. 높은 음량에서도 찢어짐을 줄이도록 출력 제한기를 적용합니다.</p><label class="check">소리 켜기<input type="checkbox" id="soundOpt" ${options.sound?'checked':''}></label><label class="check">전체 음량<input type="range" id="volumeOpt" min="0" max="1" step="0.05" value="${options.volume}"></label><label class="check">배경음악<input type="range" id="musicVolumeOpt" aria-label="배경음악 음량" min="0" max="1" step="0.05" value="${options.musicVolume}"></label><label class="check">효과음<input type="range" id="sfxVolumeOpt" aria-label="효과음 음량" min="0" max="1" step="0.05" value="${options.sfxVolume}"></label><button data-action="soundTest" class="small">효과음 미리 듣기</button><label class="check">화면 흔들림<input type="checkbox" id="shakeOpt" ${options.shake?'checked':''}></label><label class="check">피해 숫자<input type="checkbox" id="numbersOpt" ${options.damageNumbers?'checked':''}></label><label class="check">절전 그래픽<input type="checkbox" id="qualityOpt" ${options.quality==='low'?'checked':''}></label></div></div><div class="tip">공용 월드에서는 메뉴를 열어도 다른 플레이어와 서버의 월드 시간은 계속 진행됩니다.</div>`+footer('공용 월드 · 자동 저장: 30초','<button data-action="help">조작법</button><button data-action="returnTitle">제목 화면</button><button class="primary" data-action="close">계속하기 →</button>'));}
 function showMap(){revealMap();openPanel('map',header('ATLAS','길이 남긴 흔적')+`<div class="map-layout"><div><canvas id="worldMap" width="720" height="300" aria-label="공용 오픈월드 지도"></canvas><p class="lede" style="font-size:11px;margin-bottom:0">지도 클릭: 목적지 설정 · 밝은 영역: 탐험한 곳<br><span style="color:#d7c181">◇ 야영지</span> · <span style="color:#e8a49a">✦ 수호자</span> · <span style="color:#ace1d0">▲ 현재 위치</span> · <span style="color:#acdae0">○ 균열</span></p></div><div><div class="eyebrow">WAYPOINTS</div><h3 style="font-weight:400">불빛을 따라</h3>${camps.map(c=>`<div class="travel"><div>${c.name}<br><span>${player.camps.includes(c.id)?'활성화됨':'E로 활성화 필요'}</span></div><button class="small" data-action="travel" data-value="${c.id}" ${!player.camps.includes(c.id)?'disabled':''}>이동</button></div>`).join('')}<div class="tip">공용 월드에서는 난이도가 보통으로 고정됩니다.<br>보스는 처치 후 약 3분 뒤 다시 나타납니다.</div><div class="eyebrow" style="margin-top:16px">RIFTS · ${player.rifts.length} / 3</div>${RIFTS.map(r=>`<div class="travel"><div>${r.name}<br><span>${player.rifts.includes(r.id)?'정화 완료':'룬 보상 · 3차 공세'}</span></div><button class="small" data-action="riftWaypoint" data-value="${r.id}">표시</button></div>`).join('')}<button class="small quiet" style="margin-top:12px" data-action="clearWaypoint">목적지 지우기</button></div></div>`+footer('지역별 체력 / 공격력 배율: 숲 1 / 1 · 습지 1.8 / 1.45 · 고원 3.2 / 2 · 폐허 5 / 2.8 · 동쪽 지역은 추가 1.25배. 전투 중 빠른 이동 불가.'),true);drawMap($('worldMap').getContext('2d'),720,300,true);$('worldMap').addEventListener('click',e=>{const r=e.currentTarget.getBoundingClientRect();mapWaypoint={x:clamp((e.clientX-r.left)/r.width*WORLD.w,60,WORLD.w-60),y:clamp((e.clientY-r.top)/r.height*WORLD.h,60,WORLD.h-60)};drawMap($('worldMap').getContext('2d'),720,300,true);toast('지도에 목적지를 표시했습니다.');});}
@@ -1828,13 +1856,7 @@ function update(dt){if(multiplayerMode){
   rp.rx=x;rp.ry=y;rp.ra=a;rp.attackAnim=Math.max(0,(Number(rp.attackAnim)||0)-dt);rp.dodge=Math.max(0,(Number(rp.dodge)||0)-dt);rp.parry=Math.max(0,(Number(rp.parry)||0)-dt);
  }
  if(window.EchoesMulti?.connected){
-  multiNetTimer+=dt;if(multiNetTimer>=.066){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-66))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;window.EchoesMulti.sendState({x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,level:player.level,weapon:player.weapon,equippedHead:player.equippedHead,equippedChest:player.equippedChest,equippedShield:player.equippedShield,attackAnim:player.attackAnim,attackDuration:player.attackDuration,strikePose:player.strikePose,skillPose:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,vx,vy,seq:++multiNetSeq});}
-  if(multiWorldLeader){
-   multiWorldSyncTimer+=dt;multiWorldFullSyncTimer+=dt;
-   if(multiWorldFullSyncPending){const snap=buildSharedWorldSnapshot(true);window.EchoesMulti.sendWorldSnapshot(snap);multiWorldFullSyncPending=false;multiWorldReady=true;multiWorldFullSyncTimer=0;multiMobLastSent.clear();buildSharedMobDelta(true);multiSharedAvailableItems=new Set((snap.items||[]).map(o=>o.id));}
-   if(multiWorldSyncTimer>=.1){multiWorldSyncTimer=0;const delta=buildSharedMobDelta(false);if(delta.length)window.EchoesMulti.sendMobDelta(delta);}
-   if(multiWorldFullSyncTimer>=8){multiWorldFullSyncTimer=0;window.EchoesMulti.sendWorldSnapshot(buildSharedWorldSnapshot(false));}
-  }
+  multiNetTimer+=dt;if(multiNetTimer>=.1){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-66))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;window.EchoesMulti.sendState({x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,level:player.level,weapon:player.weapon,equippedHead:player.equippedHead,equippedChest:player.equippedChest,equippedShield:player.equippedShield,attackAnim:player.attackAnim,attackDuration:player.attackDuration,strikePose:player.strikePose,skillPose:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,vx,vy,seq:++multiNetSeq});}
  }
 }updateCombat(dt);rebuildBodyGrid();resolveBodyOverlaps();worldTime+=dt;player.playtime+=dt;saveTimer+=dt;damageFlash=Math.max(0,damageFlash-dt);activeBoss=null;for(const k of ['attackCd','attackAnim','dodgeCd','dodge','parry','parryCd','skillCd','potionCd','invuln','hurt','stamDelay','comboTimer','riposte','moveLock','basicMoveSlow'])player[k]=Math.max(0,player[k]-dt);updateSwordSkill(dt);updateShield(dt);if(player.comboTimer<=0)player.combo=0;drainAction(dt);if(lockedTarget&&!validLock(lockedTarget))lockedTarget=null;
  let mx=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,my=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y,n=Math.hypot(mx,my);if(n>1){mx/=n;my/=n;}player.moving=n>.1;const oldX=player.x,oldY=player.y;
@@ -1842,7 +1864,7 @@ function update(dt){if(multiplayerMode){
  if(['prepare','dash4','channel3','combo5'].includes(hiddenSkillHold?.kind)){player.facing=hiddenSkillHold.facing;}else if(lockedTarget||touchAim.active)aim();else if(n>.1&&!mouse.active){player.facing=Math.atan2(my,mx);}else if(mouse.active)aim();player.training.move+=Math.hypot(player.x-oldX,player.y-oldY);
  if(player.stamDelay<=0&&player.dodge<=0)player.stam=Math.min(player.maxStam,player.stam+(12+player.perks.breath*2)*dt);if((mouse.down||touchAttackPointer!==null||keys.has('KeyZ'))&&player.attackCd<=0)attack();
  for(const e of enemies){
-  if(multiplayerMode&&!multiWorldLeader&&e.type!=='dummy'&&!e.riftId){
+  if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
    if(!e.dead&&Number.isFinite(e._netX)){const age=clamp((performance.now()-(e._netAt||performance.now()))/1000,0,.12),tx=e._netX+(e._netVX||0)*age*.35,ty=e._netY+(e._netVY||0)*age*.35,dist=Math.hypot(tx-e.x,ty-e.y);if(dist>220){e.x=tx;e.y=ty;}else{const rate=1-Math.exp(-dt*(dist>55?18:12));e.x+=(tx-e.x)*rate;e.y+=(ty-e.y)*rate;}bodyGridValid=false;}continue;
   }
   const d2=(e.x-player.x)*(e.x-player.x)+(e.y-player.y)*(e.y-player.y),critical=e.kind==='boss'||e.alert||e.riftId||e.type==='dummy'||d2<640000;
