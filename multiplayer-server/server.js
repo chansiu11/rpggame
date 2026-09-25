@@ -227,7 +227,7 @@ function moveServerMob(m,dx,dy){
   for(let i=0;i<steps;i++){const nx=m.x+sx,ny=m.y+sy;if(!serverSolidAt(nx,ny,m.r)){m.x=nx;m.y=ny;moved=true;continue;}if(!serverSolidAt(nx,m.y,m.r)){m.x=nx;moved=true;}if(!serverSolidAt(m.x,ny,m.r)){m.y=ny;moved=true;}}
   return moved;
 }
-function mobPublic(m){return {id:m.id,type:m.type,x:Math.round(m.x*10)/10,y:Math.round(m.y*10)/10,hp:Math.max(0,Math.round(m.hp)),maxHp:Math.max(1,Math.round(m.maxHp)),dead:!!m.dead,state:m.state||'idle',facing:Math.round((m.facing||0)*100)/100,alert:!!m.alert,targetId:m.targetId||null,attackType:m.attackType||m.kind||'melee'};}
+function mobPublic(m){const now=Date.now(),timer=m.state==='windup'?Math.max(0,(m.attackAt-now)/1000):m.state==='recover'?Math.max(0,(m.recoverUntil-now)/1000):m.state==='charge'?Math.max(0,(m.chargeUntil-now)/1000):0;return {id:m.id,type:m.type,x:Math.round(m.x*10)/10,y:Math.round(m.y*10)/10,hp:Math.max(0,Math.round(m.hp)),maxHp:Math.max(1,Math.round(m.maxHp)),dead:!!m.dead,state:m.state||'idle',facing:Math.round((m.facing||0)*100)/100,alert:!!m.alert,targetId:m.targetId||null,attackType:m.attackType||m.kind||'melee',timer,windTotal:m.state==='windup'?Math.max(timer,m.wind||.5):0,locked:m.locked||m.facing||0,range:mobAttackRange(m)};}
 function mobSnapshot(){return [...authoritativeMobs.values()].map(mobPublic);}
 function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:worldSnapshot.items||[],updatedAt:Date.now(),revision:worldRevision};}
 function markMobDirty(m){if(m?.id)dirtyMobIds.add(m.id);}
