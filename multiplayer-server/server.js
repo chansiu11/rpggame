@@ -136,6 +136,7 @@ function publicPlayer(p){
   return {
     id:p.id,name:p.name,x:p.x,y:p.y,a:p.a,
     hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
+    swordStyle:p.swordStyle||'',swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):[],
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
     attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,
     combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
@@ -392,6 +393,8 @@ function handleMessage(player,msg){
     const now=Date.now(),oldX=player.x,oldY=player.y,elapsed=Math.max(.016,Math.min(.5,(now-(player.lastStateAt||now-50))/1000));
     if(Number.isFinite(Number(msg.x)))player.x=clamp(msg.x,40,WORLD.width-40);if(Number.isFinite(Number(msg.y)))player.y=clamp(msg.y,40,WORLD.height-40);if(Number.isFinite(Number(msg.a)))player.a=clamp(msg.a,-Math.PI*4,Math.PI*4);
     if(Number.isFinite(Number(msg.hp)))player.hp=clamp(msg.hp,0,999999);if(Number.isFinite(Number(msg.maxHp)))player.maxHp=clamp(msg.maxHp,1,999999);if(Number.isFinite(Number(msg.level)))player.level=Math.floor(clamp(msg.level,1,100));if(Number.isFinite(Number(msg.weapon)))player.weapon=Math.floor(clamp(msg.weapon,0,4));
+    if(msg.swordStyle!==undefined)player.swordStyle=String(msg.swordStyle||'').slice(0,20);
+    if(Array.isArray(msg.swordSkills))player.swordSkills=msg.swordSkills.slice(0,5).map(v=>String(v||'').slice(0,40));
     if(msg.equippedHead!==undefined)player.equippedHead=sanitizeEquip(msg.equippedHead,'wandererHood');if(msg.equippedChest!==undefined)player.equippedChest=sanitizeEquip(msg.equippedChest,'travelerCoat');if(msg.equippedShield!==undefined)player.equippedShield=sanitizeEquip(msg.equippedShield,'woodenShield');
     for(const k of ['attackAnim','attackDuration','strikePose','skillPose','combo','parry','dodge','dx','dy','walk','phase'])if(Number.isFinite(Number(msg[k])))player[k]=Number(msg[k]);
     if(Number.isFinite(Number(msg.deathSeq)))player.deathSeq=Math.floor(clamp(msg.deathSeq,0,1e12));
