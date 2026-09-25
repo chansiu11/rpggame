@@ -148,7 +148,7 @@ window.EchoesMulti={
     combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
     vx:p.vx||0,vy:p.vy||0,seq:p.seq||0
   });},
-  bootstrapWorld(snapshot){if(state.connected&&snapshot?.mobs?.length)send({type:'world:bootstrap',mobs:snapshot.mobs,obstacles:snapshot.obstacles||[]});},
+  bootstrapWorld(snapshot){if(state.connected&&snapshot?.mobs?.length)send({type:'world:bootstrap',spawnLayoutVersion:String(snapshot.spawnLayoutVersion||''),mobs:snapshot.mobs,obstacles:snapshot.obstacles||[]});},
   sendWorldSnapshot(snapshot){if(state.connected&&state.worldRole?.isLeader)send({type:'world:snapshot',items:Array.isArray(snapshot?.items)?snapshot.items:[]});},
   sendMobDelta(){return false;},
   itemTaken(itemId){if(itemId)send({type:'world:itemTaken',itemId});},
