@@ -683,7 +683,10 @@ function buildSharedMobDelta(force=false){
  }
  return changed;
 }
-function applySharedMobDelta(list){if(!Array.isArray(list)||multiWorldLeader)return;const now=performance.now();for(const m of list){const e=enemies.find(v=>v.id===m.id);if(!e)continue;const nx=Number(m.x),ny=Number(m.y),px=Number.isFinite(e._netX)?e._netX:e.x,py=Number.isFinite(e._netY)?e._netY:e.y,dt=Math.max(.03,(now-(e._netAt||now-100))/1000);e._netVX=Number.isFinite(nx)?clamp((nx-px)/dt,-1500,1500):0;e._netVY=Number.isFinite(ny)?clamp((ny-py)/dt,-1500,1500):0;e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;e.facing=Number(m.facing)||0;e.state=m.state||e.state;e.alert=!!m.alert;if(e.kind!=='boss'){e.maxHp=Math.max(1,Number(m.maxHp)||e.maxHp);e.hp=clamp(Number(m.hp)||0,0,e.maxHp);e.dead=!!m.dead;if(e.dead)e.state='dead';}}
+function applySharedMobDelta(list){if(!Array.isArray(list))return;const now=performance.now();for(const m of list){const e=enemies.find(v=>v.id===m.id);if(!e)continue;const nx=Number(m.x),ny=Number(m.y),px=Number.isFinite(e._netX)?e._netX:e.x,py=Number.isFinite(e._netY)?e._netY:e.y,dt=Math.max(.03,(now-(e._netAt||now-100))/1000);e._netVX=Number.isFinite(nx)?clamp((nx-px)/dt,-1500,1500):0;e._netVY=Number.isFinite(ny)?clamp((ny-py)/dt,-1500,1500):0;e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;
+ if(multiWorldLeader){e.x=e._netX;e.y=e._netY;} 
+ e.facing=Number(m.facing)||0;e.state=m.state||e.state;e.alert=!!m.alert;if(e.kind!=='boss'){e.maxHp=Math.max(1,Number(m.maxHp)||e.maxHp);e.hp=clamp(Number(m.hp)||0,0,e.maxHp);e.dead=!!m.dead;if(e.dead)e.state='dead';}}
+ bodyGridValid=false;
 }
 function applySharedItemSpawn(item){
  if(!item?.id)return;multiSharedAvailableItems.add(item.id);
@@ -702,17 +705,16 @@ function applySharedWorldSnapshot(snapshot){
   objects=objects.filter(o=>o.type!=='loot'||!multiplayerMode||lootIds.has(o.id)||!multiWorldReady);
   for(const item of items)applySharedItemSpawn(item);
  }
- if(!multiWorldLeader){
-  for(const m of snapshot.mobs){
-   const e=enemies.find(v=>v.id===m.id);if(!e)continue;
-   const nx=Number(m.x),ny=Number(m.y),prevX=Number.isFinite(e._netX)?e._netX:e.x,prevY=Number.isFinite(e._netY)?e._netY:e.y,prevAt=e._netAt||now-350,dt=Math.max(.05,(now-prevAt)/1000);
-   e._netVX=Number.isFinite(nx)?clamp((nx-prevX)/dt,-1500,1500):0;e._netVY=Number.isFinite(ny)?clamp((ny-prevY)/dt,-1500,1500):0;
-   e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;
-   if(!e._netInit){e.x=e._netX;e.y=e._netY;e._netInit=true;}
-   e.facing=Number(m.facing)||0;e.state=m.state||e.state;e.alert=!!m.alert;
-   if(e.kind!=='boss'){e.maxHp=Math.max(1,Number(m.maxHp)||e.maxHp);e.hp=clamp(Number(m.hp)||0,0,e.maxHp);e.dead=!!m.dead;if(e.dead)e.state='dead';}
-  }
+ for(const m of snapshot.mobs){
+  const e=enemies.find(v=>v.id===m.id);if(!e)continue;
+  const nx=Number(m.x),ny=Number(m.y),prevX=Number.isFinite(e._netX)?e._netX:e.x,prevY=Number.isFinite(e._netY)?e._netY:e.y,prevAt=e._netAt||now-350,dt=Math.max(.05,(now-prevAt)/1000);
+  e._netVX=Number.isFinite(nx)?clamp((nx-prevX)/dt,-1500,1500):0;e._netVY=Number.isFinite(ny)?clamp((ny-prevY)/dt,-1500,1500):0;
+  e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;
+  if(multiWorldLeader||Math.hypot(e.x-e._netX,e.y-e._netY)>420){e.x=e._netX;e.y=e._netY;}
+  e.facing=Number(m.facing)||0;e.state=m.state||e.state;e.alert=!!m.alert;
+  if(e.kind!=='boss'){e.maxHp=Math.max(1,Number(m.maxHp)||e.maxHp);e.hp=clamp(Number(m.hp)||0,0,e.maxHp);e.dead=!!m.dead;if(e.dead)e.state='dead';}
  }
+ bodyGridValid=false;
 }
 function applySharedMobPatch(m){
  if(!m?.id)return;const e=enemies.find(v=>v.id===m.id);if(!e||e.kind==='boss')return;
@@ -1841,7 +1843,7 @@ function update(dt){if(multiplayerMode){
  if(player.stamDelay<=0&&player.dodge<=0)player.stam=Math.min(player.maxStam,player.stam+(12+player.perks.breath*2)*dt);if((mouse.down||touchAttackPointer!==null||keys.has('KeyZ'))&&player.attackCd<=0)attack();
  for(const e of enemies){
   if(multiplayerMode&&!multiWorldLeader&&e.type!=='dummy'&&!e.riftId){
-   if(!e.dead&&Number.isFinite(e._netX)){const age=clamp((performance.now()-(e._netAt||performance.now()))/1000,0,.18),tx=e._netX+(e._netVX||0)*age*.5,ty=e._netY+(e._netVY||0)*age*.5,dist=Math.hypot(tx-e.x,ty-e.y);if(dist>320){e.x=tx;e.y=ty;}else{const rate=1-Math.exp(-dt*(dist>70?13:8));e.x+=(tx-e.x)*rate;e.y+=(ty-e.y)*rate;}bodyGridValid=false;}continue;
+   if(!e.dead&&Number.isFinite(e._netX)){const age=clamp((performance.now()-(e._netAt||performance.now()))/1000,0,.12),tx=e._netX+(e._netVX||0)*age*.35,ty=e._netY+(e._netVY||0)*age*.35,dist=Math.hypot(tx-e.x,ty-e.y);if(dist>220){e.x=tx;e.y=ty;}else{const rate=1-Math.exp(-dt*(dist>55?18:12));e.x+=(tx-e.x)*rate;e.y+=(ty-e.y)*rate;}bodyGridValid=false;}continue;
   }
   const d2=(e.x-player.x)*(e.x-player.x)+(e.y-player.y)*(e.y-player.y),critical=e.kind==='boss'||e.alert||e.riftId||e.type==='dummy'||d2<640000;
   if(critical){e._aiAcc=0;updateEnemy(e,dt);}else{
