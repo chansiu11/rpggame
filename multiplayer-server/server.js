@@ -15,6 +15,14 @@ const WORLD = {
   areaScaleComparedToLegacy: 5.04
 };
 
+const SAFE_ZONES = [
+  {name:'이끼빛 마을',x:760,y:3010,r:430},
+  {name:'황금잎 광장',x:6000,y:3020,r:690}
+];
+function safeZoneAt(x,y){
+  return SAFE_ZONES.find(z=>Math.hypot(Number(x)-z.x,Number(y)-z.y)<z.r)||null;
+}
+
 const BIOMES = [
   {id:'moss',name:'이끼빛 들판',x:1400,y:3600,rx:3600,ry:3000,level:1},
   {id:'forest',name:'바람숲',x:4300,y:1850,rx:3900,ry:2600,level:12},
@@ -183,6 +191,36 @@ function handleBossDamage(player,msg){
     alive:boss.alive,respawnInMs:boss.alive?0:Math.max(0,boss.respawnAt-now)
   }});
 }
+function handlePvpHit(player,msg){
+  const target=players.get(String(msg.targetId||''));
+  if(!target||!target.ready||target===player||player.hp<=0||target.hp<=0)return;
+  // PvP is disabled in towns/safe zones for either side.
+  if(safeZoneAt(player.x,player.y)||safeZoneAt(target.x,target.y)){
+    safeSend(player.ws,{type:'pvp:blocked',reason:'safe'});
+    return;
+  }
+  // Party members cannot damage one another.
+  if(player.partyId&&target.partyId&&player.partyId===target.partyId){
+    safeSend(player.ws,{type:'pvp:blocked',reason:'party'});
+    return;
+  }
+  const now=Date.now();
+  if(now-(player.lastPvpHitAt||0)<35)return;
+  player.lastPvpHitAt=now;
+  const damage=Math.round(clamp(msg.damage,1,650));
+  const range=clamp(msg.range,60,1000);
+  const dist=Math.hypot(player.x-target.x,player.y-target.y);
+  if(dist>range+110)return;
+  safeSend(target.ws,{
+    type:'pvp:damage',
+    attackerId:player.id,
+    attackerName:player.name,
+    x:player.x,y:player.y,
+    damage,
+    kind:String(msg.kind||'attack').slice(0,24),
+    parryable:msg.parryable!==false
+  });
+}
 function handleMessage(player,msg){
   if(!msg || typeof msg!=='object')return;
   if(msg.type==='state'){
@@ -209,6 +247,7 @@ function handleMessage(player,msg){
   }
   if(msg.type==='party:leave'){leaveParty(player);return;}
   if(msg.type==='boss:damage'){handleBossDamage(player,msg);return;}
+  if(msg.type==='pvp:hit'){handlePvpHit(player,msg);return;}
   if(msg.type==='party:chat'){
     const party=parties.get(player.partyId);
     if(!party)return;
@@ -243,7 +282,7 @@ const wss=new WebSocketServer({server});
 wss.on('connection',(ws)=>{
   const player={
     id:id('p_'),ws,name:'Player',x:800,y:3100,a:0,hp:100,maxHp:100,
-    level:1,weapon:0,partyId:null,accountId:'',updatedAt:Date.now(),ready:false,lastBossHitAt:0
+    level:1,weapon:0,partyId:null,accountId:'',updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
   };
   players.set(player.id,player);
 
