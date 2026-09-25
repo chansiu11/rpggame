@@ -4,7 +4,8 @@ const listeners=new Map();
 const state={
   socket:null,connected:false,connecting:false,selfId:null,
   players:new Map(),bosses:new Map(),party:null,pendingInvite:null,
-  world:null,profile:null,lastError:'',partyMax:4,reconnectTimer:null
+  world:null,worldRole:{leaderId:null,isLeader:false},worldSnapshot:{mobs:[],items:[],updatedAt:0},takenItems:new Set(),
+  profile:null,lastError:'',partyMax:4,reconnectTimer:null
 };
 function emit(type,payload){
   const set=listeners.get(type);if(!set)return;
@@ -30,7 +31,13 @@ function handle(msg){
     state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
+    state.worldRole=msg.worldRole||{leaderId:null,isLeader:false};
+    state.worldSnapshot=msg.worldSnapshot||{mobs:[],items:[],updatedAt:0};
+    state.takenItems=new Set(msg.takenItemIds||[]);
     emit('ready',{selfId:state.selfId,world:state.world,bosses:[...state.bosses.values()]});
+    emit('world:role',state.worldRole);
+    emit('world:snapshot',state.worldSnapshot);
+    emit('world:taken',[...state.takenItems]);
     emit('players',[...state.players.values()]);
     emit('bosses',[...state.bosses.values()]);
     return;
@@ -54,6 +61,13 @@ function handle(msg){
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
   if(msg.type==='pvp:damage'){emit('pvp:damage',msg);return;}
   if(msg.type==='pvp:blocked'){emit('pvp:blocked',msg);return;}
+  if(msg.type==='world:role'){state.worldRole={leaderId:msg.leaderId||null,isLeader:!!msg.isLeader};emit('world:role',state.worldRole);return;}
+  if(msg.type==='world:snapshot'){state.worldSnapshot=msg.snapshot||{mobs:[],items:[],updatedAt:0};emit('world:snapshot',state.worldSnapshot);return;}
+  if(msg.type==='world:itemTaken'){if(msg.itemId)state.takenItems.add(msg.itemId);emit('world:itemTaken',msg);return;}
+  if(msg.type==='world:mobPatch'){emit('world:mobPatch',msg.mob||{});return;}
+  if(msg.type==='pvp:hit'){emit('pvp:hit',msg);return;}
+  if(msg.type==='pvp:confirm'){emit('pvp:confirm',msg);return;}
+  if(msg.type==='pvp:defeated'){emit('pvp:defeated',msg);return;}
   if(msg.type==='session:replaced'){emit('session:replaced',msg);return;}
   if(msg.type==='notice'){emit('notice',msg.message||'');return;}
 }
@@ -94,7 +108,16 @@ window.EchoesMulti={
   get enabled(){return !!url();},
   get connected(){return state.connected;},
   get serverUrl(){return url();},
-  sendState(p){if(!state.connected||!p)return;send({type:'state',x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon});},
+  sendState(p){if(!state.connected||!p)return;send({type:'state',
+    x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
+    equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
+    attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,
+    combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase
+  });},
+  sendWorldSnapshot(snapshot){if(state.connected&&state.worldRole?.isLeader)send({type:'world:snapshot',...(snapshot||{})});},
+  itemTaken(itemId){if(itemId)send({type:'world:itemTaken',itemId});},
+  damageMob(mobId,damage){if(mobId)send({type:'world:mobDamage',mobId,damage});},
+  pvpDamage(targetId,damage,range=180,kind='melee'){if(targetId)send({type:'pvp:damage',targetId,damage,range,kind});},
   damageBoss(bossId,damage){send({type:'boss:damage',bossId,damage});},
   hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){if(!state.connected)return;send({type:'pvp:hit',targetId,damage,range,kind,parryable});},
   createParty(){send({type:'party:create'});},
