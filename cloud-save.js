@@ -29,6 +29,7 @@ window.EchoesCloud={
   save:async()=>{},
   load:async()=>null,
   hasSave:async()=>false,
+  currentUid:()=>null,
   message:friendlyMessage
 };
 
@@ -59,6 +60,7 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
       enabled:true,
       ready:Promise.resolve(true),
       message:friendlyMessage,
+      currentUid:()=>auth.currentUser?.uid||null,
       async register(username,password){
         const displayName=String(username||'').trim();
         const userKey=normalizeUser(displayName);
