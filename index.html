@@ -894,21 +894,21 @@ const SWORD_SKILL_LIBRARY=[
  {id:'tempest',name:'폭풍 검무',level:24,price:780,cost:48,cool:9,color:'#ffd95c',desc:'작은 나선 궤도를 직접 돌면서 여섯 번 회전 베기해 주변 적을 휩쓸어갑니다.',cfg:{duration:1.28,hits:[.08,.25,.42,.59,.78,1.02],mult:[.42,.45,.48,.52,.58,.92],arc:[TAU,TAU,TAU,TAU,TAU,TAU],reach:[18,22,26,30,34,42],step:[0,0,0,0,0,0],mode:'tempest'}},
  {id:'earthRend',name:'대지 절단',level:30,price:920,cost:52,cool:10,color:'#ff9f55',desc:'앞으로 도약하는 듯 몸이 떠오른 뒤 착지 지점을 내려찍어 전방 지면을 폭발시킵니다.',cfg:{duration:.92,hits:[.58],mult:[2.65],arc:[2.1],reach:[48],step:[8],mode:'earthSlam'}},
  {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:11.5,color:'#ffd95c',desc:'강한 검압 하나를 발사한 반동으로 몸이 뒤로 밀리는 초장거리 단발기입니다.',cfg:{duration:.72,hits:[.28],mult:[1.15],arc:[1.7],reach:[20],step:[0],mode:'dawnWave'}},
- {id:'thunderDrive',name:'뇌광 활주',level:44,price:1280,cost:62,cool:12.5,color:'#61f0c7',holdContinuous:true,holdMax:2.8,desc:'번개를 모은 뒤 전장을 가로질러 가까운 적을 연속 추격하며 베고, 마지막에 긴 뇌광 참격으로 마무리합니다.',cfg:{duration:2.8,hits:[],mult:[],arc:[1.15],reach:[62],step:[0],mode:'holdThunder'}},
- {id:'meteorBreaker',name:'성운 검진',level:52,price:1520,cost:70,cool:14.5,color:'#ff9f55',holdContinuous:true,holdMax:3.2,desc:'거대한 성운 검진을 점점 키워 적을 중심으로 끌어모으며 반복 절단하고, 종료 순간 광역 붕괴를 일으킵니다.',cfg:{duration:3.2,hits:[],mult:[],arc:[TAU],reach:[110],step:[0],mode:'holdVortex'}},
+ {id:'thunderDrive',name:'뇌광 활주',level:44,price:1280,cost:62,cool:12.5,color:'#61f0c7',holdContinuous:true,holdMax:2.8,desc:'번개를 모은 뒤 전장을 가로질러 적을 자동 추격하며 연속 돌진하고, 마지막 위치에서 초장거리 뇌광 참격으로 마무리합니다.',cfg:{duration:2.8,hits:[],mult:[],arc:[1.15],reach:[62],step:[0],mode:'holdThunder'}},
+ {id:'meteorBreaker',name:'성운 검진',level:52,price:1520,cost:70,cool:14.5,color:'#ff9f55',holdContinuous:true,holdMax:3.2,desc:'먼 적에게 빠르게 돌진한 뒤 움직이는 성운 검진을 전개해 적을 끌고 다니며 절단하고, 종료 순간 광역 붕괴를 일으킵니다.',cfg:{duration:3.2,hits:[],mult:[],arc:[TAU],reach:[110],step:[0],mode:'holdVortex'}},
  {id:'galeOrbit',name:'질풍 궤도',level:18,price:0,cost:38,cool:7.0,color:'#61f0c7',desc:'가까운 적 주위를 빠르게 반바퀴 돌며 네 번 베고 마지막에 바깥으로 튕겨 나옵니다.',cfg:{duration:1.0,hits:[.16,.36,.58,.82],mult:[.58,.62,.72,1.28],arc:[1.3,1.3,1.5,2.0],reach:[20,20,24,34],step:[0,0,0,0],mode:'orbitStrike'}},
  {id:'mirrorStep',name:'거울 걸음',level:8,price:0,cost:30,cool:5.5,color:'#b88cff',desc:'멀리 있는 적을 포착해 반대편까지 단숨에 파고든 뒤 뒤쪽에서 베는 장거리 추격 돌진기입니다.',cfg:{duration:.55,hits:[.32],mult:[2.25],arc:[1.1],reach:[36],step:[0],mode:'mirrorBackstab'}},
- {id:'lunarBind',name:'월인 결박',level:26,price:0,cost:46,cool:9.0,color:'#b88cff',desc:'거대한 달빛 결계를 펼쳐 적을 단계적으로 끌어당기고 구속한 뒤, 여러 겹의 월륜 참격으로 결계를 붕괴시킵니다.',cfg:{duration:.82,hits:[.50],mult:[2.05],arc:[TAU],reach:[84],step:[0],mode:'lunarPull'}},
+ {id:'lunarBind',name:'월인 결박',level:26,price:0,cost:46,cool:9.0,color:'#b88cff',desc:'표적의 좌우와 뒤로 세 번 순간이동하며 달빛 결계를 이동시켜 적을 구속하고, 마지막 위치에서 월륜 참격으로 마무리합니다.',cfg:{duration:.82,hits:[.50],mult:[2.05],arc:[TAU],reach:[84],step:[0],mode:'lunarPull'}},
  {id:'quakeRush',name:'파진 돌파',level:12,price:0,cost:39,cool:7.2,color:'#ff9f55',desc:'멀리 있는 적을 향해 길게 돌진하며 진행선에 세 번의 지면 폭발을 일으키는 추격 돌진기입니다.',cfg:{duration:.75,hits:[.16,.36,.58],mult:[.72,.82,1.18],arc:[1.0,1.0,1.2],reach:[20,20,26],step:[28,30,34],mode:'quakeLine'}},
  {id:'ironJudgment',name:'철벽 심판',level:36,price:0,cost:58,cool:11.0,color:'#ff9f55',desc:'짧게 자세를 낮춘 뒤 전방의 넓은 직사각 영역을 한 번에 내려찍는 고정형 강공입니다.',cfg:{duration:.88,hits:[.62],mult:[3.15],arc:[1.3],reach:[82],step:[0],mode:'ironJudgment'}},
  {id:'solarReturn',name:'태양 회귀',level:14,price:0,cost:36,cool:6.8,color:'#ffd95c',desc:'앞으로 검압을 날린 뒤 반대 방향으로 두 번째 검압을 즉시 흘려 주변을 양방향으로 정리합니다.',cfg:{duration:.66,hits:[.24,.46],mult:[1.0,1.0],arc:[1.5,1.5],reach:[18,18],step:[0,0],mode:'boomerangWave'}},
- {id:'prismLance',name:'프리즘 창렬',level:22,price:0,cost:44,cool:8.5,color:'#ffd95c',desc:'빛의 창을 단계적으로 증폭해 5발, 9발, 마지막 초대형 중앙 광창 순서로 쏟아붓는 장거리 포격 궁극기입니다.',cfg:{duration:.62,hits:[.30],mult:[1.0],arc:[1.8],reach:[10],step:[0],mode:'fanLances'}},
+ {id:'prismLance',name:'프리즘 창렬',level:22,price:0,cost:44,cool:8.5,color:'#ffd95c',desc:'표적 방향으로 공중 활주하며 5발과 9발을 퍼붓고 옆으로 급이동한 뒤, 마지막 초대형 중앙 광창으로 관통합니다.',cfg:{duration:.62,hits:[.30],mult:[1.0],arc:[1.8],reach:[10],step:[0],mode:'fanLances'}},
  {id:'skyFall',name:'천광 낙하',level:42,price:0,cost:64,cool:12.8,color:'#ffd95c',desc:'멀리 있는 적을 자동 포착해 크게 도약하며 따라붙은 뒤 목표 지점에 낙하 충격을 일으킵니다.',cfg:{duration:1.0,hits:[.78],mult:[3.25],arc:[TAU],reach:[0],step:[0],mode:'skyFall'}},
  {id:'chainReap',name:'사슬 수확',level:6,price:0,cost:29,cool:5.0,color:'#a76cff',desc:'전방 부채꼴의 적을 몸쪽으로 잡아당기고 바로 횡베기로 마무리합니다.',cfg:{duration:.62,hits:[.38],mult:[1.75],arc:[2.3],reach:[72],step:[0],mode:'chainPull'}},
  {id:'phantomSwap',name:'잔영 교차',level:17,price:0,cost:40,cool:7.4,color:'#a76cff',desc:'멀리 있는 적을 자동 포착해 그림자처럼 급속 접근한 뒤 뒤편으로 교차하며 베는 장거리 돌진기입니다.',cfg:{duration:.58,hits:[.34],mult:[2.3],arc:[1.4],reach:[44],step:[0],mode:'phantomSwap'}},
  {id:'gravityCut',name:'중력 절단',level:28,price:0,cost:50,cool:9.8,color:'#a76cff',desc:'주변 적들을 중심으로 크게 당겨 모은 뒤 중심점에서 원형 절단을 일으킵니다.',cfg:{duration:.88,hits:[.58],mult:[2.25],arc:[TAU],reach:[110],step:[0],mode:'gravityWell'}},
  {id:'bladeRain',name:'검우 산개',level:40,price:0,cost:61,cool:12.0,color:'#a76cff',desc:'전방 넓은 범위에 여러 갈래 검압을 퍼뜨려 다수의 적을 동시에 압박합니다.',cfg:{duration:.72,hits:[.34],mult:[1.0],arc:[2.5],reach:[20],step:[0],mode:'bladeRain'}},
- {id:'voidDance',name:'공허 유영',level:50,price:0,cost:68,cool:14.0,color:'#a76cff',holdContinuous:true,holdMax:2.6,desc:'여러 적 사이를 연쇄 순간이동하며 공간을 연속 절단하고, 마지막에 남겨둔 균열을 한꺼번에 붕괴시킵니다.',cfg:{duration:2.6,hits:[],mult:[],arc:[1.6],reach:[66],step:[0],mode:'holdShadow'}}
+ {id:'voidDance',name:'공허 유영',level:50,price:0,cost:68,cool:14.0,color:'#a76cff',holdContinuous:true,holdMax:2.6,desc:'여러 적 사이를 빠르게 연쇄 순간이동하며 공간을 절단하고, 마지막 도착 위치에서 남겨둔 균열을 한꺼번에 붕괴시킵니다.',cfg:{duration:2.6,hits:[],mult:[],arc:[1.6],reach:[66],step:[0],mode:'holdShadow'}}
 ];
 const SWORD_SKILL_IDENTITY={
  windSlash:{trait:'단발 · 직선 원거리 검풍',fx:'청록 압축 검풍'},
@@ -1324,6 +1324,18 @@ function updateUltimateCinematic(seq,sk,dt){
   else if(seq.ultFx<=0){seq.ultFx=.045;effects.push({type:'riftCut',x:player.x-Math.cos(seq.facing)*55,y:player.y-Math.sin(seq.facing)*55,a:seq.facing,len:190,width:24,color:th.main,t:.13,max:.13});burst(player.x,player.y,th.accent,5,130);}
   if(seq.ultPhase===0&&p>=.18){seq.ultPhase=1;effects.push({type:'nova',x:player.x,y:player.y,r:150,color:th.sub,t:.34,max:.34});shake=Math.max(shake,9);}
  }else if(sk.id==='lunarBind'){
+  const t=swordSeqTarget(seq);
+  if(t&&seq.ultMovePhase===0&&p>=.12){
+   seq.ultMovePhase=1;const ta=Math.atan2(player.y-t.y,player.x-t.x)+Math.PI/2,tx=t.x+Math.cos(ta)*120,ty=t.y+Math.sin(ta)*120;
+   effects.push({type:'line',x:player.x,y:player.y,x2:tx,y2:ty,color:th.sub,t:.22,max:.22});moveBody(player,clamp(tx-player.x,-420,420),clamp(ty-player.y,-420,420));player.facing=Math.atan2(t.y-player.y,t.x-player.x);
+  }
+  if(t&&seq.ultMovePhase===1&&p>=.46){
+   seq.ultMovePhase=2;const ta=Math.atan2(player.y-t.y,player.x-t.x)-Math.PI/2,tx=t.x+Math.cos(ta)*95,ty=t.y+Math.sin(ta)*95;
+   effects.push({type:'riftCut',x:(player.x+tx)/2,y:(player.y+ty)/2,a:Math.atan2(ty-player.y,tx-player.x),len:250,width:24,color:th.main,t:.24,max:.24});moveBody(player,clamp(tx-player.x,-420,420),clamp(ty-player.y,-420,420));player.facing=Math.atan2(t.y-player.y,t.x-player.x);
+  }
+  if(t&&seq.ultMovePhase===2&&p>=.76){
+   seq.ultMovePhase=3;const ta=Math.atan2(player.y-t.y,player.x-t.x),tx=t.x+Math.cos(ta)*70,ty=t.y+Math.sin(ta)*70;moveBody(player,clamp(tx-player.x,-360,360),clamp(ty-player.y,-360,360));player.facing=Math.atan2(t.y-player.y,t.x-player.x);
+  }
   if(seq.ultFx<=0){seq.ultFx=.075;const r=100+p*220;ring(player.x,player.y,r,th.main,.20);effects.push({type:'starSeal',x:player.x,y:player.y,r:r*.82,color:p>.66?th.sub:th.main,t:.20,max:.20});}
   if(seq.ultPhase===0&&p>=.26){seq.ultPhase=1;effects.push({type:'nova',x:player.x,y:player.y,r:210,color:th.main,t:.48,max:.48});shake=Math.max(shake,8);}
   if(seq.ultPhase===1&&p>=.70){seq.ultPhase=2;for(let j=0;j<8;j++){const a=j*TAU/8;effects.push({type:'slash',x:player.x,y:player.y,a,arc:1.15,r:190,color:j%2?th.sub:th.main,t:.28,max:.28});}shake=Math.max(shake,12);}
@@ -1332,6 +1344,10 @@ function updateUltimateCinematic(seq,sk,dt){
   if(seq.ultFx<=0){seq.ultFx=.07;const r=130+p*190;ring(player.x,player.y,r,th.main,.18);effects.push({type:'slash',x:player.x,y:player.y,a:realTime*5,arc:TAU,r,color:th.accent,t:.17,max:.17});}
   if(seq.ultPhase===0&&p>=.35){seq.ultPhase=1;effects.push({type:'starSeal',x:player.x,y:player.y,r:240,color:th.sub,t:.52,max:.52});shake=Math.max(shake,10);}
  }else if(sk.id==='prismLance'){
+  const t=swordSeqTarget(seq);if(t){seq.facing=Math.atan2(t.y-player.y,t.x-player.x);player.facing=seq.facing;}
+  const ca=Math.cos(seq.facing),sa=Math.sin(seq.facing);
+  if(p>.10&&p<.66){moveBody(player,ca*310*dt,sa*310*dt);player.skillLift=Math.sin(clamp((p-.10)/.56,0,1)*Math.PI)*52;player.invuln=Math.max(player.invuln,.045);}
+  if(seq.ultMovePhase===0&&p>=.66){seq.ultMovePhase=1;moveBody(player,-sa*(seq.side||1)*120,ca*(seq.side||1)*120);effects.push({type:'line',x:player.x+sa*(seq.side||1)*120,y:player.y-ca*(seq.side||1)*120,x2:player.x,y2:player.y,color:th.sub,t:.22,max:.22});}
   if(seq.ultFx<=0){seq.ultFx=.09;for(let j=-2;j<=2;j++){const a=seq.facing+j*.22,x=player.x+Math.cos(a)*(75+p*110),y=player.y+Math.sin(a)*(75+p*110);effects.push({type:'starSeal',x,y,r:24+p*18,color:j===0?th.sub:th.main,t:.16,max:.16});}}
   if(seq.ultPhase===0&&p>=.28){seq.ultPhase=1;for(let j=-3;j<=3;j++){const a=seq.facing+j*.18;effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(a)*300,y2:player.y+Math.sin(a)*300,color:j===0?th.sub:th.main,t:.26,max:.26});}shake=Math.max(shake,8);}
   if(seq.ultPhase===1&&p>=.72){seq.ultPhase=2;effects.push({type:'riftCut',x:player.x+Math.cos(seq.facing)*170,y:player.y+Math.sin(seq.facing)*170,a:seq.facing,len:520,width:72,color:th.sub,t:.48,max:.48});shake=Math.max(shake,13);}
@@ -1369,7 +1385,9 @@ function updateHeldSwordSkill(seq,sk,dt){
    if(seq.elapsed>=seq.nextTick){seq.nextTick=seq.elapsed+(seq.ultimate?.13:.18);captureSwordCarryTargets(seq,dashA,(WEAPONS[player.weapon]?.reach||80)+(seq.ultimate?130:58),seq.ultimate?1.7:1.15);meleeHit((WEAPONS[player.weapon]?.reach||80)+(seq.ultimate?130:58),seq.ultimate?1.7:1.15,damageValue(seq.ultimate?.56:.30),false);burst(player.x+dca*35,player.y+dsa*35,accent,seq.ultimate?9:5,seq.ultimate?150:95);}
   }
  }else if(mode==='holdVortex'){
-  const moveA=heldSwordInputAngle(seq.facing),p=clamp(seq.elapsed/seq.duration,0,1);moveBody(player,Math.cos(moveA)*(seq.ultimate?38:72)*dt,Math.sin(moveA)*(seq.ultimate?38:72)*dt);seq.facing+=dt*(seq.ultimate?6.2:4.8);player.facing=seq.facing;player.skillLift=(seq.ultimate?18:8)+Math.sin(realTime*7)*(seq.ultimate?9:5);
+  const p=clamp(seq.elapsed/seq.duration,0,1);let moveA=heldSwordInputAngle(seq.facing);
+  if(seq.ultimate&&p<.28){const t=enemies.filter(e=>!e.dead&&!e.riftSleeping&&combatDistance(e,player)<650).sort((a,b)=>combatDistance(a,player)-combatDistance(b,player))[0];if(t){moveA=Math.atan2(t.y-player.y,t.x-player.x);seq.facing=moveA;player.facing=moveA;}moveBody(player,Math.cos(moveA)*360*dt,Math.sin(moveA)*360*dt);}
+  else moveBody(player,Math.cos(moveA)*(seq.ultimate?95:72)*dt,Math.sin(moveA)*(seq.ultimate?95:72)*dt);seq.facing+=dt*(seq.ultimate?6.2:4.8);player.facing=seq.facing;player.skillLift=(seq.ultimate?18:8)+Math.sin(realTime*7)*(seq.ultimate?9:5);
   seq.fx-=dt;if(seq.fx<=0){seq.fx=seq.ultimate?.055:.09;ring(player.x,player.y,(seq.ultimate?135+p*145:82)+Math.sin(realTime*9)*22,main,.16);effects.push({type:'starSeal',x:player.x,y:player.y,r:seq.ultimate?190+p*90:118,color:accent,t:.18,max:.18});}
   if(seq.elapsed>=seq.nextTick){seq.nextTick=seq.elapsed+(seq.ultimate?.22:.30);const r=seq.ultimate?190+p*125:150;captureSwordCarryTargets(seq,seq.facing,r,TAU);for(const e of enemies){if(e.dead||e.riftSleeping||combatDistance(e,player)>r+combatRadius(e))continue;if(e.kind!=='boss'){const a=Math.atan2(player.y-e.y,player.x-e.x);moveBody(e,Math.cos(a)*(seq.ultimate?30:16),Math.sin(a)*(seq.ultimate?30:16));}hitEnemy(e,damageValue(seq.ultimate?.62:.40),false);}sharedPvpRadiusHit(player.x,player.y,r,damageValue(seq.ultimate?.62:.40),false,true);effects.push({type:'slash',x:player.x,y:player.y-12,a:seq.facing,arc:TAU,r:seq.ultimate?175:112,color:sub,t:.22,max:.22});sound('swing');}
  }else if(mode==='holdShadow'){
@@ -1386,10 +1404,10 @@ function startSwordSkill(slot){
  if(activeSwordSkill||player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[slot]>0)return false;
  if(!useStam(sk.cost))return false;aim();
  player.skillCds[slot]=sk.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=slot;player.cast=cfg.duration;player.attackDuration=cfg.duration;player.attackAnim=cfg.duration;player.attackAngle=player.facing;player.attackArc=cfg.arc[0];player.heavy=true;player.attackCd=cfg.duration;player.combo=0;player.comboTimer=0;queuePostSkillMoveLock(cfg.duration);
- const dashCatch=SWORD_DASH_SKILLS.has(sk.id),targetRange=dashCatch?720:300;
+ const dashCatch=SWORD_DASH_SKILLS.has(sk.id),targetRange=slot===4?780:(dashCatch?720:300);
  const motionTarget=(lockedTarget&&enemies.includes(lockedTarget)&&!lockedTarget.dead&&distance(lockedTarget,player)<=targetRange?lockedTarget:enemies.filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)&&distance(e,player)<targetRange).sort((a,b)=>distance(a,player)-distance(b,player))[0])||null;
  if(dashCatch&&motionTarget)player.facing=Math.atan2(motionTarget.y-player.y,motionTarget.x-player.x);
- activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:Math.random()<.5?-1:1,fx:0,carryIds:new Set(),dashCatch,ultimate:slot===4,ultPhase:0,ultFx:0};
+ activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:Math.random()<.5?-1:1,fx:0,carryIds:new Set(),dashCatch,ultimate:slot===4,ultPhase:0,ultFx:0,ultMovePhase:0};
  sendSharedSkillFx(slot,sk.id,player.weapon,player.facing);
  const theme=swordStyleFxForSkill(sk.id);
  if(slot===4){
