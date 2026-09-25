@@ -885,7 +885,9 @@ const SWORD_SKILL_LIBRARY=[
  {id:'guardBreak',name:'파갑 삼단',level:20,price:650,cost:42,cool:7.8,color:'#ffd098',desc:'좁고 강한 세 번의 찌르기로 마지막 일격의 피해와 경직이 크게 증가합니다.',cfg:{duration:.98,hits:[.18,.48,.78],mult:[.72,.95,2.18],arc:[.78,.86,1.18],reach:[22,28,46],step:[24,30,38],mode:'breaker'}},
  {id:'tempest',name:'폭풍 검무',level:24,price:780,cost:48,cool:9,color:'#9ff4df',desc:'전신을 회전시키며 여섯 번 빠르게 베고 마지막에 넓게 마무리합니다.',cfg:{duration:1.34,hits:[.13,.31,.49,.68,.88,1.12],mult:[.44,.48,.52,.58,.65,1.16],arc:[TAU,TAU,TAU,TAU,TAU,TAU],reach:[12,14,16,18,21,30],step:[0,0,0,0,0,8],mode:'spin'}},
  {id:'earthRend',name:'대지 절단',level:30,price:920,cost:52,cool:10,color:'#ffd18b',desc:'무거운 두 번의 베기 뒤 지면을 가르는 충격파로 마무리합니다.',cfg:{duration:1.08,hits:[.28,.82],mult:[1.18,2.55],arc:[1.8,2.45],reach:[22,48],step:[4,14],mode:'slam'}},
- {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:11.5,color:'#fff0b0',desc:'네 번의 검격을 이어 마지막 공격에서 전방으로 검압을 날립니다.',cfg:{duration:1.28,hits:[.16,.43,.72,1.02],mult:[.62,.74,.88,1.62],arc:[1.45,1.65,1.9,2.35],reach:[14,18,24,34],step:[7,8,10,14],mode:'wave'}}
+ {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:11.5,color:'#fff0b0',desc:'네 번의 검격을 이어 마지막 공격에서 전방으로 검압을 날립니다.',cfg:{duration:1.28,hits:[.16,.43,.72,1.02],mult:[.62,.74,.88,1.62],arc:[1.45,1.65,1.9,2.35],reach:[14,18,24,34],step:[7,8,10,14],mode:'wave'}},
+ {id:'thunderDrive',name:'뇌광 축세',level:44,price:1280,cost:62,cool:12.5,color:'#9edcff',holdActivate:true,holdTime:.5,desc:'버튼을 0.5초 이상 눌러 번개를 모은 뒤 자동 발동합니다. 충전 중 피격되면 취소되며, 발동 후에는 세 번 돌진해 적을 함께 밀고 갑니다.',cfg:{duration:.92,hits:[.12,.36,.68],mult:[.92,1.18,2.05],arc:[.82,1.02,1.55],reach:[30,42,64],step:[46,56,72],mode:'thrust'}},
+ {id:'meteorBreaker',name:'유성 붕검',level:52,price:1520,cost:70,cool:14.5,color:'#ffb78f',holdActivate:true,holdTime:.5,desc:'버튼을 0.5초 이상 눌러 힘을 모은 뒤 자동 발동합니다. 충전 중 피격되면 취소되며, 전진 강타 후 넓은 충격파로 마무리합니다.',cfg:{duration:1.16,hits:[.24,.84],mult:[1.42,2.85],arc:[1.75,2.65],reach:[28,72],step:[22,34],mode:'slam'}}
 ];
 const SWORD_SKILL_IDENTITY={
  windSlash:{trait:'연계 시작 · 마지막 검풍',fx:'청록 바람 궤적'},
@@ -897,7 +899,9 @@ const SWORD_SKILL_IDENTITY={
  guardBreak:{trait:'강한 경직 · 방어 압박',fx:'주황 파쇄 균열'},
  tempest:{trait:'다수전 · 고속 회전 난무',fx:'민트 폭풍 고리'},
  earthRend:{trait:'강공 · 지면 충격 범위',fx:'황금 지면 균열'},
- dawnArc:{trait:'중거리 마무리 · 검압 발사',fx:'백금 여명 파동'}
+ dawnArc:{trait:'중거리 마무리 · 검압 발사',fx:'백금 여명 파동'},
+ thunderDrive:{trait:'0.5초 충전 · 고속 추격 연계',fx:'청백 뇌광 잔상'},
+ meteorBreaker:{trait:'0.5초 충전 · 전진 강타/광역 마무리',fx:'주홍 유성 균열'}
 };
 function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color){
  const x=player.x+Math.cos(ang)*Math.min(reach*.45,70),y=player.y+Math.sin(ang)*Math.min(reach*.45,70);
@@ -911,6 +915,8 @@ function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color){
  else if(id==='tempest'){for(let j=0;j<2;j++)effects.push({type:'slash',x:player.x,y:player.y,a:ang+j*Math.PI/2+hitIndex*.55,arc:TAU,r:reach+20+j*10,color:j?color:'#dfffee',t:.2,max:.2});}
  else if(id==='earthRend'){if(finalHit){for(let j=-2;j<=2;j++)effects.push({type:'line',x,y,x2:x+Math.cos(ang+j*.22)*160,y2:y+Math.sin(ang+j*.22)*160,color:j?'#ffd18b':'#ffffff',t:.4,max:.4});ring(x,y,130,color,.44);}}
  else if(id==='dawnArc'){effects.push({type:'line',x:player.x,y:player.y,x2:x+Math.cos(ang)*85,y2:y+Math.sin(ang)*85,color:hitIndex%2?color:'#ffffff',t:.24,max:.24});if(finalHit)effects.push({type:'nova',x,y,r:105,color:'#fff0b0',t:.45,max:.45});}
+ else if(id==='thunderDrive'){effects.push({type:'riftCut',x,y,a:ang,len:170+hitIndex*55,width:16+hitIndex*5,color:hitIndex%2?'#ffffff':color,t:.18,max:.18});effects.push({type:'line',x:player.x-Math.cos(ang)*40,y:player.y-Math.sin(ang)*40,x2:player.x+Math.cos(ang)*(reach+55),y2:player.y+Math.sin(ang)*(reach+55),color,t:.16,max:.16});if(finalHit)effects.push({type:'nova',x,y,r:96,color:'#dff7ff',t:.34,max:.34});}
+ else if(id==='meteorBreaker'){if(hitIndex===0){effects.push({type:'slash',x,y,a:ang,arc:2.0,r:reach+34,color,t:.3,max:.3});burst(x,y,color,14,145);}if(finalHit){effects.push({type:'nova',x,y,r:150,color:'#fff0d7',t:.52,max:.52});for(let j=-3;j<=3;j++)effects.push({type:'line',x,y,x2:x+Math.cos(ang+j*.28)*180,y2:y+Math.sin(ang+j*.28)*180,color:j%2?color:'#ffffff',t:.42,max:.42});}}
 }
 function swordSkillById(id){return SWORD_SKILL_LIBRARY.find(s=>s.id===id)||null;}
 function isNormalSwordWeapon(){return player&&[0,1,4].includes(player.weapon);}
@@ -1104,9 +1110,9 @@ function skillActionActive(){
 }
 function cancelSkillPreparationOnStun(){
  let cancelled=false;
- if(standardSkillHold){standardSkillHold=null;cancelled=true;}
- if(hiddenSkillHold&&['prepare','holdPrepare'].includes(hiddenSkillHold.kind)){hiddenSkillHold=null;cancelled=true;}
- if(cancelled){skillTrayPress=null;player.skillPose=-1;player.cast=0;player.attackAnim=0;player.attackCd=0;}
+ if(standardSkillHold){const sk=skillInfo(standardSkillHold.index);if(sk?.holdActivate){standardSkillHold=null;cancelled=true;}}
+ if(hiddenSkillHold&&hiddenSkillHold.kind==='holdPrepare'){hiddenSkillHold=null;cancelled=true;}
+ if(cancelled){skillTrayPress=null;player.skillPose=-1;player.cast=0;player.attackAnim=0;player.attackCd=0;floating(player.x,player.y-58,'충전 취소','#f0bd9d',true);}
 }
 function cancelShieldForSkill(){
  desktopShield=false;if(player){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
@@ -1119,18 +1125,21 @@ function standardSkillCanPrepare(index){
 function beginStandardSkillInput(index){
  if(player.weapon===3)return beginHiddenSkillInput(index);
  if(!standardSkillCanPrepare(index))return false;
- const sk=skillInfo(index);aim();cancelShieldForSkill();standardSkillHold={index,weapon:player.weapon,facing:player.facing,elapsed:0,fx:0,color:sk.color||'#d7c181'};
+ const sk=skillInfo(index);aim();cancelShieldForSkill();standardSkillHold={index,weapon:player.weapon,facing:player.facing,elapsed:0,fx:0,color:sk.color||'#d7c181',holdActivate:!!sk.holdActivate,holdTime:sk.holdTime||.5};
  player.skillPose=index;player.attackAngle=player.facing;player.attackAnim=Math.max(player.attackAnim,.12);ring(player.x,player.y,34,standardSkillHold.color,.22);sound('swing');return true;
 }
 function releaseStandardSkillInput(index){
- const h=standardSkillHold;if(!h||h.index!==index)return false;standardSkillHold=null;player.skillPose=-1;if(player.weapon!==h.weapon)return false;
+ const h=standardSkillHold;if(!h||h.index!==index)return false;
+ if(h.holdActivate){standardSkillHold=null;player.skillPose=-1;player.attackAnim=0;player.cast=0;if(h.elapsed<h.holdTime)floating(player.x,player.y-58,'충전 취소','#d8c8a8');return false;}
+ standardSkillHold=null;player.skillPose=-1;if(player.weapon!==h.weapon)return false;
  player.facing=h.facing;player.attackAngle=h.facing;
  triggerSkillShake(index);
  return player.weapon===2?executeSkillNow(index):startSwordSkill(index);
 }
 function updateStandardSkillPrepare(dt){
  const h=standardSkillHold;if(!h)return;h.elapsed+=dt;player.skillPose=h.index;player.facing=h.facing;player.attackAngle=h.facing;player.parry=0;player.perfectWindow=0;
- h.fx-=dt;if(h.fx<=0){h.fx=.18;ring(player.x,player.y,38+(Math.sin(realTime*7)+1)*5,h.color,.16);effects.push({type:'starSeal',x:player.x,y:player.y,r:66,color:h.color,t:.18,max:.18});}
+ h.fx-=dt;if(h.fx<=0){h.fx=.18;const charge=h.holdActivate?clamp(h.elapsed/h.holdTime,0,1):0;ring(player.x,player.y,38+(Math.sin(realTime*7)+1)*5+charge*18,h.color,.16);effects.push({type:'starSeal',x:player.x,y:player.y,r:66+charge*24,color:h.color,t:.18,max:.18});}
+ if(h.holdActivate&&h.elapsed>=h.holdTime){const index=h.index,weapon=h.weapon,facing=h.facing;standardSkillHold=null;player.skillPose=-1;if(player.weapon!==weapon)return;player.facing=facing;player.attackAngle=facing;triggerSkillShake(index,1.25);startSwordSkill(index);}
 }
 function skill(index=0){
  if(typeof index!=='number')index=0;const sk=skillInfo(index);if(!sk||!canAct())return;
@@ -1221,7 +1230,7 @@ function showSkills(forceSword=false){
  }
  const adminSword=player.weapon===4,near=swordTrainerNear(),slots=adminSword?player.adminSwordSkills:player.equippedSwordSkills;
  const equipped='<div class="card selected"><div class="eyebrow">'+(adminSword?'ADMIN ALL ARTS':'EQUIPPED ARTS')+'</div><h3>'+(adminSword?'관리자의 만능검':'장착 검술')+'</h3>'+slots.map((id,i)=>'<div class="stat-row"><span>'+keyName(keybinds[keys[i]])+'</span><b>'+(swordSkillById(id)?.name||'미장착')+'</b></div>').join('')+'</div>';
- const cards=SWORD_SKILL_LIBRARY.map(sk=>{const learned=adminSword||player.learnedSwordSkills.includes(sk.id),levelOk=player.level>=sk.level||adminSword,canLearn=!adminSword&&!learned&&near&&levelOk&&player.gold>=sk.price;const equip=learned?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">'+keys.map((k,i)=>'<button class="small '+(slots[i]===sk.id?'selected':'')+'" data-action="equipSwordSkill" data-value="'+sk.id+':'+i+'">'+keyName(keybinds[k])+'</button>').join('')+'</div>':'<button data-action="learnSwordSkill" data-value="'+sk.id+'" '+(!canLearn?'disabled':'')+'>'+(!levelOk?'Lv.'+sk.level+' 필요':!near?'로웬 근처에서 습득':player.gold<sk.price?sk.price+' G 필요':'검술 습득 · '+sk.price+' G')+'</button>';return '<div class="card '+(learned?'selected':'')+'"><div class="eyebrow">'+(adminSword?'ADMIN UNLOCKED':learned?'습득 완료':'습득 가능 Lv.'+sk.level)+'</div><h3>'+sk.name+'</h3><p>'+sk.desc+'</p><p><b>'+SWORD_SKILL_IDENTITY[sk.id].trait+'</b><br><span style="opacity:.78">연출 · '+SWORD_SKILL_IDENTITY[sk.id].fx+'</span></p><div class="price">'+sk.cost+' 지구력 · 재사용 '+sk.cool+'초'+(adminSword?'':' · 습득 '+sk.price+' G')+'</div>'+equip+'</div>';}).join('');
+ const cards=SWORD_SKILL_LIBRARY.map(sk=>{const learned=adminSword||player.learnedSwordSkills.includes(sk.id),levelOk=player.level>=sk.level||adminSword,canLearn=!adminSword&&!learned&&near&&levelOk&&player.gold>=sk.price;const equip=learned?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">'+keys.map((k,i)=>'<button class="small '+(slots[i]===sk.id?'selected':'')+'" data-action="equipSwordSkill" data-value="'+sk.id+':'+i+'">'+keyName(keybinds[k])+'</button>').join('')+'</div>':'<button data-action="learnSwordSkill" data-value="'+sk.id+'" '+(!canLearn?'disabled':'')+'>'+(!levelOk?'Lv.'+sk.level+' 필요':!near?'로웬 근처에서 습득':player.gold<sk.price?sk.price+' G 필요':'검술 습득 · '+sk.price+' G')+'</button>';return '<div class="card '+(learned?'selected':'')+'"><div class="eyebrow">'+(adminSword?'ADMIN UNLOCKED':learned?'습득 완료':'습득 가능 Lv.'+sk.level)+'</div><h3>'+sk.name+'</h3><p>'+sk.desc+'</p><p><b>'+SWORD_SKILL_IDENTITY[sk.id].trait+'</b><br><span style="opacity:.78">연출 · '+SWORD_SKILL_IDENTITY[sk.id].fx+'</span></p><div class="price">'+sk.cost+' 지구력 · 재사용 '+sk.cool+'초'+(sk.holdActivate?' · <b>0.5초 길게 눌러 발동</b>':'')+(adminSword?'':' · 습득 '+sk.price+' G')+'</div>'+equip+'</div>';}).join('');
  openPanel('skills',header(adminSword?'ADMIN MASTER BLADE':'SWORD ARTS',adminSword?'관리자의 만능검 · 모든 일반 검술':'장검·쌍검 검술 습득과 장착')+equipped+'<div class="grid two">'+cards+'</div><div class="tip">'+(adminSword?'관리자 검은 모든 검술이 즉시 해금되어 있습니다. 각 검술 아래 Q/R/T/G/V 버튼으로 시험할 슬롯을 바꿀 수 있습니다.':'검술은 대장장이 로웬 가까이에서 골드로 습득합니다. 배운 검술은 언제든 Q/R/T/G/V 다섯 슬롯에 원하는 조합으로 장착할 수 있습니다.'+(near?'<br><b>현재 로웬 근처이므로 새 검술을 습득할 수 있습니다.</b>':''))+'</div>'+footer());
 }
 function hitEnemy(e,amount,heavy=false,source=player){
