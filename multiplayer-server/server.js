@@ -255,7 +255,7 @@ function sendMobAttack(m,target){
   if(!target||!validMobTarget(m,target))return;const dist=Math.hypot(target.x-m.x,target.y-m.y),range=mobAttackRange(m),allowed=m.kind==='ranged'?range+80:m.kind==='boss'?range+120:range+55;if(dist>allowed)return;
   broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage:m.damage,x:m.x,y:m.y,tx:target.x,ty:target.y,facing:m.facing,kind:m.kind,attackType:m.attackType||m.kind,serverTime:Date.now()},null,{volatile:true});
 }
-function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;}markMobDirty(m);}
+function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
 function simulateMob(m,dt,now){
   if(m.dead){if(m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);return;}
   if(now<m.stunUntil){if(m.state!=='stunned'){m.state='stunned';markMobDirty(m);}return;}
@@ -378,7 +378,7 @@ function handleMessage(player,msg){
     player.vx=clamp(Number.isFinite(Number(msg.vx))?msg.vx:(player.x-oldX)/elapsed,-3000,3000);player.vy=clamp(Number.isFinite(Number(msg.vy))?msg.vy:(player.y-oldY)/elapsed,-3000,3000);player.seq=Math.max((player.seq||0)+1,Math.floor(clamp(msg.seq,0,1e12)));player.updatedAt=now;player.lastStateAt=now;
     const pub=publicPlayer(player);safeSend(player.ws,{type:'player:self',player:pub,serverTime:now},{volatile:true});broadcast({type:'player:state',player:pub},player.ws,{volatile:true});return;
   }
-  if(msg.type==='world:bootstrap'){bootstrapAuthoritativeWorld(player,msg);return;}if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}if(msg.type==='world:mobsDelta'){handleWorldMobDelta(player,msg);return;}if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}if(msg.type==='pvp:damage'){handlePvpDamage(player,msg);return;}
+  if(msg.type==='world:bootstrap'){bootstrapAuthoritativeWorld(player,msg);return;}if(msg.type==='world:resync'){const now=Date.now();if(now-(player.lastWorldResyncAt||0)>900){player.lastWorldResyncAt=now;safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});}return;}if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}if(msg.type==='world:mobsDelta'){handleWorldMobDelta(player,msg);return;}if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}if(msg.type==='pvp:damage'){handlePvpDamage(player,msg);return;}
   if(msg.type==='party:create'){createParty(player);return;}if(msg.type==='party:invite'){const r=inviteParty(player,msg.targetId);if(!r.ok)safeSend(player.ws,{type:'notice',message:r.message});return;}if(msg.type==='party:accept'){const r=acceptParty(player,msg.partyId);if(!r.ok)safeSend(player.ws,{type:'notice',message:r.message});return;}if(msg.type==='party:leave'){leaveParty(player);return;}if(msg.type==='boss:damage'){handleBossDamage(player,msg);return;}if(msg.type==='pvp:hit'){handlePvpHit(player,msg);return;}
   if(msg.type==='party:chat'){const party=parties.get(player.partyId);if(!party)return;const message=String(msg.message||'').trim().slice(0,120);if(!message)return;for(const pid of party.members){const target=players.get(pid);if(target)safeSend(target.ws,{type:'party:chat',fromId:player.id,fromName:player.name,message});}}
 }
@@ -465,7 +465,7 @@ let playerListTick=0;
 setInterval(()=>{
   const now=Date.now();simulateWorld(now);if(now-lastMobNetFlush>=MOB_NET_TICK_MS){lastMobNetFlush=now;flushMobDeltas(now);}
   for(const boss of bosses.values())if(!boss.alive&&boss.respawnAt<=now){boss.alive=true;boss.hp=boss.maxHp;boss.respawnAt=0;syncBossMob(boss);broadcast({type:'boss:respawn',boss:{id:boss.id,name:boss.name,x:boss.x,y:boss.y,hp:boss.hp,maxHp:boss.maxHp,alive:true,respawnInMs:0}});}
-  playerListTick+=SIM_TICK_MS;if(playerListTick>=PLAYER_LIST_MS){playerListTick=0;broadcast({type:'players',players:[...players.values()].filter(p=>p.ready).map(publicPlayer),serverTime:now},null,{volatile:true});}
+  playerListTick+=SIM_TICK_MS;if(playerListTick>=PLAYER_LIST_MS){playerListTick=0;broadcast({type:'players',players:[...players.values()].filter(p=>p.ready).map(publicPlayer),serverTime:now,revision:worldRevision},null,{volatile:true});}
 },SIM_TICK_MS);
 setInterval(()=>{
   for(const ws of wss.clients){
