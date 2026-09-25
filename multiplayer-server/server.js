@@ -403,6 +403,25 @@ function handleMessage(player,msg){
     player.vx=clamp(Number.isFinite(Number(msg.vx))?msg.vx:(player.x-oldX)/elapsed,-3000,3000);player.vy=clamp(Number.isFinite(Number(msg.vy))?msg.vy:(player.y-oldY)/elapsed,-3000,3000);player.seq=Math.max((player.seq||0)+1,Math.floor(clamp(msg.seq,0,1e12)));player.updatedAt=now;player.lastStateAt=now;
     const pub=publicPlayer(player);safeSend(player.ws,{type:'player:self',player:pub,serverTime:now},{volatile:true});broadcast({type:'player:state',player:pub},player.ws,{volatile:true});return;
   }
+  if(msg.type==='skill:effects'){
+    const types=new Set(['particle','ring','line','slash','riftCut','nova','starSeal','flourish']),num=(v,min,max)=>clamp(Number(v)||0,min,max);
+    const effects=(Array.isArray(msg.effects)?msg.effects:[]).slice(0,90).flatMap(raw=>{
+      if(!raw||!types.has(raw.type))return[];const e={type:raw.type,color:String(raw.color||'#ffffff').slice(0,24)};
+      for(const k of ['x','y','x2','y2'])if(Number.isFinite(Number(raw[k])))e[k]=num(raw[k],-2000,22000);
+      for(const k of ['vx','vy'])if(Number.isFinite(Number(raw[k])))e[k]=num(raw[k],-4000,4000);
+      for(const k of ['t','max'])if(Number.isFinite(Number(raw[k])))e[k]=num(raw[k],.01,3);
+      for(const k of ['size','r','len','width'])if(Number.isFinite(Number(raw[k])))e[k]=num(raw[k],0,1200);
+      for(const k of ['a','arc'])if(Number.isFinite(Number(raw[k])))e[k]=num(raw[k],-20,20);
+      if(Number.isFinite(Number(raw.style)))e.style=Math.floor(num(raw.style,0,10));
+      return[e];
+    });
+    const projectiles=(Array.isArray(msg.projectiles)?msg.projectiles:[]).slice(0,24).flatMap(raw=>{
+      if(!raw)return[];const x=Number(raw.x),y=Number(raw.y),vx=Number(raw.vx),vy=Number(raw.vy);if(![x,y,vx,vy].every(Number.isFinite))return[];
+      return[{x:num(x,0,WORLD.width),y:num(y,0,WORLD.height),vx:num(vx,-3000,3000),vy:num(vy,-3000,3000),a:num(raw.a,-20,20),kind:String(raw.kind||'orb').slice(0,16),r:num(raw.r,2,24),t:num(raw.t,.05,2.5)}];
+    });
+    if(effects.length||projectiles.length)broadcast({type:'skill:effects',playerId:player.id,seq:Math.floor(clamp(msg.seq,0,1e12)),effects,projectiles,serverTime:Date.now()},player.ws);
+    return;
+  }
   if(msg.type==='skill:fx'){
     const slot=Math.floor(clamp(msg.slot,0,4)),weapon=Math.floor(clamp(msg.weapon,0,4)),skillId=String(msg.skillId||'').slice(0,40),fxSeq=Math.max(player.skillFxSeq||0,Math.floor(clamp(msg.fxSeq,0,1e12)));
     const x=clamp(Number(msg.x)||player.x,40,WORLD.width-40),y=clamp(Number(msg.y)||player.y,40,WORLD.height-40),a=clamp(Number(msg.a)||0,-Math.PI*4,Math.PI*4);
