@@ -884,47 +884,73 @@ const SKILLS=[
  {name:'집중 화살비',level:24,cost:55,cool:11,color:'#ffcaeb',desc:'강한 관통 화살을 집중 발사합니다.'}
 ];
 const SWORD_SKILL_LIBRARY=[
- {id:'windSlash',name:'바람 가르기',level:1,price:0,cost:20,cool:3.2,color:'#a5f1d8',desc:'세 번 이어 베며 마지막 공격의 범위가 넓어집니다.',cfg:{duration:1.00,hits:[.16,.45,.76],mult:[.82,.92,1.22],arc:[1.75,2.05,2.35],reach:[8,12,18],step:[8,8,12],mode:'combo'}},
- {id:'flashRush',name:'섬광 찌르기',level:4,price:180,cost:27,cool:4.3,color:'#9ddfff',desc:'빠르게 전진하며 세 번 찌릅니다. 적중한 적을 진행 방향으로 함께 밀어 연속 타격이 끊기지 않습니다.',cfg:{duration:.76,hits:[.12,.32,.58],mult:[.72,.92,1.38],arc:[.62,.72,.90],reach:[18,28,42],step:[42,48,58],mode:'thrust'}},
- {id:'moonSpin',name:'달빛 회전',level:7,price:260,cost:32,cool:5.4,color:'#d2b4ff',desc:'회전하며 주변을 다섯 번 베어 다수의 적을 상대합니다.',cfg:{duration:1.18,hits:[.14,.32,.50,.69,.91],mult:[.54,.58,.62,.68,.92],arc:[TAU,TAU,TAU,TAU,TAU],reach:[12,15,18,20,24],step:[0,0,0,0,0],mode:'spin'}},
- {id:'starRush',name:'별빛 돌파',level:10,price:340,cost:36,cool:6.3,color:'#ffcaeb',desc:'전진 베기 세 번 동안 적을 진행 방향으로 함께 밀며 연계하고 마지막에 강하게 밀어냅니다.',cfg:{duration:1.04,hits:[.18,.48,.82],mult:[.72,.98,1.65],arc:[1.35,1.55,2.15],reach:[15,24,38],step:[30,36,46],mode:'breaker'}},
- {id:'crossBloom',name:'연속 교차 베기',level:13,price:420,cost:40,cool:7.2,color:'#ffe3a0',desc:'일곱 번의 교차 검격을 빠르게 이어가는 지속 공격입니다.',cfg:{duration:1.52,hits:[.14,.31,.48,.66,.85,1.07,1.31],mult:[.46,.48,.52,.56,.62,.72,1.20],arc:[1.45,1.55,1.65,1.75,1.85,2.0,2.55],reach:[10,12,14,16,18,20,28],step:[5,5,6,6,7,8,12],mode:'cross'}},
- {id:'crescent',name:'초승달 이연참',level:16,price:520,cost:34,cool:5.8,color:'#b9e8ff',desc:'넓은 초승달 모양의 두 번 베기로 전방을 크게 휩씁니다.',cfg:{duration:.78,hits:[.18,.54],mult:[1.25,1.72],arc:[2.75,3.05],reach:[28,42],step:[10,16],mode:'wide'}},
- {id:'guardBreak',name:'파갑 삼단',level:20,price:650,cost:42,cool:7.8,color:'#ffd098',desc:'좁고 강한 세 번의 찌르기로 마지막 일격의 피해와 경직이 크게 증가합니다.',cfg:{duration:.98,hits:[.18,.48,.78],mult:[.72,.95,2.18],arc:[.78,.86,1.18],reach:[22,28,46],step:[24,30,38],mode:'breaker'}},
- {id:'tempest',name:'폭풍 검무',level:24,price:780,cost:48,cool:9,color:'#9ff4df',desc:'전신을 회전시키며 여섯 번 빠르게 베고 마지막에 넓게 마무리합니다.',cfg:{duration:1.34,hits:[.13,.31,.49,.68,.88,1.12],mult:[.44,.48,.52,.58,.65,1.16],arc:[TAU,TAU,TAU,TAU,TAU,TAU],reach:[12,14,16,18,21,30],step:[0,0,0,0,0,8],mode:'spin'}},
- {id:'earthRend',name:'대지 절단',level:30,price:920,cost:52,cool:10,color:'#ffd18b',desc:'무거운 두 번의 베기 뒤 지면을 가르는 충격파로 마무리합니다.',cfg:{duration:1.08,hits:[.28,.82],mult:[1.18,2.55],arc:[1.8,2.45],reach:[22,48],step:[4,14],mode:'slam'}},
- {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:11.5,color:'#fff0b0',desc:'네 번의 검격을 이어 마지막 공격에서 전방으로 검압을 날립니다.',cfg:{duration:1.28,hits:[.16,.43,.72,1.02],mult:[.62,.74,.88,1.62],arc:[1.45,1.65,1.9,2.35],reach:[14,18,24,34],step:[7,8,10,14],mode:'wave'}},
- {id:'thunderDrive',name:'뇌광 축세',level:44,price:1280,cost:62,cool:12.5,color:'#9edcff',holdActivate:true,holdTime:.5,desc:'버튼을 0.5초 이상 눌러 번개를 모은 뒤 자동 발동합니다. 충전 중 피격되면 취소되며, 발동 후에는 세 번 돌진해 적을 함께 밀고 갑니다.',cfg:{duration:.92,hits:[.12,.36,.68],mult:[.92,1.18,2.05],arc:[.82,1.02,1.55],reach:[30,42,64],step:[46,56,72],mode:'thrust'}},
- {id:'meteorBreaker',name:'유성 붕검',level:52,price:1520,cost:70,cool:14.5,color:'#ffb78f',holdActivate:true,holdTime:.5,desc:'버튼을 0.5초 이상 눌러 힘을 모은 뒤 자동 발동합니다. 충전 중 피격되면 취소되며, 전진 강타 후 넓은 충격파로 마무리합니다.',cfg:{duration:1.16,hits:[.24,.84],mult:[1.42,2.85],arc:[1.75,2.65],reach:[28,72],step:[22,34],mode:'slam'}}
+ {id:'windSlash',name:'바람 가르기',level:1,price:0,cost:20,cool:3.2,color:'#a5f1d8',desc:'한 번 크게 베어 긴 검풍을 날리는 단발 원거리 검술입니다.',cfg:{duration:.46,hits:[.18],mult:[1.35],arc:[1.75],reach:[18],step:[2],mode:'windShot'}},
+ {id:'flashRush',name:'섬광 찌르기',level:4,price:180,cost:27,cool:4.3,color:'#9ddfff',desc:'순간적으로 전방을 파고들어 한 번 강하게 관통합니다. 짧고 빠른 진입용 단타입니다.',cfg:{duration:.34,hits:[.12],mult:[2.15],arc:[.58],reach:[54],step:[96],mode:'blinkThrust'}},
+ {id:'moonSpin',name:'달빛 회전',level:7,price:260,cost:32,cool:5.4,color:'#d2b4ff',desc:'제자리에서 넓게 한 바퀴 회전해 주변 모든 적을 한 번에 베어냅니다.',cfg:{duration:.62,hits:[.26],mult:[1.75],arc:[TAU],reach:[46],step:[0],mode:'moonBurst'}},
+ {id:'starRush',name:'별빛 돌파',level:10,price:340,cost:36,cool:6.3,color:'#ffcaeb',desc:'세 번 연속 전진 베기하며 적을 공격 방향으로 같이 밀어 끝까지 추격하는 연계기입니다.',cfg:{duration:1.02,hits:[.14,.44,.78],mult:[.78,.98,1.48],arc:[1.20,1.45,2.05],reach:[18,26,40],step:[38,44,52],mode:'chaseCombo'}},
+ {id:'crossBloom',name:'연속 교차 베기',level:13,price:420,cost:40,cool:7.2,color:'#ffe3a0',desc:'거의 이동하지 않고 전방 한 지점에 일곱 번 빠르게 교차 베기를 집중합니다.',cfg:{duration:1.42,hits:[.10,.26,.42,.58,.76,.96,1.20],mult:[.43,.45,.48,.52,.56,.66,1.08],arc:[1.20,1.25,1.30,1.35,1.40,1.50,1.85],reach:[20,20,22,22,24,26,30],step:[0,0,0,0,0,0,4],mode:'stationaryFlurry'}},
+ {id:'crescent',name:'초승달 이연참',level:16,price:520,cost:34,cool:5.8,color:'#b9e8ff',desc:'서로 다른 각도로 두 번 베며 초승달 검압 두 개를 연속 발사하는 중거리 기술입니다.',cfg:{duration:.80,hits:[.16,.52],mult:[.90,1.18],arc:[2.4,2.7],reach:[18,22],step:[2,4],mode:'doubleWave'}},
+ {id:'guardBreak',name:'파갑 일섬',level:20,price:650,cost:42,cool:7.8,color:'#ffd098',desc:'좁은 범위를 단 한 번 찔러 큰 피해와 강한 경직을 주는 단일 제압기입니다.',cfg:{duration:.58,hits:[.28],mult:[3.05],arc:[.52],reach:[68],step:[18],mode:'guardPierce'}},
+ {id:'tempest',name:'폭풍 검무',level:24,price:780,cost:48,cool:9,color:'#9ff4df',desc:'제자리에서 매우 빠르게 여섯 번 회전하며 주변 다수를 연속 공격하는 광역 난무입니다.',cfg:{duration:1.28,hits:[.08,.25,.42,.59,.78,1.02],mult:[.42,.45,.48,.52,.58,.92],arc:[TAU,TAU,TAU,TAU,TAU,TAU],reach:[18,22,26,30,34,42],step:[0,0,0,0,0,0],mode:'tempest'}},
+ {id:'earthRend',name:'대지 절단',level:30,price:920,cost:52,cool:10,color:'#ffd18b',desc:'검을 내려찍어 전방 지면을 폭발시키는 느린 단발 광역 강공입니다.',cfg:{duration:.92,hits:[.58],mult:[2.65],arc:[2.1],reach:[48],step:[8],mode:'earthSlam'}},
+ {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:11.5,color:'#fff0b0',desc:'칼을 한 번 휘둘러 매우 긴 거리의 거대한 검압 하나를 발사하는 원거리 마무리기입니다.',cfg:{duration:.72,hits:[.28],mult:[1.15],arc:[1.7],reach:[20],step:[0],mode:'dawnWave'}},
+ {id:'thunderDrive',name:'뇌광 축세',level:44,price:1280,cost:62,cool:12.5,color:'#9edcff',holdActivate:true,holdTime:.65,desc:'0.65초 길게 눌러 번개를 모은 뒤 자동 발동합니다. 충전 중 피격되면 취소되며, 발동하면 한 번의 초고속 장거리 돌진으로 적을 꿰뚫습니다.',cfg:{duration:.52,hits:[.10],mult:[3.35],arc:[.64],reach:[82],step:[180],mode:'thunderDash'}},
+ {id:'meteorBreaker',name:'유성 붕검',level:52,price:1520,cost:70,cool:14.5,color:'#ffb78f',holdActivate:true,holdTime:1.0,desc:'1초 길게 눌러 힘을 모은 뒤 자동 발동합니다. 충전 중 피격되면 취소되며, 발동 후 제자리에서 거대한 원형 폭발을 일으키는 최고위 단발기입니다.',cfg:{duration:.84,hits:[.46],mult:[3.75],arc:[TAU],reach:[0],step:[0],mode:'meteorNova'}}
 ];
 const SWORD_SKILL_IDENTITY={
- windSlash:{trait:'연계 시작 · 마지막 검풍',fx:'청록 바람 궤적'},
- flashRush:{trait:'고속 접근 · 직선 관통',fx:'푸른 섬광 잔상'},
- moonSpin:{trait:'주변 제압 · 전방위 회전',fx:'보랏빛 월륜'},
- starRush:{trait:'돌파 · 연속 전진 압박',fx:'분홍 별가루 궤적'},
- crossBloom:{trait:'다단 연격 · 콤보 유지',fx:'금빛 교차 검화'},
- crescent:{trait:'넓은 이연참 · 거리 압박',fx:'하늘빛 초승달'},
- guardBreak:{trait:'강한 경직 · 방어 압박',fx:'주황 파쇄 균열'},
- tempest:{trait:'다수전 · 고속 회전 난무',fx:'민트 폭풍 고리'},
- earthRend:{trait:'강공 · 지면 충격 범위',fx:'황금 지면 균열'},
- dawnArc:{trait:'중거리 마무리 · 검압 발사',fx:'백금 여명 파동'},
- thunderDrive:{trait:'0.5초 충전 · 고속 추격 연계',fx:'청백 뇌광 잔상'},
- meteorBreaker:{trait:'0.5초 충전 · 전진 강타/광역 마무리',fx:'주홍 유성 균열'}
+ windSlash:{trait:'단발 · 직선 원거리 검풍',fx:'청록 압축 검풍'},
+ flashRush:{trait:'단타 · 순간 진입 관통',fx:'푸른 순간이동 잔광'},
+ moonSpin:{trait:'단타 · 360도 주변 제압',fx:'보랏빛 만월 고리'},
+ starRush:{trait:'3연 추격 · 적 동반 밀기',fx:'분홍 별빛 궤적'},
+ crossBloom:{trait:'7연 집중 · 제자리 난무',fx:'금빛 X자 검화'},
+ crescent:{trait:'2연 중거리 · 쌍검압',fx:'하늘빛 초승달 두 겹'},
+ guardBreak:{trait:'단일 강타 · 긴 경직',fx:'주황 관통 균열'},
+ tempest:{trait:'6연 광역 · 회전 폭풍',fx:'민트 소용돌이 층'},
+ earthRend:{trait:'느린 단발 · 지면 폭발',fx:'황금 대지 파열'},
+ dawnArc:{trait:'초장거리 단발 · 대검압',fx:'백금 수평 광파'},
+ thunderDrive:{trait:'0.65초 충전 · 초고속 관통',fx:'청백 번개 직선'},
+ meteorBreaker:{trait:'1초 충전 · 원형 대폭발',fx:'주홍 유성 낙하진'}
 };
 function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color){
- const x=player.x+Math.cos(ang)*Math.min(reach*.45,70),y=player.y+Math.sin(ang)*Math.min(reach*.45,70);
- if(id==='windSlash'){effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(ang)*reach*1.25,y2:player.y+Math.sin(ang)*reach*1.25,color,t:.22,max:.22});if(finalHit)fireProjectile(player.x+Math.cos(ang)*32,player.y+Math.sin(ang)*32,ang,500,damageValue(.42),'player','wave',2);}
- else if(id==='flashRush'){effects.push({type:'riftCut',x,y,a:ang,len:150+hitIndex*35,width:18,color,t:.18,max:.18});if(finalHit)burst(x,y,color,14,210);}
- else if(id==='moonSpin'){ring(player.x,player.y,reach+24,color,.22);effects.push({type:'starSeal',x:player.x,y:player.y,r:reach+36,color,t:.2,max:.2});}
- else if(id==='starRush'){effects.push({type:'line',x:player.x-Math.cos(ang)*35,y:player.y-Math.sin(ang)*35,x2:player.x+Math.cos(ang)*reach,y2:player.y+Math.sin(ang)*reach,color,t:.24,max:.24});if(finalHit)effects.push({type:'starSeal',x,y,r:88,color,t:.42,max:.42});}
- else if(id==='crossBloom'){effects.push({type:'slash',x,y,a:ang+(hitIndex%2?.72:-.72),arc:1.15,r:reach+22,color,t:.18,max:.18});if(finalHit)effects.push({type:'starSeal',x,y,r:72,color:'#fff3cf',t:.35,max:.35});}
- else if(id==='crescent'){effects.push({type:'slash',x,y,a:ang+(hitIndex?.32:-.32),arc:2.9,r:reach+34,color,t:.32,max:.32});if(finalHit)fireProjectile(player.x+Math.cos(ang)*30,player.y+Math.sin(ang)*30,ang,430,damageValue(.56),'player','wave',2);}
- else if(id==='guardBreak'){effects.push({type:'riftCut',x,y,a:ang,len:110+hitIndex*45,width:12+hitIndex*8,color,t:.22,max:.22});if(finalHit){ring(x,y,76,color,.34);burst(x,y,'#fff1cf',18,190);}}
- else if(id==='tempest'){for(let j=0;j<2;j++)effects.push({type:'slash',x:player.x,y:player.y,a:ang+j*Math.PI/2+hitIndex*.55,arc:TAU,r:reach+20+j*10,color:j?color:'#dfffee',t:.2,max:.2});}
- else if(id==='earthRend'){if(finalHit){for(let j=-2;j<=2;j++)effects.push({type:'line',x,y,x2:x+Math.cos(ang+j*.22)*160,y2:y+Math.sin(ang+j*.22)*160,color:j?'#ffd18b':'#ffffff',t:.4,max:.4});ring(x,y,130,color,.44);}}
- else if(id==='dawnArc'){effects.push({type:'line',x:player.x,y:player.y,x2:x+Math.cos(ang)*85,y2:y+Math.sin(ang)*85,color:hitIndex%2?color:'#ffffff',t:.24,max:.24});if(finalHit)effects.push({type:'nova',x,y,r:105,color:'#fff0b0',t:.45,max:.45});}
- else if(id==='thunderDrive'){effects.push({type:'riftCut',x,y,a:ang,len:170+hitIndex*55,width:16+hitIndex*5,color:hitIndex%2?'#ffffff':color,t:.18,max:.18});effects.push({type:'line',x:player.x-Math.cos(ang)*40,y:player.y-Math.sin(ang)*40,x2:player.x+Math.cos(ang)*(reach+55),y2:player.y+Math.sin(ang)*(reach+55),color,t:.16,max:.16});if(finalHit)effects.push({type:'nova',x,y,r:96,color:'#dff7ff',t:.34,max:.34});}
- else if(id==='meteorBreaker'){if(hitIndex===0){effects.push({type:'slash',x,y,a:ang,arc:2.0,r:reach+34,color,t:.3,max:.3});burst(x,y,color,14,145);}if(finalHit){effects.push({type:'nova',x,y,r:150,color:'#fff0d7',t:.52,max:.52});for(let j=-3;j<=3;j++)effects.push({type:'line',x,y,x2:x+Math.cos(ang+j*.28)*180,y2:y+Math.sin(ang+j*.28)*180,color:j%2?color:'#ffffff',t:.42,max:.42});}}
+ const x=player.x+Math.cos(ang)*Math.min(Math.max(reach*.45,28),85),y=player.y+Math.sin(ang)*Math.min(Math.max(reach*.45,28),85);
+ if(id==='windSlash'){
+  effects.push({type:'riftCut',x:x,y:y,a:ang,len:210,width:22,color,t:.34,max:.34});
+  effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(ang)*230,y2:player.y+Math.sin(ang)*230,color:'#e9fff6',t:.24,max:.24});
+ }else if(id==='flashRush'){
+  for(let j=0;j<4;j++)effects.push({type:'line',x:player.x-Math.cos(ang)*(18+j*24),y:player.y-Math.sin(ang)*(18+j*24),x2:player.x-Math.cos(ang)*(48+j*34),y2:player.y-Math.sin(ang)*(48+j*34),color:j%2?'#ffffff':color,t:.18+j*.03,max:.18+j*.03});
+  effects.push({type:'nova',x,y,r:52,color,t:.24,max:.24});
+ }else if(id==='moonSpin'){
+  for(let j=0;j<3;j++)ring(player.x,player.y,58+j*22,j===1?'#ffffff':color,.28+j*.06);
+  effects.push({type:'starSeal',x:player.x,y:player.y,r:112,color,t:.42,max:.42});
+ }else if(id==='starRush'){
+  effects.push({type:'riftCut',x,y,a:ang+(hitIndex%2?.25:-.25),len:120+hitIndex*45,width:16+hitIndex*4,color,t:.20,max:.20});
+  burst(x,y,color,6+hitIndex*3,125+hitIndex*30);
+ }else if(id==='crossBloom'){
+  effects.push({type:'slash',x,y,a:ang+(hitIndex%2?.78:-.78),arc:1.05,r:reach+38,color,t:.16,max:.16});
+  effects.push({type:'slash',x,y,a:ang+(hitIndex%2?-.78:.78),arc:1.05,r:reach+28,color:'#fff7db',t:.14,max:.14});
+  if(finalHit)effects.push({type:'starSeal',x,y,r:92,color,t:.42,max:.42});
+ }else if(id==='crescent'){
+  effects.push({type:'slash',x,y,a:ang+(hitIndex?.36:-.36),arc:2.8,r:92+hitIndex*14,color,t:.34,max:.34});
+  effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(ang+(hitIndex?.10:-.10))*145,y2:player.y+Math.sin(ang+(hitIndex?.10:-.10))*145,color:'#eefbff',t:.22,max:.22});
+ }else if(id==='guardBreak'){
+  effects.push({type:'riftCut',x,y,a:ang,len:255,width:34,color,t:.38,max:.38});
+  effects.push({type:'nova',x,y,r:68,color:'#fff0cf',t:.30,max:.30});burst(x,y,color,22,210);
+ }else if(id==='tempest'){
+  for(let j=0;j<3;j++)effects.push({type:'slash',x:player.x,y:player.y,a:ang+hitIndex*.95+j*TAU/3,arc:TAU,r:56+hitIndex*5+j*12,color:j===1?'#ffffff':color,t:.16,max:.16});
+ }else if(id==='earthRend'){
+  effects.push({type:'nova',x,y,r:150,color:'#fff1b0',t:.55,max:.55});
+  for(let j=-4;j<=4;j++)effects.push({type:'line',x,y,x2:x+Math.cos(ang+j*.18)*(120+Math.abs(j)*15),y2:y+Math.sin(ang+j*.18)*(120+Math.abs(j)*15),color:j%2?color:'#ffffff',t:.50,max:.50});
+ }else if(id==='dawnArc'){
+  effects.push({type:'riftCut',x:player.x+Math.cos(ang)*115,y:player.y+Math.sin(ang)*115,a:ang,len:320,width:62,color,t:.48,max:.48});
+  effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(ang)*330,y2:player.y+Math.sin(ang)*330,color:'#ffffff',t:.32,max:.32});
+ }else if(id==='thunderDrive'){
+  for(let j=-2;j<=2;j++)effects.push({type:'line',x:player.x-Math.cos(ang)*130,y:player.y-Math.sin(ang)*130,x2:player.x+Math.cos(ang)*80-Math.sin(ang)*j*11,y2:player.y+Math.sin(ang)*80+Math.cos(ang)*j*11,color:j===0?'#ffffff':color,t:.25,max:.25});
+  effects.push({type:'nova',x,y,r:78,color:'#e7fbff',t:.28,max:.28});
+ }else if(id==='meteorBreaker'){
+  effects.push({type:'starSeal',x:player.x,y:player.y,r:175,color,t:.62,max:.62});
+  effects.push({type:'nova',x:player.x,y:player.y,r:210,color:'#fff1df',t:.72,max:.72});
+  for(let j=0;j<12;j++){const a=j*TAU/12;effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(a)*210,y2:player.y+Math.sin(a)*210,color:j%2?color:'#ffffff',t:.55,max:.55});}
+ }
 }
 function swordSkillById(id){return SWORD_SKILL_LIBRARY.find(s=>s.id===id)||null;}
 function isNormalSwordWeapon(){return player&&[0,1,4].includes(player.weapon);}
@@ -1167,7 +1193,7 @@ function startSwordSkill(slot){
  ring(player.x,player.y,24,sk.color,.22);sound('swing');updateSkillTray();return true;
 }
 function carrySwordSkillTargets(ang,reach,arc,step,mode){
- if(step<=0||!['thrust','breaker','combo','cross','wide'].includes(mode))return;
+ if(step<=0||!['chaseCombo','thunderDash'].includes(mode))return;
  const carry=Math.max(8,step*.82),ca=Math.cos(ang),sa=Math.sin(ang);
  for(const e of enemies){
   if(e.dead||e.riftSleeping||e.kind==='boss'||e.type==='dummy'||(e.type==='finalBoss'&&!e.alert))continue;
@@ -1182,19 +1208,21 @@ function performSwordSkillHit(seq,hitIndex){
  const sk=swordSkillById(seq.skillId),cfg=sk?.cfg,w=WEAPONS[player.weapon]||WEAPONS[0];if(!cfg||!sk)return;
  const ang=seq.facing;player.facing=ang;player.attackAngle=ang;player.attackArc=cfg.arc[hitIndex];
  const step=cfg.step[hitIndex]||0;if(step)moveBody(player,Math.cos(ang)*step,Math.sin(ang)*step);
- const reach=w.reach+(cfg.reach[hitIndex]||0),damage=damageValue(cfg.mult[hitIndex]||1),finalHit=hitIndex===cfg.hits.length-1;
- carrySwordSkillTargets(ang,reach,cfg.arc[hitIndex],step,cfg.mode);
- if(cfg.mode==='spin')meleeHit(reach,TAU,damage,finalHit);
- else if(cfg.mode==='slam'&&finalHit){
-  const x=player.x+Math.cos(ang)*58,y=player.y+Math.sin(ang)*58,r=116;ring(x,y,r,sk.color,.42);burst(x,y,sk.color,22,155);
-  for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,{x,y})<r+combatRadius(e))hitEnemy(e,damage*1.14,true);sharedPvpRadiusHit(x,y,r,damage*1.14,true,true);
- }else meleeHit(reach,cfg.arc[hitIndex],damage,finalHit);
- if(cfg.mode==='wave'&&finalHit)fireProjectile(player.x+Math.cos(ang)*36,player.y+Math.sin(ang)*36,ang,560,damageValue(.9),'player','wave',3);
- const side=hitIndex%2?1:-1;
- effects.push({type:'slash',x:player.x,y:player.y-12,a:ang+side*(cfg.mode==='spin'?.55:.16),arc:cfg.mode==='spin'?TAU:cfg.arc[hitIndex],r:reach+8,color:sk.color,t:.24,max:.24});
- if(cfg.mode==='cross'&&hitIndex%2===1)effects.push({type:'slash',x:player.x,y:player.y-12,a:ang-side*.42,arc:1.35,r:reach,color:sk.color,t:.20,max:.20});
+ const reach=w.reach+(cfg.reach[hitIndex]||0),damage=damageValue(cfg.mult[hitIndex]||1),finalHit=hitIndex===cfg.hits.length-1,mode=cfg.mode;
+ carrySwordSkillTargets(ang,reach,cfg.arc[hitIndex],step,mode);
+ if(mode==='windShot'){meleeHit(reach,1.75,damage*.55,true);fireProjectile(player.x+Math.cos(ang)*34,player.y+Math.sin(ang)*34,ang,590,damageValue(1.35),'player','wave',4);}
+ else if(mode==='blinkThrust'){meleeHit(reach,.58,damage,true);}
+ else if(mode==='moonBurst'){meleeHit(reach,TAU,damage,true);}
+ else if(mode==='chaseCombo'||mode==='stationaryFlurry'){meleeHit(reach,cfg.arc[hitIndex],damage,finalHit);}
+ else if(mode==='doubleWave'){meleeHit(reach,cfg.arc[hitIndex],damage*.45,false);const spread=hitIndex===0?-.11:.11;fireProjectile(player.x+Math.cos(ang)*32,player.y+Math.sin(ang)*32,ang+spread,500,damageValue(hitIndex===0?1.0:1.28),'player','wave',3);}
+ else if(mode==='guardPierce'){const targets=enemies.filter(e=>!e.dead&&!e.riftSleeping&&combatDistance(e,player)<reach+combatRadius(e)&&Math.abs(angleDiff(Math.atan2(e.y-player.y,e.x-player.x),ang))<.5);meleeHit(reach,.52,damage,true);for(const e of targets)if(!e.dead){applyEnemyStun(e,e.kind==='boss'?.65:1.15);e.poise=(e.poise||0)+45;}}
+ else if(mode==='tempest'){meleeHit(reach,TAU,damage,finalHit);}
+ else if(mode==='earthSlam'){const cx=player.x+Math.cos(ang)*80,cy=player.y+Math.sin(ang)*80,r=145;for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,{x:cx,y:cy})<r+combatRadius(e))hitEnemy(e,damage,true);sharedPvpRadiusHit(cx,cy,r,damage,true,true);}
+ else if(mode==='dawnWave'){fireProjectile(player.x+Math.cos(ang)*38,player.y+Math.sin(ang)*38,ang,720,damageValue(2.85),'player','wave',7);}
+ else if(mode==='thunderDash'){meleeHit(reach,.64,damage,true);player.invuln=Math.max(player.invuln,.18);}
+ else if(mode==='meteorNova'){const r=205;for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,player)<r+combatRadius(e)){hitEnemy(e,damage,true);if(!e.dead)applyEnemyStun(e,e.kind==='boss'?.7:1.0);}sharedPvpRadiusHit(player.x,player.y,r,damage,true,true);}
  swordSignatureFx(sk.id,hitIndex,finalHit,ang,reach,sk.color);
- if(finalHit){flourish(player.x+Math.cos(ang)*Math.min(48,reach*.35),player.y+Math.sin(ang)*Math.min(48,reach*.35),sk.color,cfg.mode==='slam'?92:54,cfg.mode==='spin'?1:0);sound('hit');}else sound('swing');
+ if(finalHit){sound('hit');shake=Math.max(shake,['earthSlam','meteorNova'].includes(mode)?12:['guardPierce','thunderDash','dawnWave'].includes(mode)?8:5);}else sound('swing');
 }
 function updateSwordSkill(dt){
  if(!activeSwordSkill)return;
@@ -1238,7 +1266,7 @@ function showSkills(forceSword=false,preserveScroll=false){
  }
  const adminSword=player.weapon===4,near=swordTrainerNear(),slots=adminSword?player.adminSwordSkills:player.equippedSwordSkills;
  const equipped='<div class="card selected"><div class="eyebrow">'+(adminSword?'ADMIN ALL ARTS':'EQUIPPED ARTS')+'</div><h3>'+(adminSword?'관리자의 만능검':'장착 검술')+'</h3>'+slots.map((id,i)=>'<div class="stat-row"><span>'+keyName(keybinds[keys[i]])+'</span><b>'+(swordSkillById(id)?.name||'미장착')+'</b></div>').join('')+'</div>';
- const cards=SWORD_SKILL_LIBRARY.map(sk=>{const learned=adminSword||player.learnedSwordSkills.includes(sk.id),levelOk=player.level>=sk.level||adminSword,canLearn=!adminSword&&!learned&&near&&levelOk&&player.gold>=sk.price;const equip=learned?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">'+keys.map((k,i)=>'<button class="small '+(slots[i]===sk.id?'selected':'')+'" data-action="equipSwordSkill" data-value="'+sk.id+':'+i+'">'+keyName(keybinds[k])+'</button>').join('')+'</div>':'<button data-action="learnSwordSkill" data-value="'+sk.id+'" '+(!canLearn?'disabled':'')+'>'+(!levelOk?'Lv.'+sk.level+' 필요':!near?'로웬 근처에서 습득':player.gold<sk.price?sk.price+' G 필요':'검술 습득 · '+sk.price+' G')+'</button>';return '<div class="card '+(learned?'selected':'')+'"><div class="eyebrow">'+(adminSword?'ADMIN UNLOCKED':learned?'습득 완료':'습득 가능 Lv.'+sk.level)+'</div><h3>'+sk.name+'</h3><p>'+sk.desc+'</p><p><b>'+SWORD_SKILL_IDENTITY[sk.id].trait+'</b><br><span style="opacity:.78">연출 · '+SWORD_SKILL_IDENTITY[sk.id].fx+'</span></p><div class="price">'+sk.cost+' 지구력 · 재사용 '+sk.cool+'초'+(sk.holdActivate?' · <b>0.5초 길게 눌러 발동</b>':'')+(adminSword?'':' · 습득 '+sk.price+' G')+'</div>'+equip+'</div>';}).join('');
+ const cards=SWORD_SKILL_LIBRARY.map(sk=>{const learned=adminSword||player.learnedSwordSkills.includes(sk.id),levelOk=player.level>=sk.level||adminSword,canLearn=!adminSword&&!learned&&near&&levelOk&&player.gold>=sk.price;const equip=learned?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">'+keys.map((k,i)=>'<button class="small '+(slots[i]===sk.id?'selected':'')+'" data-action="equipSwordSkill" data-value="'+sk.id+':'+i+'">'+keyName(keybinds[k])+'</button>').join('')+'</div>':'<button data-action="learnSwordSkill" data-value="'+sk.id+'" '+(!canLearn?'disabled':'')+'>'+(!levelOk?'Lv.'+sk.level+' 필요':!near?'로웬 근처에서 습득':player.gold<sk.price?sk.price+' G 필요':'검술 습득 · '+sk.price+' G')+'</button>';return '<div class="card '+(learned?'selected':'')+'"><div class="eyebrow">'+(adminSword?'ADMIN UNLOCKED':learned?'습득 완료':'습득 가능 Lv.'+sk.level)+'</div><h3>'+sk.name+'</h3><p>'+sk.desc+'</p><p><b>'+SWORD_SKILL_IDENTITY[sk.id].trait+'</b><br><span style="opacity:.78">연출 · '+SWORD_SKILL_IDENTITY[sk.id].fx+'</span></p><div class="price">'+sk.cost+' 지구력 · 재사용 '+sk.cool+'초'+(sk.holdActivate?' · <b>'+sk.holdTime.toFixed(2).replace(/0$/,'')+'초 길게 눌러 발동</b>':'')+(adminSword?'':' · 습득 '+sk.price+' G')+'</div>'+equip+'</div>';}).join('');
  openPanel('skills',header(adminSword?'ADMIN MASTER BLADE':'SWORD ARTS',adminSword?'관리자의 만능검 · 모든 일반 검술':'장검·쌍검 검술 습득과 장착')+equipped+'<div class="grid two">'+cards+'</div><div class="tip">'+(adminSword?'관리자 검은 모든 검술이 즉시 해금되어 있습니다. 각 검술 아래 Q/R/T/G/V 버튼으로 시험할 슬롯을 바꿀 수 있습니다.':'검술은 대장장이 로웬 가까이에서 골드로 습득합니다. 배운 검술은 언제든 Q/R/T/G/V 다섯 슬롯에 원하는 조합으로 장착할 수 있습니다.'+(near?'<br><b>현재 로웬 근처이므로 새 검술을 습득할 수 있습니다.</b>':''))+'</div>'+footer(),false,preserveScroll);
 }
 function hitEnemy(e,amount,heavy=false,source=player){
