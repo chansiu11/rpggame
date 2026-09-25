@@ -2129,6 +2129,7 @@ function applyRemoteSkillFx(msg){
  const x=Number.isFinite(Number(msg.x))?Number(msg.x):(rp?.rx??rp?.x),y=Number.isFinite(Number(msg.y))?Number(msg.y):(rp?.ry??rp?.y),a=Number(msg.a)||0;
  if(!Number.isFinite(x)||!Number.isFinite(y))return;
  const id=String(msg.skillId||''),slot=clamp(Number(msg.slot)||0,0,4),weapon=Number(msg.weapon)||0;
+ if(Number(msg.fxSeq)>0){if(rp){rp.remoteSkillId=id||rp.remoteSkillId;rp.remoteSkillSlot=slot;rp.remoteSkillVisualUntil=realTime+.9;}return;}
  let color='#d7c181',sub='#ffffff',accent='#d7c181';
  if(weapon===3){color=HIDDEN_SKILLS[slot]?.color||'#d8b5ff';accent='#ffffff';}
  else if(weapon===2){color=SKILLS[slot]?.color||'#9ddfff';accent='#ffffff';}
