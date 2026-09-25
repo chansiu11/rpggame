@@ -1016,16 +1016,32 @@ function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color){
 }
 function swordSkillById(id){return SWORD_SKILL_LIBRARY.find(s=>s.id===id)||null;}
 const SWORD_RANGE_SCALE=1.35,SWORD_DASH_SKILLS=new Set(['flashRush','mirrorStep','quakeRush','skyFall','phantomSwap']);
-const SWORD_ULT_DAMAGE_SCALE=1.65,SWORD_ULT_RANGE_SCALE=1.35;
+const SWORD_ULT_DAMAGE_SCALE=1.65,SWORD_ULT_RANGE_SCALE=1.35,SWORD_ULT_MIN_DURATION=1.9,SWORD_ULT_HOLD_MIN=1.25;
 function balancedSwordSkill(sk,slot=-1){
  if(!sk?.cfg)return sk;
- const cfg={...sk.cfg};
+ const cfg={...sk.cfg};let holdMax=sk.holdMax;
  if(Array.isArray(cfg.reach))cfg.reach=cfg.reach.map(v=>Math.round(v*SWORD_RANGE_SCALE*(slot===4?SWORD_ULT_RANGE_SCALE:1)));
  if(Array.isArray(cfg.step))cfg.step=cfg.step.map(v=>Math.round(v*(SWORD_DASH_SKILLS.has(sk.id)?1.55:1.18)));
  if(Array.isArray(cfg.mult)&&slot===4)cfg.mult=cfg.mult.map(v=>Math.round(v*SWORD_ULT_DAMAGE_SCALE*100)/100);
- if(slot===4){cfg.ultimate=true;cfg.ultimateDamageScale=SWORD_ULT_DAMAGE_SCALE;cfg.ultimateRangeScale=SWORD_ULT_RANGE_SCALE;}
+ if(slot===4){
+  cfg.ultimate=true;cfg.ultimateDamageScale=SWORD_ULT_DAMAGE_SCALE;cfg.ultimateRangeScale=SWORD_ULT_RANGE_SCALE;
+  if(sk.holdContinuous){holdMax=Math.max(3.8,(sk.holdMax||cfg.duration||2)*1.35);cfg.duration=holdMax;}
+  else{
+   const oldDuration=Math.max(.2,cfg.duration||1),newDuration=Math.max(SWORD_ULT_MIN_DURATION,oldDuration*2.15),scale=newDuration/oldDuration;
+   cfg.duration=newDuration;
+   if(Array.isArray(cfg.hits)&&cfg.hits.length)cfg.hits=cfg.hits.map(v=>v*scale);
+   if(cfg.hits?.length===1){
+    const finalT=cfg.hits[0],baseM=cfg.mult[0]||1,baseA=cfg.arc[0]||1,baseR=cfg.reach[0]||0,baseS=cfg.step[0]||0;
+    cfg.hits=[finalT*.42,finalT*.70,finalT];
+    cfg.mult=[baseM*.36,baseM*.48,baseM];
+    cfg.arc=[baseA*.82,baseA*.92,baseA];
+    cfg.reach=[Math.round(baseR*.72),Math.round(baseR*.88),baseR];
+    cfg.step=[Math.round(baseS*.45),Math.round(baseS*.7),baseS];
+   }
+  }
+ }
  if(SWORD_DASH_SKILLS.has(sk.id)){cfg.dashSkill=true;cfg.rangeScale=SWORD_RANGE_SCALE;}
- return {...sk,cfg};
+ return {...sk,holdMax,cfg};
 }
 function isNormalSwordWeapon(){return player&&[0,1,4].includes(player.weapon);}
 function swordSkillIdAt(slot){const list=player?.weapon===4?player.adminSwordSkills:player?.equippedSwordSkills;return Array.isArray(list)?list[slot]||null:null;}
@@ -1289,17 +1305,37 @@ function startHeldSwordSkill(slot){
  player.skillCds[slot]=sk.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];
  player.skillPose=slot;player.cast=max;player.attackDuration=max;player.attackAnim=max;player.attackAngle=player.facing;player.attackArc=cfg.arc[0]||TAU;player.heavy=true;player.attackCd=max;player.combo=0;player.comboTimer=0;
  const motionTarget=(lockedTarget&&enemies.includes(lockedTarget)&&!lockedTarget.dead?lockedTarget:null);
- activeSwordSkill={slot,skillId:sk.id,held:true,elapsed:0,nextTick:0,facing:player.facing,duration:max,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:1,fx:0,carryIds:new Set()};
+ activeSwordSkill={slot,skillId:sk.id,held:true,elapsed:0,nextTick:0,facing:player.facing,duration:max,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:1,fx:0,carryIds:new Set(),ultimate:slot===4,ultPhase:0,ultFx:0,releaseQueued:false};
  ring(player.x,player.y,38,swordStyleFxForSkill(sk.id).main,.28);sound('swing');updateSkillTray();return true;
 }
 function stopHeldSwordSkill(slot,interrupted=false){
  const seq=activeSwordSkill;if(!seq?.held||seq.slot!==slot)return false;
- const sk=swordSkillById(seq.skillId);finishSwordCarryTargets(seq,interrupted);activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;player.cast=0;player.attackAnim=interrupted?0:.12;player.attackCd=interrupted?0:.12;player.moveLock=Math.max(player.moveLock||0,.06);
+ if(seq.ultimate&&!interrupted&&seq.elapsed<SWORD_ULT_HOLD_MIN){seq.releaseQueued=true;return true;}
+ const sk=balancedSwordSkill(swordSkillById(seq.skillId),seq.slot);if(seq.ultimate&&!interrupted)ultimateFinishFx(seq,sk);finishSwordCarryTargets(seq,interrupted);activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;player.cast=0;player.attackAnim=interrupted?0:.12;player.attackCd=interrupted?0:.12;player.moveLock=Math.max(player.moveLock||0,.06);
  if(standardSkillHold?.continuous&&standardSkillHold.index===slot)standardSkillHold=null;
  if(!interrupted&&sk){ring(player.x,player.y,34,swordStyleFxForSkill(sk.id).main,.18);sound('swing');}
  updateSkillTray();return true;
 }
+function updateUltimateCinematic(seq,sk,dt){
+ if(!seq?.ultimate||!sk)return;
+ const th=swordStyleFxForSkill(sk.id),p=clamp(seq.elapsed/Math.max(.1,seq.duration),0,1);seq.ultFx-=dt;
+ if(seq.ultFx<=0){
+  seq.ultFx=p<.28?.10:p<.72?.075:.05;const pulse=82+p*150;
+  ring(player.x,player.y,pulse,th.main,.18);effects.push({type:'starSeal',x:player.x,y:player.y,r:110+p*115,color:p>.7?th.accent:th.main,t:.20,max:.20});
+  if(p>.30)for(let j=0;j<(p>.72?4:2);j++){const aa=seq.facing+(j-(p>.72?1.5:.5))*.38;effects.push({type:'line',x:player.x-Math.cos(aa)*18,y:player.y-Math.sin(aa)*18,x2:player.x+Math.cos(aa)*(130+p*120),y2:player.y+Math.sin(aa)*(130+p*120),color:j%2?th.sub:th.main,t:.16,max:.16});}
+ }
+ if(seq.ultPhase===0&&p>=.22){seq.ultPhase=1;burst(player.x,player.y,th.main,18,150);shake=Math.max(shake,7);}
+ if(seq.ultPhase===1&&p>=.58){seq.ultPhase=2;effects.push({type:'nova',x:player.x,y:player.y,r:190,color:th.accent,t:.45,max:.45});burst(player.x,player.y,th.sub,24,190);shake=Math.max(shake,11);}
+ if(seq.ultPhase===2&&p>=.86){seq.ultPhase=3;effects.push({type:'nova',x:player.x,y:player.y,r:260,color:th.main,t:.55,max:.55});effects.push({type:'starSeal',x:player.x,y:player.y,r:245,color:th.sub,t:.52,max:.52});burst(player.x,player.y,th.main,34,250);shake=Math.max(shake,15);}
+}
+function ultimateFinishFx(seq,sk){
+ if(!seq?.ultimate||!sk)return;const th=swordStyleFxForSkill(sk.id);
+ effects.push({type:'nova',x:player.x,y:player.y,r:300,color:th.accent,t:.62,max:.62});
+ for(let j=0;j<12;j++){const a=j*TAU/12;effects.push({type:'riftCut',x:player.x+Math.cos(a)*80,y:player.y+Math.sin(a)*80,a,len:210,width:30,color:j%2?th.sub:th.main,t:.38,max:.38});}
+ burst(player.x,player.y,th.main,42,285);shake=Math.max(shake,18);sound('hit');
+}
 function updateHeldSwordSkill(seq,sk,dt){
+ updateUltimateCinematic(seq,sk,dt);
  const mode=sk.cfg.mode,theme=swordStyleFxForSkill(sk.id),main=theme.main,sub=theme.sub,accent=theme.accent;seq.facing=heldSwordInputAngle(seq.facing);player.facing=seq.facing;player.attackAngle=seq.facing;player.parry=0;player.perfectWindow=0;
  const ca=Math.cos(seq.facing),sa=Math.sin(seq.facing),px0=player.x,py0=player.y;
  if(mode==='holdThunder'){
@@ -1315,6 +1351,7 @@ function updateHeldSwordSkill(seq,sk,dt){
   seq.fx-=dt;if(seq.fx<=0){seq.fx=.16;if(target){captureSwordCarryTargets(seq,player.facing,115,1.8);const aa=Math.atan2(player.y-target.y,player.x-target.x)+Math.PI/2*(seq.side||1),tx=target.x+Math.cos(aa)*68,ty=target.y+Math.sin(aa)*68;effects.push({type:'line',x:player.x,y:player.y,x2:tx,y2:ty,color:accent,t:.18,max:.18});moveBody(player,clamp(tx-player.x,-95,95),clamp(ty-player.y,-95,95));player.facing=Math.atan2(target.y-player.y,target.x-player.x);seq.side*=-1;meleeHit((WEAPONS[player.weapon]?.reach||80)+(seq.ultimate?95:38),seq.ultimate?2.15:1.6,damageValue(seq.ultimate?.82:.52),false);}else moveBody(player,Math.cos(seq.facing)*80*dt,Math.sin(seq.facing)*80*dt);ring(player.x,player.y,46,main,.15);}
  }
  moveSwordCarryTargets(seq,player.x-px0,player.y-py0);
+ if(seq.ultimate&&seq.releaseQueued&&seq.elapsed>=SWORD_ULT_HOLD_MIN)stopHeldSwordSkill(seq.slot,false);
 }
 function startSwordSkill(slot){
  const sk=skillInfo(slot),cfg=sk?.cfg;
@@ -1325,7 +1362,7 @@ function startSwordSkill(slot){
  const dashCatch=SWORD_DASH_SKILLS.has(sk.id),targetRange=dashCatch?720:300;
  const motionTarget=(lockedTarget&&enemies.includes(lockedTarget)&&!lockedTarget.dead&&distance(lockedTarget,player)<=targetRange?lockedTarget:enemies.filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)&&distance(e,player)<targetRange).sort((a,b)=>distance(a,player)-distance(b,player))[0])||null;
  if(dashCatch&&motionTarget)player.facing=Math.atan2(motionTarget.y-player.y,motionTarget.x-player.x);
- activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:Math.random()<.5?-1:1,fx:0,carryIds:new Set(),dashCatch,ultimate:slot===4};
+ activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:Math.random()<.5?-1:1,fx:0,carryIds:new Set(),dashCatch,ultimate:slot===4,ultPhase:0,ultFx:0};
  sendSharedSkillFx(slot,sk.id,player.weapon,player.facing);
  const theme=swordStyleFxForSkill(sk.id);
  if(slot===4){effects.push({type:'starSeal',x:player.x,y:player.y,r:185,color:theme.main,t:.65,max:.65});effects.push({type:'nova',x:player.x,y:player.y,r:225,color:theme.accent,t:.72,max:.72});for(let j=0;j<10;j++){const aa=j*TAU/10;effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(aa)*220,y2:player.y+Math.sin(aa)*220,color:j%2?theme.sub:theme.main,t:.38,max:.38});}burst(player.x,player.y,theme.main,30,220);shake=Math.max(shake,15);}
@@ -1429,10 +1466,11 @@ function updateSwordSkill(dt){
  if(!activeSwordSkill)return;
  if(!isNormalSwordWeapon()||player.hp<=0){finishSwordCarryTargets(activeSwordSkill,true);cancelSwordSkill();return;}
  const seq=activeSwordSkill,sk=balancedSwordSkill(swordSkillById(seq.skillId),seq.slot),cfg=sk?.cfg;if(!cfg){cancelSwordSkill();return;}seq.elapsed+=dt;
- if(seq.held){updateHeldSwordSkill(seq,sk,dt);if(seq.elapsed>=seq.duration)stopHeldSwordSkill(seq.slot,false);return;}
+ if(seq.held){updateHeldSwordSkill(seq,sk,dt);if(activeSwordSkill===seq&&seq.elapsed>=seq.duration)stopHeldSwordSkill(seq.slot,false);return;}
+ updateUltimateCinematic(seq,sk,dt);
  updateSwordSkillMotion(seq,sk,dt);
  while(seq.nextHit<cfg.hits.length&&seq.elapsed>=cfg.hits[seq.nextHit]){performSwordSkillHit(seq,seq.nextHit);seq.nextHit++;}
- if(seq.elapsed>=seq.duration){finishSwordCarryTargets(seq,false);activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;}
+ if(seq.elapsed>=seq.duration){if(seq.ultimate)ultimateFinishFx(seq,sk);finishSwordCarryTargets(seq,false);activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;}
 }
 function executeSkillNow(index){
  const s=skillInfo(index);if(!s||!canAct()||player.level<s.level)return false;
