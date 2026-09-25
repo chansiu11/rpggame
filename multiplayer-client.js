@@ -70,6 +70,7 @@ function handle(msg){
   if(msg.type==='pvp:blocked'){emit('pvp:blocked',msg);return;}
   if(msg.type==='world:role'){state.worldRole={leaderId:msg.leaderId||null,isLeader:!!msg.isLeader};emit('world:role',state.worldRole);return;}
   if(msg.type==='world:snapshot'){state.worldSnapshot=msg.snapshot||{mobs:[],items:[],updatedAt:0};emit('world:snapshot',state.worldSnapshot);return;}
+  if(msg.type==='world:mobsDelta'){emit('world:mobsDelta',msg.mobs||[]);return;}
   if(msg.type==='world:itemTaken'){if(msg.itemId)state.takenItems.add(msg.itemId);emit('world:itemTaken',msg);return;}
   if(msg.type==='world:itemSpawn'){emit('world:itemSpawn',msg.item||{});return;}
   if(msg.type==='world:mobPatch'){emit('world:mobPatch',msg.mob||{});return;}
@@ -142,6 +143,7 @@ window.EchoesMulti={
     vx:p.vx||0,vy:p.vy||0,seq:p.seq||0
   });},
   sendWorldSnapshot(snapshot){if(state.connected&&state.worldRole?.isLeader)send({type:'world:snapshot',...(snapshot||{})});},
+  sendMobDelta(mobs){if(state.connected&&state.worldRole?.isLeader&&Array.isArray(mobs)&&mobs.length)send({type:'world:mobsDelta',mobs});},
   itemTaken(itemId){if(itemId)send({type:'world:itemTaken',itemId});},
   itemSpawn(item){if(item?.id)send({type:'world:itemSpawn',item});},
   damageMob(mobId,damage){if(mobId)send({type:'world:mobDamage',mobId,damage});},
