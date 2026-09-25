@@ -372,6 +372,17 @@ function handleMobDamage(player,msg){
   if(kx||ky){moveServerMob(mob,kx,ky);mob.knockVX=clamp(kx*7,-900,900);mob.knockVY=clamp(ky*7,-900,900);}if(mob.hp<=0){mob.dead=true;mob.hp=0;mob.state='dead';mob.targetId=null;mob.alert=false;mob.respawnAt=now+NORMAL_MOB_RESPAWN_MS;}
   markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),by:player.id,respawnAt:mob.respawnAt||0}});
 }
+function handlePvpControl(player,msg){
+  const target=players.get(String(msg.targetId||''));if(!target||!target.ready||target.id===player.id||target.hp<=0||player.hp<=0)return;
+  if(player.partyId&&target.partyId&&player.partyId===target.partyId)return;
+  if(safeZoneName(player.x,player.y)||safeZoneName(target.x,target.y))return;
+  if(Math.hypot(player.x-target.x,player.y-target.y)>1050)return;
+  const now=Date.now();if(now-(player.lastPvpControlAt||0)<12)return;player.lastPvpControlAt=now;
+  const dx=clamp(msg.dx,-120,120),dy=clamp(msg.dy,-120,120),stun=clamp(msg.stun,0,1.1);
+  if(Math.abs(dx)+Math.abs(dy)<.001&&stun<=0)return;
+  target.x=clamp(target.x+dx,40,WORLD.width-40);target.y=clamp(target.y+dy,40,WORLD.height-40);
+  safeSend(target.ws,{type:'pvp:control',attackerId:player.id,dx,dy,stun,kind:String(msg.kind||'skill-control').slice(0,28),serverTime:now});
+}
 function handlePvpDamage(player,msg){
   const target=players.get(String(msg.targetId||''));if(!target||!target.ready||target.id===player.id)return;
   if(player.partyId&&target.partyId&&player.partyId===target.partyId)return;
@@ -430,7 +441,7 @@ function handleMessage(player,msg){
     player.skillFxSeq=fxSeq;player.skillFxSlot=slot;player.skillFxId=skillId;player.skillFxWeapon=weapon;player.skillFxX=x;player.skillFxY=y;player.skillFxA=a;
     broadcast({type:'skill:fx',playerId:player.id,fxSeq,slot,skillId,weapon,x,y,a,serverTime:Date.now()},player.ws);return;
   }
-  if(msg.type==='world:bootstrap'){bootstrapAuthoritativeWorld(player,msg);return;}if(msg.type==='world:resync'){const now=Date.now();if(now-(player.lastWorldResyncAt||0)>900){player.lastWorldResyncAt=now;safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});}return;}if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}if(msg.type==='world:mobsDelta'){handleWorldMobDelta(player,msg);return;}if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}if(msg.type==='pvp:damage'){handlePvpDamage(player,msg);return;}
+  if(msg.type==='world:bootstrap'){bootstrapAuthoritativeWorld(player,msg);return;}if(msg.type==='world:resync'){const now=Date.now();if(now-(player.lastWorldResyncAt||0)>900){player.lastWorldResyncAt=now;safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});}return;}if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}if(msg.type==='world:mobsDelta'){handleWorldMobDelta(player,msg);return;}if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}if(msg.type==='pvp:control'){handlePvpControl(player,msg);return;}if(msg.type==='pvp:damage'){handlePvpDamage(player,msg);return;}
   if(msg.type==='party:create'){createParty(player);return;}if(msg.type==='party:invite'){const r=inviteParty(player,msg.targetId);if(!r.ok)safeSend(player.ws,{type:'notice',message:r.message});return;}if(msg.type==='party:accept'){const r=acceptParty(player,msg.partyId);if(!r.ok)safeSend(player.ws,{type:'notice',message:r.message});return;}if(msg.type==='party:leave'){leaveParty(player);return;}if(msg.type==='boss:damage'){handleBossDamage(player,msg);return;}if(msg.type==='pvp:hit'){handlePvpHit(player,msg);return;}
   if(msg.type==='party:chat'){const party=parties.get(player.partyId);if(!party)return;const message=String(msg.message||'').trim().slice(0,120);if(!message)return;for(const pid of party.members){const target=players.get(pid);if(target)safeSend(target.ws,{type:'party:chat',fromId:player.id,fromName:player.name,message});}}
 }
