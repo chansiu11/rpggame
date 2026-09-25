@@ -52,6 +52,8 @@ function handle(msg){
   if(msg.type==='party:update'){state.party=msg.party||null;emit('party',state.party);return;}
   if(msg.type==='party:invite'){state.pendingInvite=msg;emit('party:invite',msg);return;}
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
+  if(msg.type==='pvp:damage'){emit('pvp:damage',msg);return;}
+  if(msg.type==='pvp:blocked'){emit('pvp:blocked',msg);return;}
   if(msg.type==='session:replaced'){emit('session:replaced',msg);return;}
   if(msg.type==='notice'){emit('notice',msg.message||'');return;}
 }
@@ -94,6 +96,7 @@ window.EchoesMulti={
   get serverUrl(){return url();},
   sendState(p){if(!state.connected||!p)return;send({type:'state',x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon});},
   damageBoss(bossId,damage){send({type:'boss:damage',bossId,damage});},
+  hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){if(!state.connected)return;send({type:'pvp:hit',targetId,damage,range,kind,parryable});},
   createParty(){send({type:'party:create'});},
   invite(targetId){send({type:'party:invite',targetId});},
   acceptParty(partyId){send({type:'party:accept',partyId});},
