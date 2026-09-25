@@ -158,6 +158,7 @@ let activeBoss=null,nearby=null,mapWaypoint=null,tutorialPage=0,menuTab='gear',q
 let multiplayerMode=false,multiRemotePlayers=new Map(),multiNetTimer=0,multiPartyInvite=null;
 let multiWorldLeader=false,multiWorldReady=false,multiWorldSyncTimer=0,multiWorldFullSyncTimer=0,multiWorldFullSyncPending=true,multiSharedAvailableItems=new Set(),multiMobLastSent=new Map();
 let multiNetSeq=0,multiLastSendX=0,multiLastSendY=0,multiLastSendAt=0,multiInstantMoveSeqFloor=0;
+let multiSkillFxSeq=0,multiSkillFxState={seq:0,slot:0,skillId:'',weapon:0,x:0,y:0,a:0},multiDeathSeq=0;
 let detectedTouch=matchMedia('(pointer:coarse)').matches||(navigator.maxTouchPoints>0&&matchMedia('(hover:none)').matches);
 let touchMode=detectedTouch,VIEW_SCALE=1,BASE_VIEW_SCALE=1,VIEW_W=W,VIEW_H=H;
 let stickPointer=null,touchAttackPointer=null,touchSprint=false;
@@ -1905,7 +1906,7 @@ function showMessage(title,msg){openPanel('message',header('ECHOES OF THE WILD',
 function openDefeatPanel(){if(mode!=='play'||player.hp>0||modal)return;openPanel('defeat',header('TAKE A BREATH','불빛은 아직 꺼지지 않았습니다',false)+`<p class="lede">잠시 숨을 고르고, 다시 도전하세요.<br>공격 직후의 빈틈과 기력 관리가 승부를 바꿉니다.</p><div class="tip">골드·장비·경험치는 유지됩니다.<br>마지막 야영지에서 체력과 회복약을 보충하고 시작합니다.</div>`+footer('적색 원형 공격은 패링할 수 없습니다.','<button class="primary" data-action="respawn">야영지에서 다시 시작 →</button>'));}
 function showDefeat(){
  if(player.deathPending)return;
- cleanupRift();lockedTarget=null;player.hp=0;player.deathPending=true;player.deathAnimStart=realTime;player.deathHidden=false;resetInputs();
+ cleanupRift();lockedTarget=null;player.hp=0;player.deathPending=true;player.deathAnimStart=realTime;player.deathHidden=false;multiDeathSeq++;resetInputs();
  burst(player.x,player.y,'#d7c7b0',12,75);sound('hurt');
  setTimeout(()=>{if(mode!=='play'||player.hp>0||!player.deathPending)return;player.deathHidden=true;openDefeatPanel();},1050);
 }
@@ -2016,8 +2017,16 @@ function applySharedBossState(b){
 }
 function mergeRemotePlayerState(p){
  if(!p?.id)return;const now=performance.now(),old=multiRemotePlayers.get(p.id),sample={x:Number(p.x)||0,y:Number(p.y)||0,a:Number(p.a)||0,t:now,vx:Number(p.vx)||0,vy:Number(p.vy)||0,seq:Number(p.seq)||0};
- if(!old){multiRemotePlayers.set(p.id,{...p,rx:sample.x,ry:sample.y,ra:sample.a,netAt:now,samples:[sample],deathAnimStart:Number(p.hp)<=0?realTime:0});return;}
- const wasAlive=Number(old.hp)>0,isDead=Number(p.hp)<=0;if(wasAlive&&isDead){old.deathAnimStart=realTime;old.deathSide=Math.random()<.5?-1:1;}else if(!isDead){old.deathAnimStart=0;old.deathSide=0;}
+ if(!old){
+  const fresh={...p,rx:sample.x,ry:sample.y,ra:sample.a,netAt:now,samples:[sample],deathAnimStart:Number(p.hp)<=0?realTime:0,deathSide:1,lastDeathSeq:Number(p.deathSeq)||0,lastSkillFxSeq:0};
+  multiRemotePlayers.set(p.id,fresh);
+  if(Number(p.skillFxSeq)>0){fresh.lastSkillFxSeq=Number(p.skillFxSeq);applyRemoteSkillFx({playerId:p.id,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
+  return;
+ }
+ const deathSeq=Number(p.deathSeq)||0,wasAlive=Number(old.hp)>0,isDead=Number(p.hp)<=0;
+ if(deathSeq>(Number(old.lastDeathSeq)||0)||(wasAlive&&isDead)){old.deathAnimStart=realTime;old.deathSide=Math.random()<.5?-1:1;old.lastDeathSeq=deathSeq;}else if(!isDead){old.deathAnimStart=0;old.deathSide=0;}
+ const fxSeq=Number(p.skillFxSeq)||0;
+ if(fxSeq>(Number(old.lastSkillFxSeq)||0)){old.lastSkillFxSeq=fxSeq;applyRemoteSkillFx({playerId:p.id,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
  Object.assign(old,p);old.netAt=now;old.samples=Array.isArray(old.samples)?old.samples:[];
  if(!old.samples.length||sample.seq>=(old.samples[old.samples.length-1].seq||0)){old.samples.push(sample);if(old.samples.length>8)old.samples.splice(0,old.samples.length-8);}
 }
@@ -2027,11 +2036,13 @@ function syncRemotePlayers(list){
 }
 function sendSharedSkillFx(slot,skillId,weapon=player?.weapon,a=player?.facing){
  if(!multiplayerMode||!window.EchoesMulti?.connected||!player)return;
- window.EchoesMulti.skillFx({slot,skillId:String(skillId||''),weapon,x:player.x,y:player.y,a:Number(a)||0});
+ multiSkillFxSeq++;multiSkillFxState={seq:multiSkillFxSeq,slot:clamp(Number(slot)||0,0,4),skillId:String(skillId||''),weapon:Number(weapon)||0,x:player.x,y:player.y,a:Number(a)||0};
+ window.EchoesMulti.skillFx(multiSkillFxState);
 }
 function applyRemoteSkillFx(msg){
  if(!multiplayerMode||!msg||msg.playerId===window.EchoesMulti?.state?.selfId)return;
- const rp=multiRemotePlayers.get(msg.playerId),x=Number.isFinite(Number(msg.x))?Number(msg.x):(rp?.rx??rp?.x),y=Number.isFinite(Number(msg.y))?Number(msg.y):(rp?.ry??rp?.y),a=Number(msg.a)||0;
+ const rp=multiRemotePlayers.get(msg.playerId);if(rp&&Number(msg.fxSeq)>0)rp.lastSkillFxSeq=Math.max(Number(rp.lastSkillFxSeq)||0,Number(msg.fxSeq)||0);
+ const x=Number.isFinite(Number(msg.x))?Number(msg.x):(rp?.rx??rp?.x),y=Number.isFinite(Number(msg.y))?Number(msg.y):(rp?.ry??rp?.y),a=Number(msg.a)||0;
  if(!Number.isFinite(x)||!Number.isFinite(y))return;
  const id=String(msg.skillId||''),slot=clamp(Number(msg.slot)||0,0,4),weapon=Number(msg.weapon)||0;
  let color='#d7c181',sub='#ffffff',accent='#d7c181';
@@ -2074,7 +2085,7 @@ function applyRemoteSkillFx(msg){
 function syncInstantPlayerMove(){
  if(!multiplayerMode||!window.EchoesMulti?.connected||!player)return;
  const now=performance.now(),seq=++multiNetSeq;multiInstantMoveSeqFloor=seq;multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;
- window.EchoesMulti.sendState({x:player.x,y:player.y,a:player.facing,vx:0,vy:0,seq});
+ window.EchoesMulti.sendState({x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,deathSeq:multiDeathSeq,skillFxSeq:multiSkillFxState.seq,skillFxSlot:multiSkillFxState.slot,skillFxId:multiSkillFxState.skillId,skillFxWeapon:multiSkillFxState.weapon,skillFxX:multiSkillFxState.x,skillFxY:multiSkillFxState.y,skillFxA:multiSkillFxState.a,vx:0,vy:0,seq});
 }
 function bindMultiplayerEvents(){
  const m=window.EchoesMulti;if(!m||m.__gameBound)return;m.__gameBound=true;
@@ -2481,7 +2492,7 @@ function update(dt){if(multiplayerMode){
   rp.rx=x;rp.ry=y;rp.ra=a;rp.attackAnim=Math.max(0,(Number(rp.attackAnim)||0)-dt);rp.dodge=Math.max(0,(Number(rp.dodge)||0)-dt);rp.parry=Math.max(0,(Number(rp.parry)||0)-dt);
  }
  if(window.EchoesMulti?.connected){
-  multiNetTimer+=dt;if(multiNetTimer>=.1){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-66))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;window.EchoesMulti.sendState({x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,level:player.level,weapon:player.weapon,equippedHead:player.equippedHead,equippedChest:player.equippedChest,equippedShield:player.equippedShield,attackAnim:player.attackAnim,attackDuration:player.attackDuration,strikePose:player.strikePose,skillPose:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,vx,vy,seq:++multiNetSeq});}
+  multiNetTimer+=dt;if(multiNetTimer>=.1){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-66))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;window.EchoesMulti.sendState({x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,level:player.level,weapon:player.weapon,equippedHead:player.equippedHead,equippedChest:player.equippedChest,equippedShield:player.equippedShield,attackAnim:player.attackAnim,attackDuration:player.attackDuration,strikePose:player.strikePose,skillPose:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,deathSeq:multiDeathSeq,skillFxSeq:multiSkillFxState.seq,skillFxSlot:multiSkillFxState.slot,skillFxId:multiSkillFxState.skillId,skillFxWeapon:multiSkillFxState.weapon,skillFxX:multiSkillFxState.x,skillFxY:multiSkillFxState.y,skillFxA:multiSkillFxState.a,vx,vy,seq:++multiNetSeq});}
  }
 }updateCombat(dt);updateLootExpiry();rebuildBodyGrid();resolveBodyOverlaps();worldTime+=dt;player.playtime+=dt;saveTimer+=dt;damageFlash=Math.max(0,damageFlash-dt);activeBoss=null;for(const k of ['attackCd','attackAnim','dodgeCd','dodge','parry','parryCd','skillCd','potionCd','invuln','hurt','stamDelay','comboTimer','riposte','moveLock','basicMoveSlow','stun'])player[k]=Math.max(0,(player[k]||0)-dt);updateSwordSkill(dt);updateShield(dt);if(player.comboTimer<=0)player.combo=0;drainAction(dt);if(lockedTarget&&!validLock(lockedTarget))lockedTarget=null;
  let mx=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,my=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y,n=Math.hypot(mx,my);if(n>1){mx/=n;my/=n;}player.moving=n>.1;const oldX=player.x,oldY=player.y;
