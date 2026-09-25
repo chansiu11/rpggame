@@ -12,7 +12,7 @@ const MOB_NET_TICK_MS = 100;
 const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
 const MAX_SOCKET_BUFFER = 512 * 1024;
-const SPAWN_LAYOUT_VERSION = 'regional-clusters-v1';
+const SPAWN_LAYOUT_VERSION = 'regional-clusters-v2-leash';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
   sentry:{speed:65,damage:16,reach:360,wind:1.05,kind:'ranged',r:18},golem:{speed:55,damage:27,reach:116,wind:1.2,kind:'slam',r:26},
@@ -242,7 +242,7 @@ function bootstrapAuthoritativeWorld(player,msg){
     const boss=bosses.get(id),maxHp=boss?boss.maxHp:clamp(raw.maxHp,1,9999999),hp=boss?boss.hp:clamp(raw.hp,0,maxHp),x=clamp(raw.x,50,WORLD.width-50),y=clamp(raw.y,50,WORLD.height-50);
     const m={id,type,x,y,sx:x,sy:y,hp,maxHp,dead:boss?!boss.alive:!!raw.dead,state:raw.dead?'dead':'idle',facing:clamp(raw.facing,-20,20),alert:false,targetId:null,attackType:def.kind,
       speed:clamp(raw.speed,10,900)||def.speed,damage:clamp(raw.damage,0,5000)||def.damage,reach:clamp(raw.reach,40,900)||def.reach,wind:clamp(raw.wind,.1,4)||def.wind,kind:def.kind,r:clamp(raw.r,8,80)||def.r,
-      attackAt:0,recoverUntil:0,chargeUntil:0,chargeHit:false,locked:0,stunUntil:0,respawnAt:0,pattern:0,knockVX:0,knockVY:0,lastAttackAt:0};
+      attackAt:0,recoverUntil:0,chargeUntil:0,chargeHit:false,locked:0,stunUntil:0,respawnAt:0,pattern:0,knockVX:0,knockVY:0,lastAttackAt:0,spawnZone:String(raw.spawnZone||'').slice(0,40),spawnZoneX:Number.isFinite(Number(raw.spawnZoneX))?clamp(raw.spawnZoneX,50,WORLD.width-50):x,spawnZoneY:Number.isFinite(Number(raw.spawnZoneY))?clamp(raw.spawnZoneY,50,WORLD.height-50):y,spawnZoneRadius:clamp(raw.spawnZoneRadius,0,1200)};
     if(m.dead)m.respawnAt=Date.now()+(boss?Math.max(0,boss.respawnAt-Date.now()):NORMAL_MOB_RESPAWN_MS);authoritativeMobs.set(id,m);markMobDirty(m);
   }
   const nav=Array.isArray(msg.obstacles)?msg.obstacles.slice(0,2200):[];
@@ -260,6 +260,10 @@ function sendMobAttack(m,target){
 function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
 function simulateMob(m,dt,now){
   if(m.dead){if(m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);return;}
+  if(m.kind!=='boss'){
+    const cx=Number.isFinite(m.spawnZoneX)?m.spawnZoneX:m.sx,cy=Number.isFinite(m.spawnZoneY)?m.spawnZoneY:m.sy,baseR=m.spawnZoneRadius>0?m.spawnZoneRadius:430,leash=baseR+(m.spawnZone==='lone'?220:300),zoneDist=Math.hypot(m.x-cx,m.y-cy);
+    if(zoneDist>leash){m.targetId=null;m.alert=false;m.attackAt=0;m.chargeUntil=0;m.recoverUntil=0;m.state='return';const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>16){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;if(moveServerMob(m,Math.cos(a)*m.speed*1.55*dt,Math.sin(a)*m.speed*1.55*dt))markMobDirty(m);}else{m.state='idle';markMobDirty(m);}return;}
+  }
   if(now<m.stunUntil){if(m.state!=='stunned'){m.state='stunned';markMobDirty(m);}return;}
   if(Math.abs(m.knockVX)+Math.abs(m.knockVY)>2){if(moveServerMob(m,m.knockVX*dt,m.knockVY*dt))markMobDirty(m);const decay=Math.exp(-dt*9);m.knockVX*=decay;m.knockVY*=decay;}
   let target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150)target=null;if(!target)target=nearestMobTarget(m);
@@ -373,7 +377,7 @@ function handleMessage(player,msg){
   if(msg.type==='state'){
     const now=Date.now(),oldX=player.x,oldY=player.y,elapsed=Math.max(.016,Math.min(.5,(now-(player.lastStateAt||now-50))/1000));
     if(Number.isFinite(Number(msg.x)))player.x=clamp(msg.x,40,WORLD.width-40);if(Number.isFinite(Number(msg.y)))player.y=clamp(msg.y,40,WORLD.height-40);if(Number.isFinite(Number(msg.a)))player.a=clamp(msg.a,-Math.PI*4,Math.PI*4);
-    if(Number.isFinite(Number(msg.hp)))player.hp=clamp(msg.hp,0,999999);if(Number.isFinite(Number(msg.maxHp)))player.maxHp=clamp(msg.maxHp,1,999999);if(Number.isFinite(Number(msg.level)))player.level=Math.floor(clamp(msg.level,1,100));if(Number.isFinite(Number(msg.weapon)))player.weapon=Math.floor(clamp(msg.weapon,0,3));
+    if(Number.isFinite(Number(msg.hp)))player.hp=clamp(msg.hp,0,999999);if(Number.isFinite(Number(msg.maxHp)))player.maxHp=clamp(msg.maxHp,1,999999);if(Number.isFinite(Number(msg.level)))player.level=Math.floor(clamp(msg.level,1,100));if(Number.isFinite(Number(msg.weapon)))player.weapon=Math.floor(clamp(msg.weapon,0,4));
     if(msg.equippedHead!==undefined)player.equippedHead=sanitizeEquip(msg.equippedHead,'wandererHood');if(msg.equippedChest!==undefined)player.equippedChest=sanitizeEquip(msg.equippedChest,'travelerCoat');if(msg.equippedShield!==undefined)player.equippedShield=sanitizeEquip(msg.equippedShield,'woodenShield');
     for(const k of ['attackAnim','attackDuration','strikePose','skillPose','combo','parry','dodge','dx','dy','walk','phase'])if(Number.isFinite(Number(msg[k])))player[k]=Number(msg[k]);
     player.attackAnim=clamp(player.attackAnim,0,5);player.attackDuration=clamp(player.attackDuration,.05,5);player.strikePose=Math.floor(clamp(player.strikePose,0,8));player.skillPose=Math.floor(clamp(player.skillPose,-1,8));player.combo=Math.floor(clamp(player.combo,0,10));player.parry=clamp(player.parry,0,2);player.dodge=clamp(player.dodge,0,2);player.dx=clamp(player.dx,-1,1);player.dy=clamp(player.dy,-1,1);player.walk=clamp(player.walk,0,1);player.phase=clamp(player.phase,-1e6,1e6);
@@ -428,7 +432,7 @@ wss.on('connection',(ws)=>{
         setTimeout(()=>{try{old.ws.close(4001,'duplicate account session');}catch{}},80);
       }
       player.level=Math.floor(clamp(msg.level,1,100));
-      player.weapon=Math.floor(clamp(msg.weapon,0,3));
+      player.weapon=Math.floor(clamp(msg.weapon,0,4));
       player.ready=true;
       clearTimeout(helloTimer);
       if(!worldLeaderId)worldLeaderId=player.id;
