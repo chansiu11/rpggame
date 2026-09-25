@@ -267,6 +267,17 @@ function handleItemTaken(player,msg){
   worldSnapshot.items=worldSnapshot.items.filter(o=>o.id!==itemId);
   broadcast({type:'world:itemTaken',itemId,by:player.id});
 }
+function handleItemSpawn(player,msg){
+  const raw=msg.item||{},item={
+    id:String(raw.id||'').slice(0,70),type:String(raw.type||'loot').slice(0,30),
+    x:clamp(raw.x,0,WORLD.width),y:clamp(raw.y,0,WORLD.height),
+    lootKind:String(raw.lootKind||'').slice(0,30),amount:clamp(raw.amount,1,999999),fixed:!!raw.fixed
+  };
+  if(!item.id||takenItems.has(item.id))return;
+  const i=worldSnapshot.items.findIndex(o=>o.id===item.id);
+  if(i>=0)worldSnapshot.items[i]=item;else worldSnapshot.items.push(item);
+  broadcast({type:'world:itemSpawn',item});
+}
 function handleMobDamage(player,msg){
   const mobId=String(msg.mobId||'').slice(0,50),mob=worldSnapshot.mobs.find(m=>m.id===mobId);
   if(!mob||mob.dead)return;
@@ -313,6 +324,7 @@ function handleMessage(player,msg){
   }
   if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}
   if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}
+  if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}
   if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}
   if(msg.type==='pvp:damage'){handlePvpDamage(player,msg);return;}
   if(msg.type==='party:create'){createParty(player);return;}
