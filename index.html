@@ -1313,6 +1313,7 @@ function startHeldSwordSkill(slot){
  player.skillPose=slot;player.cast=max;player.attackDuration=max;player.attackAnim=max;player.attackAngle=player.facing;player.attackArc=cfg.arc[0]||TAU;player.heavy=true;player.attackCd=max;player.combo=0;player.comboTimer=0;
  const motionTarget=(lockedTarget&&enemies.includes(lockedTarget)&&!lockedTarget.dead?lockedTarget:null);
  activeSwordSkill={slot,skillId:sk.id,held:true,elapsed:0,nextTick:0,facing:player.facing,duration:max,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:1,fx:0,carryIds:new Set(),ultimate:slot===4,ultPhase:0,ultFx:0,releaseQueued:false};
+ sendSharedSkillFx(slot,sk.id,player.weapon,player.facing);
  ring(player.x,player.y,38,swordStyleFxForSkill(sk.id).main,.28);sound('swing');updateSkillTray();return true;
 }
 function stopHeldSwordSkill(slot,interrupted=false){
@@ -1542,7 +1543,7 @@ function updateSwordSkill(dt){
 function executeSkillNow(index){
  const s=skillInfo(index);if(!s||!canAct()||player.level<s.level)return false;
  if(player.weapon!==2)return startSwordSkill(index);
- if(player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[index]>0)return false;if(!useStam(s.cost))return false;aim();
+ if(player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[index]>0)return false;if(!useStam(s.cost))return false;aim();sendSharedSkillFx(index,'bow:'+index,2,player.facing);
  player.skillCds[index]=s.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=index;player.cast=player.attackAnim=player.attackDuration=[.5,.38,.65,.75,.8][index];player.attackAngle=player.facing;player.attackArc=TAU;player.heavy=true;player.attackCd=player.cast;player.combo=0;player.comboTimer=0;queuePostSkillMoveLock(player.cast);
  const a=player.facing;const fire=(angle,speed,damage,pierce=1)=>fireProjectile(player.x,player.y,angle,speed,damageValue(damage),'player','arrow',pierce);
  if(index===0)for(let j=-1;j<=1;j++)fire(a+j*.15,680,1.35);
@@ -1808,7 +1809,7 @@ function startPlay(){updateKeyLabels();seen.clear();player.discovered.forEach(n=
 function beginNew(difficulty){if(!currentAccount){showAuth('login','새 여정을 시작하려면 로그인하세요.');return;}player=newPlayer();player.difficulty=WORLD_DIFFICULTIES[difficulty]?difficulty:'normal';applyWorldDifficultyToEnemies(true);worldTime=0;questNotices.clear();resetWorldState();startPlay();showSwordStyleChoice();}
 function enterTitleAdmin(){if(mode!=='title')return;player=newPlayer();player.difficulty='normal';applyWorldDifficultyToEnemies(true);worldTime=0;questNotices.clear();resetWorldState();player.skillCds.fill(0);player.cast=player.exhaust=0;player.training.complete=true;startPlay();showAdmin();toast('<b>관리자 모드</b> · 레벨과 아이템을 각각 선택해 조절하세요.');}
 function returnTitle(skipSave=false){if(!skipSave)saveGame(false);if(multiplayerMode){window.EchoesMulti?.disconnect();multiplayerMode=false;multiRemotePlayers.clear();multiPartyInvite=null;multiWorldLeader=false;multiWorldReady=false;multiWorldFullSyncPending=true;multiWorldFullSyncTimer=0;multiMobLastSent.clear();multiSharedAvailableItems.clear();}cleanupRift();lockedTarget=null;mode='title';closeModal();resetInputs();$('hud').classList.add('hidden');$('touchUi').classList.add('hidden');$('title').classList.remove('hidden');$('regionBanner').classList.add('hidden');updateAccountUI();updateFullscreenUI();}
-function respawn(){cleanupRift();const c=camps.find(c=>c.id===player.lastCamp)||camps[0];player.stats.deaths++;player.x=c.x;player.y=c.y+62;player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;player.potions=Math.max(3,player.potions);player.invuln=2;player.dodge=player.parry=player.attackCd=player.skillCd=player.dodgeCd=0;resetWorldState(true);camera.x=player.x;camera.y=player.y;closeModal();saveGame(false);toast('야영지로 돌아왔습니다. 골드와 장비는 유지됩니다.');}
+function respawn(){cleanupRift();const c=camps.find(c=>c.id===player.lastCamp)||camps[0];player.stats.deaths++;player.deathPending=false;player.deathAnimStart=0;player.deathHidden=false;player.x=c.x;player.y=c.y+62;player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;player.potions=Math.max(3,player.potions);player.invuln=2;player.dodge=player.parry=player.attackCd=player.skillCd=player.dodgeCd=0;resetWorldState(true);camera.x=player.x;camera.y=player.y;closeModal();saveGame(false);toast('야영지로 돌아왔습니다. 골드와 장비는 유지됩니다.');}
 function openPanel(name,html,wide=false,preserveScroll=false){const p=$('panel'),oldScroll=preserveScroll?p.scrollTop:0;resetInputs();modal=name;p.className='panel'+(wide?' wide':'');p.innerHTML=html;for(const k of p.querySelectorAll('kbd:not([data-fixed])')){const v=k.textContent.trim(),code=/^[A-Z]$/.test(v)?'Key'+v:/^[123]$/.test(v)?'Digit'+v:v==='Space'?'Space':v==='Shift'?'ShiftLeft':v==='Tab'?'Tab':null;if(code&&keybinds[code])k.textContent=keyName(keybinds[code]);}$('overlay').classList.remove('hidden');p.scrollTop=oldScroll;if(!preserveScroll){const focus=p.querySelector('button:not(:disabled)');if(focus)focus.focus({preventScroll:true});}else requestAnimationFrame(()=>{p.scrollTop=oldScroll;requestAnimationFrame(()=>{p.scrollTop=oldScroll;});});}
 function closeModal(){if(layoutEditing){finishLayoutEditor(false);return;}if(modal==='defeat'&&player.hp<=0)return;modal=null;$('overlay').classList.add('hidden');$('panel').innerHTML='';resetInputs();}
 function header(kicker,title,closable=true){return `<div class="panel-head"><div><div class="eyebrow">${kicker}</div><h2>${title}</h2></div>${closable?'<button class="close" data-action="close" aria-label="닫기">×</button>':''}</div>`;}
@@ -1901,7 +1902,13 @@ const LORE=[
 ];
 function showLore(o){const i=Number(o.id.slice(-1));openPanel('lore',header('FRAGMENTS · '+(i+1)+' / 4',LORE[i][0])+`<p class="dialog-text">${LORE[i][1]}</p><div class="tip">세계의 기록 ${player.notes.length} / 4 · 가방의 기록 탭에서 다시 읽을 수 있습니다.</div>`+footer());}
 function showMessage(title,msg){openPanel('message',header('ECHOES OF THE WILD',title)+`<p class="dialog-text">${esc(msg)}</p>`+footer());}
-function showDefeat(){cleanupRift();lockedTarget=null;player.hp=0;resetInputs();openPanel('defeat',header('TAKE A BREATH','불빛은 아직 꺼지지 않았습니다',false)+`<p class="lede">잠시 숨을 고르고, 다시 도전하세요.<br>공격 직후의 빈틈과 기력 관리가 승부를 바꿉니다.</p><div class="tip">골드·장비·경험치는 유지됩니다.<br>마지막 야영지에서 체력과 회복약을 보충하고 시작합니다.</div>`+footer('적색 원형 공격은 패링할 수 없습니다.','<button class="primary" data-action="respawn">야영지에서 다시 시작 →</button>'));}
+function openDefeatPanel(){if(mode!=='play'||player.hp>0||modal)return;openPanel('defeat',header('TAKE A BREATH','불빛은 아직 꺼지지 않았습니다',false)+`<p class="lede">잠시 숨을 고르고, 다시 도전하세요.<br>공격 직후의 빈틈과 기력 관리가 승부를 바꿉니다.</p><div class="tip">골드·장비·경험치는 유지됩니다.<br>마지막 야영지에서 체력과 회복약을 보충하고 시작합니다.</div>`+footer('적색 원형 공격은 패링할 수 없습니다.','<button class="primary" data-action="respawn">야영지에서 다시 시작 →</button>'));}
+function showDefeat(){
+ if(player.deathPending)return;
+ cleanupRift();lockedTarget=null;player.hp=0;player.deathPending=true;player.deathAnimStart=realTime;player.deathHidden=false;resetInputs();
+ burst(player.x,player.y,'#d7c7b0',12,75);sound('hurt');
+ setTimeout(()=>{if(mode!=='play'||player.hp>0||!player.deathPending)return;player.deathHidden=true;openDefeatPanel();},1050);
+}
 function showVictory(){openPanel('victory',header('WORLD BOSS','월드 보스 격파')+`<p class="lede">강력한 보스를 쓰러뜨렸습니다. 이 세계에는 엔딩을 위한 메인퀘스트가 없으며, 탐험과 NPC 의뢰·파티 플레이·반복 보스 사냥을 계속할 수 있습니다.</p><div class="tip">공용 월드 보스는 약 3분 뒤 다시 나타납니다.</div>`+footer('', '<button class="primary" data-action="close">탐험 계속하기</button>'));}
 const admin={god:false,free:false,noCooldown:false,freeze:false,allSkillSets:false};
 function adminItemOptions(){return [
@@ -2009,7 +2016,8 @@ function applySharedBossState(b){
 }
 function mergeRemotePlayerState(p){
  if(!p?.id)return;const now=performance.now(),old=multiRemotePlayers.get(p.id),sample={x:Number(p.x)||0,y:Number(p.y)||0,a:Number(p.a)||0,t:now,vx:Number(p.vx)||0,vy:Number(p.vy)||0,seq:Number(p.seq)||0};
- if(!old){multiRemotePlayers.set(p.id,{...p,rx:sample.x,ry:sample.y,ra:sample.a,netAt:now,samples:[sample]});return;}
+ if(!old){multiRemotePlayers.set(p.id,{...p,rx:sample.x,ry:sample.y,ra:sample.a,netAt:now,samples:[sample],deathAnimStart:Number(p.hp)<=0?realTime:0});return;}
+ const wasAlive=Number(old.hp)>0,isDead=Number(p.hp)<=0;if(wasAlive&&isDead){old.deathAnimStart=realTime;old.deathSide=Math.random()<.5?-1:1;}else if(!isDead){old.deathAnimStart=0;old.deathSide=0;}
  Object.assign(old,p);old.netAt=now;old.samples=Array.isArray(old.samples)?old.samples:[];
  if(!old.samples.length||sample.seq>=(old.samples[old.samples.length-1].seq||0)){old.samples.push(sample);if(old.samples.length>8)old.samples.splice(0,old.samples.length-8);}
 }
@@ -2023,15 +2031,46 @@ function sendSharedSkillFx(slot,skillId,weapon=player?.weapon,a=player?.facing){
 }
 function applyRemoteSkillFx(msg){
  if(!multiplayerMode||!msg||msg.playerId===window.EchoesMulti?.state?.selfId)return;
- const rp=multiRemotePlayers.get(msg.playerId),x=Number(msg.x)||(rp?.rx??rp?.x),y=Number(msg.y)||(rp?.ry??rp?.y),a=Number(msg.a)||0;
+ const rp=multiRemotePlayers.get(msg.playerId),x=Number.isFinite(Number(msg.x))?Number(msg.x):(rp?.rx??rp?.x),y=Number.isFinite(Number(msg.y))?Number(msg.y):(rp?.ry??rp?.y),a=Number(msg.a)||0;
  if(!Number.isFinite(x)||!Number.isFinite(y))return;
  const id=String(msg.skillId||''),slot=clamp(Number(msg.slot)||0,0,4),weapon=Number(msg.weapon)||0;
- let color='#d7c181';if(weapon===3)color=HIDDEN_SKILLS[slot]?.color||'#d8b5ff';else if(id)color=swordStyleFxForSkill(id).main;
- effects.push({type:'starSeal',x,y,r:72+slot*11,color,t:.34,max:.34});
- effects.push({type:'slash',x:x+Math.cos(a)*42,y:y+Math.sin(a)*42,a,arc:1.8+slot*.16,r:105+slot*18,color,t:.30,max:.30});
- effects.push({type:'riftCut',x:x+Math.cos(a)*78,y:y+Math.sin(a)*78,a,len:180+slot*32,width:24+slot*5,color,t:.32,max:.32});
- ring(x,y,48+slot*9,color,.3);burst(x,y,color,8+slot*2,120+slot*15);
+ let color='#d7c181',sub='#ffffff',accent='#d7c181';
+ if(weapon===3){color=HIDDEN_SKILLS[slot]?.color||'#d8b5ff';accent='#ffffff';}
+ else if(weapon===2){color=SKILLS[slot]?.color||'#9ddfff';accent='#ffffff';}
+ else if(id){const th=swordStyleFxForSkill(id);color=th.main;sub=th.sub;accent=th.accent;}
+ if(id.startsWith('bow:')){
+  for(let j=-2;j<=2;j++){const aa=a+j*.13;effects.push({type:'line',x,y,x2:x+Math.cos(aa)*(170+slot*30),y2:y+Math.sin(aa)*(170+slot*30),color:j===0?accent:color,t:.28,max:.28});}
+  effects.push({type:'nova',x,y,r:70+slot*14,color,t:.34,max:.34});
+ }else if(id.startsWith('hidden:')){
+  effects.push({type:'starSeal',x,y,r:125+slot*24,color,t:.5,max:.5});
+  effects.push({type:'nova',x,y,r:150+slot*28,color:accent,t:.5,max:.5});
+  for(let j=0;j<6+slot;j++){const aa=j*TAU/(6+slot);effects.push({type:'riftCut',x:x+Math.cos(aa)*65,y:y+Math.sin(aa)*65,a:aa,len:180+slot*35,width:24+slot*5,color:j%2?accent:color,t:.34,max:.34});}
+ }else if(id==='windSlash'){
+  effects.push({type:'riftCut',x:x+Math.cos(a)*150,y:y+Math.sin(a)*150,a,len:380,width:44,color,t:.42,max:.42});
+  effects.push({type:'line',x,y,x2:x+Math.cos(a)*410,y2:y+Math.sin(a)*410,color:sub,t:.34,max:.34});
+ }else if(id==='flashRush'||id==='starRush'){
+  for(let j=0;j<6;j++)effects.push({type:'line',x:x-Math.cos(a)*j*36,y:y-Math.sin(a)*j*36,x2:x+Math.cos(a)*(115+j*18),y2:y+Math.sin(a)*(115+j*18),color:j%2?sub:color,t:.26,max:.26});
+  effects.push({type:'riftCut',x:x+Math.cos(a)*90,y:y+Math.sin(a)*90,a,len:280,width:36,color:accent,t:.34,max:.34});
+ }else if(id==='thunderDrive'){
+  for(let j=-3;j<=3;j++){const aa=a+j*.07;effects.push({type:'line',x:x-Math.cos(aa)*180,y:y-Math.sin(aa)*180,x2:x+Math.cos(aa)*190,y2:y+Math.sin(aa)*190,color:j===0?sub:color,t:.34,max:.34});}
+  effects.push({type:'nova',x,y,r:130,color:accent,t:.4,max:.4});
+ }else if(id==='meteorBreaker'){
+  effects.push({type:'starSeal',x,y,r:230,color,t:.58,max:.58});effects.push({type:'nova',x,y,r:260,color:accent,t:.62,max:.62});
+ }else if(id==='lunarBind'){
+  for(let j=0;j<4;j++)ring(x,y,110+j*48,j%2?sub:color,.42+j*.04);effects.push({type:'starSeal',x,y,r:250,color,t:.58,max:.58});
+ }else if(id==='prismLance'){
+  for(let j=-4;j<=4;j++){const aa=a+j*.11;effects.push({type:'line',x,y,x2:x+Math.cos(aa)*420,y2:y+Math.sin(aa)*420,color:j===0?sub:color,t:.36,max:.36});}
+  effects.push({type:'riftCut',x:x+Math.cos(a)*190,y:y+Math.sin(a)*190,a,len:520,width:58,color:accent,t:.45,max:.45});
+ }else if(id==='voidDance'){
+  effects.push({type:'starSeal',x,y,r:190,color,t:.5,max:.5});for(let j=0;j<8;j++){const aa=j*TAU/8;effects.push({type:'riftCut',x:x+Math.cos(aa)*95,y:y+Math.sin(aa)*95,a:aa+Math.PI/2,len:210,width:28,color:j%2?accent:color,t:.38,max:.38});}
+ }else{
+  effects.push({type:'starSeal',x,y,r:92+slot*13,color,t:.42,max:.42});
+  effects.push({type:'slash',x:x+Math.cos(a)*52,y:y+Math.sin(a)*52,a,arc:2.0+slot*.18,r:125+slot*22,color,t:.36,max:.36});
+  effects.push({type:'riftCut',x:x+Math.cos(a)*90,y:y+Math.sin(a)*90,a,len:220+slot*36,width:30+slot*5,color:accent,t:.38,max:.38});
+ }
+ ring(x,y,62+slot*11,color,.34);burst(x,y,color,12+slot*3,150+slot*18);
 }
+
 function syncInstantPlayerMove(){
  if(!multiplayerMode||!window.EchoesMulti?.connected||!player)return;
  const now=performance.now(),seq=++multiNetSeq;multiInstantMoveSeqFloor=seq;multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;
@@ -2256,8 +2295,11 @@ function drawObject(o){if(o.type==='loot'){const color=o.lootKind.startsWith('we
 }
 // Feet stay on the ground plane; only the limbs and equipment turn with aiming.
 function drawPlayer(){
+ const p=player;if(p.deathHidden)return;
+ const deathP=p.deathAnimStart?clamp((realTime-p.deathAnimStart)/1.0,0,1):0;
  ctx.save();ctx.translate(player.x,player.y);ctx.scale(.76,.76);ctx.translate(-player.x,-player.y);
- const p=player,m=p.motion||{phase:0,walk:0,facing:p.facing,lean:0},a=m.facing,fx=Math.cos(a),fy=Math.sin(a),back=fy<-.35,side=fx<-.2?-1:1;
+ if(deathP>0){ctx.translate(p.x,p.y);ctx.rotate((p.deathSide||1)*deathP*1.22);ctx.translate(-p.x,-p.y);ctx.globalAlpha=1-clamp((deathP-.72)/.28,0,1);}
+ const m=p.motion||{phase:0,walk:0,facing:p.facing,lean:0},a=m.facing,fx=Math.cos(a),fy=Math.sin(a),back=fy<-.35,side=fx<-.2?-1:1;
  const walk=m.walk,bounce=Math.abs(Math.sin(m.phase))*walk*1.3,attackT=clamp(1-p.attackAnim/(p.attackDuration||.26),0,1),swing=p.attackAnim>0?Math.sin(attackT*Math.PI):0;
  const breath=Math.sin(realTime*2.2)*.35,hipY=-21-bounce,shoulderY=-42-bounce+breath+m.lean*2,headY=shoulderY-14,bodyWidth=10+Math.abs(fy)*2;
  ellipse(ctx,p.x,p.y+3,19,7,'#07171c77');
@@ -2355,12 +2397,14 @@ function drawEffects(ground=false){for(const e of effects){const progress=1-e.t/
  if(e.type==='nova'){ctx.save();ctx.translate(e.x,e.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*.9);ctx.strokeStyle=e.color;for(let k=0;k<4;k++){ctx.lineWidth=5-k;ctx.beginPath();ctx.arc(0,0,e.r*(.15+progress*.85)*(1-k*.08),0,TAU);ctx.stroke();}for(let k=0;k<16;k++){const a=k*TAU/16+progress*.5,r=e.r*(.25+.72*progress);line(ctx,Math.cos(a)*e.r*.08,Math.sin(a)*e.r*.08,Math.cos(a)*r,Math.sin(a)*r,k%2?'#ffffff':e.color,3*(1-progress)+1);}glow(ctx,0,0,e.r*.55,e.color+'44');ctx.restore();}
  if(e.type==='slash'){ctx.strokeStyle=e.color;ctx.lineWidth=7;ctx.beginPath();ctx.arc(e.x,e.y,e.r,e.a-e.arc/2,e.a+e.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,e.r-7,e.a-e.arc/2+.1,e.a+e.arc/2-.1);ctx.stroke();}ctx.restore();}}
 function drawRemotePlayer(rp){
+ if(Number(rp.hp)<=0&&rp.deathAnimStart&&realTime-rp.deathAnimStart>=1.05)return;
  const x=Number.isFinite(rp.rx)?rp.rx:rp.x,y=Number.isFinite(rp.ry)?rp.ry:rp.y,a=Number.isFinite(rp.ra)?rp.ra:(Number(rp.a)||0);
  const party=window.EchoesMulti?.state?.party,mine=party?.members||[],sameParty=mine.includes(rp.id),pvpField=!sameParty&&!safeNameAt(player.x,player.y)&&!safeNameAt(x,y);
  const saved=player,avatar={...saved,...rp,x,y,facing:a,attackAngle:a,attackArc:WEAPONS[rp.weapon]?.arc||1.9,
   equippedHead:rp.equippedHead||'wandererHood',equippedChest:rp.equippedChest||'travelerCoat',equippedShield:rp.equippedShield||'woodenShield',
   attackAnim:Number(rp.attackAnim)||0,attackDuration:Number(rp.attackDuration)||.26,strikePose:Number(rp.strikePose)||0,skillPose:Number.isFinite(rp.skillPose)?rp.skillPose:-1,
   combo:Number(rp.combo)||0,parry:Number(rp.parry)||0,dodge:Number(rp.dodge)||0,dx:Number(rp.dx)||0,dy:Number(rp.dy)||0,hurt:0,invuln:0,
+  deathAnimStart:rp.deathAnimStart||0,deathSide:rp.deathSide||1,deathHidden:false,
   motion:{x,y,phase:Number(rp.phase)||0,walk:Number(rp.walk)||0,facing:a,lean:Number(rp.dodge)>0?1:0}};
  try{player=avatar;drawPlayer();}finally{player=saved;}
  ctx.save();if(sameParty||pvpField){ctx.strokeStyle=sameParty?'#83e8c1':'#d98f86';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(x,y+2,23,10,0,0,TAU);ctx.stroke();}
