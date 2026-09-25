@@ -82,6 +82,7 @@ function handle(msg){
   if(msg.type==='world:itemTaken'){if(msg.itemId)state.takenItems.add(msg.itemId);emit('world:itemTaken',msg);return;}
   if(msg.type==='world:itemSpawn'){emit('world:itemSpawn',msg.item||{});return;}
   if(msg.type==='world:mobPatch'){emit('world:mobPatch',msg.mob||{});return;}
+  if(msg.type==='pvp:control'){emit('pvp:control',msg);return;}
   if(msg.type==='pvp:hit'){emit('pvp:hit',msg);return;}
   if(msg.type==='pvp:confirm'){emit('pvp:confirm',msg);return;}
   if(msg.type==='pvp:defeated'){emit('pvp:defeated',msg);return;}
@@ -161,6 +162,7 @@ window.EchoesMulti={
   skillFx(fx){if(state.connected&&fx)send({type:'skill:fx',fxSeq:fx.seq||0,slot:fx.slot,skillId:fx.skillId,weapon:fx.weapon,x:fx.x,y:fx.y,a:fx.a});},
   skillEffects(packet){if(state.connected&&packet)send({type:'skill:effects',seq:packet.seq||0,effects:Array.isArray(packet.effects)?packet.effects.slice(0,90):[],projectiles:Array.isArray(packet.projectiles)?packet.projectiles.slice(0,24):[]});},
   pvpDamage(targetId,damage,range=180,kind='melee',control={}){if(targetId)send({type:'pvp:damage',targetId,damage,range,kind,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0,stun:control.stun||0});},
+  pvpControl(targetId,dx,dy,stun=0,kind='skill-control'){if(targetId)send({type:'pvp:control',targetId,dx,dy,stun,kind});},
   damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0});},
   hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){if(!state.connected)return;send({type:'pvp:hit',targetId,damage,range,kind,parryable});},
   createParty(){send({type:'party:create'});},
