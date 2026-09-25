@@ -62,7 +62,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
  <div id="questHud"></div>
  <div class="top-nav"><span class="nav-line"></span><span>N</span><span>◇</span><span id="dayTime">DAY 01 · 새벽</span><span>◇</span><span class="nav-line"></span></div>
  <div id="minimapBox"><canvas id="minimap" width="312" height="260"></canvas><div class="map-caption"><span id="miniRegion">이끼빛 마을</span><span>M · 지도 ↗</span></div><button id="mapBtn" title="전체 지도 (M)" aria-label="전체 지도 열기"></button></div>
- <div class="hud-menu"><button data-open="inventory">가방 I</button><button data-open="quests">임무 J</button><button data-open="help">도움말 H</button><button data-open="pause" aria-label="일시정지">Ⅱ</button></div>
+ <div class="hud-menu"><button data-open="inventory">가방 I</button><button data-open="quests">의뢰 J</button><button data-open="party">파티 P</button><button data-open="help">도움말 H</button><button data-open="pause" aria-label="일시정지">Ⅱ</button></div>
  <div id="bossHud" class="hidden"><div id="bossName"></div><div class="bar"><i id="bossHp"></i></div><div id="bossPhase"></div></div>
  <div id="training" class="hidden"></div><div id="eventHud" class="hidden"></div><div id="toasts"></div>
  <div id="hint" class="hidden"></div><div id="combatReadout"></div><div id="skillCooldownHud" aria-label="스킬 쿨타임"><div class="skill-cd-item" data-skill-cd="0"></div><div class="skill-cd-item" data-skill-cd="1"></div><div class="skill-cd-item" data-skill-cd="2"></div><div class="skill-cd-item" data-skill-cd="3"></div><div class="skill-cd-item" data-skill-cd="4"></div></div><div id="skillTray" class="hidden"><button data-skill="0"></button><button data-skill="1"></button><button data-skill="2"></button><button data-skill="3"></button><button data-skill="4"></button></div>
@@ -82,9 +82,9 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 </div>
 <div id="title">
  <div class="title-content"><div class="title-kicker">AN OPEN WORLD ACTION RPG</div><h1>잔광의 숲</h1><div class="title-en">ECHOES OF THE WILD</div><p class="title-desc">잠든 숲의 빛이, 다시 당신을 부릅니다.<br>적의 움직임을 읽고, 찰나를 파고드세요.<br>정해진 길 없이 펼쳐지는 당신의 모험.</p>
- <div class="title-buttons"><button class="primary" id="newGame">새로운 여정 <span class="diamond" style="color:#324331">→</span></button><button id="continueGame" disabled>여정 이어가기</button><button class="quiet" id="titleHelp">조작법</button><button class="quiet" id="titleImport">저장 파일 불러오기</button><button class="quiet" id="pvpBtn">PVP · 진행도 대전</button></div><div id="accountBar"><span id="accountStatus">계정에 로그인하면 진행 상황을 저장할 수 있습니다.</span><button id="accountLogin">로그인</button><button id="accountRegister" class="quiet">회원가입</button><button id="accountLogout" class="quiet hidden">로그아웃</button></div>
- <div class="title-details"><span>◇ 여덟 개의 영역</span><span>◇ 타이밍 중심 전투</span><span>◇ 자유로운 탐험</span></div><div class="patch-note">2.0 업데이트 · 메인 스토리 & NPC 퀘스트<br>메인퀘스트 6장 · NPC 서브퀘스트 · 4번 최종보스 엔딩<br>비밀 동굴·설계도 4조각·히든 무기 · 최대 레벨 100</div></div>
- <div class="title-version">SINGLE PLAYER <span class="diamond">/</span> HTML EDITION 1.9 · EIGHT ZONES UPDATE</div>
+ <div class="title-buttons"><button class="primary" id="newGame">새로운 여정 <span class="diamond" style="color:#324331">→</span></button><button id="continueGame" disabled>여정 이어가기</button><button class="quiet" id="titleHelp">조작법</button><button class="quiet" id="titleImport">저장 파일 불러오기</button><button class="primary" id="onlineWorldBtn">온라인 공용 월드</button><button class="quiet" id="pvpBtn">PVP · 진행도 대전</button></div><div id="accountBar"><span id="accountStatus">계정에 로그인하면 진행 상황을 저장할 수 있습니다.</span><button id="accountLogin">로그인</button><button id="accountRegister" class="quiet">회원가입</button><button id="accountLogout" class="quiet hidden">로그아웃</button></div>
+ <div class="title-details"><span>◇ 약 5배 확장 월드</span><span>◇ 공용 온라인 월드</span><span>◇ 파티·반복 보스</span></div><div class="patch-note">MULTIPLAYER WORLD 업데이트<br>메인퀘스트 제거 · NPC 의뢰와 자유 탐험 중심<br>파티 시스템 · 보스 3분 재소환 · 히든 아이템 재배치</div></div>
+ <div class="title-version">SHARED WORLD READY <span class="diamond">/</span> HTML EDITION 2.5 · OPEN WORLD MULTIPLAYER</div>
 </div>
 <div id="overlay" class="hidden"><section id="panel" class="panel" role="dialog" aria-modal="true" aria-label="게임 메뉴"></section></div>
 <div id="regionBanner" class="region-banner hidden"></div>
@@ -104,12 +104,14 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <input id="importFile" type="file" accept="application/json,.json" class="hidden">
 <script src="./firebase-config.js"></script>
 <script type="module" src="./cloud-save.js"></script>
+<script src="./multiplayer-config.js"></script>
+<script src="./multiplayer-client.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const TAU = Math.PI * 2, MAX_LEVEL=100, PLAYER_HP_PER_LEVEL=18, PLAYER_DAMAGE_PER_LEVEL=3.4, OVERWORLD_H=4000, WORLD = {w:9600,h:5000}, SAVE_KEY = 'echoes_wild_save_v1', OPT_KEY='echoes_wild_options_v1', KEYS_KEY='echoes_keys_v1', LAYOUT_KEY='echoes_touch_layout_v1';
+const TAU = Math.PI * 2, MAX_LEVEL=100, PLAYER_HP_PER_LEVEL=18, PLAYER_DAMAGE_PER_LEVEL=3.4, OVERWORLD_H=11000, WORLD = {w:22000,h:11000}, SAVE_KEY = 'echoes_wild_save_v1', OPT_KEY='echoes_wild_options_v1', KEYS_KEY='echoes_keys_v1', LAYOUT_KEY='echoes_touch_layout_v1';
 const WORLD_DIFFICULTIES={
  veryEasy:{name:'매우 쉬움',hp:.85,damage:.90,speed:.95},
  easy:{name:'쉬움',hp:1.05,damage:1.05,speed:1.02},
@@ -119,8 +121,8 @@ const WORLD_DIFFICULTIES={
 };
 function worldDifficulty(id=player?.difficulty){return WORLD_DIFFICULTIES[id]||WORLD_DIFFICULTIES.normal;}
 function difficultyName(id=player?.difficulty){return worldDifficulty(id).name;}
-const SECRET_CAVE={minX:560,maxX:1960,minY:4200,maxY:4900,spawnX:900,spawnY:4580,exitX:900,exitY:4770};
-const SECRET_STATUE={x:9300,y:1760};
+const SECRET_CAVE={minX:18800,maxX:20800,minY:9300,maxY:10600,spawnX:19700,spawnY:10100,exitX:19700,exitY:10450};
+const SECRET_STATUE={x:20750,y:2050};
 function inSecretCaveCoord(x,y){return x>=SECRET_CAVE.minX&&x<=SECRET_CAVE.maxX&&y>=SECRET_CAVE.minY&&y<=SECRET_CAVE.maxY;}
 function blueprintComplete(){return player?.blueprintFragments?.length===4;}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -234,17 +236,27 @@ function layoutButton(id,fn){const el=$(id);let pointer=null;el.addEventListener
 layoutButton('layoutSave',()=>finishLayoutEditor(true));layoutButton('layoutCancel',()=>finishLayoutEditor(false));layoutButton('layoutReset',()=>{endLayoutDrag(false);layoutDraft[layoutOrientation()]={};applyTouchLayout();selectLayoutSize(null);});
 
 const REGIONS=[
- {name:'바람숲 경계',en:'ZONE 1 · WHISPERING BORDER',desc:'초록 바람이 첫 시련을 알리는 숲',color:'#4f7655',base:'#294738',light:'#3c6043',accent:'#afc77a'},
- {name:'유리 습지',en:'ZONE 2 · GLASS MARSH',desc:'푸른 수면 아래 빛이 갈라지는 습지',color:'#527f83',base:'#26484f',light:'#376268',accent:'#91d8d3'},
- {name:'빙결 수정원',en:'ZONE 3 · FROSTCRYSTAL EXPANSE',desc:'서리와 수정이 칼날처럼 돋아난 후반 지역',color:'#6f8fa8',base:'#253f55',light:'#3f6078',accent:'#bde8ff'},
- {name:'종말의 별성',en:'ZONE 4 · CITADEL OF THE LAST STAR',desc:'별빛이 무너지는 세계의 마지막 전장',color:'#6b607e',base:'#332b48',light:'#514565',accent:'#ead4ff'},
- {name:'이끼빛 들판',en:'ZONE 5 · MOSSREST FIELDS',desc:'여정이 시작되는 온화한 초원',color:'#5d845a',base:'#304d38',light:'#476a48',accent:'#c2d88c'},
- {name:'붉은 고원',en:'ZONE 6 · AMBER HIGHLANDS',desc:'붉은 바위와 뜨거운 바람이 교차하는 땅',color:'#987150',base:'#554534',light:'#72563e',accent:'#efbd76'},
- {name:'황금잎 광장',en:'ZONE 7 · GOLDLEAF PLAZA',desc:'여행자와 상인이 모이는 안전한 대광장',color:'#7b8058',base:'#465039',light:'#65704b',accent:'#efd792'},
- {name:'적월 심연',en:'ZONE 8 · CRIMSON ABYSS',desc:'검붉은 안개와 공허의 기운이 뒤섞인 위험 지역',color:'#744b58',base:'#3b2733',light:'#5b3544',accent:'#f0a6ac'}
+ {name:'바람숲',en:'WHISPERING FOREST',desc:'초록 바람이 긴 숲길 사이를 흐르는 지역',color:'#4f7655',base:'#294738',light:'#3c6043',accent:'#afc77a'},
+ {name:'유리 습지',en:'GLASS MARSH',desc:'거대한 유리호와 얕은 습지가 이어지는 지역',color:'#527f83',base:'#26484f',light:'#376268',accent:'#91d8d3'},
+ {name:'빙결 수정원',en:'FROSTCRYSTAL EXPANSE',desc:'서리 평원과 거대한 수정 첨탑이 솟은 북동 지역',color:'#6f8fa8',base:'#253f55',light:'#3f6078',accent:'#bde8ff'},
+ {name:'종말의 별성',en:'CITADEL OF THE LAST STAR',desc:'동쪽 끝 절벽 위에 남은 별빛 요새',color:'#6b607e',base:'#332b48',light:'#514565',accent:'#ead4ff'},
+ {name:'이끼빛 들판',en:'MOSSREST FIELDS',desc:'이끼빛 마을을 둘러싼 넓고 완만한 초원',color:'#5d845a',base:'#304d38',light:'#476a48',accent:'#c2d88c'},
+ {name:'붉은 고원',en:'AMBER HIGHLANDS',desc:'붉은바람 협곡과 암석 고원이 이어지는 중앙 지역',color:'#987150',base:'#554534',light:'#72563e',accent:'#efbd76'},
+ {name:'황금잎 평원',en:'GOLDLEAF PLAINS',desc:'여행자와 상인이 모이는 대광장 주변의 안전한 평원',color:'#7b8058',base:'#465039',light:'#65704b',accent:'#efd792'},
+ {name:'적월 심연',en:'CRIMSON ABYSS',desc:'남동쪽 깊은 땅에 검붉은 안개가 흐르는 위험 지역',color:'#744b58',base:'#3b2733',light:'#5b3544',accent:'#f0a6ac'}
 ];
-const ZONE_LEVELS=[12,34,55,94,1,24,1,74];
-const regionAt=(x,y)=>clamp(Math.floor(clamp(x,0,WORLD.w-1)/2400),0,3)+(clamp(y,0,OVERWORLD_H-1)>=2000?4:0);
+const ZONE_LEVELS=[12,28,55,90,1,38,1,74];
+const BIOME_ANCHORS=[
+ {region:4,x:1400,y:3600,rx:3600,ry:3000},
+ {region:0,x:4300,y:1850,rx:3900,ry:2600},
+ {region:6,x:6500,y:4100,rx:3200,ry:2500},
+ {region:1,x:8200,y:7600,rx:4100,ry:2600},
+ {region:5,x:10800,y:2800,rx:4300,ry:2600},
+ {region:2,x:15100,y:2100,rx:4300,ry:2600},
+ {region:7,x:17400,y:8200,rx:4300,ry:2600},
+ {region:3,x:20500,y:4000,rx:3000,ry:3400}
+];
+const regionAt=(x,y)=>{let best=BIOME_ANCHORS[0],score=Infinity;for(const b of BIOME_ANCHORS){const dx=(x-b.x)/b.rx,dy=(y-b.y)/b.ry,v=dx*dx+dy*dy;if(v<score){score=v;best=b;}}return best.region;};
 const village={x:760,y:3010,r:430};
 const plaza={x:6000,y:3020,r:690};
 function safeNameAt(x,y){if(Math.hypot(x-village.x,y-village.y)<village.r)return '이끼빛 마을';if(Math.hypot(x-plaza.x,y-plaza.y)<plaza.r)return '황금잎 광장';return null;}
@@ -256,7 +268,11 @@ const camps=[
  {id:'zone3',name:'서리 관측소',x:5480,y:1520},
  {id:'plaza',name:'황금잎 광장',x:6000,y:3040},
  {id:'zone8',name:'적월 전초기지',x:7850,y:3120},
- {id:'zone4',name:'마지막 별길',x:7900,y:1510}
+ {id:'zone4',name:'마지막 별길',x:7900,y:1510},
+ {id:'emberPass',name:'붉은바람 협곡',x:11200,y:4250},
+ {id:'frostNeedle',name:'빙정 첨탑',x:15150,y:3200},
+ {id:'moonGate',name:'적월 관문',x:17450,y:7000},
+ {id:'lastStar',name:'동쪽 별길',x:20150,y:5100}
 ];
 function spawnTypesForRegion(reg){return [
  ['sprout','sprout','wolf','sentry'],
@@ -327,14 +343,7 @@ const RIFTS=[
  {id:'emberrift',name:'불씨의 균열',x:4290,y:3500,r:255,color:'#dfba8f',rune:'dawn',waves:[['golem','sprout'],['wolf','sentry'],['golem','sentry','wolf']]}
 ];
 const TACTICS={sprout:'짧은 부채꼴 공격을 사용합니다. 범위 끝에서 기다렸다가 반격하세요.',wolf:'직선으로 빠르게 돌진합니다. 옆으로 피하거나 정면에서 정확하게 패링하세요.',sentry:'먼 거리에서 투사체를 발사합니다. 패링하면 투사체를 되돌려 보낼 수 있습니다.',golem:'붉은 원으로 광역 공격을 예고합니다. 패링하지 말고 범위에서 벗어나세요.',wisp:'거리를 유지하며 빛의 투사체를 쏩니다. 나무를 엄폐물로 이용하거나 활로 대응하세요.',shade:'빠르게 접근해 벱니다. 연속 공격 대신 대쉬할 기력을 남기세요.',frostling:'냉기 베기를 짧게 반복합니다. 공격 뒤 얼음빛 빈틈을 노리세요.',shardStalker:'수정 갑옷으로 빠르게 돌진합니다. 정면 충돌보다 옆 대쉬가 안전합니다.',crystalMage:'결정 탄을 연속 발사합니다. 거리를 좁히거나 투사체를 패링하세요.',abyssHound:'긴 거리를 휘어 돌진합니다. 첫 돌진 뒤 두 번째 방향 전환을 주의하세요.',bloodWisp:'적월 탄을 멀리서 발사합니다. 멈춰 있으면 연속 탄에 노출됩니다.',voidKnight:'근접 검격과 충격 공격을 섞습니다. 큰 예고 뒤에는 범위 밖으로 빠지세요.',forestBoss:'베기·돌진·투사체·광역 충격을 번갈아 씁니다.',marshBoss:'여러 방향의 투사체와 광역 공격을 사용합니다.',plateauBoss:'강한 돌진 뒤 회복 시간이 길어집니다.',frostBoss:'빙창 부채, 수정 고리, 세 갈래 빙결선을 순환합니다. 패턴 사이 이동 경로를 미리 확보하세요.',abyssBoss:'적월 낙하, 중력 붕괴, 공허 탄막을 사용합니다. 중앙에 오래 머물지 마세요.',finalBoss:'앞선 지역의 패턴을 강화한 별자리 탄막과 낙하 공격을 사용합니다.'};
-const MAIN_QUESTS=[
- {id:'main_call',chapter:'PROLOGUE',name:'잔광의 부름',desc:'이끼빛 마을의 길잡이 린에게 숲에 무슨 일이 일어났는지 들으세요.',target:1,gold:80,xp:100},
- {id:'main_three',chapter:'CHAPTER I',name:'세 개의 약속',desc:'바람숲·유리 습지·붉은 고원의 수호자를 정화하고 세 인장을 모으세요.',target:3,gold:500,xp:650},
- {id:'main_frost',chapter:'CHAPTER II',name:'얼어붙은 별맥',desc:'3번 구역 빙결 수정원 깊숙한 곳에서 빙정의 군주를 쓰러뜨리세요.',target:1,gold:700,xp:900},
- {id:'main_abyss',chapter:'CHAPTER III',name:'붉은 달의 그림자',desc:'8번 구역 적월 심연으로 향해 적월 포식자를 격파하세요.',target:1,gold:900,xp:1200},
- {id:'main_gate',chapter:'CHAPTER IV',name:'종언의 문',desc:'4번 구역 종말의 별성에 있는 종언의 별 제단을 조사하세요.',target:1,gold:1200,xp:1500},
- {id:'main_final',chapter:'FINAL',name:'마지막 잔광',desc:'4번 구역의 최종보스 별의 종언자를 쓰러뜨리고 세계의 잔광을 되찾으세요.',target:1,gold:2500,xp:3000}
-];
+const MAIN_QUESTS=[];
 const SIDE_QUESTS=[
  {id:'seraFrost',npc:'plazaQuest',giver:'의뢰관 세라',name:'수정원 정찰',desc:'빙결 수정원의 일반 몬스터 8체를 정리하세요.',target:8,stat:'frostKills',gold:420,xp:520},
  {id:'moraHerbs',npc:'herbalist',giver:'약초사 모라',name:'푸른 잎의 비축',desc:'푸른 약초를 8번 채집해 모라의 약재 비축을 도와주세요.',target:8,stat:'gathers',gold:240,xp:300,reward:'potion'},
@@ -388,9 +397,16 @@ const ENEMY_TYPES={
 };
 function newPlayer(){bodyGridValid=false;return {x:800,y:3100,r:15,hp:138,maxHp:138,stam:182,maxStam:182,exhaust:0,cast:0,skillPose:-1,strikePose:0,skillCds:[0,0,0,0,0],moveLock:0,postSkillLockTimer:0,basicMoveSlow:0,ownedWeapons:[0],blueprintFragments:[],statueHits:0,statueBroken:false,frostCore:0,abyssCore:0,storyStage:0,acceptedSideQuests:[],claimedSideQuests:[],ownedHead:['wandererHood'],ownedChest:['travelerCoat'],ownedShields:['woodenShield'],equippedHead:'wandererHood',equippedChest:'travelerCoat',equippedShield:'woodenShield',pendingSlam:null,level:1,xp:0,gold:0,herbs:0,ore:0,potions:3,weapon:0,upgrades:[0,0,0,0],perkPoints:0,perks:{flow:0,focus:0,breath:0,herbal:0,resolve:0},facing:-Math.PI/2,combo:0,comboTimer:0,attackCd:0,attackAnim:0,attackDuration:.26,attackAngle:0,attackArc:0,heavy:false,dodge:0,dodgeCd:0,dx:0,dy:0,parry:0,parryCd:0,shield:100,maxShield:100,perfectWindow:0,shieldDelay:0,shieldBroken:0,shieldNeedsRelease:false,skillCd:0,potionCd:0,invuln:0,hurt:0,stamDelay:0,lastCamp:'home',camps:['home'],seals:[],opened:[],collected:[],claimed:[],notes:[],stats:{kills:0,gathers:0,oreMined:0,camps:0,chests:0,bosses:0,final:0,talked:0,storyAltar:0,frostKills:0,abyssKills:0,parries:0,dodges:0,deaths:0,rifts:0},training:{move:0,dodge:false,attack:false,parry:false,complete:false},discovered:[],playtime:0,difficulty:'normal',won:false,runes:[],rune:null,rifts:[],riftBest:{},bestiary:{},riposte:0};}
 function hash(x,y){let v=Math.imul(x+13013,374761393)+Math.imul(y+7733,668265263);v=(v^v>>>13)*1274126177;return((v^v>>>16)>>>0)/4294967296;}
-const paths=[[[760,3010],[1480,2940],[1950,3210],[2870,2990],[3550,2750]],[[820,2920],[880,2250],[1050,1510],[1360,970]],[[1980,3200],[2160,2260],[2940,1460],[3660,850]],[[1030,1510],[1740,1450],[2440,1520],[3000,1430]],[[3100,2930],[3260,2130],[3090,1440]]];
-const arenas=[{x:1500,y:760,r:255,region:0},{x:3500,y:760,r:265,region:1},{x:3600,y:3180,r:280,region:5},{x:6000,y:720,r:300,region:2},{x:8500,y:3180,r:315,region:7},{x:8500,y:720,r:345,region:3}];
-const pools=[{x:560,y:760,rx:260,ry:165},{x:1790,y:1130,rx:235,ry:180},{x:2050,y:580,rx:260,ry:185},{x:520,y:1580,rx:175,ry:135},{x:2060,y:1640,rx:145,ry:100}];
+const paths=[[[760,3010],[1480,2940],[1950,3210],[2870,2990],[3550,2750]],[[820,2920],[880,2250],[1050,1510],[1360,970]],[[1980,3200],[2160,2260],[2940,1460],[3660,850]],[[1030,1510],[1740,1450],[2440,1520],[3000,1430]],[[3100,2930],[3260,2130],[3090,1440]],
+ [[3550,2750],[6000,3020],[8500,3600],[10800,4200],[13200,3600],[15400,3200],[18100,4200],[20500,3850]],
+ [[6000,3020],[7000,5200],[8200,7600],[11200,8600],[14500,7900],[17450,7000],[18100,8350]],
+ [[10800,4200],[11250,2550],[14000,2200],[15400,1550]],
+ [[18100,4200],[20150,5100],[20500,3850]]
+];
+const arenas=[{x:4300,y:1250,r:300,region:0},{x:8350,y:7850,r:320,region:1},{x:11250,y:2550,r:335,region:5},{x:15400,y:1550,r:350,region:2},{x:18100,y:8350,r:365,region:7},{x:20500,y:3850,r:390,region:3}];
+const pools=[{x:560,y:760,rx:260,ry:165},{x:1790,y:1130,rx:235,ry:180},{x:2050,y:580,rx:260,ry:185},{x:520,y:1580,rx:175,ry:135},{x:2060,y:1640,rx:145,ry:100},
+ {x:8150,y:7900,rx:820,ry:520},{x:9050,y:7200,rx:480,ry:330},{x:16900,y:8800,rx:520,ry:360}
+];
 const spatial=new Map();
 function bucket(x,y){return Math.floor(x/240)+','+Math.floor(y/240);}
 function addSpatial(o){const k=bucket(o.x,o.y);if(!spatial.has(k))spatial.set(k,[]);spatial.get(k).push(o);}
@@ -571,7 +587,44 @@ function prepareLoot(){objects=objects.filter(o=>o.type!=='loot');if(!player.own
 function pickupLoot(o){const names={gold:'골드',ore:'별철 광석',herb:'약초',potion:'회복약',weapon1:'새벽의 쌍검',weapon2:'바람결 활'};let count=o.amount;if(o.lootKind.startsWith('weapon')){const n=+o.lootKind.slice(-1);if(!player.ownedWeapons.includes(n))player.ownedWeapons.push(n);}else if(o.lootKind==='potion'){count=Math.min(count,8-player.potions);if(count<=0){toast('회복약이 가득 찼습니다.');return;}player.potions+=count;}else player[{gold:'gold',ore:'ore',herb:'herbs'}[o.lootKind]]+=count;o.amount-=count;if(o.amount<=0)objects=objects.filter(v=>v!==o);toast('<b>'+names[o.lootKind]+' 획득</b> × '+count);sound('gather');flourish(o.x,o.y,'#f1d890',38,0);updateHUD();saveGame(false);}
 function restoreLoot(data){if(!Array.isArray(data))return;for(const o of data.slice(0,1000)){if(!o||!['gold','ore','herb','potion'].includes(o.lootKind)||!Number.isFinite(o.x)||!Number.isFinite(o.y)||!Number.isFinite(o.amount)||o.amount<=0)continue;dropLoot(clamp(o.x,65,WORLD.w-65),clamp(o.y,65,WORLD.h-65),o.lootKind,Math.floor(clamp(o.amount,1,1e6)));}}
 
-player=newPlayer();buildWorld();extendWorld();ensurePlazaNpcs();
+function buildExpandedWorld(){
+ const rr=seeded(982451653),range=(a,b)=>a+rr()*(b-a);
+ // Extra world terrain is generated by geographic biome anchors, not rectangular zone cells.
+ for(let i=0;i<760;i++){
+  const x=range(180,21820),y=range(180,10820);
+  if(x<9600&&y<4000)continue;
+  if(inSafe(x,y)||onPath(x,y,100)||camps.some(c=>Math.hypot(c.x-x,c.y-y)<180)||arenas.some(a=>Math.hypot(a.x-x,a.y-y)<a.r+110)||waterAt(x,y,55))continue;
+  const reg=regionAt(x,y),rockChance=[.20,.32,.50,.72,.16,.68,.13,.62][reg]||.35,rock=rr()<rockChance;
+  const o={x,y,type:rock?'rock':'tree',reg,r:rock?range(18,32):18,scale:range(.72,1.28),variant:Math.floor(rr()*4),solid:true};
+  if(candidates(x,y,110).some(b=>Math.hypot(b.x-x,b.y-y)<(b.r||25)+o.r+35))continue;
+  obstacles.push(o);addSpatial(o);
+ }
+ for(let i=0;i<1350;i++){
+  const x=range(80,21920),y=range(80,10920);if(waterAt(x,y))continue;
+  const reg=regionAt(x,y);decor.push({x,y,reg,variant:Math.floor(rr()*6),size:range(.7,1.55),type:rr()<.14?'flower':'grass'});
+ }
+ for(let i=0;i<145;i++){
+  const x=range(300,21700),y=range(300,10700);
+  if(inSafe(x,y)||solidAt(x,y,36)||arenas.some(a=>Math.hypot(a.x-x,a.y-y)<a.r+100))continue;
+  objects.push({id:'wideNode'+i,type:rr()<.58?'herb':'ore',x,y,r:12});
+ }
+ for(let i=0;i<105;i++){
+  const x=range(400,21600),y=range(400,10600),reg=regionAt(x,y);
+  if(inSafe(x,y)||solidAt(x,y,44)||camps.some(c=>Math.hypot(c.x-x,c.y-y)<250)||arenas.some(a=>Math.hypot(a.x-x,a.y-y)<a.r+130)||enemies.some(e=>Math.hypot(e.x-x,e.y-y)<150))continue;
+  const pool=spawnTypesForRegion(reg);if(pool.length)addEnemy(pool[Math.floor(rr()*pool.length)],x,y,'wideEnemy'+i);
+ }
+ const treasure=[
+  [9800,9100],[12400,7600],[14800,4700],[16100,9500],[19300,6750],[21400,5350],[13300,9800],[10200,5200]
+ ];
+ treasure.forEach(([x,y],i)=>{const p=freeBodySpot(x,y,28);objects.push({type:'chest',id:'wideChest'+i,x:p.x,y:p.y,r:21});});
+ // Relocate secret weapon fragments across distant landmarks so exploration spans the full world.
+ const hidden={blueprint1:[19700,10100],blueprint2:[8850,9200],blueprint3:[14550,5150],blueprint4:[20750,2050]};
+ for(const [id,p] of Object.entries(hidden)){const o=objects.find(v=>v.id===id);if(o){o.x=p[0];o.y=p[1];}}
+ for(const id of ['secretStatue','secretEntrance']){const o=objects.find(v=>v.id===id);if(o){o.x=SECRET_STATUE.x;o.y=SECRET_STATUE.y+(id==='secretEntrance'?18:0);}}
+ const exit=objects.find(v=>v.id==='secretExit');if(exit){exit.x=SECRET_CAVE.exitX;exit.y=SECRET_CAVE.exitY;}
+ spatial.clear();for(const o of obstacles)addSpatial(o);bodyGridValid=false;
+}
+player=newPlayer();buildWorld();extendWorld();ensurePlazaNpcs();buildExpandedWorld();
 function resize(){
  const nextW=document.documentElement.clientWidth,nextH=Math.round(window.visualViewport?.height||innerHeight);
  if(Math.abs(nextW-W)>2||(nextW>nextH)!==(W>H)){if(layoutEditing){endLayoutDrag(false);layoutBarDrag=null;$('layoutBar').dataset.positioned='';}resetInputs();}W=nextW;H=nextH;
@@ -889,7 +942,7 @@ function hitEnemy(e,amount,heavy=false,source=player){if(e.riftSleeping)return;i
  if(e.hp<=0)defeatEnemy(e);
 }
 function defeatEnemy(e){if(e.type!=='dummy')player.bestiary[e.type]=(player.bestiary[e.type]||0)+1;e.dead=true;e.hp=0;e.respawn=160;e.state='dead';burst(e.x,e.y,e.color,23,130);ring(e.x,e.y,65,e.color);player.stats.kills++;const reg=regionAt(e.x,e.y);if(e.kind!=='boss'&&reg===2)player.stats.frostKills=(player.stats.frostKills||0)+1;if(e.kind!=='boss'&&reg===7)player.stats.abyssKills=(player.stats.abyssKills||0)+1;if(e.gold>0)dropLoot(e.x,e.y,'gold',e.gold);if(player.stats.kills%3===0)dropLoot(e.x+24,e.y,'potion',1);addXp(e.xp);
- if(e.kind==='boss'){e.defeated=true;if(!player.seals.includes(e.seal))player.seals.push(e.seal);if(e.type==='frostBoss'){grantEquipment('head','frostCrown');grantEquipment('chest','frostMail');grantEquipment('shield','frostShield');if(player.frostCore<1){player.frostCore=1;toast('<b>빙정 핵 획득</b> · 비밀 제작에 쓰이는 희귀 재료');}}if(e.type==='abyssBoss'){grantEquipment('head','voidVisor');grantEquipment('chest','abyssPlate');if(player.abyssCore<1){player.abyssCore=1;toast('<b>적월 핵 획득</b> · 비밀 제작에 쓰이는 희귀 재료');}}if(e.type==='finalBoss')grantEquipment('shield','astralShield');if(e.type==='finalBoss'){player.stats.final=1;player.won=true;syncStoryProgress(true);toast('<b>'+e.name+' 격파</b><br>종말의 별성이 다시 빛나기 시작합니다.');setTimeout(()=>{if(mode==='play'&&player.won)showVictory();},650);}else if(e.seal<3){player.stats.bosses=player.seals.filter(x=>x<3).length;dropLoot(e.x+26,e.y,'ore',5);dropLoot(e.x-26,e.y,'potion',2);toast('<b>'+e.name+' 정화</b><br>수호자의 인장 · 광석 +5 · 회복약 +2');}else{dropLoot(e.x+26,e.y,'ore',8);dropLoot(e.x-26,e.y,'potion',2);toast('<b>'+e.name+' 격파</b><br>특수 보스 보상 · 광석 +8 · 회복약 +2');}syncStoryProgress(true);player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;ring(e.x,e.y,250,'#e6cd8c',1.8);sound('reward');saveGame(false);}
+ if(e.kind==='boss'){e.defeated=true;if(!player.seals.includes(e.seal))player.seals.push(e.seal);if(e.type==='frostBoss'){grantEquipment('head','frostCrown');grantEquipment('chest','frostMail');grantEquipment('shield','frostShield');if(player.frostCore<1){player.frostCore=1;toast('<b>빙정 핵 획득</b> · 비밀 제작에 쓰이는 희귀 재료');}}if(e.type==='abyssBoss'){grantEquipment('head','voidVisor');grantEquipment('chest','abyssPlate');if(player.abyssCore<1){player.abyssCore=1;toast('<b>적월 핵 획득</b> · 비밀 제작에 쓰이는 희귀 재료');}}if(e.type==='finalBoss')grantEquipment('shield','astralShield');if(e.type==='finalBoss'){player.stats.final=(player.stats.final||0)+1;toast('<b>'+e.name+' 격파</b><br>월드 보스는 다시 나타납니다.');}else if(e.seal<3){player.stats.bosses=player.seals.filter(x=>x<3).length;dropLoot(e.x+26,e.y,'ore',5);dropLoot(e.x-26,e.y,'potion',2);toast('<b>'+e.name+' 정화</b><br>수호자의 인장 · 광석 +5 · 회복약 +2');}else{dropLoot(e.x+26,e.y,'ore',8);dropLoot(e.x-26,e.y,'potion',2);toast('<b>'+e.name+' 격파</b><br>특수 보스 보상 · 광석 +8 · 회복약 +2');}syncStoryProgress(true);player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;ring(e.x,e.y,250,'#e6cd8c',1.8);sound('reward');saveGame(false);}
  else if(!e.riftId&&player.stats.kills%4===0){dropLoot(e.x,e.y+20,'ore',1);}
  checkQuestNotices();}
 function dash(){if(!canAct()||player.cast>0)return;if(player.dodgeCd>0||player.dodge>0){if(Math.max(player.dodgeCd,player.dodge)<.17)queueAction('dash');return;}if(!useStam(20-4*player.perks.flow))return;let x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y;const n=Math.hypot(x,y);if(n){x/=n;y/=n;}else{x=Math.cos(player.facing);y=Math.sin(player.facing);}player.dx=x;player.dy=y;player.dodge=.2;player.dodgeCd=.55;player.invuln=Math.max(player.invuln,.16);player.attackAnim=0;player.parry=0;player.perfectWindow=0;player.training.dodge=true;player.stats.dodges++;ring(player.x,player.y,33,'#b7dec9',.3);sound('dodge');}
@@ -1057,13 +1110,9 @@ function interact(){if(!canAct())return;const o=nearestObject();if(o?.type==='lo
  if(o.type==='chest'){player.opened.push(o.id);player.stats.chests++;player.gold+=45;player.ore+=2;player.potions=Math.min(8,player.potions+1);addXp(22);burst(o.x,o.y,'#e9ce8e',28,150);toast('<b>잊힌 보관함</b><br>45 G · 광석 2 · 회복약 1');sound('reward');checkQuestNotices();saveGame(false);return;}
  if(o.type==='lore'){if(!player.notes.includes(o.id)){player.notes.push(o.id);addXp(30);}showLore(o);return;}
  if(o.type==='altar'){
-  syncStoryProgress(false);
-  if(player.won){showMessage('다시 밝아진 세계','종언의 별성에 빛이 돌아왔습니다.\n엔딩 이후에도 서브퀘스트와 숨겨진 무기를 계속 진행할 수 있습니다.');}
-  else if(player.storyStage<4){const q=MAIN_QUESTS[player.storyStage];showMessage('종언의 별 제단','별빛이 당신을 밀어냅니다.\n아직 이어야 할 이야기가 남아 있습니다.\n\n현재 메인퀘스트: '+q.name+'\n'+q.desc);}
-  else{
-   if(player.storyStage===4){player.stats.storyAltar=1;syncStoryProgress(true);saveGame(false);}
-   const e=enemies.find(e=>e.type==='finalBoss');if(e&&!e.dead){e.alert=true;e.state='chase';e.timer=.8;player.invuln=1;ring(o.x,o.y,170,'#d6c5ef',1);toast('<b>FINAL · 별의 종언자가 깨어났습니다.</b>');}
-  }
+  const e=enemies.find(e=>e.type==='finalBoss');
+  if(e&&e.dead){showMessage('종언의 별 제단','별빛이 잠잠합니다. 공용 월드 보스가 재소환되면 다시 도전할 수 있습니다.');}
+  else if(e){e.alert=true;e.state='chase';e.timer=.8;player.invuln=1;ring(o.x,o.y,170,'#d6c5ef',1);toast('<b>월드 보스 · 별의 종언자</b>');}
  }
 }
 function restAtCamp(c){cleanupRift();lockedTarget=null;player.riposte=0;player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;player.potions=Math.max(player.potions,3);player.invuln=2;player.attackCd=player.dodgeCd=player.parryCd=player.skillCd=0;projectiles=[];effects=effects.filter(e=>e.type!=='hazard');for(const e of enemies){if(e.kind==='boss'||e.type==='dummy')continue;if(distance(e,player)<800||e.dead){e.hp=e.maxHp;e.x=e.sx;e.y=e.sy;e.state='idle';e.alert=false;e.dead=false;e.stun=0;}}toast('휴식 완료 · 체력·기력 회복 · 회복약 최소 3개 보충');}
@@ -1146,15 +1195,7 @@ function showInventory(tab=menuTab){menuTab=tab;let body='';const balances=`<spa
  if(tab==='records'){const records=[['잔광을 잇는 자',player.rifts.length===3,'모든 균열 정화'],['전술의 발견',player.runes.length===3,'세 전술 룬 수집'],['첫 번째 반격',player.stats.parries>=1,'패링 1회 성공'],['찰나의 달인',player.stats.parries>=10,'패링 10회 성공'],['길을 여는 자',player.camps.length>=camps.length,'모든 야영지 활성화'],['오래된 보관함',player.opened.length>=8,'상자 8개 발견'],['숲의 기록자',player.notes.length>=4,'기록 4개 발견'],['세 개의 약속',player.stats.bosses>=3,'세 수호자 정화'],['돌아온 잔광',player.won,'별의 종언자 정화'],['무기의 이해',player.upgrades.some(n=>n===3),'무기 3단계 강화']];body=`<div class="grid two">${records.map(([n,yes,d])=>`<div class="card ${yes?'selected':''}"><span class="eyebrow">${yes?'✧ 달성':'◇ 미달성'}</span><h3>${n}</h3><p>${d}</p></div>`).join('')}</div><div class="tip">플레이 ${Math.floor(player.playtime/60)}분 · 정화 ${player.stats.kills} · 패링 ${player.stats.parries} · 대쉬 ${player.stats.dodges} · 돌아온 횟수 ${player.stats.deaths}<br>세계의 기록 ${player.notes.length} / 4 · 보관함 ${player.opened.length} / 20</div>${player.notes.map(id=>`<button class="small" style="margin:4px" data-action="readLore" data-value="${id}">기록 ${Number(id.slice(-1))+1} 다시 읽기</button>`).join('')}`;}
  openPanel('inventory',header('THE WAYFARER','가방과 성장')+balances+`<div class="tabs">${[['gear','무기'],['armor','방어구'],['craft','제작'],['perks','특성'],['runes','룬'],['codex','도감'],['records','기록']].map(([v,n])=>`<button class="${tab===v?'selected':''}" data-action="inventoryTab" data-value="${v}">${n}</button>`).join('')}</div>`+body+footer(),true);
 }
-function showQuests(tab=questTab,preserveScroll=false){questTab=tab==='side'?'side':'main';let body='';
- if(questTab==='main'){
-  const stage=Math.min(player.storyStage,MAIN_QUESTS.length),q=MAIN_QUESTS[stage]||null;
-  body=`<p class="lede">메인 스토리는 순서대로 진행됩니다. 현재 장을 완료해야 다음 이야기가 열리며, 최종보스는 4번 구역 <b>종말의 별성</b>에서 기다립니다.</p><div class="grid two">${MAIN_QUESTS.map((mq,i)=>{const complete=i<player.storyStage||player.won&&i===MAIN_QUESTS.length-1,current=i===player.storyStage&&!player.won,n=complete?mq.target:current?mainQuestValue(i):0;return `<div class="card ${current?'selected':''}" style="${i>player.storyStage&&!complete?'opacity:.55':''}"><div class="eyebrow">${complete?'✓ '+mq.chapter:current?'◆ CURRENT · '+mq.chapter:'◇ '+mq.chapter}</div><h3>${mq.name}</h3><p>${i>player.storyStage&&!complete?'이전 메인퀘스트를 완료하면 내용이 공개됩니다.':mq.desc}</p><div class="bar"><i style="background:var(--gold);width:${complete?100:Math.min(100,n/mq.target*100)}%"></i></div><div class="price">${complete?'완료':current?n+' / '+mq.target:'잠김'} · 보상 ${mq.gold} G / 경험치 ${mq.xp}</div></div>`;}).join('')}</div>${q?`<div class="tip"><b>현재 메인 목표 · ${q.name}</b><br>${q.desc}</div>`:'<div class="tip"><b>메인 스토리 완료</b><br>별의 종언자를 쓰러뜨렸습니다. 서브퀘스트와 탐험은 계속할 수 있습니다.</div>'}`;
- }else{
-  body=`<p class="lede">서브퀘스트는 자동으로 생기지 않습니다. 각 NPC에게 직접 말을 걸어 의뢰를 받아야 합니다. 메인 스토리와 별개로 언제든 진행할 수 있습니다.</p><div class="grid two">${SIDE_QUESTS.map(q=>{const accepted=player.acceptedSideQuests.includes(q.id),done=player.claimedSideQuests.includes(q.id),n=accepted?sideQuestProgress(q):0,ready=accepted&&n>=q.target;return `<div class="card ${ready&&!done?'selected':''}"><div class="eyebrow">${done?'✓ 완료':!accepted?'NPC에게서 수락':ready?'✧ 보상 대기':n+' / '+q.target}</div><h3>${q.name}</h3><p><b>${q.giver}</b><br>${q.desc}</p>${accepted?`<div class="bar"><i style="background:var(--teal);width:${Math.min(100,n/q.target*100)}%"></i></div>`:''}<div class="price">${q.gold} G · 경험치 ${q.xp}${q.reward==='potion'?' · 회복약 2':q.reward==='ore'?' · 광석 5':''}</div><button data-action="claimSide" data-value="${q.id}" ${!ready||done?'disabled':''}>${done?'보상 수령 완료':ready?'보상 받기':accepted?'진행 중':'NPC에게 의뢰 받기'}</button></div>`;}).join('')}</div>`;
- }
- openPanel('quests',header('JOURNAL','여정 기록')+`<div class="tabs"><button class="${questTab==='main'?'selected':''}" data-action="questTab" data-value="main">메인퀘스트</button><button class="${questTab==='side'?'selected':''}" data-action="questTab" data-value="side">NPC 서브퀘스트</button></div>`+body+footer(),true,preserveScroll);
-}
+function showQuests(tab='side',preserveScroll=false){questTab='side';const body=`<p class="lede">메인퀘스트는 제거되었습니다. 공용 월드에서 자유롭게 탐험하고, NPC에게 직접 의뢰를 받아 진행하세요. 보스는 반복 사냥할 수 있으며 멀티 서버에서는 처치 후 약 3분 뒤 다시 나타납니다.</p><div class="grid two">${SIDE_QUESTS.map(q=>{const accepted=player.acceptedSideQuests.includes(q.id),done=player.claimedSideQuests.includes(q.id),n=accepted?sideQuestProgress(q):0,ready=accepted&&n>=q.target;return `<div class="card ${ready&&!done?'selected':''}"><div class="eyebrow">${done?'✓ 완료':!accepted?'NPC에게서 수락':ready?'✧ 보상 대기':n+' / '+q.target}</div><h3>${q.name}</h3><p><b>${q.giver}</b><br>${q.desc}</p>${accepted?`<div class="bar"><i style="background:var(--teal);width:${Math.min(100,n/q.target*100)}%"></i></div>`:''}<div class="price">${q.gold} G · 경험치 ${q.xp}${q.reward==='potion'?' · 회복약 2':q.reward==='ore'?' · 광석 5':''}</div><button data-action="claimSide" data-value="${q.id}" ${!ready||done?'disabled':''}>${done?'보상 수령 완료':ready?'보상 받기':accepted?'진행 중':'NPC에게 의뢰 받기'}</button></div>`;}).join('')}</div>`;openPanel('quests',header('JOURNAL','NPC 의뢰와 자유 탐험')+body+footer(),true,preserveScroll);}
 function npcQuestPanel(o,q,intro){const accepted=player.acceptedSideQuests.includes(q.id),done=player.claimedSideQuests.includes(q.id),n=sideQuestProgress(q),ready=accepted&&n>=q.target;return header('SIDE QUEST',o.name)+`<p class="dialog-text">${intro}</p><div class="card ${ready&&!done?'selected':''}"><div class="eyebrow">${done?'✓ 의뢰 완료':!accepted?'NEW REQUEST':ready?'REWARD READY':n+' / '+q.target}</div><h3>${q.name}</h3><p>${q.desc}</p><div class="price">보상 ${q.gold} G · 경험치 ${q.xp}${q.reward==='potion'?' · 회복약 2':q.reward==='ore'?' · 광석 5':''}</div>${accepted?`<div class="bar"><i style="background:var(--teal);width:${Math.min(100,n/q.target*100)}%"></i></div>`:''}</div>`+footer('',done?'<button data-action="quests" data-value="side">서브퀘스트 보기</button><button class="primary" data-action="close">대화 마치기</button>':!accepted?`<button data-action="acceptSide" data-value="${q.id}">의뢰 받기</button><button class="primary" data-action="close">나중에</button>`:ready?`<button data-action="claimSide" data-value="${q.id}">보상 받기</button><button class="primary" data-action="close">대화 마치기</button>`:'<button data-action="quests" data-value="side">진행 확인</button><button class="primary" data-action="close">대화 마치기</button>');}
 function showNpc(o){player.facing=Math.atan2(o.y-player.y,o.x-player.x);
  if(o.id==='plazaQuest'){const q=sideQuestById('seraFrost');openPanel('npc',npcQuestPanel(o,q,'3번 구역 빙결 수정원의 길이 위험해졌어요. 수정 생물의 수를 줄여 여행로를 확보해 주세요.'));return;}
@@ -1539,12 +1580,12 @@ function drawMap(g,w,h,full=false){g.clearRect(0,0,w,h);g.fillStyle="#102328";g.
  if(mapWaypoint){g.strokeStyle='#f7dc92';g.lineWidth=15;g.beginPath();g.arc(mapWaypoint.x,mapWaypoint.y,70,0,TAU);g.stroke();line(g,mapWaypoint.x-100,mapWaypoint.y,mapWaypoint.x+100,mapWaypoint.y,'#f7dc92',10);line(g,mapWaypoint.x,mapWaypoint.y-100,mapWaypoint.x,mapWaypoint.y+100,'#f7dc92',10);}
  for(const r of RIFTS){const done=player.rifts.includes(r.id);g.strokeStyle=done?'#9bcfb5':r.color;g.lineWidth=full?13:20;g.beginPath();g.arc(r.x,r.y,full?47:52,0,TAU);g.stroke();if(done)circle(g,r.x,r.y,18,'#b7dec0');}
  g.save();const mapPlayer=inSecretCaveCoord(player.x,player.y)?{x:SECRET_STATUE.x,y:SECRET_STATUE.y}:player;g.translate(mapPlayer.x,mapPlayer.y);g.rotate(player.facing);const s=full?48:70;polygon(g,[[s,0],[-s*.65,-s*.57],[-s*.35,0],[-s*.65,s*.57]],'#cff8df','#294a45',full?9:14);g.restore();g.restore();
- if(full){g.textAlign='center';g.font='14px "Malgun Gothic",system-ui';g.shadowColor='#091d24';g.shadowBlur=5;for(const [name,x,y]of REGIONS.map((r,i)=>[`${i+1}. ${r.name}`,(i%4)*2400+1200,(i<4?520:3820)])){g.fillStyle='#e1e0c6';g.fillText(name,x/WORLD.w*w,y/OVERWORLD_H*h);}g.font='10px system-ui';g.fillStyle='#e5d5a3';g.fillText('이끼빛 마을',760/WORLD.w*w,3350/OVERWORLD_H*h);g.fillText('황금잎 광장',6000/WORLD.w*w,3220/OVERWORLD_H*h);g.shadowBlur=0;g.textAlign='left';g.font='10px Georgia';g.fillStyle='#dacfad';g.fillText('N ↑',15,22);}
+ if(full){g.textAlign='center';g.font='14px "Malgun Gothic",system-ui';g.shadowColor='#091d24';g.shadowBlur=5;for(const b of BIOME_ANCHORS){g.fillStyle='#e1e0c6';g.fillText(REGIONS[b.region].name,b.x/WORLD.w*w,b.y/OVERWORLD_H*h);}g.font='10px system-ui';g.fillStyle='#e5d5a3';g.fillText('이끼빛 마을',760/WORLD.w*w,3350/OVERWORLD_H*h);g.fillText('황금잎 광장',6000/WORLD.w*w,3220/OVERWORLD_H*h);g.shadowBlur=0;g.textAlign='left';g.font='10px Georgia';g.fillStyle='#dacfad';g.fillText('N ↑',15,22);}
 }
 let trainingHTML='';
 function updateHUD(){updateSkillTray();const hiddenStatus=hiddenSkillStatusText(),skillText=hiddenStatus?hiddenStatus:secondSkillDash?'2번 섬광 돌진 · '+Math.max(0,(SECOND_DASH_DURATION-secondSkillDash.elapsed)).toFixed(1)+'초':secondSkillArmed?'2번 스킬 · 버튼을 떼면 발동':fourthSkillHold?(fourthSkillHold.dashing?'4번 별빛 돌진 · '+Math.max(0,(FOURTH_DASH_MAX-fourthSkillHold.dashTime)).toFixed(1)+'초':'4번 유지 · 돌진 준비 '+Math.min(100,Math.round(fourthSkillHold.elapsed/FOURTH_HOLD_DELAY*100))+'%'):fourthSkillField?'4번 범위 공격 · '+Math.max(0,fourthSkillField.t).toFixed(1)+'초':activeSwordSkill?skillInfo(activeSwordSkill.index).name+' · 연속 공격 '+Math.min(100,Math.round(activeSwordSkill.elapsed/activeSwordSkill.duration*100))+'%':'';$('combatReadout').textContent=skillText|| (player.exhaust>0?'5연격 후 회복 · '+player.exhaust.toFixed(1)+'초':'지구력 '+Math.ceil(player.stam)+' / '+player.maxStam+(player.comboTimer>0?' · '+player.combo+' / 5연격':'')); $("shieldText").textContent=(player.shieldBroken>0?"쉴드 소진 · ":"쉴드 ")+Math.ceil(player.shield)+" / "+player.maxShield;$("shieldBar").style.width=(player.shield/player.maxShield*100)+"%";if(mode!=='play')return;updateRiftHud();$('level').textContent=player.level;$('hpText').textContent=Math.ceil(player.hp)+' / '+player.maxHp;$('hpBar').style.width=player.hp/player.maxHp*100+'%';$('stamBar').style.width=player.stam/player.maxStam*100+'%';$('xpBar').style.width=(player.level>=MAX_LEVEL?100:player.xp/xpNeed()*100)+'%';$('potions').textContent=player.potions;$('skillName').textContent='스킬 목록';
  $('hiddenWeaponSlot')?.classList.toggle('hidden',!player.ownedWeapons.includes(3));document.querySelectorAll('[data-weapon]').forEach(el=>el.classList.toggle('active',Number(el.dataset.weapon)===player.weapon));for(const [id,n]of [['dodgeCd',player.dodgeCd],['parryCd',player.shieldBroken],['skillCd',0]]){const el=$(id);el.classList.toggle('hidden',n<=0);el.textContent=n>1?Math.ceil(n):n.toFixed(1);}
- const q=currentMainQuest();if(q&&player.storyStage<MAIN_QUESTS.length){const n=mainQuestValue(player.storyStage);$('questHud').innerHTML=`<div class="eyebrow">MAIN STORY · ${q.chapter}</div><div class="quest-name">${q.name} <span style="color:#cdbc88;font-size:11px">${n} / ${q.target}</span></div><div class="quest-desc">${q.desc}</div>`;}else $('questHud').innerHTML='<div class="eyebrow">ENDING COMPLETE</div><div class="quest-name">잔광이 돌아온 세계</div><div class="quest-desc">NPC 서브퀘스트와 남은 비밀을 탐험하세요.</div>';
+ const onlineCount=multiplayerMode?(window.EchoesMulti?.state?.players?.size||0)+1:1,partyCount=window.EchoesMulti?.state?.party?.members?.length||0;$('questHud').innerHTML=`<div class="eyebrow">${multiplayerMode?'SHARED ONLINE WORLD · NORMAL':'OPEN WORLD · FREE ROAM'}</div><div class="quest-name">${multiplayerMode?'접속 '+onlineCount+'명'+(partyCount?' · 파티 '+partyCount+'명':''):'자유 탐험'}</div><div class="quest-desc">메인퀘스트 없음 · NPC 의뢰 · 반복 보스 · 숨겨진 아이템 탐색</div>`;
  const caveHere=inSecretCaveCoord(player.x,player.y),reg=REGIONS[regionAt(player.x,player.y)],safeName=safeNameAt(player.x,player.y),name=caveHere?'별성 지하 비밀동굴':safeName||reg.name;$('miniRegion').textContent=name;$('location').innerHTML=`<strong>${name}</strong><p>${caveHere?'SECRET CAVE · 잊힌 설계도의 흔적':safeName?'SANCTUARY · 안전한 쉼터':reg.en+' · 권장 Lv.'+zoneRecommendedLevel(regionAt(player.x,player.y))+'+'}</p>`;const phase=Math.floor(worldTime%240/60);$('dayTime').textContent='DAY '+String(Math.floor(worldTime/240)+1).padStart(2,'0')+' · '+['아침','낮','저녁','밤'][phase];$('statusBottom').innerHTML=`<span style="color:#d9c891">${player.gold} G</span> <span style="color:#879c94">/</span> 인장 ${player.seals.filter(n=>n<3).length} / 3<br>Esc 메뉴 · ${Math.round(player.x)}, ${Math.round(player.y)}`;
  $('bossHud').classList.toggle('hidden',!activeBoss);if(activeBoss){$('bossName').textContent='Lv.'+(activeBoss.mobLevel||'?')+' · '+activeBoss.name;$('bossHp').style.width=clamp(activeBoss.hp/activeBoss.maxHp*100,0,100)+'%';$('bossPhase').textContent=activeBoss.stun>.4?'자세 붕괴 · 지금 반격하세요':activeBoss.phase===2?'PHASE II · 패턴이 빨라졌습니다':'PHASE I · 공격의 예고를 읽으세요';}
  if(nearby){const names={loot:'아이템 줍기',rift:'균열 조사 / 정화 도전',camp:player.camps.includes(nearby.id)?'휴식 / 빠른 이동':'야영지 활성화',npc:nearby.name+'와 대화',herb:'푸른 약초 채집',ore:'별철 광석 채광',chest:'보관함 열기',lore:'오래된 기록 읽기',altar:player.won?'종언의 별 제단':player.storyStage>=4?'최종보스의 봉인 해제':'메인 스토리 진행 필요',statue:'평타 3회로 동상 파괴',secretEntrance:'비밀 동굴 들어가기',secretExit:'종말의 별성으로 돌아가기',blueprint:'잊힌 설계도 조각 줍기'};$('hint').innerHTML=(touchMode?'상호작용 · ':'<kbd>E</kbd> ')+names[nearby.type];$('hint').classList.remove('hidden');}else if(distance(player,enemies.find(e=>e.type==='dummy'))<140&&!player.training.complete){$('hint').innerHTML=touchMode?(player.training.attack?'반격 직전에 패링 · 골렘은 피해를 주지 않습니다':'수련 골렘 가까이에서 공격 버튼을 누르세요'):(player.training.attack?'<kbd>C</kbd> 반격 직전에 패링 · 골렘은 피해를 주지 않습니다':'수련 골렘을 향해 <kbd>좌클릭</kbd> 또는 <kbd>Z</kbd>');$('hint').classList.remove('hidden');}else if(lockedTarget){$('hint').innerHTML='◇ '+esc(lockedTarget.name)+(touchMode?' · 같은 적을 다시 눌러 해제':' · <kbd>Tab</kbd> 변경 · <kbd>Shift+Tab</kbd> 해제');$('hint').classList.remove('hidden');}else $('hint').classList.add('hidden');
