@@ -157,7 +157,8 @@ let worldTime=0,realTime=0,hitstop=0,shake=0,damageFlash=0,lastRegion=-1,bannerT
 let miniMapTimer=0,nearbyTimer=0,npcTimer=0;const PERF={nearAI:.12,farAI:.28,miniMap:.25,nearby:.08,npc:.10,maxEffectsHigh:560,maxEffectsLow:320};
 let activeBoss=null,nearby=null,mapWaypoint=null,tutorialPage=0,menuTab='gear',questTab='side',introTimer=0,pendingAttack=false;
 let multiplayerMode=false,multiRemotePlayers=new Map(),multiNetTimer=0,multiPartyInvite=null;
-let multiWorldLeader=false,multiWorldReady=false,multiWorldSyncTimer=0,multiSharedAvailableItems=new Set();
+let multiWorldLeader=false,multiWorldReady=false,multiWorldSyncTimer=0,multiWorldFullSyncPending=true,multiSharedAvailableItems=new Set();
+let multiNetSeq=0,multiLastSendX=0,multiLastSendY=0,multiLastSendAt=0;
 let detectedTouch=matchMedia('(pointer:coarse)').matches||(navigator.maxTouchPoints>0&&matchMedia('(hover:none)').matches);
 let touchMode=detectedTouch,VIEW_SCALE=1,BASE_VIEW_SCALE=1,VIEW_W=W,VIEW_H=H;
 let stickPointer=null,touchAttackPointer=null,touchSprint=false;
@@ -669,10 +670,10 @@ function canAct(){return mode==='play'&&!modal&&player.hp>0;}
 function isSharedWorldItem(o){return !!o&&['loot','herb','ore','chest'].includes(o.type);}
 function sharedWorldItemVisible(o){return !multiplayerMode||!multiWorldReady||!isSharedWorldItem(o)||multiSharedAvailableItems.has(o.id);}
 function sharedWorldItemData(o){return {id:o.id,type:o.type,x:o.x,y:o.y,lootKind:o.lootKind||'',amount:Number(o.amount)||1,fixed:!!o.fixed};}
-function buildSharedWorldSnapshot(){
+function buildSharedWorldSnapshot(includeItems=true){
  const mobs=enemies.filter(e=>e.type!=='dummy'&&!e.riftId).map(e=>({id:e.id,type:e.type,x:e.x,y:e.y,hp:e.hp,maxHp:e.maxHp,dead:!!e.dead,state:e.state||'idle',facing:e.facing||0,alert:!!e.alert}));
- const items=objects.filter(isSharedWorldItem).filter(o=>!multiWorldReady||multiSharedAvailableItems.has(o.id)).map(sharedWorldItemData);
- return {mobs,items};
+ const out={mobs};if(includeItems)out.items=objects.filter(isSharedWorldItem).filter(o=>!multiWorldReady||multiSharedAvailableItems.has(o.id)).map(sharedWorldItemData);
+ return out;
 }
 function applySharedItemSpawn(item){
  if(!item?.id)return;multiSharedAvailableItems.add(item.id);
@@ -682,19 +683,25 @@ function applySharedItemSpawn(item){
  objects.push({type:'loot',id:item.id,x:item.x,y:item.y,r:13,lootKind:item.lootKind,amount:item.amount,fixed:!!item.fixed});
 }
 function applySharedWorldSnapshot(snapshot){
- if(!snapshot||!Array.isArray(snapshot.mobs)||!Array.isArray(snapshot.items))return;
- if(Number(snapshot.updatedAt)>0||snapshot.mobs.length||snapshot.items.length)multiWorldReady=true;
- multiSharedAvailableItems=new Set(snapshot.items.map(o=>o.id));
- const lootIds=new Set(snapshot.items.filter(o=>o.type==='loot').map(o=>o.id));
- objects=objects.filter(o=>o.type!=='loot'||!multiplayerMode||lootIds.has(o.id)||!multiWorldReady);
- for(const item of snapshot.items)applySharedItemSpawn(item);
+ if(!snapshot||!Array.isArray(snapshot.mobs))return;
+ const now=performance.now(),items=Array.isArray(snapshot.items)?snapshot.items:null;
+ if(Number(snapshot.updatedAt)>0||snapshot.mobs.length||(items&&items.length))multiWorldReady=true;
+ if(items){
+  multiSharedAvailableItems=new Set(items.map(o=>o.id));
+  const lootIds=new Set(items.filter(o=>o.type==='loot').map(o=>o.id));
+  objects=objects.filter(o=>o.type!=='loot'||!multiplayerMode||lootIds.has(o.id)||!multiWorldReady);
+  for(const item of items)applySharedItemSpawn(item);
+ }
  if(!multiWorldLeader){
   for(const m of snapshot.mobs){
    const e=enemies.find(v=>v.id===m.id);if(!e)continue;
-   e.x=Number(m.x)||e.x;e.y=Number(m.y)||e.y;e.facing=Number(m.facing)||0;e.state=m.state||e.state;e.alert=!!m.alert;
+   const nx=Number(m.x),ny=Number(m.y),prevX=Number.isFinite(e._netX)?e._netX:e.x,prevY=Number.isFinite(e._netY)?e._netY:e.y,prevAt=e._netAt||now-350,dt=Math.max(.05,(now-prevAt)/1000);
+   e._netVX=Number.isFinite(nx)?clamp((nx-prevX)/dt,-1500,1500):0;e._netVY=Number.isFinite(ny)?clamp((ny-prevY)/dt,-1500,1500):0;
+   e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;
+   if(!e._netInit){e.x=e._netX;e.y=e._netY;e._netInit=true;}
+   e.facing=Number(m.facing)||0;e.state=m.state||e.state;e.alert=!!m.alert;
    if(e.kind!=='boss'){e.maxHp=Math.max(1,Number(m.maxHp)||e.maxHp);e.hp=clamp(Number(m.hp)||0,0,e.maxHp);e.dead=!!m.dead;if(e.dead)e.state='dead';}
   }
-  bodyGridValid=false;
  }
 }
 function applySharedMobPatch(m){
@@ -1221,7 +1228,7 @@ $('importFile').addEventListener('change',async e=>{const f=e.target.files[0];if
 function startPlay(){updateKeyLabels();seen.clear();player.discovered.forEach(n=>seen.add(n));mode='play';$('title').classList.add('hidden');$('hud').classList.remove('hidden');$('touchUi').classList.remove('hidden');closeModal();rebuildBodyGrid();resolveBodyOverlaps();resize();camera.x=player.x;camera.y=player.y;lastRegion=-1;saveTimer=0;miniMapTimer=nearbyTimer=npcTimer=0;updateHUD();}
 function beginNew(difficulty){if(!currentAccount){showAuth('login','새 여정을 시작하려면 로그인하세요.');return;}player=newPlayer();player.difficulty=WORLD_DIFFICULTIES[difficulty]?difficulty:'normal';applyWorldDifficultyToEnemies(true);worldTime=0;questNotices.clear();resetWorldState();startPlay();tutorialPage=0;showTutorial();}
 function enterTitleAdmin(){if(mode!=='title')return;player=newPlayer();player.difficulty='normal';applyWorldDifficultyToEnemies(true);worldTime=0;questNotices.clear();resetWorldState();player.skillCds.fill(0);player.cast=player.exhaust=0;player.training.complete=true;startPlay();showAdmin();toast('<b>관리자 모드</b> · 레벨과 아이템을 각각 선택해 조절하세요.');}
-function returnTitle(skipSave=false){if(!skipSave)saveGame(false);if(multiplayerMode){window.EchoesMulti?.disconnect();multiplayerMode=false;multiRemotePlayers.clear();multiPartyInvite=null;multiWorldLeader=false;multiWorldReady=false;multiSharedAvailableItems.clear();}cleanupRift();lockedTarget=null;mode='title';closeModal();resetInputs();$('hud').classList.add('hidden');$('touchUi').classList.add('hidden');$('title').classList.remove('hidden');$('regionBanner').classList.add('hidden');updateAccountUI();updateFullscreenUI();}
+function returnTitle(skipSave=false){if(!skipSave)saveGame(false);if(multiplayerMode){window.EchoesMulti?.disconnect();multiplayerMode=false;multiRemotePlayers.clear();multiPartyInvite=null;multiWorldLeader=false;multiWorldReady=false;multiWorldFullSyncPending=true;multiSharedAvailableItems.clear();}cleanupRift();lockedTarget=null;mode='title';closeModal();resetInputs();$('hud').classList.add('hidden');$('touchUi').classList.add('hidden');$('title').classList.remove('hidden');$('regionBanner').classList.add('hidden');updateAccountUI();updateFullscreenUI();}
 function respawn(){cleanupRift();const c=camps.find(c=>c.id===player.lastCamp)||camps[0];player.stats.deaths++;player.x=c.x;player.y=c.y+62;player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;player.potions=Math.max(3,player.potions);player.invuln=2;player.dodge=player.parry=player.attackCd=player.skillCd=player.dodgeCd=0;resetWorldState(true);camera.x=player.x;camera.y=player.y;closeModal();saveGame(false);toast('야영지로 돌아왔습니다. 골드와 장비는 유지됩니다.');}
 function openPanel(name,html,wide=false,preserveScroll=false){const p=$('panel'),samePanel=modal===name,oldScroll=preserveScroll&&samePanel?p.scrollTop:0;resetInputs();modal=name;p.className='panel'+(wide?' wide':'');p.innerHTML=html;for(const k of p.querySelectorAll('kbd:not([data-fixed])')){const v=k.textContent.trim(),code=/^[A-Z]$/.test(v)?'Key'+v:/^[123]$/.test(v)?'Digit'+v:v==='Space'?'Space':v==='Shift'?'ShiftLeft':v==='Tab'?'Tab':null;if(code&&keybinds[code])k.textContent=keyName(keybinds[code]);}$('overlay').classList.remove('hidden');p.scrollTop=oldScroll;if(!preserveScroll){const focus=p.querySelector('button:not(:disabled)');if(focus)focus.focus({preventScroll:true});}else requestAnimationFrame(()=>{p.scrollTop=oldScroll;});}
 function closeModal(){if(layoutEditing){finishLayoutEditor(false);return;}if(modal==='defeat'&&player.hp<=0)return;modal=null;$('overlay').classList.add('hidden');$('panel').innerHTML='';resetInputs();}
@@ -1416,11 +1423,23 @@ function applySharedBossState(b){
  if(!e.dead){e.defeated=false;e.respawn=0;if(e.state==='dead')e.state='idle';}
  else{e.state='dead';e.respawn=Math.max(e.respawn||0,180);}
 }
+function mergeRemotePlayerState(p){
+ if(!p?.id)return;const now=performance.now(),old=multiRemotePlayers.get(p.id);
+ if(!old){multiRemotePlayers.set(p.id,{...p,rx:p.x,ry:p.y,netAt:now,netVX:Number(p.vx)||0,netVY:Number(p.vy)||0});return;}
+ const prevX=Number(old.x)||0,prevY=Number(old.y)||0,dt=Math.max(.02,(now-(old.netAt||now-50))/1000);
+ const vx=Number.isFinite(Number(p.vx))?Number(p.vx):(Number(p.x)-prevX)/dt,vy=Number.isFinite(Number(p.vy))?Number(p.vy):(Number(p.y)-prevY)/dt;
+ Object.assign(old,p);old.netAt=now;old.netVX=clamp(vx,-3000,3000);old.netVY=clamp(vy,-3000,3000);
+}
+function syncRemotePlayers(list){
+ const keep=new Set();for(const p of list||[]){if(!p?.id)continue;keep.add(p.id);mergeRemotePlayerState(p);}
+ for(const id of [...multiRemotePlayers.keys()])if(!keep.has(id))multiRemotePlayers.delete(id);
+}
 function bindMultiplayerEvents(){
  const m=window.EchoesMulti;if(!m||m.__gameBound)return;m.__gameBound=true;
- m.on('players',list=>{const next=new Map();for(const p of list||[]){const old=multiRemotePlayers.get(p.id);next.set(p.id,{...p,rx:old?.rx??p.x,ry:old?.ry??p.y});}multiRemotePlayers=next;});
+ m.on('players',syncRemotePlayers);
+ m.on('player:state',mergeRemotePlayerState);
  m.on('boss',applySharedBossState);m.on('bosses',list=>(list||[]).forEach(applySharedBossState));
- m.on('world:role',role=>{multiWorldLeader=!!role?.isLeader;multiWorldSyncTimer=.3;if(multiplayerMode)toast(multiWorldLeader?'공용 월드 동기화 기준이 이 기기로 변경되었습니다.':'공용 월드 상태를 서버와 동기화했습니다.');});
+ m.on('world:role',role=>{multiWorldLeader=!!role?.isLeader;multiWorldSyncTimer=.34;multiWorldFullSyncPending=multiWorldLeader;if(multiplayerMode&&multiWorldLeader)toast('공용 월드 동기화 기준이 이 기기로 변경되었습니다.');});
  m.on('world:snapshot',applySharedWorldSnapshot);
  m.on('world:itemTaken',msg=>{if(!msg?.itemId)return;multiSharedAvailableItems.delete(msg.itemId);objects=objects.filter(o=>!(o.type==='loot'&&o.id===msg.itemId));});
  m.on('world:itemSpawn',applySharedItemSpawn);
@@ -1432,7 +1451,9 @@ function bindMultiplayerEvents(){
  m.on('pvp:defeated',msg=>{if(msg?.killerId===m.state.selfId)toast('<b>PVP 승리</b> · '+esc(msg.targetName||'플레이어')+' 격파');else if(msg?.targetId===m.state.selfId)toast('<b>PVP 패배</b> · '+esc(msg.killerName||'플레이어')+'에게 쓰러졌습니다.');});
  m.on('notice',message=>{if(message)toast(esc(message));});
  m.on('session:replaced',()=>{if(!currentAccount)return;logoutAccount(true);toast('<b>중복 로그인 감지</b><br>같은 계정이 다른 기기에서 접속하여 이 기기에서는 로그아웃되었습니다.');});
- m.on('connection',v=>{if(!v.connected&&multiplayerMode){multiWorldLeader=false;multiWorldReady=false;multiSharedAvailableItems.clear();toast('공용 월드 서버 연결이 끊어졌습니다.');}});
+ m.on('reconnecting',v=>{if(multiplayerMode&&realTime-(player.netReconnectNoticeAt||0)>2){player.netReconnectNoticeAt=realTime;toast('통신이 잠시 끊겼습니다. 자동으로 재연결 중입니다…');}});
+ m.on('reconnected',()=>{if(multiplayerMode){multiWorldFullSyncPending=!!m.state.worldRole?.isLeader;toast('공용 월드 서버에 다시 연결되었습니다.');}});
+ m.on('connection',v=>{if(!v.connected&&multiplayerMode){multiWorldLeader=false;} });
 }
 async function startOnlineWorld(){
  initAudio();if(!currentAccount){showAuth('login','공용 월드는 로그인 후 이용할 수 있습니다.');return;}
@@ -1442,7 +1463,7 @@ async function startOnlineWorld(){
  if(!preview){try{preview=JSON.parse(localStorage.getItem(accountStorageKey(SAVE_KEY))||'null');}catch(e){}}
  try{const accountId=window.EchoesCloud?.currentUid?.()||('user:'+normalizeUser(currentAccount));await m.connect({name:accountRecord()?.displayName||currentAccount,accountId,level:preview?.player?.level||player?.level||1,weapon:preview?.player?.weapon||0});}
  catch(e){showMessage('공용 월드 서버 연결 실패',(e.message||'서버 상태를 확인해 주세요.')+'\n서버에 연결되지 않으면 게임 월드에 입장할 수 없습니다.');return;}
- multiplayerMode=true;multiNetTimer=0;multiWorldLeader=!!m.state.worldRole?.isLeader;multiWorldSyncTimer=.3;if(m.state.worldSnapshot)applySharedWorldSnapshot(m.state.worldSnapshot);
+ multiplayerMode=true;multiNetTimer=0;multiNetSeq=0;multiLastSendX=player?.x||0;multiLastSendY=player?.y||0;multiLastSendAt=performance.now();multiWorldLeader=!!m.state.worldRole?.isLeader;multiWorldSyncTimer=.34;multiWorldFullSyncPending=multiWorldLeader;if(m.state.worldSnapshot)applySharedWorldSnapshot(m.state.worldSnapshot);
  if(mode!=='play'){
   if(preview){try{loadData(preview);}catch(e){player=newPlayer();player.difficulty='normal';resetWorldState();player.training.complete=true;startPlay();}}
   else{player=newPlayer();player.difficulty='normal';resetWorldState();player.training.complete=true;startPlay();}
@@ -1786,16 +1807,29 @@ function updateCamera(dt){
  camera.x+=(tx-camera.x)*blend;camera.y+=(ty-camera.y)*blend;
  camera.x=clamp(camera.x,Math.min(VIEW_W/2,WORLD.w/2),Math.max(WORLD.w-VIEW_W/2,WORLD.w/2));camera.y=clamp(camera.y,Math.min(VIEW_H/2,WORLD.h/2),Math.max(WORLD.h-VIEW_H/2,WORLD.h/2));
 }
-function update(dt){if(multiplayerMode){for(const rp of multiRemotePlayers.values()){rp.rx=(Number.isFinite(rp.rx)?rp.rx:rp.x)+(rp.x-(Number.isFinite(rp.rx)?rp.rx:rp.x))*(1-Math.exp(-dt*12));rp.ry=(Number.isFinite(rp.ry)?rp.ry:rp.y)+(rp.y-(Number.isFinite(rp.ry)?rp.ry:rp.y))*(1-Math.exp(-dt*12));rp.attackAnim=Math.max(0,(Number(rp.attackAnim)||0)-dt);rp.dodge=Math.max(0,(Number(rp.dodge)||0)-dt);rp.parry=Math.max(0,(Number(rp.parry)||0)-dt);}
- if(window.EchoesMulti?.connected){multiNetTimer+=dt;if(multiNetTimer>=.1){multiNetTimer=0;window.EchoesMulti.sendState({x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,level:player.level,weapon:player.weapon,equippedHead:player.equippedHead,equippedChest:player.equippedChest,equippedShield:player.equippedShield,attackAnim:player.attackAnim,attackDuration:player.attackDuration,strikePose:player.strikePose,skillPose:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0});}
-  if(multiWorldLeader){multiWorldSyncTimer+=dt;if(multiWorldSyncTimer>=.2){multiWorldSyncTimer=0;const snap=buildSharedWorldSnapshot();window.EchoesMulti.sendWorldSnapshot(snap);if(!multiWorldReady){multiWorldReady=true;multiSharedAvailableItems=new Set(snap.items.map(o=>o.id));}}}
- }}updateCombat(dt);rebuildBodyGrid();resolveBodyOverlaps();worldTime+=dt;player.playtime+=dt;saveTimer+=dt;damageFlash=Math.max(0,damageFlash-dt);activeBoss=null;for(const k of ['attackCd','attackAnim','dodgeCd','dodge','parry','parryCd','skillCd','potionCd','invuln','hurt','stamDelay','comboTimer','riposte','moveLock','basicMoveSlow'])player[k]=Math.max(0,player[k]-dt);updateSwordSkill(dt);updateShield(dt);if(player.comboTimer<=0)player.combo=0;drainAction(dt);if(lockedTarget&&!validLock(lockedTarget))lockedTarget=null;
+function update(dt){if(multiplayerMode){
+ const now=performance.now();
+ for(const rp of multiRemotePlayers.values()){
+  const age=clamp((now-(rp.netAt||now))/1000,0,.14),tx=(Number(rp.x)||0)+(Number(rp.netVX)||0)*age*.72,ty=(Number(rp.y)||0)+(Number(rp.netVY)||0)*age*.72;
+  let rx=Number.isFinite(rp.rx)?rp.rx:tx,ry=Number.isFinite(rp.ry)?rp.ry:ty,dist=Math.hypot(tx-rx,ty-ry);
+  if(dist>650){rx=tx;ry=ty;}else{const rate=1-Math.exp(-dt*(dist>120?24:15));rx+=(tx-rx)*rate;ry+=(ty-ry)*rate;}
+  rp.rx=rx;rp.ry=ry;rp.attackAnim=Math.max(0,(Number(rp.attackAnim)||0)-dt);rp.dodge=Math.max(0,(Number(rp.dodge)||0)-dt);rp.parry=Math.max(0,(Number(rp.parry)||0)-dt);
+ }
+ if(window.EchoesMulti?.connected){
+  multiNetTimer+=dt;if(multiNetTimer>=.05){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-50))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;
+   window.EchoesMulti.sendState({x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,level:player.level,weapon:player.weapon,equippedHead:player.equippedHead,equippedChest:player.equippedChest,equippedShield:player.equippedShield,attackAnim:player.attackAnim,attackDuration:player.attackDuration,strikePose:player.strikePose,skillPose:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,vx,vy,seq:++multiNetSeq});
+  }
+  if(multiWorldLeader){multiWorldSyncTimer+=dt;if(multiWorldSyncTimer>=.35){multiWorldSyncTimer=0;const full=multiWorldFullSyncPending||!multiWorldReady,snap=buildSharedWorldSnapshot(full);window.EchoesMulti.sendWorldSnapshot(snap);if(full){multiWorldFullSyncPending=false;multiWorldReady=true;multiSharedAvailableItems=new Set((snap.items||[]).map(o=>o.id));}}}
+ }
+}updateCombat(dt);rebuildBodyGrid();resolveBodyOverlaps();worldTime+=dt;player.playtime+=dt;saveTimer+=dt;damageFlash=Math.max(0,damageFlash-dt);activeBoss=null;for(const k of ['attackCd','attackAnim','dodgeCd','dodge','parry','parryCd','skillCd','potionCd','invuln','hurt','stamDelay','comboTimer','riposte','moveLock','basicMoveSlow'])player[k]=Math.max(0,player[k]-dt);updateSwordSkill(dt);updateShield(dt);if(player.comboTimer<=0)player.combo=0;drainAction(dt);if(lockedTarget&&!validLock(lockedTarget))lockedTarget=null;
  let mx=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,my=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y,n=Math.hypot(mx,my);if(n>1){mx/=n;my/=n;}player.moving=n>.1;const oldX=player.x,oldY=player.y;
  if(player.dodge>0){moveBody(player,player.dx*(720+player.perks.flow*40)*dt,player.dy*(720+player.perks.flow*40)*dt);}else if(!(secondSkillDash||fourthSkillHold?.dashing||hiddenSkillHold?.kind==='dash4'||hiddenSkillHold?.kind==='prepare'||hiddenSkillHold?.kind==='combo5'||secondSkillArmed||(fourthSkillHold&&!fourthSkillHold.dashing)||player.moveLock>0)){const sprint=(touchSprint||keys.has('ShiftLeft')||keys.has('ShiftRight'))&&player.moving&&player.stam>5&&hiddenSkillHold?.kind!=='channel3';const channelScale=hiddenSkillHold?.kind==='channel3'?.2:1;const combatMoveScale=(player.parry>0||player.basicMoveSlow>0)?.2:1;const speed=(sprint?BASE_SPRINT_SPEED:177)*equipmentMoveScale()*combatMoveScale*channelScale;if(sprint){player.stam-=dt*15;player.stamDelay=.45;}moveBody(player,mx*speed*dt,my*speed*dt);}
  if(['prepare','dash4','channel3','combo5'].includes(hiddenSkillHold?.kind)){player.facing=hiddenSkillHold.facing;}else if(lockedTarget||touchAim.active)aim();else if(n>.1&&!mouse.active){player.facing=Math.atan2(my,mx);}else if(mouse.active)aim();player.training.move+=Math.hypot(player.x-oldX,player.y-oldY);
  if(player.stamDelay<=0&&player.dodge<=0)player.stam=Math.min(player.maxStam,player.stam+(12+player.perks.breath*2)*dt);if((mouse.down||touchAttackPointer!==null||keys.has('KeyZ'))&&player.attackCd<=0)attack();
  for(const e of enemies){
-  if(multiplayerMode&&!multiWorldLeader&&e.type!=='dummy'&&!e.riftId){continue;}
+  if(multiplayerMode&&!multiWorldLeader&&e.type!=='dummy'&&!e.riftId){
+   if(!e.dead&&Number.isFinite(e._netX)){const age=clamp((performance.now()-(e._netAt||performance.now()))/1000,0,.18),tx=e._netX+(e._netVX||0)*age*.5,ty=e._netY+(e._netVY||0)*age*.5,dist=Math.hypot(tx-e.x,ty-e.y);if(dist>320){e.x=tx;e.y=ty;}else{const rate=1-Math.exp(-dt*(dist>70?13:8));e.x+=(tx-e.x)*rate;e.y+=(ty-e.y)*rate;}bodyGridValid=false;}continue;
+  }
   const d2=(e.x-player.x)*(e.x-player.x)+(e.y-player.y)*(e.y-player.y),critical=e.kind==='boss'||e.alert||e.riftId||e.type==='dummy'||d2<640000;
   if(critical){e._aiAcc=0;updateEnemy(e,dt);}else{
    e._aiAcc=(e._aiAcc||0)+dt;const interval=d2<1960000?PERF.nearAI:PERF.farAI;
