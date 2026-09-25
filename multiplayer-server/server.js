@@ -74,7 +74,8 @@ const bosses = new Map(bossDefs.map(b => [b.id, {
 const players = new Map();
 const parties = new Map();
 let worldLeaderId=null;
-let worldSnapshot={mobs:[],items:[],updatedAt:0};
+let worldRevision=0;
+let worldSnapshot={mobs:[],items:[],updatedAt:0,revision:0};
 const takenItems=new Set();
 
 function id(prefix='p'){return prefix + crypto.randomBytes(5).toString('hex');}
@@ -98,7 +99,10 @@ function electWorldLeader(){
   const nextId=next?.id||null;
   if(nextId===worldLeaderId)return;
   worldLeaderId=nextId;
-  for(const p of players.values())if(p.ready)safeSend(p.ws,{type:'world:role',leaderId:worldLeaderId,isLeader:p.id===worldLeaderId});
+  for(const p of players.values())if(p.ready){
+    safeSend(p.ws,{type:'world:role',leaderId:worldLeaderId,isLeader:p.id===worldLeaderId});
+    if(p.id===worldLeaderId&&worldSnapshot.mobs.length)safeSend(p.ws,{type:'world:snapshot',snapshot:worldSnapshot});
+  }
 }
 function safeSend(ws,data){
   if(ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify(data));
@@ -260,7 +264,8 @@ function sanitizeWorldSnapshot(msg){
 function handleWorldSnapshot(player,msg){
   if(player.id!==worldLeaderId)return;
   worldSnapshot=sanitizeWorldSnapshot(msg);
-  broadcast({type:'world:snapshot',snapshot:worldSnapshot},player.ws);
+  worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=++worldRevision;
+  broadcast({type:'world:snapshot',snapshot:worldSnapshot});
 }
 function handleWorldMobDelta(player,msg){
   if(player.id!==worldLeaderId||!Array.isArray(msg.mobs))return;
@@ -279,8 +284,8 @@ function handleWorldMobDelta(player,msg){
     byId.set(id,m);changed.push(m);
   }
   if(!changed.length)return;
-  worldSnapshot.mobs=[...byId.values()];worldSnapshot.updatedAt=Date.now();
-  broadcast({type:'world:mobsDelta',mobs:changed,serverTime:worldSnapshot.updatedAt},player.ws);
+  worldSnapshot.mobs=[...byId.values()];worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=++worldRevision;
+  broadcast({type:'world:mobsDelta',mobs:changed,serverTime:worldSnapshot.updatedAt,revision:worldSnapshot.revision});
 }
 function handleItemTaken(player,msg){
   const itemId=String(msg.itemId||'').slice(0,70);if(!itemId)return;
@@ -384,7 +389,7 @@ function handleMessage(player,msg){
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,players:players.size,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt}));
+    res.end(JSON.stringify({ok:true,players:players.size,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
