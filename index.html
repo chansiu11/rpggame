@@ -288,6 +288,30 @@ function spawnTypesForRegion(reg){return [
  [],
  ['abyssHound','bloodWisp','voidKnight','abyssHound']
  ][reg]||['sprout'];}
+const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v1';
+const MOB_SPAWN_ZONES=[
+ {id:'moss_gate',name:'이끼빛 외곽',region:4,x:1700,y:3100,r:300,count:6},
+ {id:'moss_south',name:'이끼 남쪽 들판',region:4,x:1100,y:4700,r:340,count:6},
+ {id:'moss_east',name:'이끼 동쪽 들판',region:4,x:2600,y:4800,r:360,count:6},
+ {id:'forest_west',name:'바람숲 서쪽',region:0,x:3000,y:1700,r:320,count:6},
+ {id:'forest_center',name:'바람숲 중앙',region:0,x:4100,y:2450,r:340,count:6},
+ {id:'forest_ridge',name:'바람숲 능선',region:0,x:5200,y:1300,r:300,count:6},
+ {id:'marsh_west',name:'유리 습지 서쪽',region:1,x:7300,y:6900,r:360,count:6},
+ {id:'marsh_deep',name:'유리 습지 심부',region:1,x:8500,y:9200,r:390,count:6},
+ {id:'marsh_east',name:'유리 습지 동쪽',region:1,x:9700,y:7500,r:350,count:6},
+ {id:'ember_west',name:'붉은 고원 서쪽',region:5,x:9900,y:2600,r:330,count:6},
+ {id:'ember_pass',name:'붉은바람 길목',region:5,x:11800,y:3850,r:350,count:6},
+ {id:'ember_east',name:'붉은 고원 동쪽',region:5,x:12600,y:2000,r:340,count:6},
+ {id:'frost_west',name:'빙결 수정원 서쪽',region:2,x:14200,y:1900,r:340,count:6},
+ {id:'frost_south',name:'빙결 수정원 남쪽',region:2,x:15600,y:3150,r:360,count:6},
+ {id:'frost_east',name:'빙결 수정원 동쪽',region:2,x:16650,y:1050,r:320,count:6},
+ {id:'abyss_west',name:'적월 심연 서쪽',region:7,x:16350,y:7900,r:360,count:6},
+ {id:'abyss_deep',name:'적월 심연 심부',region:7,x:17600,y:9600,r:390,count:6},
+ {id:'abyss_east',name:'적월 심연 동쪽',region:7,x:19400,y:8500,r:350,count:6},
+ {id:'citadel_west',name:'별성 서쪽 길',region:3,x:19500,y:2850,r:320,count:6},
+ {id:'citadel_south',name:'별성 남쪽 길',region:3,x:20600,y:5300,r:340,count:6},
+ {id:'citadel_east',name:'별성 동쪽 길',region:3,x:21600,y:3950,r:300,count:6}
+];
 function zoneRecommendedLevel(reg){return ZONE_LEVELS[reg]||1;}
 const WEAPONS=[
  {name:'여행자의 장검',short:'장검',skill:'바람참',icon:'⚔',damage:24,reach:94,arc:1.9,cost:0,cool:.32,description:'넓은 베기와 안정적인 경직. 다섯 번째 연격이 강하게 적중하고 2초 동안 공격·스킬을 쉽니다.'},
@@ -485,6 +509,39 @@ function animateBody(o,dt){
 }
 
 function addEnemy(type,x,y,id){const region=regionAt(x,y),base=ENEMY_TYPES[type];if(!base)return null;const variance=type==='dummy'?0:Math.floor(hash(Math.floor(x/40),Math.floor(y/40))*7)-2,level=type==='dummy'?1:Math.floor(clamp(zoneRecommendedLevel(region)+(base.kind==='boss'?6:variance),1,MAX_LEVEL));const hpScale=type==='dummy'?1:1+(level-1)*(base.kind==='boss'?.065:.075),damageScale=type==='dummy'?1:1+(level-1)*(base.kind==='boss'?.026:.028),rewardScale=Math.sqrt(hpScale)*(1+level/130),d=type==='dummy'?base:{...base,hp:Math.round(base.hp*hpScale),damage:Math.round(base.damage*damageScale),xp:Math.round(base.xp*rewardScale),gold:Math.round(base.gold*rewardScale)},spot=freeBodySpot(x,y,d.r+8);x=spot.x;y=spot.y;bodyGridValid=false;const diff=worldDifficulty(),scaledHp=Math.max(1,Math.round(d.hp*diff.hp*(type==='dummy'?1:ENEMY_HP_MULT))),scaledDamage=Math.max(0,Math.round(d.damage*diff.damage));const e={...d,type,x,y,sx:x,sy:y,id,r:d.r,baseMaxHp:d.hp,baseDamage:d.damage,maxHp:scaledHp,hp:scaledHp,damage:scaledDamage,mobLevel:level,state:'idle',timer:rnd(.3,1.5),facing:0,flash:0,stun:0,poise:0,pattern:0,phase:1,attackType:'melee',locked:0,dead:false,respawn:0,alert:false,defeated:false,firstGuardDone:false,firstGuardPending:false,guardActive:false,guardSawAttack:false,guardTime:0,guardIsFirst:false,aiDashCd:rnd(.35,1.15),aiDashTime:0,aiDashAngle:0,aiDashEvade:0,aiDashBack:false,aiDecision:rnd(.10,.28),aiReaction:.11+hash(Math.floor(x/13),Math.floor(y/13))*.17,aiGuardChance:.34+hash(Math.floor(x/19),Math.floor(y/19))*.31,aiEvadeChance:.30+hash(Math.floor(x/23),Math.floor(y/23))*.34};enemies.push(e);return e;}
+function regularMonsterSpawnSpot(x,y,zone=null,minEnemyGap=72){
+ if(inSecretCaveCoord(x,y)||inSafe(x,y)||solidAt(x,y,34))return false;
+ if(camps.some(c=>Math.hypot(c.x-x,c.y-y)<245))return false;
+ if(arenas.some(a=>Math.hypot(a.x-x,a.y-y)<a.r+180))return false;
+ if(zone&&regionAt(x,y)!==zone.region)return false;
+ return !enemies.some(e=>!e.dead&&Math.hypot(e.x-x,e.y-y)<minEnemyGap+(e.r||18));
+}
+function spawnRegionalMonsterLayout(){
+ const rr=seeded(2026092501),range=(a,b)=>a+rr()*(b-a);
+ for(const zone of MOB_SPAWN_ZONES){
+  const pool=[...new Set(spawnTypesForRegion(zone.region))];if(!pool.length)continue;
+  const rotate=Math.floor(rr()*pool.length);
+  for(let i=0;i<zone.count;i++){
+   let placed=false;
+   for(let attempt=0;attempt<36&&!placed;attempt++){
+    const a=rr()*TAU,d=Math.sqrt(rr())*zone.r,x=zone.x+Math.cos(a)*d,y=zone.y+Math.sin(a)*d;
+    if(!regularMonsterSpawnSpot(x,y,zone,66))continue;
+    const type=pool[(i+rotate)%pool.length],e=addEnemy(type,x,y,'zone_'+zone.id+'_'+i);
+    if(e){e.spawnZone=zone.id;e.spawnZoneName=zone.name;e.spawnZoneX=zone.x;e.spawnZoneY=zone.y;e.spawnZoneRadius=zone.r;placed=true;}
+   }
+  }
+ }
+ // 스폰 지역 밖은 비워 두고, 탐험 중 가끔 마주치는 단독 일반 몬스터만 소수 배치한다.
+ let lone=0,attempts=0;
+ while(lone<10&&attempts++<320){
+  const x=range(420,WORLD.w-420),y=range(420,OVERWORLD_H-420),reg=regionAt(x,y),pool=[...new Set(spawnTypesForRegion(reg))];
+  if(!pool.length||MOB_SPAWN_ZONES.some(z=>Math.hypot(z.x-x,z.y-y)<z.r+650))continue;
+  if(!regularMonsterSpawnSpot(x,y,null,520))continue;
+  const type=pool[Math.floor(rr()*pool.length)],e=addEnemy(type,x,y,'lone_'+lone);
+  if(e){e.spawnZone='lone';e.spawnZoneName='단독 출현';lone++;}
+ }
+ bodyGridValid=false;
+}
 function applyWorldDifficultyToEnemies(resetHealth=true){const diff=worldDifficulty();for(const e of enemies){const baseHp=Number.isFinite(e.baseMaxHp)?e.baseMaxHp:e.maxHp,baseDamage=Number.isFinite(e.baseDamage)?e.baseDamage:e.damage;e.baseMaxHp=baseHp;e.baseDamage=baseDamage;e.maxHp=Math.max(1,Math.round(baseHp*diff.hp*(e.type==='dummy'?1:ENEMY_HP_MULT)));e.damage=Math.max(0,Math.round(baseDamage*diff.damage));if(resetHealth)e.hp=e.maxHp;else e.hp=Math.min(e.hp,e.maxHp);}}
 function buildWorld(){
  obstacles=[];decor=[];objects=[];enemies=[];spatial.clear();
@@ -508,14 +565,6 @@ function buildWorld(){
  chests.forEach(([x,y],i)=>{while(solidAt(x,y,25)){x+=35;y+=10;}objects.push({type:'chest',id:'chest'+i,x,y,r:21});});
  const notes=[[1250,2630],[1450,1560],[3440,2640],[3090,1150]];notes.forEach(([x,y],i)=>{while(solidAt(x,y,26)){x+=35;y+=15;}objects.push({type:'lore',id:'lore'+i,x,y,r:16});});
  objects.push({type:'altar',id:'altar',name:'종언의 별 제단',x:8500,y:1190,r:30});
- const first=[[1430,2910,'sprout'],[1590,3190,'sprout'],[1390,2450,'wolf'],[2040,2950,'wolf'],[2070,2310,'sentry'],[1820,3510,'sprout']];
- first.forEach(([x,y,t],i)=>{while(solidAt(x,y,26)){x+=40;y+=20;}addEnemy(t,x,y,'first'+i);});
- for(let i=0;i<70;i++){
-  let x=rnd(250,4550),y=rnd(250,3750),reg=regionAt(x,y);
-  if(inSafe(x,y)||camps.some(c=>distance(c,{x,y})<220)||arenas.some(a=>distance(a,{x,y})<a.r+120)||solidAt(x,y,40)||enemies.some(e=>distance(e,{x,y})<140))continue;
-  const pool=spawnTypesForRegion(reg);if(!pool.length)continue;let type=choose(pool);
-  addEnemy(type,x,y,'enemy'+i);
- }
  ['forestBoss','marshBoss','plateauBoss','frostBoss','abyssBoss','finalBoss'].forEach((t,i)=>addEnemy(t,arenas[i].x,arenas[i].y,'boss'+i));
  objects=objects.filter(o=>!['herb','ore','lore'].includes(o.type)||!solidAt(o.x,o.y,15));
 }
@@ -540,7 +589,6 @@ function extendWorld(){
  for(let i=0;i<1600;i++){const x=range(4830,9550),y=range(65,3935),reg=regionAt(x,y);if(inSafe(x,y)&&random()<.58)continue;decor.push({x,y,reg,variant:Math.floor(random()*6),size:range(.7,1.5),type:random()<.14?'flower':'grass'});}
  for(let i=0;i<100;i++){const x=range(4900,9460),y=range(150,3850);if(!inSafe(x,y)&&!solidAt(x,y,35))objects.push({id:'eastnode'+i,type:random()<.6?'herb':'ore',x,y,r:12});}
  for(const [i,xy]of [[5200,3470],[6390,1680],[6940,2230],[5340,510],[6510,1510],[7680,3470],[9150,3180],[8860,1450]].entries()){const p=freeBodySpot(xy[0],xy[1],30);objects.push({id:'eastchest'+i,type:'chest',x:p.x,y:p.y,r:21});}
- for(let i=0;i<120;i++){const x=range(4950,9450),y=range(190,3810),reg=regionAt(x,y);if(inSafe(x,y)||solidAt(x,y,45)||camps.some(c=>distance(c,{x,y})<250)||arenas.some(a=>distance(a,{x,y})<a.r+125)||enemies.some(e=>distance(e,{x,y})<145))continue;const types=spawnTypesForRegion(reg);if(!types.length)continue;addEnemy(types[Math.floor(random()*types.length)],x,y,'eastEnemy'+i);}
  // 숨겨진 무기 퀘스트: 별성 우하단 동상과 비밀 동굴, 설계도 4조각.
  objects.push({type:'statue',id:'secretStatue',name:'금이 간 별의 동상',x:SECRET_STATUE.x,y:SECRET_STATUE.y,r:30});
  objects.push({type:'secretEntrance',id:'secretEntrance',name:'무너진 동상 아래의 입구',x:SECRET_STATUE.x,y:SECRET_STATUE.y+18,r:28});
@@ -612,11 +660,6 @@ function buildExpandedWorld(){
   if(inSecretCaveCoord(x,y)||inSafe(x,y)||solidAt(x,y,36)||arenas.some(a=>Math.hypot(a.x-x,a.y-y)<a.r+100))continue;
   objects.push({id:'wideNode'+i,type:rr()<.58?'herb':'ore',x,y,r:12});
  }
- for(let i=0;i<105;i++){
-  const x=range(400,21600),y=range(400,10600),reg=regionAt(x,y);
-  if(inSecretCaveCoord(x,y)||inSafe(x,y)||solidAt(x,y,44)||camps.some(c=>Math.hypot(c.x-x,c.y-y)<250)||arenas.some(a=>Math.hypot(a.x-x,a.y-y)<a.r+130)||enemies.some(e=>Math.hypot(e.x-x,e.y-y)<150))continue;
-  const pool=spawnTypesForRegion(reg);if(pool.length)addEnemy(pool[Math.floor(rr()*pool.length)],x,y,'wideEnemy'+i);
- }
  const treasure=[
   [9800,9100],[12400,7600],[14800,4700],[16100,9500],[19300,6750],[21400,5350],[13300,9800],[10200,5200]
  ];
@@ -629,7 +672,7 @@ function buildExpandedWorld(){
  const altar=objects.find(v=>v.id==='altar');if(altar){altar.x=20500;altar.y=3960;}
  spatial.clear();for(const o of obstacles)addSpatial(o);bodyGridValid=false;
 }
-player=newPlayer();buildWorld();extendWorld();ensurePlazaNpcs();buildExpandedWorld();
+player=newPlayer();buildWorld();extendWorld();ensurePlazaNpcs();buildExpandedWorld();spawnRegionalMonsterLayout();
 function resize(){
  const nextW=document.documentElement.clientWidth,nextH=Math.round(window.visualViewport?.height||innerHeight);
  if(Math.abs(nextW-W)>2||(nextW>nextH)!==(W>H)){if(layoutEditing){endLayoutDrag(false);layoutBarDrag=null;$('layoutBar').dataset.positioned='';}resetInputs();}W=nextW;H=nextH;
@@ -687,7 +730,7 @@ function buildServerWorldBootstrap(){
  const mobs=enemies.filter(e=>e.type!=='dummy'&&!e.riftId).map(e=>({...mobNetState(e),speed:e.speed||0,damage:e.damage||0,reach:e.reach||0,wind:e.wind||0,r:e.r||18}));
  const nav=obstacles.filter(o=>o.solid).slice(0,2200).map(o=>o.box?{x:o.x,y:o.y,box:true,w:o.w,h:o.h}:{x:o.x,y:o.y,r:groundRadius(o)});
  for(const p of pools)nav.push({x:p.x,y:p.y,ellipse:true,rx:p.rx,ry:p.ry});
- return {mobs,obstacles:nav};
+ return {spawnLayoutVersion:MOB_SPAWN_LAYOUT_VERSION,mobs,obstacles:nav};
 }
 function mobNetState(e){return {id:e.id,type:e.type,x:Math.round(e.x*10)/10,y:Math.round(e.y*10)/10,hp:e.hp,maxHp:e.maxHp,dead:!!e.dead,state:e.state||'idle',facing:Math.round((e.facing||0)*100)/100,alert:!!e.alert};}
 function buildSharedMobDelta(force=false){
