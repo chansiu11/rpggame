@@ -885,7 +885,7 @@ const SKILLS=[
 ];
 const SWORD_SKILL_LIBRARY=[
  {id:'windSlash',name:'바람 가르기',level:1,price:0,cost:20,cool:3.2,color:'#61f0c7',desc:'한 걸음 뒤로 물러나 간격을 만든 뒤 한 번 크게 베어 긴 검풍을 날립니다.',cfg:{duration:.46,hits:[.18],mult:[1.35],arc:[1.75],reach:[18],step:[2],mode:'windShot'}},
- {id:'flashRush',name:'섬광 찌르기',level:4,price:180,cost:27,cool:4.3,color:'#61f0c7',desc:'잔상을 남기며 순간적으로 적을 지나쳐 한 번만 관통하는 초고속 진입기입니다.',cfg:{duration:.34,hits:[.12],mult:[2.15],arc:[.58],reach:[54],step:[96],mode:'blinkThrust'}},
+ {id:'flashRush',name:'섬광 찌르기',level:4,price:180,cost:27,cool:4.3,color:'#61f0c7',desc:'최대 약 700 거리의 적을 포착해 순식간에 따라붙고, 적을 관통하며 베는 장거리 추격 돌진기입니다.',cfg:{duration:.34,hits:[.12],mult:[2.15],arc:[.58],reach:[54],step:[96],mode:'blinkThrust'}},
  {id:'moonSpin',name:'달빛 회전',level:7,price:260,cost:32,cool:5.4,color:'#b88cff',desc:'가까운 적의 옆을 반원으로 돌며 적들을 중심 쪽으로 끌어당긴 뒤 한 번에 베어냅니다.',cfg:{duration:.62,hits:[.26],mult:[1.75],arc:[TAU],reach:[46],step:[0],mode:'moonBurst'}},
  {id:'starRush',name:'별빛 돌파',level:10,price:340,cost:36,cool:6.3,color:'#61f0c7',desc:'좌우로 지그재그 궤도를 바꾸며 세 번 추격 베기하고 적도 진행 방향으로 함께 밀어냅니다.',cfg:{duration:1.02,hits:[.14,.44,.78],mult:[.78,.98,1.48],arc:[1.20,1.45,2.05],reach:[18,26,40],step:[38,44,52],mode:'chaseCombo'}},
  {id:'crossBloom',name:'연속 교차 베기',level:13,price:420,cost:40,cool:7.2,color:'#b88cff',desc:'표적의 좌우를 번갈아 밟으며 위치를 바꾸고 일곱 번의 교차 베기를 한 대상 주변에 집중합니다.',cfg:{duration:1.42,hits:[.10,.26,.42,.58,.76,.96,1.20],mult:[.43,.45,.48,.52,.56,.66,1.08],arc:[1.20,1.25,1.30,1.35,1.40,1.50,1.85],reach:[20,20,22,22,24,26,30],step:[0,0,0,0,0,0,4],mode:'stationaryFlurry'}},
@@ -897,15 +897,15 @@ const SWORD_SKILL_LIBRARY=[
  {id:'thunderDrive',name:'뇌광 활주',level:44,price:1280,cost:62,cool:12.5,color:'#61f0c7',holdContinuous:true,holdMax:2.8,desc:'누르는 즉시 뇌광 상태로 돌진을 시작합니다. 누르고 있는 시간만큼 방향을 조절하며 계속 베고, 키를 떼는 순간 바로 종료됩니다. 최대 2.8초 유지되며 유지 중 피격되면 취소됩니다.',cfg:{duration:2.8,hits:[],mult:[],arc:[1.15],reach:[62],step:[0],mode:'holdThunder'}},
  {id:'meteorBreaker',name:'성운 검진',level:52,price:1520,cost:70,cool:14.5,color:'#ff9f55',holdContinuous:true,holdMax:3.2,desc:'누르는 즉시 주변에 회전 검진을 펼칩니다. 누르고 있는 동안 천천히 이동하며 적을 안쪽으로 끌고 반복 베기하고, 키를 떼면 즉시 사라집니다. 최대 3.2초 유지되며 유지 중 피격되면 취소됩니다.',cfg:{duration:3.2,hits:[],mult:[],arc:[TAU],reach:[110],step:[0],mode:'holdVortex'}},
  {id:'galeOrbit',name:'질풍 궤도',level:18,price:0,cost:38,cool:7.0,color:'#61f0c7',desc:'가까운 적 주위를 빠르게 반바퀴 돌며 네 번 베고 마지막에 바깥으로 튕겨 나옵니다.',cfg:{duration:1.0,hits:[.16,.36,.58,.82],mult:[.58,.62,.72,1.28],arc:[1.3,1.3,1.5,2.0],reach:[20,20,24,34],step:[0,0,0,0],mode:'orbitStrike'}},
- {id:'mirrorStep',name:'거울 걸음',level:8,price:0,cost:30,cool:5.5,color:'#b88cff',desc:'표적의 반대편으로 순간 이동한 뒤 뒤쪽에서 한 번 베는 위치 교환형 기술입니다.',cfg:{duration:.55,hits:[.32],mult:[2.25],arc:[1.1],reach:[36],step:[0],mode:'mirrorBackstab'}},
+ {id:'mirrorStep',name:'거울 걸음',level:8,price:0,cost:30,cool:5.5,color:'#b88cff',desc:'멀리 있는 적을 포착해 반대편까지 단숨에 파고든 뒤 뒤쪽에서 베는 장거리 추격 돌진기입니다.',cfg:{duration:.55,hits:[.32],mult:[2.25],arc:[1.1],reach:[36],step:[0],mode:'mirrorBackstab'}},
  {id:'lunarBind',name:'월인 결박',level:26,price:0,cost:46,cool:9.0,color:'#b88cff',desc:'주변 적을 달빛 고리 안쪽으로 끌어당긴 뒤 좁아지는 원을 한 번 베어냅니다.',cfg:{duration:.82,hits:[.50],mult:[2.05],arc:[TAU],reach:[84],step:[0],mode:'lunarPull'}},
- {id:'quakeRush',name:'파진 돌파',level:12,price:0,cost:39,cool:7.2,color:'#ff9f55',desc:'전방으로 짧게 돌진하며 진행선에 세 번의 지면 폭발을 연속 발생시킵니다.',cfg:{duration:.75,hits:[.16,.36,.58],mult:[.72,.82,1.18],arc:[1.0,1.0,1.2],reach:[20,20,26],step:[28,30,34],mode:'quakeLine'}},
+ {id:'quakeRush',name:'파진 돌파',level:12,price:0,cost:39,cool:7.2,color:'#ff9f55',desc:'멀리 있는 적을 향해 길게 돌진하며 진행선에 세 번의 지면 폭발을 일으키는 추격 돌진기입니다.',cfg:{duration:.75,hits:[.16,.36,.58],mult:[.72,.82,1.18],arc:[1.0,1.0,1.2],reach:[20,20,26],step:[28,30,34],mode:'quakeLine'}},
  {id:'ironJudgment',name:'철벽 심판',level:36,price:0,cost:58,cool:11.0,color:'#ff9f55',desc:'짧게 자세를 낮춘 뒤 전방의 넓은 직사각 영역을 한 번에 내려찍는 고정형 강공입니다.',cfg:{duration:.88,hits:[.62],mult:[3.15],arc:[1.3],reach:[82],step:[0],mode:'ironJudgment'}},
  {id:'solarReturn',name:'태양 회귀',level:14,price:0,cost:36,cool:6.8,color:'#ffd95c',desc:'앞으로 검압을 날린 뒤 반대 방향으로 두 번째 검압을 즉시 흘려 주변을 양방향으로 정리합니다.',cfg:{duration:.66,hits:[.24,.46],mult:[1.0,1.0],arc:[1.5,1.5],reach:[18,18],step:[0,0],mode:'boomerangWave'}},
  {id:'prismLance',name:'프리즘 창렬',level:22,price:0,cost:44,cool:8.5,color:'#ffd95c',desc:'전방에 다섯 갈래의 가는 검압을 부채꼴로 동시에 발사합니다.',cfg:{duration:.62,hits:[.30],mult:[1.0],arc:[1.8],reach:[10],step:[0],mode:'fanLances'}},
- {id:'skyFall',name:'천광 낙하',level:42,price:0,cost:64,cool:12.8,color:'#ffd95c',desc:'공중으로 크게 뛰어오른 뒤 전방 지정 지점에 떨어져 원형 충격을 일으킵니다.',cfg:{duration:1.0,hits:[.78],mult:[3.25],arc:[TAU],reach:[0],step:[0],mode:'skyFall'}},
+ {id:'skyFall',name:'천광 낙하',level:42,price:0,cost:64,cool:12.8,color:'#ffd95c',desc:'멀리 있는 적을 자동 포착해 크게 도약하며 따라붙은 뒤 목표 지점에 낙하 충격을 일으킵니다.',cfg:{duration:1.0,hits:[.78],mult:[3.25],arc:[TAU],reach:[0],step:[0],mode:'skyFall'}},
  {id:'chainReap',name:'사슬 수확',level:6,price:0,cost:29,cool:5.0,color:'#a76cff',desc:'전방 부채꼴의 적을 몸쪽으로 잡아당기고 바로 횡베기로 마무리합니다.',cfg:{duration:.62,hits:[.38],mult:[1.75],arc:[2.3],reach:[72],step:[0],mode:'chainPull'}},
- {id:'phantomSwap',name:'잔영 교차',level:17,price:0,cost:40,cool:7.4,color:'#a76cff',desc:'가장 가까운 적의 뒤편으로 교차 이동해 한 번 공격하고 원래 방향을 다시 바라봅니다.',cfg:{duration:.58,hits:[.34],mult:[2.3],arc:[1.4],reach:[44],step:[0],mode:'phantomSwap'}},
+ {id:'phantomSwap',name:'잔영 교차',level:17,price:0,cost:40,cool:7.4,color:'#a76cff',desc:'멀리 있는 적을 자동 포착해 그림자처럼 급속 접근한 뒤 뒤편으로 교차하며 베는 장거리 돌진기입니다.',cfg:{duration:.58,hits:[.34],mult:[2.3],arc:[1.4],reach:[44],step:[0],mode:'phantomSwap'}},
  {id:'gravityCut',name:'중력 절단',level:28,price:0,cost:50,cool:9.8,color:'#a76cff',desc:'주변 적들을 중심으로 크게 당겨 모은 뒤 중심점에서 원형 절단을 일으킵니다.',cfg:{duration:.88,hits:[.58],mult:[2.25],arc:[TAU],reach:[110],step:[0],mode:'gravityWell'}},
  {id:'bladeRain',name:'검우 산개',level:40,price:0,cost:61,cool:12.0,color:'#a76cff',desc:'전방 넓은 범위에 여러 갈래 검압을 퍼뜨려 다수의 적을 동시에 압박합니다.',cfg:{duration:.72,hits:[.34],mult:[1.0],arc:[2.5],reach:[20],step:[0],mode:'bladeRain'}},
  {id:'voidDance',name:'공허 유영',level:50,price:0,cost:68,cool:14.0,color:'#a76cff',holdContinuous:true,holdMax:2.6,desc:'누르는 동안 그림자처럼 짧은 순간이동을 반복하며 가장 가까운 적 주변을 베고, 키를 떼면 즉시 종료됩니다. 최대 2.6초 유지됩니다.',cfg:{duration:2.6,hits:[],mult:[],arc:[1.6],reach:[66],step:[0],mode:'holdShadow'}}
@@ -1319,8 +1319,10 @@ function startSwordSkill(slot){
  if(activeSwordSkill||player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[slot]>0)return false;
  if(!useStam(sk.cost))return false;aim();
  player.skillCds[slot]=sk.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=slot;player.cast=cfg.duration;player.attackDuration=cfg.duration;player.attackAnim=cfg.duration;player.attackAngle=player.facing;player.attackArc=cfg.arc[0];player.heavy=true;player.attackCd=cfg.duration;player.combo=0;player.comboTimer=0;queuePostSkillMoveLock(cfg.duration);
- const motionTarget=(lockedTarget&&enemies.includes(lockedTarget)&&!lockedTarget.dead?lockedTarget:enemies.filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)&&distance(e,player)<300).sort((a,b)=>distance(a,player)-distance(b,player))[0])||null;
- activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:Math.random()<.5?-1:1,fx:0,carryIds:new Set()};
+ const dashCatch=SWORD_DASH_SKILLS.has(sk.id),targetRange=dashCatch?720:300;
+ const motionTarget=(lockedTarget&&enemies.includes(lockedTarget)&&!lockedTarget.dead&&distance(lockedTarget,player)<=targetRange?lockedTarget:enemies.filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)&&distance(e,player)<targetRange).sort((a,b)=>distance(a,player)-distance(b,player))[0])||null;
+ if(dashCatch&&motionTarget)player.facing=Math.atan2(motionTarget.y-player.y,motionTarget.x-player.x);
+ activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:Math.random()<.5?-1:1,fx:0,carryIds:new Set(),dashCatch};
  sendSharedSkillFx(slot,sk.id,player.weapon,player.facing);
  ring(player.x,player.y,24,swordStyleFxForSkill(sk.id).main,.22);sound('swing');updateSkillTray();return true;
 }
@@ -1391,13 +1393,20 @@ function swordSeqTarget(seq){const e=seq?.targetId?enemies.find(v=>v.id===seq.ta
 function updateSwordSkillMotion(seq,sk,dt){
  const mode=sk.cfg.mode,t=clamp(seq.elapsed/seq.duration,0,1),a=seq.facing,ca=Math.cos(a),sa=Math.sin(a),side=seq.side||1,target=swordSeqTarget(seq),px0=player.x,py0=player.y;
  player.skillLift=0;
+ if(seq.dashCatch&&t<.72){
+  if(target){
+   const tc=combatCenter(target),dx=tc.x-player.x,dy=tc.y-player.y,d=Math.hypot(dx,dy),stop=player.r+combatRadius(target)+42;
+   if(d>stop){const da=Math.atan2(dy,dx),speed=Math.min(1250,760+d*1.15);seq.facing=da;player.facing=da;player.attackAngle=da;moveBody(player,Math.cos(da)*Math.min(speed*dt,Math.max(0,d-stop)),Math.sin(da)*Math.min(speed*dt,Math.max(0,d-stop)));player.invuln=Math.max(player.invuln,.045);}
+  }else if(t<.55){moveBody(player,ca*900*dt,sa*900*dt);player.invuln=Math.max(player.invuln,.035);}
+  seq.fx-=dt;if(seq.fx<=0){seq.fx=.045;const theme=swordStyleFxForSkill(sk.id);effects.push({type:'line',x:player.x-Math.cos(seq.facing)*26,y:player.y-Math.sin(seq.facing)*26,x2:player.x-Math.cos(seq.facing)*105,y2:player.y-Math.sin(seq.facing)*105,color:theme.main,t:.12,max:.12});}
+ }
  if(mode==='windShot'&&seq.elapsed<.15)moveBody(player,-ca*145*dt,-sa*145*dt);
  else if(mode==='moonBurst'&&target&&seq.elapsed<.50){
   const ta=Math.atan2(player.y-target.y,player.x-target.x),tangent=ta+side*Math.PI/2;
   moveBody(player,Math.cos(tangent)*155*dt,Math.sin(tangent)*155*dt);player.facing=Math.atan2(target.y-player.y,target.x-player.x);
  }
  else if(mode==='crescentRetreat'&&seq.elapsed<.24)moveBody(player,-ca*185*dt,-sa*185*dt);
- else if(mode==='guardPierce'&&seq.elapsed<.20){moveBody(player,-sa*side*180*dt,ca*side*180*dt);player.facing=a;}
+ else if(mode==='guardPierce'&&seq.elapsed<.20&&!seq.dashCatch){moveBody(player,-sa*side*180*dt,ca*side*180*dt);player.facing=a;}
  else if(mode==='tempest'){
   const ma=a+seq.elapsed*7.6*side;moveBody(player,Math.cos(ma)*105*dt,Math.sin(ma)*105*dt);
   seq.fx-=dt;if(seq.fx<=0){seq.fx=.07;ring(player.x,player.y,44+Math.sin(seq.elapsed*16)*10,sk.color,.13);}
