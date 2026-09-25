@@ -1563,7 +1563,16 @@ function bindMultiplayerEvents(){
  m.on('world:snapshot',applySharedWorldSnapshot);m.on('world:mobsDelta',applySharedMobDelta);
  m.on('world:mobAttack',msg=>{
   const e=enemies.find(v=>v.id===msg?.mobId);if(!e)return;e.attackType=msg.attackType||e.attackType;e.facing=Number(msg.facing)||e.facing;ring(e.x,e.y,e.kind==='boss'?70:38,e.color||'#e1c28d',.22);
-  if(msg.targetId!==m.state.selfId||player.hp<=0)return;const result=hitPlayer(Math.max(0,Number(msg.damage)||e.damage||1),e,true);
+  if(msg.targetId!==m.state.selfId||player.hp<=0)return;
+  if(msg.kind==='ranged'){
+   const sx=Number.isFinite(Number(msg.x))?Number(msg.x):e.x,sy=Number.isFinite(Number(msg.y))?Number(msg.y):e.y;
+   const tx=Number.isFinite(Number(msg.tx))?Number(msg.tx):player.x,ty=Number.isFinite(Number(msg.ty))?Number(msg.ty):player.y;
+   const a=Math.atan2(ty-sy,tx-sx),speed=460,damage=Math.max(0,Number(msg.damage)||e.damage||1);
+   projectiles.push({x:sx,y:sy,px:sx,py:sy,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,damage,owner:'enemy',kind:'orb',pierce:1,r:7,t:2.2,hit:new Set(),perfectDodged:false,sourceMobId:e.id});
+   burst(sx,sy,e.color||'#edc899',5,55);sound('enemyShot');
+   return;
+  }
+  const result=hitPlayer(Math.max(0,Number(msg.damage)||e.damage||1),e,true);
   if(result==='parried'){const a=Math.atan2(e.y-player.y,e.x-player.x),control={stun:1.25,knockbackX:Math.cos(a)*18,knockbackY:Math.sin(a)*18};if(e.kind==='boss')m.damageBoss(e.id,0,control);else m.damageMob(e.id,0,control);}
  });
  m.on('world:itemTaken',msg=>{if(!msg?.itemId)return;multiSharedAvailableItems.delete(msg.itemId);objects=objects.filter(o=>!(o.type==='loot'&&o.id===msg.itemId));});m.on('world:itemSpawn',applySharedItemSpawn);m.on('world:mobPatch',applySharedMobPatch);
