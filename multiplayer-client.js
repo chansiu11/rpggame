@@ -21,7 +21,7 @@ function url(){
 }
 function send(data){
   const ws=state.socket;if(ws?.readyState!==WebSocket.OPEN)return false;
-  if(ws.bufferedAmount>160000&&(data?.type==='state'||data?.type==='world:snapshot'))return false;
+  if(ws.bufferedAmount>192000&&(data?.type==='state'||data?.type==='world:mobsDelta'))return false;
   try{ws.send(JSON.stringify(data));return true;}catch{return false;}
 }
 function normalizeBoss(b){
@@ -33,7 +33,7 @@ function handle(msg){
     state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
-    state.worldRole=msg.worldRole||{leaderId:null,isLeader:false};
+    state.worldRole=msg.worldRole||{leaderId:null,isLeader:false,serverAuthority:true};
     state.worldSnapshot=msg.worldSnapshot||{mobs:[],items:[],updatedAt:0};
     state.takenItems=new Set(msg.takenItemIds||[]);
     emit('ready',{selfId:state.selfId,world:state.world,bosses:[...state.bosses.values()]});
@@ -49,6 +49,7 @@ function handle(msg){
     for(const p of msg.players||[]){if(p.id===state.selfId)continue;const old=state.players.get(p.id)||{};next.set(p.id,{...old,...p,netReceivedAt:performance.now()});}
     state.players=next;emit('players',[...state.players.values()]);return;
   }
+  if(msg.type==='player:self'){emit('player:self',msg);return;}
   if(msg.type==='player:state'){
     const p=msg.player;if(!p?.id||p.id===state.selfId)return;
     const old=state.players.get(p.id)||{},merged={...old,...p,netReceivedAt:performance.now()};
@@ -59,7 +60,7 @@ function handle(msg){
   if(msg.type==='boss:update'||msg.type==='boss:defeated'||msg.type==='boss:respawn'){
     const b=normalizeBoss(msg.boss||{});if(b.id)state.bosses.set(b.id,b);
     emit('boss',b);emit('bosses',[...state.bosses.values()]);
-    if(msg.type==='boss:defeated')emit('notice',b.name+'이(가) 쓰러졌습니다. 약 3분 뒤 다시 나타납니다.');
+    if(msg.type==='boss:defeated'){emit('boss:defeated',msg);emit('notice',b.name+'이(가) 쓰러졌습니다. 약 3분 뒤 다시 나타납니다.');}
     if(msg.type==='boss:respawn')emit('notice',b.name+'이(가) 다시 나타났습니다.');
     return;
   }
@@ -68,7 +69,9 @@ function handle(msg){
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
   if(msg.type==='pvp:damage'){emit('pvp:damage',msg);return;}
   if(msg.type==='pvp:blocked'){emit('pvp:blocked',msg);return;}
-  if(msg.type==='world:role'){state.worldRole={leaderId:msg.leaderId||null,isLeader:!!msg.isLeader};emit('world:role',state.worldRole);return;}
+  if(msg.type==='world:role'){state.worldRole={leaderId:msg.leaderId||null,isLeader:!!msg.isLeader,serverAuthority:msg.serverAuthority!==false};emit('world:role',state.worldRole);return;}
+  if(msg.type==='world:authority'){state.worldRole={...state.worldRole,serverAuthority:true};emit('world:role',state.worldRole);return;}
+  if(msg.type==='world:mobAttack'){emit('world:mobAttack',msg);return;}
   if(msg.type==='world:snapshot'){state.worldSnapshot=msg.snapshot||{mobs:[],items:[],updatedAt:0};emit('world:snapshot',state.worldSnapshot);return;}
   if(msg.type==='world:mobsDelta'){emit('world:mobsDelta',msg.mobs||[]);return;}
   if(msg.type==='world:itemTaken'){if(msg.itemId)state.takenItems.add(msg.itemId);emit('world:itemTaken',msg);return;}
@@ -142,13 +145,14 @@ window.EchoesMulti={
     combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
     vx:p.vx||0,vy:p.vy||0,seq:p.seq||0
   });},
-  sendWorldSnapshot(snapshot){if(state.connected&&state.worldRole?.isLeader)send({type:'world:snapshot',...(snapshot||{})});},
-  sendMobDelta(mobs){if(state.connected&&state.worldRole?.isLeader&&Array.isArray(mobs)&&mobs.length)send({type:'world:mobsDelta',mobs});},
+  bootstrapWorld(snapshot){if(state.connected&&snapshot?.mobs?.length)send({type:'world:bootstrap',mobs:snapshot.mobs,obstacles:snapshot.obstacles||[]});},
+  sendWorldSnapshot(snapshot){if(state.connected&&state.worldRole?.isLeader)send({type:'world:snapshot',items:Array.isArray(snapshot?.items)?snapshot.items:[]});},
+  sendMobDelta(){return false;},
   itemTaken(itemId){if(itemId)send({type:'world:itemTaken',itemId});},
   itemSpawn(item){if(item?.id)send({type:'world:itemSpawn',item});},
-  damageMob(mobId,damage){if(mobId)send({type:'world:mobDamage',mobId,damage});},
+  damageMob(mobId,damage,control={}){if(mobId)send({type:'world:mobDamage',mobId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0});},
   pvpDamage(targetId,damage,range=180,kind='melee'){if(targetId)send({type:'pvp:damage',targetId,damage,range,kind});},
-  damageBoss(bossId,damage){send({type:'boss:damage',bossId,damage});},
+  damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0});},
   hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){if(!state.connected)return;send({type:'pvp:hit',targetId,damage,range,kind,parryable});},
   createParty(){send({type:'party:create'});},
   invite(targetId){send({type:'party:invite',targetId});},
