@@ -104,13 +104,13 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <script src="./firebase-config.js"></script>
 <script type="module" src="./cloud-save.js"></script>
 <script src="./multiplayer-config.js"></script>
-<script src="./multiplayer-client.js?v=20260925-3"></script>
+<script src="./multiplayer-client.js?v=20260925-4"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const TAU = Math.PI * 2, MAX_LEVEL=100, PLAYER_HP_PER_LEVEL=18, PLAYER_DAMAGE_PER_LEVEL=3.4, OVERWORLD_H=11000, WORLD = {w:22000,h:11000}, SAVE_KEY = 'echoes_wild_save_v1', OPT_KEY='echoes_wild_options_v1', KEYS_KEY='echoes_keys_v1', LAYOUT_KEY='echoes_touch_layout_v1', SAVE_RESET_EPOCH='2026-09-25-global-reset-1';
+const TAU = Math.PI * 2, MAX_LEVEL=100, PLAYER_HP_PER_LEVEL=72, PLAYER_DAMAGE_PER_LEVEL=3.4, OVERWORLD_H=11000, WORLD = {w:22000,h:11000}, SAVE_KEY = 'echoes_wild_save_v1', OPT_KEY='echoes_wild_options_v1', KEYS_KEY='echoes_keys_v1', LAYOUT_KEY='echoes_touch_layout_v1', SAVE_RESET_EPOCH='2026-09-25-global-reset-1';
 const ENEMY_HP_MULT=2.5;
 const WORLD_DIFFICULTIES={
  veryEasy:{name:'매우 쉬움',hp:.85,damage:.90,speed:.95},
@@ -752,7 +752,7 @@ function skillShakePower(index,weapon=player?.weapon){const base=[4.5,6.5,8.5,11
 function triggerSkillShake(index,scale=1){if(!options.shake)return;shake=Math.max(shake,skillShakePower(index)*scale);}
 function burst(x,y,color,n=12,speed=100){const count=options.quality==='low'?Math.ceil(n*.55):n;for(let i=0;i<count;i++){const a=rnd(0,TAU),s=rnd(.2,1)*speed;effects.push({type:'particle',x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,color,t:rnd(.2,.6),max:.6,size:rnd(2,4)});}if(effects.length>300)effects.splice(0,effects.length-300);}
 function ring(x,y,r,color,t=.5){effects.push({type:'ring',x,y,r,color,t,max:t});}
-function cancelSwordSkill(){activeSwordSkill=null;fourthSkillHold=null;fourthSkillField=null;secondSkillDash=null;secondSkillArmed=false;skillTrayPress=null;standardSkillHold=null;skill2Knocks=[];hiddenSkillEvents=[];hiddenSkillHold=null;hiddenSkillFollowup=null;if(player){player.skillPose=-1;player.skillLift=0;player.pendingSlam=null;player.cast=0;}}
+function cancelSwordSkill(){activeSwordSkill=null;fourthSkillHold=null;fourthSkillField=null;secondSkillDash=null;secondSkillArmed=false;skillTrayPress=null;standardSkillHold=null;skill2Knocks=[];hiddenSkillEvents=[];hiddenSkillHold=null;hiddenSkillFollowup=null;if(player){player.skillPose=-1;player.skillLift=0;player.pendingSlam=null;player.cast=0;player.pvpKnock=null;}}
 function resetInputs(){heldPhysical.clear();if($('skillTray'))$('skillTray').classList.add('hidden');desktopShield=false;if(player){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=false;}resetTouchInputs();bufferedAction=null;cancelSwordSkill();keys.clear();mouse.down=false;mouse.right=false;joy.x=joy.y=0;joy.active=false;pendingAttack=false;$('stickKnob').style.transform='';}
 function xpNeed(){return 70+player.level*42;}
 function addXp(n){if(player.level>=MAX_LEVEL){player.level=MAX_LEVEL;player.xp=0;return;}player.xp+=n;while(player.xp>=xpNeed()&&player.level<MAX_LEVEL){player.xp-=xpNeed();player.level++;player.perkPoints++;recalculateEquipment(false);const unlocked=SWORD_SKILL_LIBRARY.find(sk=>sk.level===player.level);if(unlocked)toast('새 검술 습득 가능 · '+unlocked.name+' · 대장장이 로웬에게서 배울 수 있습니다.');player.hp=Math.min(player.maxHp,player.hp+30);player.stam=player.maxStam;ring(player.x,player.y,115,'#eed390',.9);burst(player.x,player.y,'#e9cf8d',30);toast('<b>LEVEL '+player.level+'</b> · 특성 포인트 +1 <kbd>I</kbd>');sound('reward');}if(player.level>=MAX_LEVEL){player.level=MAX_LEVEL;player.xp=0;}}
@@ -832,7 +832,10 @@ function sharedPvpEligible(rp){
 }
 function sharedPvpSendHit(rp,damage,range=180,kind='attack',parryable=true){
  if(!sharedPvpEligible(rp))return false;
- window.EchoesMulti.pvpDamage(rp.id,Math.max(1,Math.round(damage)),range,kind);
+ const p=sharedPvpPoint(rp),dx=p.x-player.x,dy=p.y-player.y,d=Math.hypot(dx,dy)||1,nx=dx/d,ny=dy/d;
+ let force=kind==='dash-heavy'?235:kind==='skill-heavy'?205:kind==='heavy'?175:kind==='dash'?155:kind==='skill'?125:kind==='projectile'?70:kind==='arrow'?45:55;
+ let stun=kind.includes('heavy')?.42:kind==='dash'?.28:kind==='skill'?.24:.14;
+ window.EchoesMulti.pvpDamage(rp.id,Math.max(1,Math.round(damage)),range,kind,{knockbackX:nx*force,knockbackY:ny*force,stun});
  return true;
 }
 function sharedPvpMeleeHit(reach,arc,damage,heavy=false,angle=player.attackAngle||player.facing){
@@ -2210,7 +2213,22 @@ function bindMultiplayerEvents(){
  });
  m.on('world:itemTaken',msg=>{if(!msg?.itemId)return;multiSharedAvailableItems.delete(msg.itemId);objects=objects.filter(o=>!(o.type==='loot'&&o.id===msg.itemId));});m.on('world:itemSpawn',applySharedItemSpawn);m.on('world:mobPatch',applySharedMobPatch);
  m.on('party',()=>{if(modal==='party')showParty();});m.on('party:invite',invite=>{multiPartyInvite=invite;toast('<b>파티 초대</b> · '+esc(invite.leaderName||'플레이어')+'님이 초대했습니다.');});
- m.on('pvp:hit',msg=>{if(!multiplayerMode||player.hp<=0)return;player.hp=clamp(Number(msg.hp)||0,0,player.maxHp);player.hurt=.22;damageFlash=.22;floating(player.x,player.y-54,'-'+Math.max(1,Math.round(Number(msg.damage)||1)),'#ff8f87',true);sound('hurt');if(player.hp<=0)showDefeat();});
+ m.on('pvp:hit',msg=>{
+  if(!multiplayerMode||player.hp<=0)return;
+  player.hp=clamp(Number(msg.hp)||0,0,player.maxHp);player.hurt=.22;damageFlash=.22;
+  const kx=clamp(Number(msg.knockbackX)||0,-280,280),ky=clamp(Number(msg.knockbackY)||0,-280,280),kd=Math.hypot(kx,ky);
+  if(kd>1&&player.hp>0){
+    const duration=clamp(Number(msg.knockDuration)||(.18+kd/900),.16,.42);
+    player.pvpKnock={vx:kx/duration,vy:ky/duration,t:duration,max:duration};
+    player.stun=Math.max(player.stun||0,clamp(Number(msg.stun)||.18,.08,.65));
+    player.moveLock=Math.max(player.moveLock||0,duration);
+    if(Number.isFinite(Number(msg.targetX))&&Number.isFinite(Number(msg.targetY))&&kd>180){
+      const tx=Number(msg.targetX),ty=Number(msg.targetY),err=Math.hypot(tx-player.x,ty-player.y);
+      if(err>420){player.x=tx-kx;player.y=ty-ky;}
+    }
+  }
+  floating(player.x,player.y-54,'-'+Math.max(1,Math.round(Number(msg.damage)||1)),'#ff8f87',true);sound('hurt');if(player.hp<=0)showDefeat();
+});
  m.on('pvp:confirm',msg=>{const rp=multiRemotePlayers.get(msg?.targetId);if(rp){rp.hp=Number(msg.hp)||0;rp.maxHp=Number(msg.maxHp)||rp.maxHp;}});m.on('pvp:defeated',msg=>{if(msg?.killerId===m.state.selfId)toast('<b>PVP 승리</b> · '+esc(msg.targetName||'플레이어')+' 격파');else if(msg?.targetId===m.state.selfId)toast('<b>PVP 패배</b> · '+esc(msg.killerName||'플레이어')+'에게 쓰러졌습니다.');});
  m.on('notice',message=>{if(message)toast(esc(message));});m.on('session:replaced',()=>{if(!currentAccount)return;logoutAccount(true);toast('<b>중복 로그인 감지</b><br>같은 계정이 다른 기기에서 접속하여 이 기기에서는 로그아웃되었습니다.');});
  m.on('reconnecting',()=>{if(multiplayerMode&&realTime-(player.netReconnectNoticeAt||0)>2){player.netReconnectNoticeAt=realTime;toast('통신이 잠시 끊겼습니다. 자동으로 재연결 중입니다…');}});
@@ -2620,7 +2638,10 @@ function update(dt){if(multiplayerMode&&player?.skillPose>=0)multiSkillCaptureUn
  }
 }updateCombat(dt);updateLootExpiry();rebuildBodyGrid();resolveBodyOverlaps();worldTime+=dt;player.playtime+=dt;saveTimer+=dt;damageFlash=Math.max(0,damageFlash-dt);activeBoss=null;for(const k of ['attackCd','attackAnim','dodgeCd','dodge','parry','parryCd','skillCd','potionCd','invuln','hurt','stamDelay','comboTimer','riposte','moveLock','basicMoveSlow','stun'])player[k]=Math.max(0,(player[k]||0)-dt);updateSwordSkill(dt);updateShield(dt);if(player.comboTimer<=0)player.combo=0;drainAction(dt);if(lockedTarget&&!validLock(lockedTarget))lockedTarget=null;
  let mx=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,my=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y,n=Math.hypot(mx,my);if(n>1){mx/=n;my/=n;}player.moving=n>.1;const oldX=player.x,oldY=player.y;
- if(player.stun>0){player.moving=false;}else if(player.dodge>0){moveBody(player,player.dx*(720+player.perks.flow*40)*dt,player.dy*(720+player.perks.flow*40)*dt);}else if(!(standardSkillHold||activeSwordSkill||secondSkillDash||fourthSkillHold?.dashing||hiddenSkillHold?.kind==='dash4'||hiddenSkillHold?.kind==='prepare'||hiddenSkillHold?.kind==='holdPrepare'||hiddenSkillHold?.kind==='combo5'||secondSkillArmed||(fourthSkillHold&&!fourthSkillHold.dashing)||player.moveLock>0)){const sprint=(touchSprint||keys.has('ShiftLeft')||keys.has('ShiftRight'))&&player.moving&&player.stam>5&&hiddenSkillHold?.kind!=='channel3';const channelScale=hiddenSkillHold?.kind==='channel3'?.2:1;const combatMoveScale=(player.parry>0||player.basicMoveSlow>0)?.2:1;const speed=(sprint?BASE_SPRINT_SPEED:177)*equipmentMoveScale()*combatMoveScale*channelScale;if(sprint){player.stam-=dt*15;player.stamDelay=.45;}moveBody(player,mx*speed*dt,my*speed*dt);}
+ if(player.pvpKnock?.t>0){
+  const k=player.pvpKnock,step=Math.min(dt,k.t);k.t-=step;moveBody(player,k.vx*step,k.vy*step);player.moving=false;
+  if(k.t<=0)player.pvpKnock=null;
+ }else if(player.stun>0){player.moving=false;}else if(player.dodge>0){moveBody(player,player.dx*(720+player.perks.flow*40)*dt,player.dy*(720+player.perks.flow*40)*dt);}else if(!(standardSkillHold||activeSwordSkill||secondSkillDash||fourthSkillHold?.dashing||hiddenSkillHold?.kind==='dash4'||hiddenSkillHold?.kind==='prepare'||hiddenSkillHold?.kind==='holdPrepare'||hiddenSkillHold?.kind==='combo5'||secondSkillArmed||(fourthSkillHold&&!fourthSkillHold.dashing)||player.moveLock>0)){const sprint=(touchSprint||keys.has('ShiftLeft')||keys.has('ShiftRight'))&&player.moving&&player.stam>5&&hiddenSkillHold?.kind!=='channel3';const channelScale=hiddenSkillHold?.kind==='channel3'?.2:1;const combatMoveScale=(player.parry>0||player.basicMoveSlow>0)?.2:1;const speed=(sprint?BASE_SPRINT_SPEED:177)*equipmentMoveScale()*combatMoveScale*channelScale;if(sprint){player.stam-=dt*15;player.stamDelay=.45;}moveBody(player,mx*speed*dt,my*speed*dt);}
  if(['prepare','dash4','channel3','combo5'].includes(hiddenSkillHold?.kind)){player.facing=hiddenSkillHold.facing;}else if(lockedTarget||touchAim.active)aim();else if(n>.1&&!mouse.active){player.facing=Math.atan2(my,mx);}else if(mouse.active)aim();player.training.move+=Math.hypot(player.x-oldX,player.y-oldY);
  if(player.stamDelay<=0&&player.dodge<=0)player.stam=Math.min(player.maxStam,player.stam+(2+player.perks.breath*.5)*dt);if((mouse.down||touchAttackPointer!==null||keys.has('KeyZ'))&&player.attackCd<=0)attack();
  flushExactSkillVisuals();
