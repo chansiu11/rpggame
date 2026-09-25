@@ -218,6 +218,7 @@ function navKey(x,y){return Math.floor(x/240)+','+Math.floor(y/240);}
 function addNavObstacle(o){const key=navKey(o.x,o.y);if(!navGrid.has(key))navGrid.set(key,[]);navGrid.get(key).push(o);}
 function serverSolidAt(x,y,r=18){
   if(x<45+r||y<45+r||x>WORLD.width-45-r||y>WORLD.height-45-r)return true;
+  if(Math.hypot(x-690,y-2880)<39+r)return true;
   for(let gy=Math.floor((y-r-120)/240);gy<=Math.floor((y+r+120)/240);gy++)for(let gx=Math.floor((x-r-120)/240);gx<=Math.floor((x+r+120)/240);gx++){
     const list=navGrid.get(gx+','+gy);if(!list)continue;
     for(const o of list){if(o.ellipse){if(((x-o.x)/(o.rx+r))**2+((y-o.y)/(o.ry+r))**2<1)return true;}else if(o.box){if(Math.abs(x-o.x)<o.w/2+r&&Math.abs(y-o.y)<o.h/2+r)return true;}else if(Math.hypot(x-o.x,y-o.y)<(o.r||18)+r)return true;}
@@ -254,8 +255,20 @@ function nearestMobTarget(m){let best=null,bestD=m.kind==='boss'?900:720;for(con
 function mobAttackRange(m){if(m.kind==='ranged')return Math.max(220,m.reach||320);if(m.kind==='charge')return Math.max(130,Math.min(210,m.reach||170));if(m.kind==='boss')return Math.max(180,Math.min(280,m.reach||220));return Math.max(75,m.reach||90);}
 function chooseBossAttack(m){const list=BOSS_ATTACKS[m.type];if(!list?.length)return 'melee';const t=list[m.pattern%list.length];m.pattern++;return t;}
 function sendMobAttack(m,target){
-  if(!target||!validMobTarget(m,target))return;const dist=Math.hypot(target.x-m.x,target.y-m.y),range=mobAttackRange(m),allowed=m.kind==='ranged'?range+80:m.kind==='boss'?range+120:range+55;if(dist>allowed)return;
-  broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage:m.damage,x:m.x,y:m.y,tx:target.x,ty:target.y,facing:m.facing,kind:m.kind,attackType:m.attackType||m.kind,serverTime:Date.now()},null,{volatile:true});
+  if(!target||!validMobTarget(m,target))return;
+  const dx=target.x-m.x,dy=target.y-m.y,dist=Math.hypot(dx,dy),range=mobAttackRange(m),attackType=m.attackType||m.kind;
+  let kind=m.kind,allowed=m.kind==='ranged'?range+80:range+55;
+  if(m.kind==='boss'){
+    const direct=attackType==='melee'||attackType==='slam'||attackType==='charge';
+    if(!direct){kind='ranged';allowed=range+180;}
+    else{
+      allowed=attackType==='charge'?m.r+42:range+35;
+      const targetAngle=Math.atan2(dy,dx),diff=Math.abs(((targetAngle-m.facing+Math.PI*3)%(Math.PI*2))-Math.PI);
+      if(attackType!=='charge'&&diff>1.25)return;
+    }
+  }
+  if(dist>allowed)return;
+  broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage:m.damage,x:m.x,y:m.y,tx:target.x,ty:target.y,facing:m.facing,kind,attackType,serverTime:Date.now()},null,{volatile:true});
 }
 function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
 function simulateMob(m,dt,now){
@@ -270,7 +283,7 @@ function simulateMob(m,dt,now){
   if(!target){m.targetId=null;m.alert=false;const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>18){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;m.state='return';if(moveServerMob(m,Math.cos(a)*m.speed*1.15*dt,Math.sin(a)*m.speed*1.15*dt))markMobDirty(m);}else if(m.state!=='idle'){m.state='idle';markMobDirty(m);}return;}
   if(m.targetId!==target.id){m.targetId=target.id;m.alert=true;markMobDirty(m);}const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);m.facing=a;m.alert=true;
   if(m.state==='charge'){if(now<m.chargeUntil){const speed=m.kind==='boss'?620:(m.type==='abyssHound'?560:m.type==='shardStalker'?520:470);if(moveServerMob(m,Math.cos(m.locked)*speed*dt,Math.sin(m.locked)*speed*dt))markMobDirty(m);if(!m.chargeHit&&Math.hypot(target.x-m.x,target.y-m.y)<m.r+34){sendMobAttack(m,target);m.chargeHit=true;}return;}m.state='recover';m.recoverUntil=now+650;markMobDirty(m);return;}
-  if(m.state==='windup'){if(now>=m.attackAt){sendMobAttack(m,target);if(m.kind==='charge'||m.attackType==='charge'){m.state='charge';m.chargeUntil=now+420;m.chargeHit=false;m.locked=m.facing;}else{m.state='recover';m.recoverUntil=now+(m.kind==='boss'?760:520);}markMobDirty(m);}return;}
+  if(m.state==='windup'){if(now>=m.attackAt){if(m.kind==='charge'||m.attackType==='charge'){m.state='charge';m.chargeUntil=now+420;m.chargeHit=false;m.locked=m.facing;}else{sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+(m.kind==='boss'?760:520);}markMobDirty(m);}return;}
   if(now<m.recoverUntil){if(m.state!=='recover'){m.state='recover';markMobDirty(m);}return;}
   const range=mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.attackAt=now+Math.max(260,m.wind*1000);m.lastAttackAt=now;markMobDirty(m);return;}
   m.state='chase';let dir=1;if(m.kind==='ranged'&&d<range*.55)dir=-1;else if(m.kind==='ranged'&&d<range*.82)dir=0;if(dir&&moveServerMob(m,Math.cos(a)*m.speed*dir*dt,Math.sin(a)*m.speed*dir*dt))markMobDirty(m);
