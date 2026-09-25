@@ -3,7 +3,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'node:crypto';
 
 const PORT = Number(process.env.PORT || 8787);
-const TICK_MS = 100;
+const TICK_MS = 1000;
 const PARTY_MAX = 4;
 const BOSS_RESPAWN_MS = 3 * 60 * 1000;
 
@@ -116,6 +116,7 @@ function publicPlayer(p){
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
     attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,
     combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
+    vx:p.vx||0,vy:p.vy||0,seq:p.seq||0,
     partyId:p.partyId||null,updatedAt:p.updatedAt
   };
 }
@@ -248,12 +249,12 @@ function sanitizeWorldSnapshot(msg){
     hp:clamp(m.hp,0,9999999),maxHp:clamp(m.maxHp,1,9999999),
     dead:!!m.dead,state:String(m.state||'idle').slice(0,20),
     facing:clamp(m.facing,-20,20),alert:!!m.alert
-  })).filter(m=>m.id):[];
+  })).filter(m=>m.id):worldSnapshot.mobs;
   const items=Array.isArray(msg.items)?msg.items.slice(0,2200).map(o=>({
     id:String(o.id||'').slice(0,70),type:String(o.type||'').slice(0,30),
     x:clamp(o.x,0,WORLD.width),y:clamp(o.y,0,WORLD.height),
     lootKind:String(o.lootKind||'').slice(0,30),amount:clamp(o.amount,0,999999),fixed:!!o.fixed
-  })).filter(o=>o.id&&!takenItems.has(o.id)):[];
+  })).filter(o=>o.id&&!takenItems.has(o.id)):worldSnapshot.items;
   return {mobs,items,updatedAt:Date.now()};
 }
 function handleWorldSnapshot(player,msg){
@@ -305,6 +306,7 @@ function handlePvpDamage(player,msg){
 function handleMessage(player,msg){
   if(!msg || typeof msg!=='object')return;
   if(msg.type==='state'){
+    const now=Date.now(),oldX=player.x,oldY=player.y,elapsed=Math.max(.016,Math.min(.5,(now-(player.lastStateAt||now-50))/1000));
     player.x=clamp(msg.x,40,WORLD.width-40);
     player.y=clamp(msg.y,40,WORLD.height-40);
     player.a=clamp(msg.a,-Math.PI*4,Math.PI*4);
@@ -319,7 +321,11 @@ function handleMessage(player,msg){
     player.strikePose=Math.floor(clamp(msg.strikePose,0,8));player.skillPose=Math.floor(clamp(msg.skillPose,-1,8));
     player.combo=Math.floor(clamp(msg.combo,0,10));player.parry=clamp(msg.parry,0,2);player.dodge=clamp(msg.dodge,0,2);
     player.dx=clamp(msg.dx,-1,1);player.dy=clamp(msg.dy,-1,1);player.walk=clamp(msg.walk,0,1);player.phase=clamp(msg.phase,-1e6,1e6);
-    player.updatedAt=Date.now();
+    player.vx=clamp(Number.isFinite(Number(msg.vx))?msg.vx:(player.x-oldX)/elapsed,-3000,3000);
+    player.vy=clamp(Number.isFinite(Number(msg.vy))?msg.vy:(player.y-oldY)/elapsed,-3000,3000);
+    player.seq=Math.max((player.seq||0)+1,Math.floor(clamp(msg.seq,0,1e12)));
+    player.updatedAt=now;player.lastStateAt=now;
+    broadcast({type:'player:state',player:publicPlayer(player)},player.ws);
     return;
   }
   if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}
@@ -373,10 +379,13 @@ const server=http.createServer((req,res)=>{
 const wss=new WebSocketServer({server});
 
 wss.on('connection',(ws)=>{
+  try{ws._socket?.setNoDelay(true);ws._socket?.setKeepAlive(true,20000);}catch{}
+  ws.isAlive=true;ws.on('pong',()=>{ws.isAlive=true;});
   const player={
     id:id('p_'),ws,name:'Player',x:800,y:3100,a:0,hp:100,maxHp:100,
     level:1,weapon:0,equippedHead:'wandererHood',equippedChest:'travelerCoat',equippedShield:'woodenShield',
     attackAnim:0,attackDuration:.26,strikePose:0,skillPose:-1,combo:0,parry:0,dodge:0,dx:0,dy:0,walk:0,phase:0,
+    vx:0,vy:0,seq:0,lastStateAt:Date.now(),
     partyId:null,accountId:'',updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
   };
   players.set(player.id,player);
@@ -428,6 +437,7 @@ wss.on('connection',(ws)=>{
   ws.on('error',()=>{});
 });
 
+let heartbeatTick=0;
 setInterval(()=>{
   const now=Date.now();
   for(const boss of bosses.values()){
@@ -440,9 +450,18 @@ setInterval(()=>{
       }});
     }
   }
-  const snapshot=[...players.values()].filter(p=>p.ready).map(publicPlayer);
-  broadcast({type:'players',players:snapshot,serverTime:now});
+  if(++heartbeatTick%2===0){
+    const snapshot=[...players.values()].filter(p=>p.ready).map(publicPlayer);
+    broadcast({type:'players',players:snapshot,serverTime:now});
+  }
 },TICK_MS);
+
+setInterval(()=>{
+  for(const ws of wss.clients){
+    if(ws.isAlive===false){try{ws.terminate();}catch{}continue;}
+    ws.isAlive=false;try{ws.ping();}catch{}
+  }
+},25000);
 
 server.listen(PORT,()=>{
   console.log('Echoes shared world server listening on',PORT);
