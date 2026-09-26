@@ -11,7 +11,7 @@ const SIM_TICK_MS = 33;
 const MOB_NET_TICK_MS = 66;
 const PLAYER_LIST_MS = 1000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
-const MAX_SOCKET_BUFFER = 384 * 1024;
+const MAX_SOCKET_BUFFER = 96 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v2-leash';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
@@ -507,14 +507,14 @@ function handleMessage(player,msg){
       if(!raw)return[];const x=Number(raw.x),y=Number(raw.y),vx=Number(raw.vx),vy=Number(raw.vy);if(![x,y,vx,vy].every(Number.isFinite))return[];
       return[{x:num(x,0,WORLD.width),y:num(y,0,WORLD.height),vx:num(vx,-3000,3000),vy:num(vy,-3000,3000),a:num(raw.a,-20,20),kind:String(raw.kind||'orb').slice(0,16),r:num(raw.r,2,24),t:num(raw.t,.05,2.5)}];
     });
-    if(effects.length||projectiles.length)broadcast({type:'skill:effects',playerId:player.id,seq:Math.floor(clamp(msg.seq,0,1e12)),effects,projectiles,serverTime:Date.now()},player.ws);
+    if(effects.length||projectiles.length)broadcast({type:'skill:effects',playerId:player.id,seq:Math.floor(clamp(msg.seq,0,1e12)),effects,projectiles,serverTime:Date.now()},player.ws,{volatile:true});
     return;
   }
   if(msg.type==='skill:fx'){
     const slot=Math.floor(clamp(msg.slot,0,4)),weapon=Math.floor(clamp(msg.weapon,0,4)),skillId=String(msg.skillId||'').slice(0,40),fxSeq=Math.max(player.skillFxSeq||0,Math.floor(clamp(msg.fxSeq,0,1e12)));
     const x=clamp(Number(msg.x)||player.x,40,WORLD.width-40),y=clamp(Number(msg.y)||player.y,40,WORLD.height-40),a=clamp(Number(msg.a)||0,-Math.PI*4,Math.PI*4);
     player.skillFxSeq=fxSeq;player.skillFxSlot=slot;player.skillFxId=skillId;player.skillFxWeapon=weapon;player.skillFxX=x;player.skillFxY=y;player.skillFxA=a;
-    broadcast({type:'skill:fx',playerId:player.id,fxSeq,slot,skillId,weapon,x,y,a,serverTime:Date.now()},player.ws);return;
+    broadcast({type:'skill:fx',playerId:player.id,fxSeq,slot,skillId,weapon,x,y,a,serverTime:Date.now()},player.ws,{volatile:true});return;
   }
   if(msg.type==='world:bootstrap'){bootstrapAuthoritativeWorld(player,msg);return;}if(msg.type==='world:resync'){const now=Date.now();if(now-(player.lastWorldResyncAt||0)>900){player.lastWorldResyncAt=now;safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});}return;}if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}if(msg.type==='world:mobsDelta'){handleWorldMobDelta(player,msg);return;}if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}if(msg.type==='pvp:control'){handlePvpControl(player,msg);return;}if(msg.type==='pvp:damage'){handlePvpDamage(player,msg);return;}
   if(msg.type==='party:create'){createParty(player);return;}if(msg.type==='party:invite'){const r=inviteParty(player,msg.targetId);if(!r.ok)safeSend(player.ws,{type:'notice',message:r.message});return;}if(msg.type==='party:accept'){const r=acceptParty(player,msg.partyId);if(!r.ok)safeSend(player.ws,{type:'notice',message:r.message});return;}if(msg.type==='party:leave'){leaveParty(player);return;}if(msg.type==='boss:damage'){handleBossDamage(player,msg);return;}if(msg.type==='pvp:hit'){handlePvpHit(player,msg);return;}
