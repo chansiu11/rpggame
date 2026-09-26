@@ -243,7 +243,7 @@ function bootstrapAuthoritativeWorld(player,msg){
   for(const raw of list){
     const id=String(raw.id||'').slice(0,50),type=String(raw.type||'').slice(0,40),def=MOB_TYPES[type];if(!id||!def||type==='dummy'||id.startsWith('rift_'))continue;
     const boss=bosses.get(id),maxHp=boss?boss.maxHp:clamp(raw.maxHp,1,9999999),hp=boss?boss.hp:clamp(raw.hp,0,maxHp),x=clamp(raw.x,50,WORLD.width-50),y=clamp(raw.y,50,WORLD.height-50);
-    const m={id,type,x,y,sx:x,sy:y,hp,maxHp,dead:boss?!boss.alive:!!raw.dead,state:raw.dead?'dead':'idle',facing:clamp(raw.facing,-20,20),alert:false,targetId:null,attackType:def.kind,
+    const m={id,type,x,y,sx:x,sy:y,hp,maxHp,dead:boss?!boss.alive:!!raw.dead,state:raw.dead?'dead':'idle',facing:clamp(raw.facing,-20,20),alert:false,targetId:null,provokedBy:null,attackType:def.kind,
       speed:clamp(raw.speed,10,900)||def.speed,damage:clamp(raw.damage,0,5000)||def.damage,reach:clamp(raw.reach,40,900)||def.reach,wind:clamp(raw.wind,.1,4)||def.wind,kind:def.kind,r:clamp(raw.r,8,80)||def.r,
       attackAt:0,recoverUntil:0,chargeUntil:0,chargeHit:false,locked:0,stunUntil:0,respawnAt:0,pattern:0,knockVX:0,knockVY:0,lastAttackAt:0,spawnZone:String(raw.spawnZone||'').slice(0,40),spawnZoneX:Number.isFinite(Number(raw.spawnZoneX))?clamp(raw.spawnZoneX,50,WORLD.width-50):x,spawnZoneY:Number.isFinite(Number(raw.spawnZoneY))?clamp(raw.spawnZoneY,50,WORLD.height-50):y,spawnZoneRadius:clamp(raw.spawnZoneRadius,0,1200)};
     if(m.dead)m.respawnAt=Date.now()+(boss?Math.max(0,boss.respawnAt-Date.now()):NORMAL_MOB_RESPAWN_MS);authoritativeMobs.set(id,m);markMobDirty(m);
@@ -253,7 +253,31 @@ function bootstrapAuthoritativeWorld(player,msg){
   mobsBootstrapped=authoritativeMobs.size>0;worldRevision++;worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=worldRevision;broadcast({type:'world:snapshot',snapshot:serverWorldSnapshot()});console.log('[world-bootstrap]',player.id,'layout',SPAWN_LAYOUT_VERSION,'mobs',authoritativeMobs.size,'nav',nav.length);
 }
 function validMobTarget(m,p){return !!p?.ready&&p.hp>0&&(m.kind==='boss'||!safeZoneAt(p.x,p.y));}
-function nearestMobTarget(m){let best=null,bestD=m.kind==='boss'?900:720;for(const p of players.values()){if(!validMobTarget(m,p))continue;const d=Math.hypot(p.x-m.x,p.y-m.y);if(d<bestD){best=p;bestD=d;}}return best;}
+function mobAggroGroupKey(m){if(m.kind==='boss')return 'boss:'+m.id;const zone=String(m.spawnZone||'');return !zone||zone==='lone'?'mob:'+m.id:'zone:'+zone;}
+function ambientAggroKey(m,playerId){return mobAggroGroupKey(m)+'|'+playerId;}
+function buildAmbientAggroSelections(){
+  const selected=new Map(),best=new Map();
+  // Keep one already-engaged monster per spawn group/player so aggro does not jump around every tick.
+  for(const m of authoritativeMobs.values()){
+    if(m.dead||m.kind==='boss'||m.provokedBy||!m.targetId)continue;
+    const p=players.get(m.targetId);if(!validMobTarget(m,p)||Math.hypot(p.x-m.x,p.y-m.y)>1150)continue;
+    const key=ambientAggroKey(m,p.id),d=Math.hypot(p.x-m.x,p.y-m.y),prev=selected.get(key);
+    if(!prev||d<prev.d)selected.set(key,{mobId:m.id,d});
+  }
+  // If nobody from the group is engaged yet, choose only the nearest monster in that group.
+  for(const p of players.values()){
+    if(!p.ready||p.hp<=0)continue;
+    for(const m of authoritativeMobs.values()){
+      if(m.dead||m.kind==='boss'||m.provokedBy||!validMobTarget(m,p))continue;
+      const d=Math.hypot(p.x-m.x,p.y-m.y);if(d>=720)continue;
+      const key=ambientAggroKey(m,p.id);if(selected.has(key))continue;
+      const prev=best.get(key);if(!prev||d<prev.d)best.set(key,{mobId:m.id,d});
+    }
+  }
+  for(const [key,v] of best)if(!selected.has(key))selected.set(key,v);
+  return new Map([...selected].map(([key,v])=>[key,v.mobId]));
+}
+function nearestMobTarget(m,ambientSelections=null){let best=null,bestD=m.kind==='boss'?900:720;for(const p of players.values()){if(!validMobTarget(m,p))continue;if(m.kind!=='boss'&&ambientSelections&&ambientSelections.get(ambientAggroKey(m,p.id))!==m.id)continue;const d=Math.hypot(p.x-m.x,p.y-m.y);if(d<bestD){best=p;bestD=d;}}return best;}
 function mobAttackRange(m){if(m.kind==='ranged')return Math.max(220,m.reach||320);if(m.kind==='charge')return Math.max(130,Math.min(210,m.reach||170));if(m.kind==='boss')return Math.max(180,Math.min(280,m.reach||220));return Math.max(75,m.reach||90);}
 function chooseBossAttack(m){const list=BOSS_ATTACKS[m.type];if(!list?.length)return 'melee';const t=list[m.pattern%list.length];m.pattern++;return t;}
 function sendMobAttack(m,target){
@@ -272,16 +296,25 @@ function sendMobAttack(m,target){
   if(dist>allowed)return;
   broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage:m.damage,x:m.x,y:m.y,tx:target.x,ty:target.y,facing:m.facing,kind,attackType,serverTime:Date.now()},null,{volatile:true});
 }
-function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
-function simulateMob(m,dt,now){
+function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
+function simulateMob(m,dt,now,ambientSelections){
   if(m.dead){if(m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);return;}
   if(m.kind!=='boss'){
     const cx=Number.isFinite(m.spawnZoneX)?m.spawnZoneX:m.sx,cy=Number.isFinite(m.spawnZoneY)?m.spawnZoneY:m.sy,baseR=m.spawnZoneRadius>0?m.spawnZoneRadius:430,leash=baseR+(m.spawnZone==='lone'?220:300),zoneDist=Math.hypot(m.x-cx,m.y-cy);
-    if(zoneDist>leash){m.targetId=null;m.alert=false;m.attackAt=0;m.chargeUntil=0;m.recoverUntil=0;m.state='return';const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>16){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;if(moveServerMob(m,Math.cos(a)*m.speed*1.55*dt,Math.sin(a)*m.speed*1.55*dt))markMobDirty(m);}else{m.state='idle';markMobDirty(m);}return;}
+    if(zoneDist>leash){m.targetId=null;m.provokedBy=null;m.alert=false;m.attackAt=0;m.chargeUntil=0;m.recoverUntil=0;m.state='return';const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>16){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;if(moveServerMob(m,Math.cos(a)*m.speed*1.55*dt,Math.sin(a)*m.speed*1.55*dt))markMobDirty(m);}else{m.state='idle';markMobDirty(m);}return;}
   }
   if(now<m.stunUntil){if(m.state!=='stunned'){m.state='stunned';markMobDirty(m);}return;}
   if(Math.abs(m.knockVX)+Math.abs(m.knockVY)>2){if(moveServerMob(m,m.knockVX*dt,m.knockVY*dt))markMobDirty(m);const decay=Math.exp(-dt*9);m.knockVX*=decay;m.knockVY*=decay;}
-  let target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150)target=null;if(!target)target=nearestMobTarget(m);
+  let target=null;
+  if(m.kind==='boss'){
+    target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150)target=null;if(!target)target=nearestMobTarget(m,null);
+  }else if(m.provokedBy){
+    target=players.get(m.provokedBy);if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150){m.provokedBy=null;target=null;}
+  }else{
+    target=m.targetId?players.get(m.targetId):null;
+    if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150||ambientSelections?.get(ambientAggroKey(m,target.id))!==m.id)target=null;
+    if(!target)target=nearestMobTarget(m,ambientSelections);
+  }
   if(!target){m.targetId=null;m.alert=false;const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>18){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;m.state='return';if(moveServerMob(m,Math.cos(a)*m.speed*1.15*dt,Math.sin(a)*m.speed*1.15*dt))markMobDirty(m);}else if(m.state!=='idle'){m.state='idle';markMobDirty(m);}return;}
   if(m.targetId!==target.id){m.targetId=target.id;m.alert=true;markMobDirty(m);}const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);m.facing=a;m.alert=true;
   if(m.state==='charge'){if(now<m.chargeUntil){const speed=m.kind==='boss'?620:(m.type==='abyssHound'?560:m.type==='shardStalker'?520:470);if(moveServerMob(m,Math.cos(m.locked)*speed*dt,Math.sin(m.locked)*speed*dt))markMobDirty(m);if(!m.chargeHit&&Math.hypot(target.x-m.x,target.y-m.y)<m.r+34){sendMobAttack(m,target);m.chargeHit=true;}return;}m.state='recover';m.recoverUntil=now+650;markMobDirty(m);return;}
@@ -290,7 +323,7 @@ function simulateMob(m,dt,now){
   const range=mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.locked=a;m.attackAt=now+Math.max(260,m.wind*1000);m.lastAttackAt=now;markMobDirty(m);return;}
   m.state='chase';let dir=1;if(m.kind==='ranged'&&d<range*.55)dir=-1;else if(m.kind==='ranged'&&d<range*.82)dir=0;if(dir&&moveServerMob(m,Math.cos(a)*m.speed*dir*dt,Math.sin(a)*m.speed*dir*dt))markMobDirty(m);
 }
-function simulateWorld(now=Date.now()){if(!mobsBootstrapped)return;const dt=SIM_TICK_MS/1000;for(const m of authoritativeMobs.values())simulateMob(m,dt,now);}
+function simulateWorld(now=Date.now()){if(!mobsBootstrapped)return;const dt=SIM_TICK_MS/1000,ambientSelections=buildAmbientAggroSelections();for(const m of authoritativeMobs.values())simulateMob(m,dt,now,ambientSelections);}
 function flushMobDeltas(now=Date.now()){if(!dirtyMobIds.size)return;const mobs=[];for(const id of dirtyMobIds){const m=authoritativeMobs.get(id);if(m)mobs.push(mobPublic(m));}dirtyMobIds.clear();if(!mobs.length)return;worldRevision++;worldSnapshot.updatedAt=now;worldSnapshot.revision=worldRevision;broadcast({type:'world:mobsDelta',mobs,serverTime:now,revision:worldRevision},null,{volatile:true});}
 
 function handleBossDamage(player,msg){
@@ -367,9 +400,11 @@ function handleItemSpawn(player,msg){
 }
 function handleMobDamage(player,msg){
   const mobId=String(msg.mobId||'').slice(0,50),mob=authoritativeMobs.get(mobId);if(!mob||mob.dead||mob.kind==='boss')return;if(Math.hypot(player.x-mob.x,player.y-mob.y)>1100)return;
-  const now=Date.now(),damage=clamp(msg.damage,0,1800),stun=clamp(msg.stun,0,2.5),kx=clamp(msg.knockbackX,-180,180),ky=clamp(msg.knockbackY,-180,180);if(damage<=0&&stun<=0&&!kx&&!ky)return;
+  const now=Date.now(),wasPassive=!mob.alert||!mob.targetId||mob.state==='idle'||mob.state==='return',damage=clamp(msg.damage,0,1800),stun=clamp(msg.stun,0,2.5),kx=clamp(msg.knockbackX,-180,180),ky=clamp(msg.knockbackY,-180,180);if(damage<=0&&stun<=0&&!kx&&!ky)return;
   if(damage>0){if(now-(player.lastMobHitAt||0)<18)return;player.lastMobHitAt=now;mob.hp=Math.max(0,mob.hp-damage);}if(stun>0)mob.stunUntil=Math.max(mob.stunUntil||0,now+stun*1000);
-  if(kx||ky){moveServerMob(mob,kx,ky);mob.knockVX=clamp(kx*7,-900,900);mob.knockVY=clamp(ky*7,-900,900);}if(mob.hp<=0){mob.dead=true;mob.hp=0;mob.state='dead';mob.targetId=null;mob.alert=false;mob.respawnAt=now+NORMAL_MOB_RESPAWN_MS;}
+  if(kx||ky){moveServerMob(mob,kx,ky);mob.knockVX=clamp(kx*7,-900,900);mob.knockVY=clamp(ky*7,-900,900);}
+  if(mob.hp<=0){mob.dead=true;mob.hp=0;mob.state='dead';mob.targetId=null;mob.provokedBy=null;mob.alert=false;mob.respawnAt=now+NORMAL_MOB_RESPAWN_MS;}
+  else if(wasPassive&&validMobTarget(mob,player)){mob.provokedBy=player.id;mob.targetId=player.id;mob.alert=true;if(now>=mob.stunUntil)mob.state='chase';}
   markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),by:player.id,respawnAt:mob.respawnAt||0}});
 }
 function handlePvpControl(player,msg){
