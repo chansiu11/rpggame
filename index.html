@@ -1026,7 +1026,7 @@ function basicMeleeHit(reach,arc,damage,finalHit=false){let hits=0;for(const e o
  // 평타는 공용 hitEnemy의 짧은 경직/강공격 반응을 쓰지 않고, 아래에서 정확히 0.5초 기절로 통일한다.
  if(e.networkPlayer){const c=window.EchoesCombat.basicControl(finalHit),a=player.attackAngle;worldPlayerHit(e,damage*mult,finalHit,player,{stun:c.stun,dx:Math.cos(a)*c.force,dy:Math.sin(a)*c.force});hits++;continue;}
  const c=window.EchoesCombat.basicControl(finalHit),a=player.attackAngle;
- hitEnemy(e,damage*mult,finalHit,player,{stun:c.stun,dx:f.dx,dy:f.dy,duration:window.EchoesCombat.forceDuration(f.force)});hits++;
+ hitEnemy(e,damage*mult,finalHit,player,{stun:c.stun,dx:Math.cos(a)*c.force,dy:Math.sin(a)*c.force,duration:window.EchoesCombat.forceDuration(c.force)});hits++;
  if(finalHit&&!e.dead&&e.kind!=='boss'){ring(e.x,e.y,58,'#ffe3a0',.32);burst(e.x,e.y,'#ffe3a0',12,150);}
 
  }return hits;}

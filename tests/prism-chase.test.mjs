@@ -32,3 +32,9 @@ test('solar dash travels the same distance at different frame rates in world and
   assert.ok(Math.abs(player.x-(blocked?500:860))<1e-8);assert.ok(Math.abs(me.x-860)<1e-8);
  }
 });
+test('basic attack immediately after final Dawn chase does not throw and preserves basic knockback',()=>{
+ const f=world();for(let i=0;i<120&&f.c.activeSwordSkill;i++)f.c.updatePrismWorldChase(f.seq,1/60);
+ const target={id:'mob',x:f.player.x+30,y:0,r:18,hp:1000},hits=[];Object.assign(f.player,{weapon:0,attackAngle:0});Object.assign(f.c,{combatTargets:()=>[target],combatAngleFrom:()=>0,angleDiff:()=>0,burst:()=>{},hitEnemy:(e,d,h,p,control)=>hits.push(control)});vm.runInContext(source('basicMeleeHit').split('const SKILL_UNLOCK_LEVELS')[0],f.c);
+ assert.equal(f.c.basicMeleeHit(100,Math.PI,20,false),1);assert.equal(hits[0].dx,0);assert.equal(hits[0].stun,.5);
+ assert.equal(f.c.basicMeleeHit(100,Math.PI,20,true),1);assert.equal(hits[1].dx,180);assert.equal(hits[1].duration,C.forceDuration(180));
+});
