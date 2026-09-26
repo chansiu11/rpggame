@@ -1,3 +1,4 @@
+import { skillVisuals } from './visual-protocol.js';
 import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'node:crypto';
@@ -433,6 +434,7 @@ function handleMobDamage(player,msg){
 }
 function handleMessage(player,msg){
   if(!msg||typeof msg!=='object')return;
+  if(msg.type==='net:ping'){const now=Date.now();if(now-(player.lastPingAt||0)>500){player.lastPingAt=now;safeSend(player.ws,{type:'net:pong',nonce:msg.nonce,serverTime:now});}return;}
   if(msg.type==='pvp:matchJoin'){joinPvpMatchQueue(player);return;}
   if(msg.type==='pvp:matchCancel'){removePvpMatchQueue(player,true);return;}
   if(msg.type==='world:teleport')msg={...msg,type:'state',teleport:true};
@@ -457,7 +459,8 @@ function handleMessage(player,msg){
   }
   if(msg.type==='skill:effects'){
     const seq=Math.floor(clamp(msg.seq,0,1e12));if(seq<=(player.visualSeq||0))return;player.visualSeq=seq;
-    const num=(v,min,max)=>clamp(Number(v)||0,min,max),effects=[];
+    const now=Date.now();if(now-(player.visualBudgetAt||0)>=1000){player.visualBudgetAt=now;player.visualBudget=0;}
+    const num=(v,min,max)=>clamp(Number(v)||0,min,max),effects=skillVisuals(msg.effects,120-(player.visualBudget||0));player.visualBudget=(player.visualBudget||0)+effects.length;
     const projectiles=(Array.isArray(msg.projectiles)?msg.projectiles:[]).slice(0,24).flatMap(raw=>{
       if(!raw)return[];const x=Number(raw.x),y=Number(raw.y),vx=Number(raw.vx),vy=Number(raw.vy);if(![x,y,vx,vy].every(Number.isFinite))return[];
       return[{x:num(x,0,WORLD.width),y:num(y,0,WORLD.height),vx:num(vx,-3000,3000),vy:num(vy,-3000,3000),a:num(raw.a,-20,20),kind:String(raw.kind||'orb').slice(0,16),r:num(raw.r,2,24),t:num(raw.t,.05,2.5)}];
@@ -480,7 +483,7 @@ setInterval(()=>worldCombat.tick(),50);
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,combatProtocol:1,mobCombatProtocol:1,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
+    res.end(JSON.stringify({ok:true,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
@@ -529,7 +532,7 @@ wss.on('connection',(ws)=>{
       if(player.clientMode!=='pvp'&&!worldLeaderId)worldLeaderId=player.id;
       safeSend(ws,{
         type:'hello:ok',
-        selfId:player.id,combatProtocol:1,mobCombatProtocol:1,
+        selfId:player.id,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,
         world:{...WORLD,combatPolicy:WORLD_COMBAT_POLICY,biomes:BIOMES,landmarks:LANDMARKS,hiddenItems:HIDDEN_ITEMS},
         players:player.clientMode==='pvp'?[]:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').map(publicPlayer),
         bosses:bossSnapshot(),

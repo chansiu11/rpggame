@@ -37,8 +37,9 @@ function requestWorldResync(force=false){
 }
 function handle(msg){
   if(!msg||typeof msg!=='object')return;
+  if(msg.type==='net:pong'){if(msg.nonce!==state.lastPingNonce)return;const rtt=Date.now()-msg.nonce;if(rtt>=0&&rtt<3000){state.rtt=rtt;state.serverOffset=msg.serverTime-(msg.nonce+rtt/2);}return;}
   if(msg.type==='hello:ok'){
-    mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;combatQueue=[];state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
+    state.lastPingAt=0;delete state.serverOffset;mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;combatQueue=[];state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
     state.worldRole=msg.worldRole||{leaderId:null,isLeader:false,serverAuthority:true};
@@ -149,11 +150,13 @@ function disconnect(){
 }
 window.EchoesMulti={
   state,on,connect,disconnect,requestWorldResync,combatEvent,flushCombat,
+  serverNow(){return Date.now()+(state.serverOffset||0);},
+  packetAge(stamp){return Number.isFinite(stamp)&&Number.isFinite(state.serverOffset)?Math.max(0,Math.min(.3,(Date.now()+state.serverOffset-stamp)/1000)):0;},
   get combatAck(){return combatAck;},
   get enabled(){return !!url();},
   get connected(){return state.connected;},
   get serverUrl(){return url();},
-  sendState(p){if(!state.connected||!p)return;send({type:p.teleport?'world:teleport':'state',combatAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
+  sendState(p){if(!state.connected||!p)return;const now=Date.now();if(now-(state.lastPingAt||0)>2000){state.lastPingAt=now;state.lastPingNonce=now;send({type:'net:ping',nonce:now});}send({type:p.teleport?'world:teleport':'state',combatAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
     x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
     swordStyle:p.swordStyle,swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):undefined,
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,

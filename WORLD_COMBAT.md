@@ -31,7 +31,7 @@ only these deterministic calculations delegate to the common module.
 | `world:teleport` | Client → server | Self movement state with normal input sequence and combat acknowledgement; cannot escape active control |
 | `state` / `player:self` / `player:state` | Both | Movement, resources, facing, gear/style, skill/animation, defensive and special state |
 | `skill:fx` | Both | Existing skill ID, slot and origin; client builds sword trails and particles |
-| `skill:effects` | Both | Existing envelope, now projectile launch parameters only; server discards effect arrays |
+| `skill:effects` | Both | Bounded primary skill geometry plus projectile launches; particles remain local |
 
 An attack includes target ID, damage, range, optional shape, skill ID, stun, force and
 shield flags. `dx/dy` are relative forced movement; `x/y` on control events are absolute
@@ -65,7 +65,7 @@ The policy is advertised in `hello:ok` for matching client target eligibility.
 
 Combat/fast state/visual updates are scoped to 2,200 world units; attacker and victim
 always receive their result. Global low-rate roster updates remain for discovery.
-Particles are not transmitted. Projectile trajectories are sent once, then animated
+Particles are not transmitted. Primary sword/impact geometry is capped at 24 per packet and 120 per second per sender. Projectile trajectories are sent once, then animated
 locally. Force updates run at 20 Hz; ordinary state retains its existing ~30 Hz cadence.
 The existing world navigation obstacles clip forced destinations without changing
 monster navigation.
@@ -94,3 +94,28 @@ not part of this local automated suite.
 Deploy the server and static files together, then refresh existing clients. The
 existing Render Blueprint already has `autoDeploy: true`; the server handshake and
 health response advertise `combatProtocol: 1` when this version is running.
+
+
+## Control protocol 2 / visual protocol 2
+
+- Force duration and basic hit stun/finisher knockback share arena primitives. Basic
+  fifth-hit force is 180 and stun is .75 seconds in both player combat modes.
+- Force completion emits a new combat revision. A client acknowledging the initial
+  hit still cannot overwrite the settled endpoint; it must apply/ack the settlement.
+- `net:ping` / `net:pong` estimate clock offset and RTT. Remote forces follow the
+  server trajectory directly, compensated for packet age, outside movement interpolation.
+- Attackers preview displacement only; HP and confirmed motion remain server-owned.
+  Confirmation replaces previews; blocked/missed previews expire automatically.
+- Server retains up to 16 positions for 400ms and validates observed contact up to
+  300ms old. Current safety, party, immunity and defense rules still apply.
+- Dawn fifth uses the arena fixed cast origin in the world, with shared final timing,
+  beam geometry/damage and the final lance visual in both modes.
+- Minimap terrain/fog/routes are cached until exploration or dimensions change;
+  dynamic markers remain live. Static world drawing queries visible spatial buckets.
+- Guests forward monster skill force trajectories rather than discarding them.
+
+Validation for this revision: JS parsing, deterministic delayed settlement tests
+(0/80/160/280ms), historical contact and expired/immunity cases, client settlement,
+map cache invalidation, prediction/visual echo suppression, and real two-client
+WebSocket follow-up hits with delayed acknowledgements. Chromium download failed in
+this environment, so this revision has no fresh real-browser FPS or device measurements.

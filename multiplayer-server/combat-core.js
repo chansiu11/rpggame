@@ -14,7 +14,9 @@ function contains(m,p){
  return dist<=clamp(m.range,20,700)+r&&(arc>=6||Math.abs(angle(Math.atan2(dy,dx),a))<=arc/2+r/Math.max(30,dist));
 }
 function forcePoint(f,elapsed){const u=clamp(elapsed/Math.max(.22,f.max),0,1),ease=1-Math.pow(1-u,3);return {x:f.startX+(f.x-f.startX)*ease,y:f.startY+(f.y-f.startY)*ease,done:u>=1};}
+const basicControl=final=>({stun:final?.75:.5,force:final?180:0});
+function forceDuration(distance,requested){return clamp(Number.isFinite(requested)?requested:(.18+distance/900),.16,.8);}
 const shieldCost=raw=>Math.max(12,raw*1.4);
 const damageAfterArmor=(raw,reduction)=>Math.max(1,Math.round(raw*(1-clamp(reduction,0,.45))));
-root.EchoesCombat=Object.freeze({version:1,contains,segment,forcePoint,angle,shieldCost,damageAfterArmor});
+root.EchoesCombat=Object.freeze({version:2,basicControl,forceDuration,contains,segment,forcePoint,angle,shieldCost,damageAfterArmor});
 })(globalThis);

@@ -9,16 +9,16 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
  const timed=['stun','invuln','dodge','parryWindow','shieldBroken','shieldDelay','mark'];
  function advance(p,t=now()){
   for(const k of timed)p[k]=Math.max(0,((p[k+'Until']||0)-t)/1000);
-  if(p.forceMove){const q=C.forcePoint(p.forceMove,(t-p.forceMove.startedAt)/1000);p.x=q.x;p.y=q.y;p.vx=p.vy=0;if(q.done)p.forceMove=null;}
+  if(p.forceMove){const q=C.forcePoint(p.forceMove,(t-p.forceMove.startedAt)/1000);p.x=q.x;p.y=q.y;p.vx=p.vy=0;if(q.done){p.forceMove=null;emit(p,{outcome:'settled',damage:0});}}
  }
- function snapshot(p){advance(p);return {teleportSeq:p.teleportSeq||0,combatRevision:p.combatRevision||0,controlRevision:p.controlRevision||0,shield:p.shield||0,maxShield:p.maxShield||0,stam:p.stam||0,maxStam:p.maxStam||0,block:!!p.block,stun:p.stun||0,invuln:p.invuln||0,dodge:p.dodge||0,parryWindow:p.parryWindow||0,shieldBroken:p.shieldBroken||0,shieldDelay:p.shieldDelay||0,mark:p.mark||0,forceMove:p.forceMove?{...p.forceMove,elapsed:(now()-p.forceMove.startedAt)/1000}:null,skillId:p.skillId||'',skillKind:p.skillKind||'',moveSpeed:p.moveSpeed||0,special:p.special||{}};}
+ function snapshot(p){advance(p);return {serverTime:now(),teleportSeq:p.teleportSeq||0,combatRevision:p.combatRevision||0,controlRevision:p.controlRevision||0,shield:p.shield||0,maxShield:p.maxShield||0,stam:p.stam||0,maxStam:p.maxStam||0,block:!!p.block,stun:p.stun||0,invuln:p.invuln||0,dodge:p.dodge||0,parryWindow:p.parryWindow||0,shieldBroken:p.shieldBroken||0,shieldDelay:p.shieldDelay||0,mark:p.mark||0,forceMove:p.forceMove?{...p.forceMove,elapsed:(now()-p.forceMove.startedAt)/1000}:null,skillId:p.skillId||'',skillKind:p.skillKind||'',moveSpeed:p.moveSpeed||0,special:p.special||{}};}
  function emit(p,extra={}){p.combatRevision=(p.combatRevision||0)+1;const result={type:'world:combatResult',eventId:++eventSeq,targetId:p.id,serverTime:now(),...extra,player:{...publicState(p),...snapshot(p)}};broadcast(result);return result;}
  function allowed(a,b){return a&&b&&a!==b&&a.ready&&b.ready&&a.clientMode!=='pvp'&&b.clientMode!=='pvp'&&a.hp>0&&b.hp>0&&!safeZone(a.x,a.y)&&!safeZone(b.x,b.y)&&(!(a.partyId&&a.partyId===b.partyId)||allowParty(a,b));}
  function lease(p,e,t){
   const stun=clamp(e.stun,0,2.5);p.stunUntil=Math.max(p.stunUntil||0,t+stun*1000);
   const dx=clamp(e.dx??e.knockbackX,-720,720),dy=clamp(e.dy??e.knockbackY,-720,720);
   const track=e.kind!=='attack'&&number(e.x)&&number(e.y);
-  if(dx||dy||track){const base=p.forceMove||p,duration=clamp(e.duration||(.18+Math.hypot(dx,dy)/900),.08,.8);
+  if(dx||dy||track){const base=e.kind==='attack'?p:(p.forceMove||p),duration=C.forceDuration(Math.hypot(dx,dy),number(e.duration)?Number(e.duration):undefined);
    const tx=track?p.x+clamp(e.x-p.x,-720,720):base.x+dx,ty=track?p.y+clamp(e.y-p.y,-720,720):base.y+dy,spot=clipTarget(p,{x:clamp(tx,40,width-40),y:clamp(ty,40,height-40)});
    p.forceMove={startX:p.x,startY:p.y,x:spot.x,y:spot.y,max:duration,startedAt:t};
    p.controlUntil=t+Math.max(.22,duration)*1000;p.controlRevision=(p.controlRevision||0)+1;
@@ -43,6 +43,17 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
   }
   out.stun=p.stun;return out;
  }
+ function record(p,t){
+  const h=p.combatHistory||(p.combatHistory=[]);if(!h.length||t-h[h.length-1].t>=20)h.push({x:p.x,y:p.y,t});
+  while(h.length>16||h.length&&t-h[0].t>400)h.shift();
+ }
+ function contact(b,e,t){
+  if(!e.shape||C.contains(e,{x:b.x,y:b.y,r:18}))return true;
+  const stamp=Number(e.observedAt);if(!Number.isFinite(stamp)||stamp<t-300||stamp>t)return false;
+  const h=b.combatHistory||[];
+  for(let i=1;i<h.length;i++){const a=h[i-1],z=h[i];if(a.t<=stamp&&stamp<=z.t){const u=(stamp-a.t)/Math.max(1,z.t-a.t);return C.contains(e,{x:a.x+(z.x-a.x)*u,y:a.y+(z.y-a.y)*u,r:18});}}
+  return false;
+ }
  function handle(a,msg){
   if(a.clientMode==='pvp'||!a.ready)return;
   const t=now(),seq=Math.floor(Number(msg.seq)||0);if(!seq||seq<=(a.combatInputSeq||0))return;a.combatInputSeq=seq;
@@ -54,7 +65,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    const kind=String(e.kind||'attack'),damageEvent=kind==='attack',hasLease=b.controlBy===a.id&&t<(b.controlLeaseUntil||0);
    if(!damageEvent&&!['control','special'].includes(kind))continue;
    if(!damageEvent&&!hasLease)continue;
-   if(damageEvent&&e.shape&&!C.contains(e,{x:b.x,y:b.y,r:18}))continue;
+   if(damageEvent&&!contact(b,e,t))continue;
    if(t<(b.invulnUntil||0)&&damageEvent)continue;
    let damage=0,outcome='control';
    if(damageEvent){
@@ -74,6 +85,6 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    if(b.hp<=0){b.forceMove=null;b.controlBy=null;broadcast({type:'pvp:defeated',targetId:b.id,targetName:b.name,killerId:a.id,killerName:a.name});}
   }
  }
- function tick(){for(const p of players.values())if(p.ready&&p.clientMode!=='pvp'&&p.forceMove){advance(p);broadcast({type:'player:state',player:{...publicState(p),...snapshot(p)}});}}
+ function tick(){const t=now();for(const p of players.values())if(p.ready&&p.clientMode!=='pvp'){const moving=!!p.forceMove;advance(p,t);record(p,t);if(moving)broadcast({type:'player:state',player:{...publicState(p),...snapshot(p)}},null,{volatile:true});}}
  return {handle,ingest,snapshot,tick,advance,allowed};
 }
