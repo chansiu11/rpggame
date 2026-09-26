@@ -940,7 +940,7 @@ function sharedPvpEligible(rp){
 function sharedPvpSendHit(rp,damage,range=180,kind='attack',parryable=true){
  if(!sharedPvpEligible(rp))return false;
  const p=sharedPvpPoint(rp),dx=p.x-player.x,dy=p.y-player.y,d=Math.hypot(dx,dy)||1,nx=dx/d,ny=dy/d;
- const basic=kind==='melee',heavy=kind.includes('heavy')||kind==='projectile',force=heavy?120:basic?42:0,stun=heavy?.75:basic?.5:.22;
+ const basic=kind==='melee',heavy=kind.includes('heavy')||kind==='projectile',force=heavy?180:basic?90:0,stun=heavy?.75:basic?.5:.22;
  window.EchoesMulti.pvpDamage(rp.id,Math.max(1,Math.round(damage)),range,kind,{knockbackX:nx*force,knockbackY:ny*force,stun});
  return true;
 }
@@ -2818,7 +2818,7 @@ function update(dt){if(multiplayerMode&&player?.skillPose>=0)multiSkillCaptureUn
   const q=rp.samples||[];while(q.length>2&&q[1].t<renderAt)q.shift();let x=Number(rp.x)||0,y=Number(rp.y)||0,a=Number(rp.a)||0;
   if(q.length>=2&&q[0].t<=renderAt&&renderAt<=q[1].t){const span=Math.max(1,q[1].t-q[0].t),u=clamp((renderAt-q[0].t)/span,0,1);x=q[0].x+(q[1].x-q[0].x)*u;y=q[0].y+(q[1].y-q[0].y)*u;a=q[0].a+angleDiff(q[1].a,q[0].a)*u;}
   else if(q.length){const z=q[q.length-1],age=clamp((renderAt-z.t)/1000,0,.10);x=z.x+z.vx*age;y=z.y+z.vy*age;a=z.a;}
-  rp.rx=x;rp.ry=y;rp.ra=a;rp.attackAnim=Math.max(0,(Number(rp.attackAnim)||0)-dt);rp.dodge=Math.max(0,(Number(rp.dodge)||0)-dt);rp.parry=Math.max(0,(Number(rp.parry)||0)-dt);
+  rp.rx=x;rp.ry=y;rp.ra=a;rp.attackAnim=Math.max(0,(Number(rp.attackAnim)||0)-dt);rp.dodge=Math.max(0,(Number(rp.dodge)||0)-dt);rp.parry=Math.max(0,(Number(rp.parry)||0)-dt);rp.stun=Math.max(0,(Number(rp.stun)||0)-dt);
  }
  if(window.EchoesMulti?.connected){
   multiNetTimer+=dt;if(multiNetTimer>=.033){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-33))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;const packet={x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,weapon:player.weapon,attackAnim:Math.max(player.attackAnim,multiSkillPosePulseUntil>realTime?.42:0),attackDuration:Math.max(player.attackDuration,multiSkillPosePulseUntil>realTime?.55:0),strikePose:player.strikePose,skillPose:multiSkillPosePulseUntil>realTime?multiSkillFxState.slot:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,stun:player.stun||0,deathSeq:multiDeathSeq,skillFxSeq:multiSkillFxState.seq,skillFxSlot:multiSkillFxState.slot,skillFxId:multiSkillFxState.skillId,skillFxWeapon:multiSkillFxState.weapon,skillFxX:multiSkillFxState.x,skillFxY:multiSkillFxState.y,skillFxA:multiSkillFxState.a,vx,vy,seq:++multiNetSeq};if(now-multiProfileSendAt>=1000){multiProfileSendAt=now;packet.level=player.level;packet.swordStyle=player.swordStyle||'';packet.swordSkills=(player.weapon===4?player.adminSwordSkills:player.equippedSwordSkills)||[];packet.equippedHead=player.equippedHead;packet.equippedChest=player.equippedChest;packet.equippedShield=player.equippedShield;}window.EchoesMulti.sendState(packet);}
