@@ -16,6 +16,7 @@ function contains(m,p){
 function forcePoint(f,elapsed){const u=clamp(elapsed/Math.max(.22,f.max),0,1),ease=1-Math.pow(1-u,3);return {x:f.startX+(f.x-f.startX)*ease,y:f.startY+(f.y-f.startY)*ease,done:u>=1};}
 const projectileRange=1000;
 function projectileTime(p,dt){const speed=Math.hypot(p.vx,p.vy);if(!Number.isFinite(speed)||speed<=0||!Number.isFinite(dt)||dt<=0)return 0;const used=clamp(p.distanceTravelled,0,projectileRange),step=Math.min(dt,(projectileRange-used)/speed);p.distanceTravelled=Math.min(projectileRange,used+speed*step);return step;}
+function projectileForce(p,target,caster,force){let a=Math.atan2(p.vy,p.vx);if(p.pullToCaster&&caster){const dx=caster.x-target.x,dy=caster.y-target.y,d=Math.hypot(dx,dy);a=Math.atan2(dy,dx);force=Math.min(force,Math.max(0,d-(target.r||18)-(caster.r||18)));}return {force,a,dx:Math.cos(a)*force,dy:Math.sin(a)*force};}
 const waveControl=Object.freeze({r:16,life:1.7,stun:.75,force:180,rehit:.1});
 const prismChase=Object.freeze({mult:4.5,stun:.65,force:180,speed:2600,range:1800,contact:90,wait:2,maxTime:10});
 function markPrismTarget(seq,cast,id){if(!seq||!cast||seq.prismCast!==cast||!id)return false;seq.prismTargets??=new Set();seq.prismDone??=new Set();if(seq.prismDone.has(id)||seq.prismTargets.size>=32)return false;seq.prismTargets.add(id);return true;}
@@ -24,5 +25,5 @@ const basicControl=final=>({stun:final?.75:.5,force:final?180:0});
 function forceDuration(distance,requested){return clamp(Number.isFinite(requested)?requested:(.18+distance/900),.16,.8);}
 const shieldCost=raw=>Math.max(12,raw*1.4);
 const damageAfterArmor=(raw,reduction)=>Math.max(1,Math.round(raw*(1-clamp(reduction,0,.45))));
-root.EchoesCombat=Object.freeze({version:2,projectileRange,projectileTime,prismChase,markPrismTarget,nextPrismTarget,waveControl,basicControl,forceDuration,contains,segment,forcePoint,angle,shieldCost,damageAfterArmor});
+root.EchoesCombat=Object.freeze({version:2,projectileForce,projectileRange,projectileTime,prismChase,markPrismTarget,nextPrismTarget,waveControl,basicControl,forceDuration,contains,segment,forcePoint,angle,shieldCost,damageAfterArmor});
 })(globalThis);
