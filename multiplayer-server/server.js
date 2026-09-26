@@ -483,7 +483,7 @@ function handleMessage(player,msg){
     const num=(v,min,max)=>clamp(Number(v)||0,min,max),effects=skillVisuals(msg.effects,120-(player.visualBudget||0));player.visualBudget=(player.visualBudget||0)+effects.length;
     const projectiles=(Array.isArray(msg.projectiles)?msg.projectiles:[]).slice(0,24).flatMap(raw=>{
       if(!raw)return[];const x=Number(raw.x),y=Number(raw.y),vx=Number(raw.vx),vy=Number(raw.vy);if(![x,y,vx,vy].every(Number.isFinite))return[];
-      return[{x:num(x,0,WORLD.width),y:num(y,0,WORLD.height),vx:num(vx,-3000,3000),vy:num(vy,-3000,3000),a:num(raw.a,-20,20),kind:String(raw.kind||'orb').slice(0,16),r:num(raw.r,2,24),t:num(raw.t,.05,2.5)}];
+      return[{x:num(x,0,WORLD.width),y:num(y,0,WORLD.height),vx:num(vx,-3000,3000),vy:num(vy,-3000,3000),a:num(raw.a,-20,20),kind:String(raw.kind||'orb').slice(0,16),r:num(raw.r,2,24),t:num(raw.t,.05,2.5),distanceTravelled:num(raw.distanceTravelled,0,1000)}];
     });
     if(effects.length||projectiles.length)broadcast({type:'skill:effects',playerId:player.id,x:player.x,y:player.y,seq:Math.floor(clamp(msg.seq,0,1e12)),effects,projectiles,serverTime:Date.now()},player.ws,{volatile:true});
     return;
