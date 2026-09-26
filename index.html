@@ -52,6 +52,36 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 #pvpTop b{color:var(--gold)}#pvpStatus{color:#a9c7be;font-size:12px;flex:1}.pvp-code{font:700 22px Georgia,serif;letter-spacing:.18em;color:var(--gold)}
 #pvpStage{position:relative;flex:1;min-height:0;display:grid;place-items:center;overflow:hidden}#pvpCanvas{max-width:100%;max-height:100%;width:100%;height:100%;background:#12262b}
 #pvpLobby{position:absolute;inset:0;display:grid;place-items:center;background:#071118d9;padding:20px}.pvp-card{width:min(720px,94vw);background:#14272f;border:1px solid #afc59a55;border-radius:12px;padding:24px;box-shadow:0 20px 70px #0008}.pvp-card h2{margin:5px 0 8px;font:28px Georgia,serif}.pvp-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.pvp-actions input{min-width:150px;background:#0f1f25;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:11px;font-size:18px;letter-spacing:.18em;text-align:center}.pvp-loadout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}.pvp-loadout div{background:#0b1c22;border:1px solid #ffffff12;border-radius:8px;padding:10px;font-size:12px;line-height:1.7}.pvp-help{font-size:11px;color:#abc0b7;line-height:1.8}.pvp-hud{position:absolute;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;gap:20px;pointer-events:none}.pvp-side{width:min(330px,42vw);background:#0a171dcc;border:1px solid #ffffff22;border-radius:8px;padding:9px 11px}.pvp-side.right{text-align:right}.pvp-bar{height:8px;background:#071116;border-radius:5px;overflow:hidden;margin-top:5px}.pvp-bar i{display:block;height:100%;background:#d98275}.pvp-bar.shield i{background:#84c8d8}.pvp-bar.stam i{background:#7eb991}.pvp-center{position:absolute;top:12px;left:50%;transform:translateX(-50%);text-align:center;font-size:12px;color:#e4d6aa;pointer-events:none}.pvp-result{position:absolute;inset:0;display:grid;place-items:center;background:#061117c7}.pvp-result.hidden{display:none}.pvp-result .pvp-card{text-align:center}.pvp-cooldowns{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:5px;pointer-events:none}.pvp-cooldowns span{min-width:54px;padding:6px 8px;border:1px solid #ffffff24;background:#0b171dcc;border-radius:5px;text-align:center;font-size:10px}.pvp-cooldowns b{display:block;color:var(--gold);font-size:11px}.pvp-ping{font-size:11px;color:#9fc4ba}@media(max-width:600px){.pvp-loadout{grid-template-columns:1fr}.pvp-card{padding:17px}.pvp-side{font-size:10px}.pvp-cooldowns span{min-width:43px;padding:5px 4px}}
+
+/* Compact combat HUD: keep the center of the battlefield clear. */
+.desktop-mode #questHud{top:132px;left:18px;width:235px;max-height:42vh;padding:3px 5px 6px 10px;font-size:10px;background:#07151a88;border-radius:0 7px 7px 0}
+.desktop-mode #questHud .quest-name{font-size:12px;line-height:1.35}.desktop-mode #questHud .quest-desc,.desktop-mode #questHud .side-quest-desc,.desktop-mode #questHud .side-quest-target,.desktop-mode #questHud .quest-target{font-size:8px;line-height:1.3}
+.desktop-mode .level-hunt-hud,.desktop-mode .side-quest-item{padding:4px 6px;margin-top:4px}.desktop-mode .side-quest-title{font-size:8px}.desktop-mode .side-quest-row{font-size:9px}
+.desktop-mode #minimapBox{width:138px;padding:6px;right:14px;top:12px}.desktop-mode #minimap{width:126px;height:92px}.desktop-mode .map-caption{font-size:8px}
+.desktop-mode .vitals{top:24px;left:18px;transform:scale(.88);transform-origin:top left}.desktop-mode #brand{left:18px;top:8px;font-size:8px}
+.desktop-mode .hud-menu{right:14px;top:119px;gap:4px}.desktop-mode .hud-menu button{padding:6px 8px;min-width:0;font-size:9px}
+.desktop-mode #skillCooldownHud{bottom:64px;gap:3px}.desktop-mode .skill-cd-item{min-width:58px;height:31px;padding:2px 5px;column-gap:4px;background:#0c1b21c7}.desktop-mode .skill-cd-item .skill-cd-name{font-size:8px;max-width:62px}.desktop-mode .skill-cd-item .skill-cd-time{font-size:9px}.desktop-mode .skill-cd-item kbd{font-size:8px;min-width:17px}
+.desktop-mode #skillTray{bottom:105px;padding:5px;gap:3px}.desktop-mode #skillTray button{width:78px;min-height:52px;font-size:9px}.desktop-mode #skillTray span,.desktop-mode #skillTray small{font-size:8px;margin-top:3px}
+.desktop-mode #combatReadout{bottom:105px;font-size:9px}
+.desktop-mode #bossHud{top:18px;width:min(360px,42vw);padding:6px 10px;background:#07151ac7}.desktop-mode #bossName{font-size:12px;margin-bottom:3px}.desktop-mode #bossPhase{font-size:8px}
+.desktop-mode #training,.desktop-mode #eventHud{left:18px;width:210px;padding:7px 9px;font-size:9px}.desktop-mode .training-row{font-size:9px;margin-top:5px}.desktop-mode .training-title{font-size:9px}
+.desktop-mode #hint{bottom:100px;font-size:9px;padding:5px 9px;max-width:320px}.desktop-mode #location{font-size:9px;opacity:.82}.desktop-mode #toasts{width:220px;right:14px}.desktop-mode .toast{font-size:9px;padding:6px 9px}
+.desktop-mode #bottom{transform:translateX(-50%) scale(.88);transform-origin:bottom center}
+
+@media(pointer:coarse){
+ .touch-mode #questHud{top:calc(var(--safe-top) + 86px);left:calc(var(--safe-left) + 10px);width:min(174px,42vw);max-height:30vh;padding:3px 4px 4px 7px;background:#07151a99}
+ .touch-mode #questHud .quest-name{font-size:10px}.touch-mode #questHud .quest-desc,.touch-mode #questHud .side-quest-desc,.touch-mode #questHud .side-quest-target,.touch-mode #questHud .quest-target{font-size:7px;line-height:1.25}
+ .touch-mode .level-hunt-hud,.touch-mode #questHud .side-quest-item{padding:3px 4px;margin-top:3px}.touch-mode #questHud .side-quest-title{font-size:7px}.touch-mode #questHud .side-quest-row{font-size:8px}
+ .touch-mode #minimapBox{width:88px;padding:4px;right:calc(var(--safe-right) + 8px);top:calc(var(--safe-top) + 7px)}.touch-mode #minimap{width:78px;height:62px}
+ .touch-mode .vitals{left:calc(var(--safe-left) + 10px);top:calc(var(--safe-top) + 26px);width:154px;gap:8px}.touch-mode .level{width:28px;height:28px}.touch-mode .level span{font-size:16px}
+ .touch-mode .hud-menu{top:calc(var(--safe-top) + 82px);right:calc(var(--safe-right) + 8px)}.touch-mode .hud-menu button{min-width:40px;min-height:40px;font-size:8px;padding:4px 5px}
+ .touch-mode #skillCooldownHud{bottom:calc(var(--safe-bottom) + 102px);gap:2px}.touch-mode .skill-cd-item{min-width:45px;height:28px;padding:2px 3px}.touch-mode .skill-cd-item kbd{font-size:7px;min-width:15px}.touch-mode .skill-cd-item .skill-cd-time{font-size:8px}
+ .touch-mode #bossHud{top:calc(var(--safe-top) + 124px);width:min(62vw,310px);padding:5px 8px}.touch-mode #bossName{font-size:11px}.touch-mode #bossPhase{font-size:7px}
+ .touch-mode #training,.touch-mode #eventHud{left:calc(var(--safe-left) + 10px);width:145px;padding:6px;top:calc(var(--safe-top) + 150px)}
+ .touch-mode #hint{font-size:8px;padding:5px 8px}.touch-mode #toasts{width:150px;right:calc(var(--safe-right) + 8px)}.touch-mode .toast{font-size:8px;padding:5px 7px}
+ .touch-mode #location strong{font-size:9px}
+ .touch-mode .panel{padding:14px;max-width:96vw}.touch-mode .panel h2{font-size:20px}.touch-mode .panel .lede{font-size:10px;line-height:1.55}.touch-mode .card{padding:9px}
+}
 </style>
 </head>
 <body>
@@ -966,12 +996,13 @@ function basicMeleeHit(reach,arc,damage,finalHit=false){let hits=0;for(const e o
  hitEnemy(e,damage*mult,false,player);hits++;if(e.dead||e.type==='dummy')continue;e.stun=.5;e.state='stunned';
  if(finalHit&&e.kind!=='boss'){const a=player.attackAngle,c=combatCenter(e),tx=c.x+Math.cos(a)*270,ty=c.y+Math.sin(a)*270,spot=freeBodySpot(tx,ty,e.r+5);skill2Knocks.push({e,x:spot.x,y:spot.y,t:.42,max:.42});ring(c.x,c.y,58,'#ffe3a0',.32);burst(c.x,c.y,'#ffe3a0',12,150);}
  }hits+=sharedPvpMeleeHit(reach,arc,damage,finalHit);return hits;}
+const SKILL_UNLOCK_LEVELS=[5,7,10,15,20];
 const SKILLS=[
- {name:'삼연 사격',level:2,cost:24,cool:3.5,color:'#a5f1d8',desc:'전방에 화살 세 발을 부채꼴로 발사합니다.'},
- {name:'관통 사격',level:5,cost:32,cool:5,color:'#9ddfff',desc:'빠른 관통 화살을 발사합니다.'},
+ {name:'삼연 사격',level:5,cost:24,cool:3.5,color:'#a5f1d8',desc:'전방에 화살 세 발을 부채꼴로 발사합니다.'},
+ {name:'관통 사격',level:7,cost:32,cool:5,color:'#9ddfff',desc:'빠른 관통 화살을 발사합니다.'},
  {name:'후퇴 사격',level:10,cost:38,cool:6.5,color:'#d2b4ff',desc:'뒤로 물러나며 연속 사격합니다.'},
  {name:'확산 사격',level:15,cost:44,cool:8,color:'#ffd18b',desc:'넓은 전방에 화살을 퍼뜨립니다.'},
- {name:'집중 화살비',level:24,cost:55,cool:11,color:'#ffcaeb',desc:'강한 관통 화살을 집중 발사합니다.'}
+ {name:'집중 화살비',level:20,cost:55,cool:11,color:'#ffcaeb',desc:'강한 관통 화살을 집중 발사합니다.'}
 ];
 const SWORD_SKILL_LIBRARY=[
  {id:'windSlash',name:'바람 가르기',level:1,price:0,cost:20,cool:3.2,color:'#61f0c7',desc:'한 걸음 뒤로 물러나 간격을 만든 뒤 한 번 크게 베어 긴 검풍을 날립니다.',cfg:{duration:.46,hits:[.18],mult:[1.35],arc:[1.75],reach:[18],step:[2],mode:'windShot'}},
@@ -1055,7 +1086,7 @@ function chooseSwordStyle(id){
 }
 function showSwordStyleChoice(){
  if(!admin.allSkillSets&&(player.level<5||!swordTrainerNear())){toast('레벨 5를 달성한 뒤 검술 사범 세린에게 말을 걸어 유파를 선택하세요.');return;}
- const cards=SWORD_STYLE_GROUPS.map((g,i)=>'<div class="card"><div class="icon">'+['≋','☾','◆','✦','◈'][i]+'</div><h3>'+g.name+'</h3><p>'+g.desc+'</p>'+g.skills.map((id,n)=>'<div class="stat-row"><span>'+['Q','R','T','G','V'][n]+'</span><b>'+swordSkillById(id).name+'</b></div>').join('')+'<button class="primary" data-action="chooseSwordStyle" data-value="'+g.id+'">'+g.name+' 선택</button></div>').join('');
+ const cards=SWORD_STYLE_GROUPS.map((g,i)=>'<div class="card"><div class="icon">'+['≋','☾','◆','✦','◈'][i]+'</div><h3>'+g.name+'</h3><p>'+g.desc+'</p>'+g.skills.map((id,n)=>'<div class="stat-row"><span>'+['Q','R','T','G','V'][n]+' · Lv.'+SKILL_UNLOCK_LEVELS[n]+'</span><b>'+swordSkillById(id).name+'</b></div>').join('')+'<button class="primary" data-action="chooseSwordStyle" data-value="'+g.id+'">'+g.name+' 선택</button></div>').join('');
  openPanel('swordStyle',header('SWORD MASTER · LEVEL 5','세린에게 전수받을 유파를 선택하세요',false)+'<p class="lede">첫 여정을 통해 기본기를 익힌 모험가만 유파를 선택할 수 있습니다. <b>한 번 선택하면 일반 플레이에서는 다른 유파로 바꿀 수 없습니다.</b><br>선택 즉시 해당 유파의 첫 검술을 전수받고, 이후 검술도 세린에게 배웁니다.</p><div class="grid two">'+cards+'</div>'+footer('검술 사범 세린과 대화 중 · 선택 후 변경할 수 없습니다.',''),true);
 }
 function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color){
@@ -1147,7 +1178,7 @@ function swordSkillIdAt(slot){const list=player?.weapon===4?player.adminSwordSki
 function swordSkillAt(slot){return balancedSwordSkill(swordSkillById(swordSkillIdAt(slot)),slot);}
 let swordTrainerSession=false;
 function swordTrainerNear(){const trainer=objects.find(o=>o.id==='swordMaster');return swordTrainerSession&&!!trainer&&distance(player,trainer)<175;}
-function swordLearnLevel(sk){const style=swordStyleById(player?.swordStyle),first=style?.skills?.[0]===sk?.id;return first?1:Math.max(5,Number(sk?.level)||5);}
+function swordLearnLevel(sk){const style=swordStyleById(player?.swordStyle),idx=style?.skills?.indexOf(sk?.id)??-1;return idx>=0?SKILL_UNLOCK_LEVELS[idx]:Math.max(5,Number(sk?.level)||5);}
 function learnSwordSkill(id){const sk=swordSkillById(id);if(!sk||!swordSkillAllowed(id)||player.learnedSwordSkills.includes(id))return;if(!swordTrainerNear()){toast('검술은 마을의 검술 사범 세린에게 말을 걸어 배울 수 있습니다.');return;}const need=swordLearnLevel(sk);if(player.level<need){toast('레벨 '+need+'부터 배울 수 있습니다.');return;}player.learnedSwordSkills.push(id);const empty=player.equippedSwordSkills.findIndex(v=>!v);if(empty>=0)player.equippedSwordSkills[empty]=id;sound('reward');toast('<b>검술 습득 · '+sk.name+'</b><br>검술 사범 세린에게 전수받았습니다.');saveGame(false);showSkills(true,true);}
 function equipSwordSkill(id,slot){slot=Math.floor(Number(slot));const sk=swordSkillById(id);if(!sk||slot<0||slot>4)return;const adminMode=player.weapon===4||admin.allSkillSets;if(!adminMode&&(!swordSkillAllowed(id)||!player.learnedSwordSkills.includes(id)))return;const list=adminMode?player.adminSwordSkills:player.equippedSwordSkills;for(let i=0;i<list.length;i++)if(list[i]===id)list[i]=null;list[slot]=id;player.skillCds[slot]=0;sound('click');if(!adminMode)saveGame(false);showSkills(!adminMode&&[2,3].includes(player.weapon),true);}
 
@@ -1175,11 +1206,11 @@ function attack(){
  sound(player.weapon===2?'bow':'swing');
 }
 const HIDDEN_SKILLS=[
- {name:'성흔·섬광 포획',level:1,cost:28,cool:4,color:'#9feaff',desc:'누르는 즉시 이동키로 바라본 방향으로 초고속 돌진합니다. 돌진 경로의 적은 플레이어 돌진 거리보다 더 멀리 진행 방향으로 날아가며 0.5초 기절합니다.'},
- {name:'성흔·월식 추격',level:1,cost:34,cool:5.5,color:'#d6a8ff',desc:'누르는 즉시 매우 넓은 주변에 원형 피해를 줍니다. 범위는 이전의 5배이며, 적중한 표식은 3초 유지됩니다. 다시 사용할 때 현재 위치에서 가장 가까운 표식 대상부터 뒤로 순간이동해 방어를 깨고 1초 기절시킵니다.'},
- {name:'성흔·무한 검압',level:1,cost:42,cool:7,color:'#8fffe1',desc:'누르는 동안 최대 5초 유지됩니다. 이동 속도가 80% 감소하고 가장 가까운 적을 계속 바라보며, 좁은 범위를 빠르게 연속 베어 피해와 0.1초 기절을 반복합니다. 종료 순간 강한 마무리 베기로 적을 전방에 날립니다.'},
- {name:'성흔·천극 질주',level:1,cost:48,cool:8.5,color:'#ffd083',desc:'누르는 동안 최대 4초 돌진하며 이동키로 방향을 부드럽게 조절합니다. 적을 자연스럽게 앞에 끌고 가며, 종료 시 앞의 적을 폭발과 함께 날려 보냅니다.'},
- {name:'성흔·삼연 성흔',level:1,cost:70,cool:13.5,color:'#ff9ee8',desc:'누르는 즉시 연속 동작을 시작하며 사용 중 이동할 수 없습니다. 1초 간격으로 세 번 순간돌진하고 1초 뒤 강력한 마무리 일격을 가합니다. 마우스 조준이 활성화되어 있으면 마우스 방향을 우선하며, 아니면 이동키 방향을 사용합니다.'}
+ {name:'성흔·섬광 포획',level:5,cost:28,cool:4,color:'#9feaff',desc:'누르는 즉시 이동키로 바라본 방향으로 초고속 돌진합니다. 돌진 경로의 적은 플레이어 돌진 거리보다 더 멀리 진행 방향으로 날아가며 0.5초 기절합니다.'},
+ {name:'성흔·월식 추격',level:7,cost:34,cool:5.5,color:'#d6a8ff',desc:'누르는 즉시 매우 넓은 주변에 원형 피해를 줍니다. 범위는 이전의 5배이며, 적중한 표식은 3초 유지됩니다. 다시 사용할 때 현재 위치에서 가장 가까운 표식 대상부터 뒤로 순간이동해 방어를 깨고 1초 기절시킵니다.'},
+ {name:'성흔·무한 검압',level:10,cost:42,cool:7,color:'#8fffe1',desc:'누르는 동안 최대 5초 유지됩니다. 이동 속도가 80% 감소하고 가장 가까운 적을 계속 바라보며, 좁은 범위를 빠르게 연속 베어 피해와 0.1초 기절을 반복합니다. 종료 순간 강한 마무리 베기로 적을 전방에 날립니다.'},
+ {name:'성흔·천극 질주',level:15,cost:48,cool:8.5,color:'#ffd083',desc:'누르는 동안 최대 4초 돌진하며 이동키로 방향을 부드럽게 조절합니다. 적을 자연스럽게 앞에 끌고 가며, 종료 시 앞의 적을 폭발과 함께 날려 보냅니다.'},
+ {name:'성흔·삼연 성흔',level:20,cost:70,cool:13.5,color:'#ff9ee8',desc:'누르는 즉시 연속 동작을 시작하며 사용 중 이동할 수 없습니다. 1초 간격으로 세 번 순간돌진하고 1초 뒤 강력한 마무리 일격을 가합니다. 마우스 조준이 활성화되어 있으면 마우스 방향을 우선하며, 아니면 이동키 방향을 사용합니다.'}
 ];
 const SKILL_COOLDOWN_BALANCE=1.5;
 const SKILL_STAMINA_BALANCE=1.15;
@@ -1688,8 +1719,8 @@ function updateCombat(dt){updateStandardSkillPrepare(dt);updateHiddenSkills(dt);
  if(player.pendingSlam){player.pendingSlam.t-=dt;if(player.pendingSlam.t<=0){const p=player.pendingSlam;player.pendingSlam=null;for(const e of enemies)if(!e.dead&&combatDistance(e,p)<p.r+combatRadius(e))hitEnemy(e,p.damage,true);effects.push({type:'slash',x:p.x,y:p.y,a:player.facing,arc:1.5,r:p.r,color:'#ffd18b',t:.3,max:.3});burst(p.x,p.y,'#ffd18b',12,85);sound('hit');}}
 }
 function toggleSkillTray(){$('skillTray').classList.toggle('hidden');updateSkillTray();}
-function updateSkillTray(){if(!$('skillTray'))return;for(const b of $('skillTray').querySelectorAll('[data-skill]')){const i=+b.dataset.skill,s=skillInfo(i),cd=player.weapon===3?(player.hiddenSkillCds?.[i]||0):(player.skillCds[i]||0),locked=!!s.locked||(player.weapon!==4&&player.level<s.level),follow=player.weapon===3&&i===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires;b.disabled=locked||(!follow&&cd>0)||player.exhaust>0;const html='<b>'+s.name+'</b><span>'+(locked?'Lv.'+s.level:follow?'추격 가능 · '+Math.max(0,hiddenSkillFollowup.expires-realTime).toFixed(1)+'초':cd>0?cd.toFixed(1)+'초':s.cost+' 지구력')+'</span><small>'+keyName(keybinds[['KeyQ','KeyR','KeyT','KeyG','KeyV'][i]])+'</small>';if(b._lastHTML!==html){b.innerHTML=html;b._lastHTML=html;}}updateSkillCooldownHud();}
-function updateSkillCooldownHud(){const hud=$('skillCooldownHud');if(!hud||!player)return;const keys=['KeyQ','KeyR','KeyT','KeyG','KeyV'];for(const el of hud.querySelectorAll('[data-skill-cd]')){const i=+el.dataset.skillCd,s=skillInfo(i),cd=Math.max(0,player.weapon===3?(player.hiddenSkillCds?.[i]||0):(player.skillCds[i]||0)),locked=!!s.locked||(player.weapon!==4&&player.level<s.level),follow=player.weapon===3&&i===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires;el.classList.toggle('locked',locked);el.classList.toggle('cooling',!locked&&cd>0&&!follow);const state=locked?'Lv.'+s.level:follow?'FOLLOW':cd>0?cd.toFixed(cd>=10?0:1)+'초':'READY';const html='<kbd>'+keyName(keybinds[keys[i]])+'</kbd><span class="skill-cd-name">'+esc(s.name)+'</span><span class="skill-cd-time">'+state+'</span>';if(el._lastHTML!==html){el.innerHTML=html;el._lastHTML=html;}}}
+function updateSkillTray(){if(!$('skillTray'))return;for(const b of $('skillTray').querySelectorAll('[data-skill]')){const i=+b.dataset.skill,s=skillInfo(i),cd=player.weapon===3?(player.hiddenSkillCds?.[i]||0):(player.skillCds[i]||0),locked=!!s.locked||(player.weapon!==4&&player.level<s.level),follow=player.weapon===3&&i===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires;b.disabled=locked||(!follow&&cd>0)||player.exhaust>0;const html='<b>'+s.name+'</b><span>'+(s.id===null?'미장착':locked?'Lv.'+s.level+' 필요':follow?'추격 가능 · '+Math.max(0,hiddenSkillFollowup.expires-realTime).toFixed(1)+'초':cd>0?cd.toFixed(1)+'초':s.cost+' 지구력')+'</span><small>'+keyName(keybinds[['KeyQ','KeyR','KeyT','KeyG','KeyV'][i]])+'</small>';if(b._lastHTML!==html){b.innerHTML=html;b._lastHTML=html;}}updateSkillCooldownHud();}
+function updateSkillCooldownHud(){const hud=$('skillCooldownHud');if(!hud||!player)return;const keys=['KeyQ','KeyR','KeyT','KeyG','KeyV'];for(const el of hud.querySelectorAll('[data-skill-cd]')){const i=+el.dataset.skillCd,s=skillInfo(i),cd=Math.max(0,player.weapon===3?(player.hiddenSkillCds?.[i]||0):(player.skillCds[i]||0)),locked=!!s.locked||(player.weapon!==4&&player.level<s.level),follow=player.weapon===3&&i===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires;el.classList.toggle('locked',locked);el.classList.toggle('cooling',!locked&&cd>0&&!follow);const state=s.id===null?'미장착':locked?'Lv.'+s.level+' 필요':follow?'FOLLOW':cd>0?cd.toFixed(cd>=10?0:1)+'초':'READY';const html='<kbd>'+keyName(keybinds[keys[i]])+'</kbd><span class="skill-cd-name">'+esc(s.name)+'</span><span class="skill-cd-time">'+state+'</span>';if(el._lastHTML!==html){el.innerHTML=html;el._lastHTML=html;}}}
 function showSkills(forceSword=false,preserveScroll=false){
  const keys=['KeyQ','KeyR','KeyT','KeyG','KeyV'];
  if(!forceSword&&(player.weapon===3||player.weapon===2)){
@@ -1700,7 +1731,7 @@ function showSkills(forceSword=false,preserveScroll=false){
  const adminSword=player.weapon===4,near=swordTrainerNear(),slots=adminSword?player.adminSwordSkills:player.equippedSwordSkills;
  const equipped='<div class="card selected"><div class="eyebrow">'+(adminSword?'ADMIN ALL ARTS':'EQUIPPED ARTS')+'</div><h3>'+(adminSword?'관리자의 만능검':'장착 검술')+'</h3>'+slots.map((id,i)=>'<div class="stat-row"><span>'+keyName(keybinds[keys[i]])+'</span><b>'+(swordSkillById(id)?.name||'미장착')+'</b></div>').join('')+'</div>';
  const visibleSkills=(adminSword||admin.allSkillSets)?SWORD_SKILL_LIBRARY:(swordStyleById(player.swordStyle)?.skills||[]).map(swordSkillById).filter(Boolean);const cards=visibleSkills.map(sk=>{const learned=adminSword||admin.allSkillSets||player.learnedSwordSkills.includes(sk.id),need=swordLearnLevel(sk),levelOk=player.level>=need||adminSword,canLearn=!adminSword&&!learned&&near&&levelOk;const equip=learned?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">'+keys.map((k,i)=>'<button class="small '+(slots[i]===sk.id?'selected':'')+'" data-action="equipSwordSkill" data-value="'+sk.id+':'+i+'">'+keyName(keybinds[k])+'</button>').join('')+'</div>':'<button data-action="learnSwordSkill" data-value="'+sk.id+'" '+(!canLearn?'disabled':'')+'>'+(!levelOk?'Lv.'+need+' 필요':!near?'검술 사범 세린에게 말 걸기':'검술 전수받기')+'</button>';return '<div class="card '+(learned?'selected':'')+'"><div class="eyebrow">'+(adminSword?'ADMIN UNLOCKED':learned?'습득 완료':'습득 가능 Lv.'+need)+'</div><h3>'+sk.name+'</h3><p><b style="color:'+swordStyleFxForSkill(sk.id).main+'">'+(swordStyleForSkill(sk.id)?.name||'')+'</b></p><p>'+sk.desc+'</p><p><b>'+SWORD_SKILL_IDENTITY[sk.id].trait+'</b><br><span style="opacity:.78">연출 · '+SWORD_SKILL_IDENTITY[sk.id].fx+'</span></p><div class="price">'+balancedSkillCost(sk.cost)+' 지구력 · 재사용 '+balancedSkillCooldown(sk.cool)+'초'+(sk.holdContinuous?' · <b>누르는 동안 유지 · 최대 '+sk.holdMax+'초</b>':'')+(adminSword?'':' · 사범 전수')+'</div>'+equip+'</div>';}).join('');
- openPanel('skills',header(adminSword?'ADMIN MASTER BLADE':'SWORD ARTS',adminSword?'관리자의 만능검 · 모든 일반 검술':'검술 습득과 장착')+equipped+'<div class="grid two">'+cards+'</div><div class="tip">'+(adminSword?'관리자 검은 모든 검술이 즉시 해금되어 있습니다. 각 검술 아래 Q/R/T/G/V 버튼으로 시험할 슬롯을 바꿀 수 있습니다.':(player.swordStyle?'<b>'+swordStyleById(player.swordStyle).name+'</b> · 첫 검술은 기본 지급, 나머지는 레벨 5 이후 검술 사범 세린에게 전수받습니다. 일반 플레이에서는 다른 유파로 변경할 수 없습니다.':'아직 검술 유파를 선택하지 않았습니다.'))+'</div>'+footer(),false,preserveScroll);
+ openPanel('skills',header(adminSword?'ADMIN MASTER BLADE':'SWORD ARTS',adminSword?'관리자의 만능검 · 모든 일반 검술':'검술 습득과 장착')+equipped+'<div class="grid two">'+cards+'</div><div class="tip">'+(adminSword?'관리자 검은 모든 검술이 즉시 해금되어 있습니다. 각 검술 아래 Q/R/T/G/V 버튼으로 시험할 슬롯을 바꿀 수 있습니다.':(player.swordStyle?'<b>'+swordStyleById(player.swordStyle).name+'</b> · 첫 검술은 유파 선택과 함께 Lv.5에 지급되고, 이후 검술은 Lv.7 / 10 / 15 / 20에 검술 사범 세린에게 전수받습니다. 일반 플레이에서는 다른 유파로 변경할 수 없습니다.':'아직 검술 유파를 선택하지 않았습니다.'))+'</div>'+footer(),false,preserveScroll);
 }
 function hitEnemy(e,amount,heavy=false,source=player){
  if(e.riftSleeping)return;if(e.dead||(e.type==='finalBoss'&&!e.alert))return;const serverMob=multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId;
