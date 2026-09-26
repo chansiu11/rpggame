@@ -4,7 +4,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
 const number=v=>Number.isFinite(Number(v));
 // One result revision covers health, control and special state. Input can acknowledge
 // a result, but cannot replace its position until its control lease has finished.
-export function createWorldCombat({players,send,broadcast,publicState,safeZone,width,height,allowParty=()=>false,clipTarget=(p,q)=>q,now=Date.now}){
+export function createWorldCombat({players,send,broadcast,publicState,safeZone,width,height,allowParty=()=>false,clipTarget=(p,q)=>q,resolveTarget=id=>players.get(id),now=Date.now}){
  let eventSeq=0;
  const timed=['stun','invuln','dodge','parryWindow','shieldBroken','shieldDelay','mark'];
  function advance(p,t=now()){
@@ -60,7 +60,19 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
   if(t-(a.combatBudgetAt||0)>1000){a.combatBudgetAt=t;a.combatBudget=0;}
   const events=(Array.isArray(msg.events)?msg.events:[]).slice(0,64);
   for(const e of events){
-   if(++a.combatBudget>240)break;advance(a,t);const b=players.get(String(e.targetId||''));if(b)advance(b,t);
+   if(++a.combatBudget>240)break;advance(a,t);
+   if(e.kind==='stigmaFollowReady'){
+    if(a.weapon!==3||a.hp<=0||t<(a.stunUntil||0)||t<(a.stigmaReadyAfter||0))continue;
+    const ids=(Array.isArray(e.targets)?e.targets:[]).slice(0,32).map(String).filter(id=>{const q=resolveTarget(id);return q&&q!==a&&q.hp>0&&!q.dead&&Math.hypot(q.x-a.x,q.y-a.y)<=550;});
+    if(ids.length){a.stigmaFollow={until:t+3000,ids:new Set(ids)};a.stigmaReadyAfter=t+3000;}continue;
+   }
+   if(e.kind==='stigmaFollow'){
+    const f=a.stigmaFollow,id=String(e.targetId||''),q=resolveTarget(id);
+    if(a.weapon!==3||a.hp<=0||!f||t>f.until||!f.ids.has(id)||!q||q.hp<=0||q.dead||!number(e.x)||!number(e.y)||Math.hypot(e.x-q.x,e.y-q.y)>180)continue;
+    f.ids.delete(id);a.stunUntil=0;a.stun=0;a.forceMove=null;a.controlUntil=0;a.controlBy=null;a.controlLeaseUntil=0;a.controlRevision=(a.controlRevision||0)+1;
+    a.x=clamp(e.x,40,width-40);a.y=clamp(e.y,40,height-40);a.vx=a.vy=0;emit(a,{outcome:'stigmaCleanse',damage:0});continue;
+   }
+   const b=players.get(String(e.targetId||''));if(b)advance(b,t);
    if(!allowed(a,b)||t<(a.stunUntil||0)||Math.hypot(a.x-b.x,a.y-b.y)>clamp(e.range||1100,40,1200)+80)continue;
    const kind=String(e.kind||'attack'),damageEvent=kind==='attack',hasLease=b.controlBy===a.id&&t<(b.controlLeaseUntil||0);
    if(!damageEvent&&!['control','special'].includes(kind))continue;

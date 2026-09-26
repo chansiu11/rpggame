@@ -21,3 +21,9 @@ test('repeated wave impacts renew force from victim actual position, not old end
  assert.equal(f.b.hp,500);assert.ok(f.b.x>1600);f.step(800);const end=f.b.x;assert.equal(f.c.ingest(f.b,{seq:1,combatAck:0,x:1100,y:1000}).x,end);
 });
 test('projectile cast acknowledgement is attached only to accepted damage',()=>{const f=fixture();f.hit({prismCast:'prism:1'});assert.equal(f.messages.at(-1).prismCast,'prism:1');const n=f.messages.length;f.hit({prismCast:'prism:2'});assert.equal(f.messages.length,n);});
+test('Stigma recast consumes a live target token, clears server stun and old force, and prevents stale rollback',()=>{
+ const f=fixture();f.a.weapon=3;f.c.handle(f.a,{seq:1,events:[{kind:'stigmaFollowReady',targets:['b']}]});f.a.stunUntil=12000;f.a.controlUntil=12000;f.a.forceMove={startX:1000,startY:1000,x:800,y:1000,max:.4,startedAt:10000};
+ f.c.handle(f.a,{seq:2,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});assert.equal(f.a.stun,0);assert.equal(f.a.stunUntil,0);assert.equal(f.a.forceMove,null);assert.equal(f.a.controlUntil,0);assert.equal(f.messages.at(-1).outcome,'stigmaCleanse');assert.equal(f.a.x,1160);
+ assert.equal(f.c.ingest(f.a,{seq:1,combatAck:0,x:1000,y:1000}).x,1160);f.a.stunUntil=12000;f.c.handle(f.a,{seq:3,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});assert.equal(f.a.stunUntil,12000);
+});
+test('Stigma cleanse rejects missing or expired marks and wrong weapons',()=>{for(const mode of ['missing','expired','weapon']){const f=fixture();f.a.weapon=3;if(mode!=='missing')f.c.handle(f.a,{seq:1,events:[{kind:'stigmaFollowReady',targets:['b']}]});if(mode==='expired')f.step(3001);if(mode==='weapon')f.a.weapon=0;f.a.stunUntil=20000;f.c.handle(f.a,{seq:2,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});assert.equal(f.a.stunUntil,20000);}});
