@@ -72,6 +72,8 @@ function handle(msg){
   if(msg.type==='party:update'){state.party=msg.party||null;emit('party',state.party);return;}
   if(msg.type==='party:invite'){state.pendingInvite=msg;emit('party:invite',msg);return;}
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
+  if(msg.type==='pvp:matchStatus'){emit('pvp:matchStatus',msg);return;}
+  if(msg.type==='pvp:matchFound'){emit('pvp:matchFound',msg);return;}
   if(msg.type==='pvp:damage'){emit('pvp:damage',msg);return;}
   if(msg.type==='pvp:blocked'){emit('pvp:blocked',msg);return;}
   if(msg.type==='world:role'){state.worldRole={leaderId:msg.leaderId||null,isLeader:!!msg.isLeader,serverAuthority:msg.serverAuthority!==false};emit('world:role',state.worldRole);return;}
@@ -111,7 +113,7 @@ function connect(profile={},reconnecting=false){
     ws.addEventListener('open',()=>{
       opened=true;
       try{ws.binaryType='arraybuffer';}catch{}
-      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0});
+      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world'});
     });
     ws.addEventListener('message',e=>{
       let msg;try{msg=JSON.parse(e.data);}catch{return;}
@@ -163,6 +165,8 @@ window.EchoesMulti={
   skillEffects(packet){if(state.connected&&packet)send({type:'skill:effects',seq:packet.seq||0,effects:Array.isArray(packet.effects)?packet.effects.slice(0,90):[],projectiles:Array.isArray(packet.projectiles)?packet.projectiles.slice(0,24):[]});},
   pvpDamage(targetId,damage,range=180,kind='melee',control={}){if(targetId)send({type:'pvp:damage',targetId,damage,range,kind,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0,stun:control.stun||0});},
   pvpControl(targetId,dx,dy,stun=0,kind='skill-control'){if(targetId)send({type:'pvp:control',targetId,dx,dy,stun,kind});},
+  pvpMatchJoin(){return send({type:'pvp:matchJoin'});},
+  pvpMatchCancel(){return send({type:'pvp:matchCancel'});},
   damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0});},
   hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){if(!state.connected)return;send({type:'pvp:hit',targetId,damage,range,kind,parryable});},
   createParty(){send({type:'party:create'});},
