@@ -15,3 +15,8 @@ test('absolute tracking replaces an endpoint instead of adding it repeatedly',()
 test('attack shape origin is not interpreted as a force destination',()=>{const f=fixture();f.hit({shape:'circle',x:1100,y:1000,r:50,dx:100});f.step(500);assert.equal(f.b.x,1200);});
 test('PVP armor and shield formulas have matching deterministic values',()=>{const C=globalThis.EchoesCombat;assert.equal(C.damageAfterArmor(100,.2),80);assert.equal(C.damageAfterArmor(100,1),55);assert.equal(C.shieldCost(100),140);assert.equal(C.shieldCost(1),12);const f=fixture();f.b.defenseReduction=.2;f.hit();assert.equal(f.b.hp,920);});
 test('teleport is rejected during control and accepted with a fresh acknowledgement afterward',()=>{const f=fixture();f.hit({stun:.5});let s=f.c.ingest(f.b,{seq:1,combatAck:1,teleport:true,x:4000,y:4000});assert.equal(s.x,1100);assert.ok(!f.b.teleportSeq);f.step(600);s=f.c.ingest(f.b,{seq:2,combatAck:1,teleport:true,x:4000,y:4000});assert.equal(s.x,4000);assert.equal(f.b.teleportSeq,2);});
+test('repeated wave impacts renew force from victim actual position, not old endpoint',()=>{
+ const f=fixture(),C=globalThis.EchoesCombat;
+ for(let i=0;i<5;i++){const x=f.b.x;f.hit({shape:'circle',x,y:f.b.y,r:32,range:1200,skillId:'dawnArc',dx:C.waveControl.force,stun:C.waveControl.stun,duration:C.forceDuration(180)});assert.equal(f.b.forceMove.startX,x);assert.equal(f.b.forceMove.x,x+180);f.step(110);}
+ assert.equal(f.b.hp,500);assert.ok(f.b.x>1600);f.step(800);const end=f.b.x;assert.equal(f.c.ingest(f.b,{seq:1,combatAck:0,x:1100,y:1000}).x,end);
+});

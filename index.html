@@ -943,7 +943,7 @@ function previewWorldControl(id,patch){
  const rp=multiRemotePlayers.get(id);if(!rp||Number(rp.hp)<=0)return;
  const dx=Number(patch.dx)||0,dy=Number(patch.dy)||0,absolute=Number.isFinite(patch.x)&&Number.isFinite(patch.y);
  if(!dx&&!dy&&!absolute)return;
- const now=performance.now(),sx=Number(rp.rx??rp.x),sy=Number(rp.ry??rp.y),base=rp.previewForce||rp.forceMove||{x:sx,y:sy};
+ const now=performance.now(),sx=Number(rp.rx??rp.x),sy=Number(rp.ry??rp.y),base=patch.fromCurrent?{x:sx,y:sy}:(rp.previewForce||rp.forceMove||{x:sx,y:sy});
  const x=absolute?patch.x:base.x+dx,y=absolute?patch.y:base.y+dy;
  const max=window.EchoesCombat.forceDuration(Math.hypot(x-sx,y-sy),patch.duration);
  rp.previewForce={startX:sx,startY:sy,x,y,max,receivedAt:now};rp.previewUntil=now+Math.min(900,Math.max(350,max*1000+(window.EchoesMulti.state.rtt||100)));
@@ -973,7 +973,7 @@ function combatTargets(){
 function worldPlayerHit(e,amount,heavy,source=player,override={}){
  if(e.dead||e.riftSleeping)return;
  const a=Math.atan2(e.y-source.y,e.x-source.x),pending=worldTargetControls.get(e.id);
- const event={kind:'attack',targetId:e.id,damage:Math.max(1,Math.round(amount)),range:1200,shape:'circle',x:multiRemotePlayers.get(e.id)?.x??e.x,y:multiRemotePlayers.get(e.id)?.y??e.y,r:64,skillId:worldCurrentSkillId(),bypassShield:!!void3State,stun:void3State?0:heavy?.75:.22,dx:heavy?Math.cos(a)*24:0,dy:heavy?Math.sin(a)*24:0,breakShield:!!pending?.breakShield,observedAt:(multiRemotePlayers.get(e.id)?.serverTime||window.EchoesMulti.serverNow())-42,...override};window.EchoesMulti.combatEvent(event);previewWorldControl(e.id,{dx:event.dx,dy:event.dy,duration:event.duration});
+ const event={kind:'attack',targetId:e.id,damage:Math.max(1,Math.round(amount)),range:1200,shape:'circle',x:multiRemotePlayers.get(e.id)?.x??e.x,y:multiRemotePlayers.get(e.id)?.y??e.y,r:64,skillId:worldCurrentSkillId(),bypassShield:!!void3State,stun:void3State?0:heavy?.75:.22,dx:heavy?Math.cos(a)*24:0,dy:heavy?Math.sin(a)*24:0,breakShield:!!pending?.breakShield,observedAt:(multiRemotePlayers.get(e.id)?.serverTime||window.EchoesMulti.serverNow())-42,...override};window.EchoesMulti.combatEvent(event);previewWorldControl(e.id,{dx:event.dx,dy:event.dy,duration:event.duration,fromCurrent:true});
 }
 function flushWorldCombat(){
  if(!multiplayerMode||!window.EchoesMulti?.connected){worldTargetControls.clear();return;}
@@ -1397,7 +1397,7 @@ function finishSecondSkillDash(){
  if(d.caught.size){ring(player.x,player.y,SECOND_END_RADIUS,'#9ddfff',.38);burst(player.x,player.y,'#9ddfff',14,120);}
 }
 function updateSkill2Knocks(dt){
- for(const k of skill2Knocks){if(!k.e||k.e.dead){k.t=0;continue;}if(k.e.networkPlayer){worldTargetControl(k.e.id,{x:k.x,y:k.y,duration:k.max,stun:k.e.stun});k.t=0;continue;}if(multiplayerMode&&window.EchoesMulti?.connected&&k.e.type!=='dummy'&&!k.e.riftId){const control={knockbackX:k.x-k.e.x,knockbackY:k.y-k.e.y,duration:k.max,stun:k.e.stun};if(k.e.kind==='boss')window.EchoesMulti.damageBoss(k.e.id,0,control);else window.EchoesMulti.damageMob(k.e.id,0,control);k.t=0;continue;}k.t-=dt;const dx=k.x-k.e.x,dy=k.y-k.e.y,dist=Math.hypot(dx,dy);if(dist>2){const step=Math.min(dist,(390+dist*4.4)*dt);moveBody(k.e,dx/(dist||1)*step,dy/(dist||1)*step);}}
+ for(const k of skill2Knocks){if(!k.e||k.e.dead){k.t=0;continue;}if(k.e.networkPlayer){worldTargetControl(k.e.id,{x:k.x,y:k.y,duration:k.max,stun:k.e.stun});k.t=0;continue;}if(multiplayerMode&&window.EchoesMulti?.connected&&k.e.type!=='dummy'&&!k.e.riftId){const control={knockbackX:k.x-k.e.x,knockbackY:k.y-k.e.y,duration:k.max,stun:k.e.stun};if(k.e.kind==='boss')window.EchoesMulti.damageBoss(k.e.id,0,control);else window.EchoesMulti.damageMob(k.e.id,0,control);k.t=0;continue;}k.t-=dt;if(k.cubic){const q=window.EchoesCombat.forcePoint(k,k.max-k.t);moveBody(k.e,q.x-k.e.x,q.y-k.e.y);continue;}const dx=k.x-k.e.x,dy=k.y-k.e.y,dist=Math.hypot(dx,dy);if(dist>2){const step=Math.min(dist,(390+dist*4.4)*dt);moveBody(k.e,dx/(dist||1)*step,dy/(dist||1)*step);}}
  skill2Knocks=skill2Knocks.filter(k=>k.t>0&&k.e&&!k.e.dead);
 }
 function updateSpecialSwordSkills(dt){
@@ -1674,7 +1674,7 @@ function updateHeldSwordSkill(seq,sk,dt){
  }else if(mode==='holdShadow'){
   const candidates=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&combatDistance(e,player)<(seq.ultimate?520:250)).sort((a,b)=>combatDistance(a,player)-combatDistance(b,player));
   const target=candidates.length?candidates[Math.floor((seq.elapsed*(seq.ultimate?7:1))%Math.min(candidates.length,6))]:null;
-  seq.fx-=dt;if(seq.fx<=0){seq.fx=seq.ultimate?.10:.16;if(target){const ox=player.x,oy=player.y,aa=Math.atan2(player.y-target.y,player.x-target.x)+Math.PI/2*(seq.side||1),dist=seq.ultimate?92:68,tx=target.x+Math.cos(aa)*dist,ty=target.y+Math.sin(aa)*dist;effects.push({type:'line',x:ox,y:oy,x2:tx,y2:ty,color:accent,t:.18,max:.18});effects.push({type:'riftCut',x:(ox+tx)/2,y:(oy+ty)/2,a:Math.atan2(ty-oy,tx-ox),len:seq.ultimate?210:120,width:seq.ultimate?26:16,color:main,t:.16,max:.16});moveBody(player,clamp(tx-player.x,seq.ultimate?-210:-95,seq.ultimate?210:95),clamp(ty-player.y,seq.ultimate?-210:-95,seq.ultimate?210:95));player.facing=Math.atan2(target.y-player.y,target.x-player.x);syncSkillMoveIfNeeded(ox,oy,24,360);seq.side*=-1;meleeHit((WEAPONS[player.weapon]?.reach||80)+(seq.ultimate?120:38),seq.ultimate?2.4:1.6,damageValue(seq.ultimate?.70:.52),false);}else moveBody(player,Math.cos(seq.facing)*80*dt,Math.sin(seq.facing)*80*dt);ring(player.x,player.y,seq.ultimate?78:46,main,.15);}
+  seq.fx-=dt;if(seq.fx<=0){seq.fx=seq.ultimate?.10:.16;if(target){const ox=player.x,oy=player.y,aa=Math.atan2(player.y-target.y,player.x-target.x)+Math.PI/2*(seq.side||1),dist=seq.ultimate?92:68,tx=target.x+Math.cos(aa)*dist,ty=target.y+Math.sin(aa)*dist;effects.push({type:'line',x:ox,y:oy,x2:tx,y2:ty,color:accent,t:.18,max:.18});effects.push({type:'riftCut',x:(ox+tx)/2,y:(oy+ty)/2,a:Math.atan2(ty-oy,tx-ox),len:seq.ultimate?210:120,width:seq.ultimate?26:16,color:main,t:.16,max:.16});moveBody(player,tx-player.x,ty-player.y);player.facing=Math.atan2(target.y-player.y,target.x-player.x);syncSkillMoveIfNeeded(ox,oy,24,360);seq.side=(seq.side||1)*-1;hitShadowCarryPath(seq,ox,oy);}else moveBody(player,Math.cos(seq.facing)*80*dt,Math.sin(seq.facing)*80*dt);ring(player.x,player.y,seq.ultimate?78:46,main,.15);}
  }
  moveSwordCarryTargets(seq,player.x-px0,player.y-py0);
  if(seq.ultimate&&seq.releaseQueued&&seq.elapsed>=SWORD_ULT_HOLD_MIN)stopHeldSwordSkill(seq.slot,false);
@@ -1715,11 +1715,21 @@ function captureSwordCarryTargets(seq,ang,reach,arc){
   if(d<=reach+er+34&&Math.abs(angleDiff(ea,ang))<=arc/2+er/Math.max(35,d)){ids.add(e.id);e.stun=Math.max(e.stun||0,.18);e.state='stunned';}
  }
 }
+// Match the arena's swept teleport hit, then carry each caught target once per step.
+function hitShadowCarryPath(seq,ox,oy){
+ const ids=ensureSwordCarrySet(seq),width=seq.ultimate?78:62;
+ for(const e of combatTargets()){
+  if(!swordCarryEligible(e))continue;const c=combatCenter(e);
+  if(segmentDistance(c.x,c.y,[ox,oy],[player.x,player.y])>width+combatRadius(e))continue;
+  hitEnemy(e,damageValue(seq.ultimate?.70:.52),false,player,{stun:.5,dx:0,dy:0,shape:'segment',x1:ox,y1:oy,x2:player.x,y2:player.y,r:width});
+  ids.add(e.id);
+ }
+}
 function moveSwordCarryTargets(seq,dx,dy){
  if(!seq||(Math.abs(dx)+Math.abs(dy)<.001))return;
  if(seq.carryIds)for(const id of [...seq.carryIds]){
   const e=combatTargets().find(v=>v.id===id);if(!swordCarryEligible(e)){seq.carryIds.delete(id);continue;}
-  if(e.networkPlayer)worldTargetControl(e.id,{dx,dy});else moveBody(e,dx,dy);e.stun=Math.max(e.stun||0,.18);e.state='stunned';
+  if(e.networkPlayer)worldTargetControl(e.id,{dx,dy,duration:.12});else moveBody(e,dx,dy);e.stun=Math.max(e.stun||0,.18);e.state='stunned';
  }
 }
 function finishSwordCarryTargets(seq,interrupted=false){
@@ -1953,19 +1963,20 @@ function showSkills(forceSword=false,preserveScroll=false){
  const visibleSkills=(adminSword||admin.allSkillSets)?SWORD_SKILL_LIBRARY:(swordStyleById(player.swordStyle)?.skills||[]).map(swordSkillById).filter(Boolean);const cards=visibleSkills.map(sk=>{const learned=adminSword||admin.allSkillSets||player.learnedSwordSkills.includes(sk.id),need=swordLearnLevel(sk),levelOk=player.level>=need||adminSword,canLearn=!adminSword&&!learned&&near&&levelOk;const equip=learned?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">'+keys.map((k,i)=>'<button class="small '+(slots[i]===sk.id?'selected':'')+'" data-action="equipSwordSkill" data-value="'+sk.id+':'+i+'">'+keyName(keybinds[k])+'</button>').join('')+'</div>':'<button data-action="learnSwordSkill" data-value="'+sk.id+'" '+(!canLearn?'disabled':'')+'>'+(!levelOk?'Lv.'+need+' 필요':!near?'검술 사범 세린에게 말 걸기':'검술 전수받기')+'</button>';return '<div class="card '+(learned?'selected':'')+'"><div class="eyebrow">'+(adminSword?'ADMIN UNLOCKED':learned?'습득 완료':'습득 가능 Lv.'+need)+'</div><h3>'+sk.name+'</h3><p><b style="color:'+swordStyleFxForSkill(sk.id).main+'">'+(swordStyleForSkill(sk.id)?.name||'')+'</b></p><p>'+sk.desc+'</p><p><b>'+SWORD_SKILL_IDENTITY[sk.id].trait+'</b><br><span style="opacity:.78">연출 · '+SWORD_SKILL_IDENTITY[sk.id].fx+'</span></p><div class="price">'+balancedSkillCost(sk.cost)+' 지구력 · 재사용 '+balancedSkillCooldown(sk.cool)+'초'+(sk.holdContinuous?' · <b>누르는 동안 유지 · 최대 '+sk.holdMax+'초</b>':'')+(adminSword?'':' · 사범 전수')+'</div>'+equip+'</div>';}).join('');
  openPanel('skills',header(adminSword?'ADMIN MASTER BLADE':'SWORD ARTS',adminSword?'관리자의 만능검 · 모든 일반 검술':'검술 습득과 장착')+equipped+'<div class="grid two">'+cards+'</div><div class="tip">'+(adminSword?'관리자 검은 모든 검술이 즉시 해금되어 있습니다. 각 검술 아래 Q/R/T/G/V 버튼으로 시험할 슬롯을 바꿀 수 있습니다.':(player.swordStyle?'<b>'+swordStyleById(player.swordStyle).name+'</b> · 첫 검술은 유파 선택과 함께 Lv.5에 지급되고, 이후 검술은 Lv.7 / 10 / 15 / 20에 검술 사범 세린에게 전수받습니다. 일반 플레이에서는 다른 유파로 변경할 수 없습니다.':'아직 검술 유파를 선택하지 않았습니다.'))+'</div>'+footer(),false,preserveScroll);
 }
-function hitEnemy(e,amount,heavy=false,source=player){
- if(e?.networkPlayer){worldPlayerHit(e,amount,heavy,source);return;}
+function hitEnemy(e,amount,heavy=false,source=player,controlOverride=null){
+ if(e?.networkPlayer){worldPlayerHit(e,amount,heavy,source,controlOverride||{});return;}
  if(e.riftSleeping)return;if(e.dead||(e.type==='finalBoss'&&!e.alert))return;const serverMob=multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId;
  if(!serverMob&&isTacticalMob(e)&&e.aiDashEvade>0){floating(e.x,e.y-e.r-18,'회피','#bce8e6');ring(e.x,e.y,e.r+14,'#9fdde3',.18);return;}
  if(!serverMob&&isTacticalMob(e)&&e.guardActive&&source){const incoming=Math.atan2(source.y-e.y,source.x-e.x);if(Math.abs(angleDiff(incoming,e.facing))<1.75){e.guardSawAttack=true;e.flash=.08;ring(e.x,e.y,e.r+17,'#9ddde8',.16);floating(e.x,e.y-e.r-18,'BLOCK','#a9dfe8');sound('block');hitstop=Math.max(hitstop,.018);return;}}
  const wasPassive=!serverMob&&e.kind!=='boss'&&e.type!=='dummy'&&!e.riftId&&(!e.alert||e.state==='idle'||e.state==='return'),dmg=Math.max(1,Math.round(amount*(e.stun>.4?1.2:1))),hc=combatCenter(e),hitY=e.kind==='boss'?hc.y:e.y-e.r*.4;e.flash=.15;
  damageFloating(e.x+rnd(-10,10),e.kind==='boss'?hc.y-30:e.y-e.r-18,dmg,source?Math.atan2(hc.y-source.y,hc.x-source.x):0,heavy);burst(hc.x,hitY,heavy?'#f4d892':'#cbdac8',heavy?16:6,heavy?145:85);sound('hit');if(options.shake)shake=Math.max(shake,heavy?5:2);hitstop=Math.max(hitstop,heavy?.055:.025);
  if(serverMob){
-  const a=source?Math.atan2(e.y-source.y,e.x-source.x):e.facing,control={stun:heavy?.75:.22,knockbackX:heavy?Math.cos(a)*24:0,knockbackY:heavy?Math.sin(a)*24:0};
+  const a=source?Math.atan2(e.y-source.y,e.x-source.x):e.facing,control={stun:heavy?.75:.22,knockbackX:heavy?Math.cos(a)*24:0,knockbackY:heavy?Math.sin(a)*24:0};if(controlOverride)Object.assign(control,{stun:controlOverride.stun,knockbackX:controlOverride.dx||0,knockbackY:controlOverride.dy||0,duration:controlOverride.duration});
   if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,dmg,control);else window.EchoesMulti.damageMob(e.id,dmg,control);return;
  }
  e.hp-=dmg;if(wasPassive)e.provoked=true;e.alert=true;e.poise+=heavy?55:14;if(e.type==='dummy'){e.hp=e.maxHp;player.training.attack=true;if(e.state==='idle'){e.timer=.8;e.alert=true;}return;}
  if(e.kind==='boss'){if(e.poise>=130){applyEnemyStun(e,1.7);e.poise=0;floating(e.x,e.y-85,'자세 붕괴','#e7d395',true);sound('parry');}}
+ else if(controlOverride){applyEnemyStun(e,controlOverride.stun||0);if(!enemyGuardBlocksControl(e)&&(controlOverride.dx||controlOverride.dy)){skill2Knocks=skill2Knocks.filter(k=>k.e!==e);const max=controlOverride.duration||.38;skill2Knocks.push({e,startX:e.x,startY:e.y,x:e.x+(controlOverride.dx||0),y:e.y+(controlOverride.dy||0),t:max,max,cubic:true});}}
  else{applyEnemyStun(e,heavy?.75:.22);if(heavy&&!enemyGuardBlocksControl(e)){const a=Math.atan2(e.y-source.y,e.x-source.x);moveBody(e,Math.cos(a)*24,Math.sin(a)*24);}}
  if(e.hp<=0)defeatEnemy(e);
 }
@@ -2007,7 +2018,7 @@ function hitPlayer(damage,source,parryable=true){if(mode!=='play'||(modal&&!sour
 const shieldSlot=document.querySelector('[data-act="parry"]');
 shieldSlot.addEventListener('pointerdown',e=>{if(!canAct())return;e.preventDefault();desktopShield=true;captureTouch(shieldSlot,e);parry();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])shieldSlot.addEventListener(event,()=>{desktopShield=false;releaseShield();});
-function fireProjectile(x,y,a,speed,damage,owner,kind='orb',pierce=1){projectiles.push({x,y,px:x,py:y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,damage,owner,kind,pierce,r:kind==='charged'?10:kind==='wave'?16:6,t:kind==='wave'?.6:1.7,hit:new Set(),perfectDodged:false});}
+function fireProjectile(x,y,a,speed,damage,owner,kind='orb',pierce=1){projectiles.push({x,y,px:x,py:y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,a,damage,owner,kind,pierce,r:kind==='charged'?10:kind==='wave'?16:6,t:kind==='wave'?window.EchoesCombat.waveControl.life:1.7,age:0,hitAt:new Map(),hit:new Set(),perfectDodged:false});}
 function potion(){if(!canAct()||player.potionCd>0)return;if(player.potions<=0){toast('회복약이 없습니다. 야영지에서 보충하거나 가방에서 제작하세요.');return;}if(player.hp>=player.maxHp){toast('체력이 가득 찼습니다.');return;}player.potions--;const heal=50+12*player.perks.herbal;player.hp=Math.min(player.maxHp,player.hp+heal);player.potionCd=1.0;ring(player.x,player.y,60,'#9be0b1');burst(player.x,player.y,'#a9e9bb',16,80);floating(player.x,player.y-40,'+'+heal,'#b6edc3',true);sound('potion');}
 function manaPotion(){if(!canAct()||player.potionCd>0)return;if((player.manaPotions||0)<=0){toast('마나 물약이 없습니다. 가방에서 제작하거나 약초사에게 구매하세요.');return;}if(player.stam>=player.maxStam){toast('마나가 가득 찼습니다.');return;}player.manaPotions--;const restore=Math.max(1,Math.round(player.maxStam*.4));player.stam=Math.min(player.maxStam,player.stam+restore);player.potionCd=1.0;player.stamDelay=.35;ring(player.x,player.y,64,'#86bfff');burst(player.x,player.y,'#9dc8ff',18,90);floating(player.x,player.y-40,'+'+Math.min(restore,Math.round(player.maxStam))+' MANA','#a8d0ff',true);sound('potion');saveGame(false);}
 function switchWeapon(index){if(index===1)return;if(!canAct()||player.exhaust>0||player.cast>0||player.dodge>0||player.attackCd>.1)return;if(!player.ownedWeapons.includes(index)){toast('아직 보유하지 않은 무기입니다. 황금잎 광장의 무기상 카일에게서 구매하세요.');return;}secondSkillArmed=false;if(fourthSkillHold&&!fourthSkillHold.dashing)fourthSkillHold=null;if(hiddenSkillHold){hiddenSkillHold=null;player.cast=0;}hiddenSkillFollowup=null;player.skillPose=-1;player.weapon=clamp(index,0,player.ownedWeapons.includes(4)?4:3);player.combo=0;updateHUD();sound('click');}
@@ -2141,8 +2152,8 @@ function updateEnemy(e,dt){if(admin.freeze)return;if(e.riftSleeping)return;if(e.
  else if(e.state==='charge'){const speed=e.kind==='boss'?670:e.type==='abyssHound'?560:e.type==='shardStalker'?520:460;moveBody(e,Math.cos(e.locked)*speed*dt,Math.sin(e.locked)*speed*dt);const ec=bodyCenter(e),pc=bodyCenter(player),chargeContact=bodyRadius(e)+bodyRadius(player)+(e.kind==='boss'?10:4);if(Math.hypot(ec.x-pc.x,ec.y-pc.y)<=chargeContact&&!e.chargeHit){const result=hitPlayer(e.damage,e,true);e.chargeHit=result!=='dodged';if(result==='parried')return;}if(e.timer<=0){e.state='recover';e.timer=1.2/enemyAttackSpeed(e);if(e.kind==='boss')applyPendingBossStun(e);}}
  else if(e.state==='recover'&&e.timer<=0){e.state='chase';e.timer=.2/enemyAttackSpeed(e);}
 }
-function updateProjectiles(dt){for(const p of projectiles){p.t-=dt;const count=Math.max(1,Math.ceil(Math.hypot(p.vx,p.vy)*dt/12));for(let step=0;step<count&&p.t>0;step++){p.px=p.x;p.py=p.y;p.x+=p.vx*dt/count;p.y+=p.vy*dt/count;if(solidAt(p.x,p.y,3)){p.t=0;burst(p.x,p.y,'#c4c9ab',3);break;}
- if(p.owner==='player'){for(const e of combatTargets()){if(e.dead||e.riftSleeping||p.hit.has(e.id)||(e.type==='finalBoss'&&!e.alert))continue;if(combatDistance(e,p)<combatRadius(e)+p.r){p.hit.add(e.id);hitEnemy(e,p.damage,p.kind!=='arrow');if(--p.pierce<=0){p.t=0;break;}}}}
+function updateProjectiles(dt){for(const p of projectiles){p.t-=dt;p.age=(p.age||0)+dt;const count=Math.max(1,Math.ceil(Math.hypot(p.vx,p.vy)*dt/12));for(let step=0;step<count&&p.t>0;step++){p.px=p.x;p.py=p.y;p.x+=p.vx*dt/count;p.y+=p.vy*dt/count;if(solidAt(p.x,p.y,3)){p.t=0;burst(p.x,p.y,'#c4c9ab',3);break;}
+ if(p.owner==='player'){for(const e of combatTargets()){if(e.dead||e.riftSleeping||(p.kind==='wave'?(p.age-(p.hitAt?.get(e.id)??-Infinity)<window.EchoesCombat.waveControl.rehit):p.hit.has(e.id))||(e.type==='finalBoss'&&!e.alert))continue;if(combatDistance(e,p)<combatRadius(e)+p.r){p.hit.add(e.id);if(p.kind==='wave'){if(!p.hitAt)p.hitAt=new Map();p.hitAt.set(e.id,p.age);const c=window.EchoesCombat.waveControl,a=Math.atan2(p.vy,p.vx);hitEnemy(e,p.damage,true,{x:p.x-p.vx*.02,y:p.y-p.vy*.02},{stun:c.stun,dx:Math.cos(a)*c.force,dy:Math.sin(a)*c.force,duration:window.EchoesCombat.forceDuration(c.force)});}else hitEnemy(e,p.damage,p.kind!=='arrow');if(--p.pierce<=0){p.t=0;break;}}}}
  else if(distance(p,player)<player.r+p.r){const result=hitPlayer(p.damage,p,true);if(result==='parried'){p.owner='player';p.vx*=-1.5;p.vy*=-1.5;p.a=Math.atan2(p.vy,p.vx);p.damage*=2;p.t=1.5;p.kind='charged';p.x+=Math.cos(p.a)*24;p.y+=Math.sin(p.a)*24;p.pierce=2;}else if(result!=='dodged'){p.t=0;}}
  }}projectiles=projectiles.filter(p=>p.t>0);}
 let questNotices=new Set();
@@ -3639,7 +3650,7 @@ function pvpWorldSwordHit(ev,k){
  const explicitControl=carryModes.includes(mode)||['moonBurst','lunarPull','gravityWell','chainPull'].includes(mode),worldHeavyForce=explicitControl?0:24;
  const heavyArc=(r,damage,aa=arc,heavy=final,extra={})=>arcAttack(r,damage,aa,extra.meleeForce===false?0:(heavy?worldHeavyForce:0),heavy?.75:(extra.meleeForce===false?.22:.5),{color,...extra,fx:false});
  const heavyCircle=(x,y,r,damage,heavy=final,extra={})=>circleAttack(x,y,r,damage,heavy?.75:.22,{color,force:heavy?worldHeavyForce:0,forceA:a,...extra,fx:false});
- const wave=(aa,speed,damage,pierce=1)=>sendProjectile(aa,speed,damage,{r:16,pierce,stun:.75,force:180});
+ const wave=(aa,speed,damage,pierce=1)=>sendProjectile(aa,speed,damage,{...window.EchoesCombat.waveControl,pierce});
  if(target&&carryModes.includes(mode)){const dx=target.x-me.x,dy=target.y-me.y,dist=Math.hypot(dx,dy),ea=Math.atan2(dy,dx);if(dist<=reach+target.r+34&&Math.abs(angleDiff(ea,a))<=arc/2+target.r/Math.max(35,dist)){ev.carry=true;forceEnemyTo(target.x,target.y,.08,.18)}}
  if(ev.ultimate&&sk.id==='lunarBind'){
   const r=[190,245,315][Math.min(k,2)]||315;if(targetNear(r+enemy.r)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x),pull=Math.max(18,58-k*12);forceEnemyTo(enemy.x+Math.cos(aa)*pull,enemy.y+Math.sin(aa)*pull,.18,.45+k*.2)}heavyCircle(me.x,me.y,r,d,k===2);
