@@ -144,9 +144,9 @@ function removePvpMatchQueue(player,notify=false){
 function joinPvpMatchQueue(player){
   if(!player?.ready||player.ws?.readyState!==WebSocket.OPEN)return;
   removePvpMatchQueue(player,false);
-  if(player.pvpRuleset!==PVP_RULESET){
-    safeSend(player.ws,{type:'pvp:matchStatus',queued:false,count:pvpMatchQueue.length,ruleset:PVP_RULESET,error:'ruleset-mismatch'});
-    safeSend(player.ws,{type:'notice',message:'PVP 전투 규칙이 일반 월드와 동기화되지 않았습니다. 페이지를 새로고침해 주세요.'});
+  if(!player.pvpRuleset){
+    safeSend(player.ws,{type:'pvp:matchStatus',queued:false,count:pvpMatchQueue.length,error:'missing-ruleset'});
+    safeSend(player.ws,{type:'notice',message:'PVP 전투 규칙 정보를 불러오지 못했습니다. 페이지를 새로고침해 주세요.'});
     return;
   }
   let rival=null,checks=pvpMatchQueue.length;
@@ -154,19 +154,19 @@ function joinPvpMatchQueue(player){
     const id=pvpMatchQueue.shift(),candidate=players.get(id);
     if(!candidate||candidate===player||!candidate.ready||!candidate.pvpQueued||candidate.ws.readyState!==WebSocket.OPEN)continue;
     if(candidate.accountId&&player.accountId&&candidate.accountId===player.accountId){candidate.pvpQueued=false;continue;}
-    if(candidate.pvpRuleset!==PVP_RULESET){candidate.pvpQueued=false;safeSend(candidate.ws,{type:'pvp:matchStatus',queued:false,count:pvpMatchQueue.length,ruleset:PVP_RULESET,error:'ruleset-mismatch'});continue;}
+    if(candidate.pvpRuleset!==player.pvpRuleset){pvpMatchQueue.push(candidate.id);continue;}
     rival=candidate;break;
   }
   if(!rival){
     player.pvpQueued=true;player.pvpQueuedAt=Date.now();pvpMatchQueue.push(player.id);
-    safeSend(player.ws,{type:'pvp:matchStatus',queued:true,count:pvpMatchQueue.length,startedAt:player.pvpQueuedAt,ruleset:PVP_RULESET});
+    safeSend(player.ws,{type:'pvp:matchStatus',queued:true,count:pvpMatchQueue.length,startedAt:player.pvpQueuedAt,ruleset:player.pvpRuleset});
     return;
   }
   player.pvpQueued=false;rival.pvpQueued=false;
   const matchId=crypto.randomBytes(6).toString('hex'),peerId='echoes-pvp-auto-'+matchId;
-  safeSend(rival.ws,{type:'pvp:matchFound',matchId,peerId,role:'host',ruleset:PVP_RULESET,opponent:{id:player.id,name:player.name,level:player.level}});
-  safeSend(player.ws,{type:'pvp:matchFound',matchId,peerId,role:'guest',ruleset:PVP_RULESET,opponent:{id:rival.id,name:rival.name,level:rival.level}});
-  console.log('[pvp-match]',rival.id,'vs',player.id,matchId,'ruleset',PVP_RULESET);
+  safeSend(rival.ws,{type:'pvp:matchFound',matchId,peerId,role:'host',ruleset:player.pvpRuleset,opponent:{id:player.id,name:player.name,level:player.level}});
+  safeSend(player.ws,{type:'pvp:matchFound',matchId,peerId,role:'guest',ruleset:player.pvpRuleset,opponent:{id:rival.id,name:rival.name,level:rival.level}});
+  console.log('[pvp-match]',rival.id,'vs',player.id,matchId,'ruleset',player.pvpRuleset);
 }
 function publicPlayer(p){
   return {
@@ -530,7 +530,7 @@ function handleMessage(player,msg){
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
+    res.end(JSON.stringify({ok:true,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
@@ -587,7 +587,7 @@ wss.on('connection',(ws)=>{
         worldSnapshot:serverWorldSnapshot(),
         takenItemIds:[...takenItems],
         partyMax:PARTY_MAX,
-        pvpRuleset:PVP_RULESET,
+        pvpRuleset:player.clientMode==='pvp'?(player.pvpRuleset||PVP_RULESET):PVP_RULESET,
         bossRespawnMs:BOSS_RESPAWN_MS
       });
       if(player.clientMode!=='pvp')broadcast({type:'player:join',player:publicPlayer(player)},ws);
