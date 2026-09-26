@@ -1175,7 +1175,7 @@ function balancedSwordSkill(sk,slot=-1){
 }
 function isNormalSwordWeapon(){return player&&[0,1,4].includes(player.weapon);}
 function swordSkillIdAt(slot){const list=player?.weapon===4?player.adminSwordSkills:player?.equippedSwordSkills;return Array.isArray(list)?list[slot]||null:null;}
-function swordSkillAt(slot){return balancedSwordSkill(swordSkillById(swordSkillIdAt(slot)),slot);}
+function swordSkillAt(slot){const sk=balancedSwordSkill(swordSkillById(swordSkillIdAt(slot)),slot);return sk?{...sk,level:SKILL_UNLOCK_LEVELS[slot]||Math.max(5,Number(sk.level)||5)}:null;}
 let swordTrainerSession=false;
 function swordTrainerNear(){const trainer=objects.find(o=>o.id==='swordMaster');return swordTrainerSession&&!!trainer&&distance(player,trainer)<175;}
 function swordLearnLevel(sk){const style=swordStyleById(player?.swordStyle),idx=style?.skills?.indexOf(sk?.id)??-1;return idx>=0?SKILL_UNLOCK_LEVELS[idx]:Math.max(5,Number(sk?.level)||5);}
@@ -1229,7 +1229,7 @@ function hiddenDamageRadius(x,y,r,mult,heavy=false,stun=0){const hits=[];for(con
 function hiddenConeTargets(a,range=210,arc=1.55){const out=[];for(const e of hiddenTargets()){const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,d=Math.hypot(dx,dy),ea=Math.atan2(dy,dx);if(d<=range+combatRadius(e)&&Math.abs(angleDiff(ea,a))<=arc/2+combatRadius(e)/Math.max(d,45))out.push(e);}return out;}
 function hiddenWideSlashTargets(a,forward=185,halfWidth=190,back=28){const out=[];const ca=Math.cos(a),sa=Math.sin(a);for(const e of hiddenTargets()){const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,front=dx*ca+dy*sa,side=-dx*sa+dy*ca,r=combatRadius(e);if(front>=-back-r&&front<=forward+r&&Math.abs(side)<=halfWidth+r)out.push(e);}return out;}
 function nearestHiddenTarget(maxRange=520){let best=null,bd=maxRange;for(const e of hiddenTargets()){const d=combatDistance(e,player);if(d<bd){bd=d;best=e;}}return best;}
-function hiddenSkillCanStart(index,allowFollow=false){if(!canAct()||player.weapon!==3||player.exhaust>0||player.parry>0||player.dodge>0||hiddenSkillHold)return false;if(allowFollow)return true;return (player.hiddenSkillCds?.[index]||0)<=0;}
+function hiddenSkillCanStart(index,allowFollow=false){const s=HIDDEN_SKILLS[index];if(!s||player.level<s.level||!canAct()||player.weapon!==3||player.exhaust>0||player.parry>0||player.dodge>0||hiddenSkillHold)return false;if(allowFollow)return true;return (player.hiddenSkillCds?.[index]||0)<=0;}
 function hiddenCommit(index){const s=skillInfo(index);if(!s||player.weapon!==3||!useStam(s.cost))return false;if(!Array.isArray(player.hiddenSkillCds))player.hiddenSkillCds=[0,0,0,0,0];player.hiddenSkillCds[index]=s.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.hiddenSkillCds[0];player.skillPose=index;player.combo=0;player.comboTimer=0;player.heavy=true;updateSkillTray();return true;}
 function hiddenPrepareFx(h,dt){h.fx-=dt;if(h.fx>0)return;h.fx=.11;const c=HIDDEN_SKILLS[h.index].color,r=38;ring(player.x,player.y,r,c,.22);effects.push({type:'starSeal',x:player.x,y:player.y,r:92,color:c,t:.24,max:.24});for(let j=0;j<4;j++){const a=h.facing+(j-1.5)*.28,d=78;effects.push({type:'line',x:player.x+Math.cos(a)*14,y:player.y+Math.sin(a)*14,x2:player.x+Math.cos(a)*d,y2:player.y+Math.sin(a)*d,color:j%2?'#ffffff':c,t:.18,max:.18});}}
 function beginHiddenSkillInput(index){
