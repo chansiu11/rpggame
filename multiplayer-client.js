@@ -113,7 +113,7 @@ function connect(profile={},reconnecting=false){
     ws.addEventListener('open',()=>{
       opened=true;
       try{ws.binaryType='arraybuffer';}catch{}
-      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world',pvpRuleset:profile.mode==='pvp'?String(window.EchoesWorldPvpData?.ruleset||''):''});
+      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world',pvpRuleset:profile.mode==='pvp'?String(profile.pvpRuleset||window.EchoesWorldPvpData?.ruleset||''):''});
     });
     ws.addEventListener('message',e=>{
       let msg;try{msg=JSON.parse(e.data);}catch{return;}
