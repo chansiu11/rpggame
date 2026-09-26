@@ -1878,7 +1878,7 @@ function performSwordSkillHit(seq,hitIndex){
 }
 function swordSeqTarget(seq){const e=seq?.targetId?combatTargets().find(v=>v.id===seq.targetId):null;return e&&!e.dead&&!e.riftSleeping?e:null;}
 function updateSwordSkillMotion(seq,sk,dt){
- const mode=sk.cfg.mode,t=clamp(seq.elapsed/seq.duration,0,1),a=seq.facing,ca=Math.cos(a),sa=Math.sin(a),side=seq.side||1,target=swordSeqTarget(seq),px0=player.x,py0=player.y;
+ const cfg=sk.cfg,mode=cfg.mode,t=clamp(seq.elapsed/seq.duration,0,1),a=seq.facing,ca=Math.cos(a),sa=Math.sin(a),side=seq.side||1,target=swordSeqTarget(seq),px0=player.x,py0=player.y;
  player.skillLift=0;
  if(mode==='boomerangWave'){const end=sk.cfg.dashDuration,step=sk.cfg.dashDistance/end*Math.max(0,Math.min(seq.elapsed,end)-Math.min(Math.max(0,seq.elapsed-dt),end));if(step>0){moveBody(player,ca*step,sa*step);seq.fx-=dt;if(seq.fx<=0){seq.fx=.05;effects.push({type:'line',x:px0,y:py0,x2:player.x,y2:player.y,color:sk.color,t:.13,max:.13});syncSkillMoveIfNeeded(px0,py0,0,360);}if(seq.elapsed>=end)syncSkillMoveIfNeeded(px0,py0,0,360);}}
  if(mode==='galeBlink'&&!seq.galeBlinkDone){
