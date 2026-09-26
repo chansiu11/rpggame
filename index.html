@@ -2611,7 +2611,7 @@ function drawPlayer(){
  if(deathP>0){ctx.translate(p.x,p.y);ctx.rotate((p.deathSide||1)*deathP*1.22);ctx.translate(-p.x,-p.y);ctx.globalAlpha=1-clamp((deathP-.72)/.28,0,1);}
  const m=p.motion||{phase:0,walk:0,facing:p.facing,lean:0},a=m.facing,fx=Math.cos(a),fy=Math.sin(a),back=fy<-.35,side=fx<-.2?-1:1;
  const walk=m.walk,bounce=Math.abs(Math.sin(m.phase))*walk*1.3,attackT=clamp(1-p.attackAnim/(p.attackDuration||.26),0,1),swing=p.attackAnim>0?Math.sin(attackT*Math.PI):0;
- const breath=Math.sin(realTime*2.2)*.35,hipY=-21-bounce,shoulderY=-42-bounce+breath+m.lean*2,headY=shoulderY-14,bodyWidth=10+Math.abs(fy)*2;
+ const breath=Math.sin(realTime*2.2)*.35,hipY=-21-bounce,shoulderY=-42-bounce+breath+m.lean*2,headY=shoulderY-14,bodyWidth=10+Math.abs(fy)*2,armor=p.equippedChest==='abyssPlate'?['#553c59','#8f6b91']:p.equippedChest==='frostMail'?['#5e8893','#b8d9df']:p.equippedChest==='knightPlate'?['#596b70','#aeb9b6']:['#709d91','#a2bbae'],helm=p.equippedHead==='voidVisor'?'#5c4770':p.equippedHead==='frostCrown'?'#8fb9bf':p.equippedHead==='ironHelm'?'#79888a':'#8ca99d',shieldCol=p.equippedShield==='astralShield'?'#d4c8ff':p.equippedShield==='frostShield'?'#9bd8e4':p.equippedShield==='ironShield'?'#9aa5a6':'#82bab0';
  ellipse(ctx,p.x,p.y+3,19,7,'#07171c77');
  ctx.save();ctx.translate(0,-(p.skillLift||0));
  if(p.dodge>0){for(let i=1;i<=4;i++){ctx.globalAlpha=(5-i)*.09;line(ctx,p.x-p.dx*i*13-8,p.y-p.dy*i*13-5,p.x-p.dx*(i+1)*13-8,p.y-p.dy*(i+1)*13-5,'#b9eadb',4);line(ctx,p.x-p.dx*i*13+8,p.y-p.dy*i*13-9,p.x-p.dx*(i+1)*13+8,p.y-p.dy*(i+1)*13-9,'#dcebbd',3);}ctx.globalAlpha=1;}
@@ -2634,15 +2634,15 @@ function drawPlayer(){
  };
  const arm=sign=>{const v=armPose(sign);line(ctx,v.shoulder.x,v.shoulder.y,v.elbow.x,v.elbow.y,'#6e9590',6);circle(ctx,v.elbow.x,v.elbow.y,3,'#b5c9b4');line(ctx,v.elbow.x,v.elbow.y,v.hand.x,v.hand.y,'#4b7470',5);circle(ctx,v.hand.x,v.hand.y,3.1,'#d2c4a2');};
  arm(-side);
- polygon(ctx,[[-bodyWidth,shoulderY],[0,shoulderY-3],[bodyWidth,shoulderY],[8,hipY+2],[-8,hipY+2]],p.hurt>0?'#b8b39b':'#709d91','#284d51',1.8);
- polygon(ctx,[[-bodyWidth+2,shoulderY+2],[0,shoulderY+1],[0,hipY],[-7,hipY]],'#a2bbae');
+ polygon(ctx,[[-bodyWidth,shoulderY],[0,shoulderY-3],[bodyWidth,shoulderY],[8,hipY+2],[-8,hipY+2]],p.hurt>0?'#b8b39b':armor[0],'#284d51',1.8);
+ polygon(ctx,[[-bodyWidth+2,shoulderY+2],[0,shoulderY+1],[0,hipY],[-7,hipY]],armor[1]);
  if(!back){polygon(ctx,[[0,shoulderY+4],[6,shoulderY+9],[0,shoulderY+15],[-6,shoulderY+9]],'#c3d3b6','#557777',1);}
  line(ctx,-8,hipY,8,hipY,'#354a46',4);ctx.fillStyle='#d7bb77';ctx.fillRect(-2,hipY-2,4,4);
  for(const sign of [-1,1])ellipse(ctx,sign*bodyWidth,shoulderY+2,5.3,3.5,'#c1d1b9');
  if(back)polygon(ctx,[[-8,shoulderY+2],[8,shoulderY+2],[10+capeSway,hipY+10],[capeSway,hipY+14],[-10+capeSway,hipY+10]],'#397f76','#275850',1);
  // Upright head, neck, helmet and a direction-dependent face, never a rotated torso.
  line(ctx,0,shoulderY-1,0,headY+7,'#c4b89a',5);ellipse(ctx,0,headY,8.8,10,'#d1c8a9');ellipse(ctx,-1,headY-4,9.3,7.4,'#d7e0c8');
- polygon(ctx,[[-9,headY-4],[-8,headY+6],[-4,headY+8],[-5,headY-1]],'#8ca99d');
+ polygon(ctx,[[-9,headY-4],[-8,headY+6],[-4,headY+8],[-5,headY-1]],helm);
  if(back){ellipse(ctx,0,headY+1,7.8,6.6,'#9cb3a3');line(ctx,-6,headY+3,6,headY+3,'#6d9189',1.5);}else{const faceX=fx*3;ellipse(ctx,faceX,headY+2,6.5,4,'#385459');line(ctx,faceX-4,headY+1,faceX+4,headY+1,'#e5e9c6',1.5);}
  line(ctx,-7,shoulderY-1,6,shoulderY-1,'#e0c48a',3);line(ctx,6,shoulderY,11+capeSway*.5,shoulderY+7,'#c7af76',2.5);
  arm(side);
@@ -2651,7 +2651,7 @@ function drawPlayer(){
   const weaponA=active&&pose===3?-Math.PI/2+attackT*Math.PI:active&&pose===1?a:active?a+(attackT-.5)*2.3*(p.combo%2?-1:1)+(sign!==side?.6:0):-Math.PI/2+side*.22;
   const tx=h.x+Math.cos(weaponA)*len,ty=h.y+Math.sin(weaponA)*len*(active?.65:1);line(ctx,h.x,h.y,tx,ty,p.weapon===3?'#7d5e92':'#577a80',p.weapon===3?7:5);line(ctx,h.x+.7,h.y-.7,tx+.7,ty-.7,p.weapon===3?'#f0d7ff':'#dce8d2',p.weapon===3?4:3);const dx=tx-h.x,dy=ty-h.y,n=Math.hypot(dx,dy)||1;line(ctx,h.x-dy/n*5,h.y+dx/n*5,h.x+dy/n*5,h.y-dx/n*5,'#d8bd77',2.6);circle(ctx,h.x,h.y,2.4,'#cbb994');}}
  else{ctx.save();ctx.translate(hand.x,hand.y);ctx.rotate(a+Math.PI/2);ctx.strokeStyle='#d3b77d';ctx.lineWidth=2.7;ctx.beginPath();ctx.moveTo(-2,-17);ctx.quadraticCurveTo(11,0,-2,17);ctx.stroke();ctx.beginPath();ctx.moveTo(-2,-17);ctx.lineTo(-6-swing*6,0);ctx.lineTo(-2,17);ctx.strokeStyle='#d3dec4';ctx.lineWidth=1;ctx.stroke();ctx.restore();}
- if(p.parry>0){const h=armPose(-side).hand;ellipse(ctx,h.x,h.y-3,7,11,'#709d98');polygon(ctx,[[h.x,h.y-14],[h.x+8,h.y-6],[h.x,h.y+8],[h.x-8,h.y-6]],'#82bab0','#d7e6c2',1.7);}
+ if(p.parry>0){const h=armPose(-side).hand;ellipse(ctx,h.x,h.y-3,7,11,'#709d98');polygon(ctx,[[h.x,h.y-14],[h.x+8,h.y-6],[h.x,h.y+8],[h.x-8,h.y-6]],shieldCol,'#d7e6c2',1.7);}
  ctx.restore();
  if(p.attackAnim>0&&p.weapon!==2){ctx.save();ctx.translate(p.x,p.y-20);ctx.scale(1,.6);ctx.rotate(p.attackAngle);ctx.globalAlpha=Math.sin(attackT*Math.PI)*.8;ctx.beginPath();ctx.arc(0,0,p.heavy?WEAPONS[p.weapon].reach+20:WEAPONS[p.weapon].reach,-p.attackArc/2+attackT*.35,p.attackArc/2+attackT*.35);ctx.strokeStyle=p.heavy?'#efd593':'#bce9d6';ctx.lineWidth=p.heavy?7:4;ctx.stroke();ctx.restore();}
  if(p.parry>0){ctx.strokeStyle=p.perfectWindow>0?'#c8f4e4':'#87ada7';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(p.x+fx*18,p.y-28+fy*10,23,18,0,a-1.2,a+1.2);ctx.stroke();}
@@ -3037,7 +3037,7 @@ function snapshot(){
  ups=Array.isArray(p.upgrades)?p.upgrades.slice(0,4).map(v=>clamp(Number(v)||0,0,3)):[0,0,0,0];while(ups.length<4)ups.push(0);
  const owned=Array.isArray(p.ownedWeapons)?[...new Set(p.ownedWeapons.filter(n=>Number.isInteger(n)&&n>=0&&n<4))]:[0];if(!owned.includes(0))owned.unshift(0);
  const attacks=weaponData.map((w,i)=>Math.round(w.d+ups[i]*3+(lvl-1)*1.7)),maxHp=Math.round(120+(lvl-1)*14.4+resolve*12+h.hp+cg.hp),
- maxShield=100+sh.shield,maxStam=Math.round(160+(lvl-1)*3+(h.stam||0)+(cg.stam||0)),defense=h.def+cg.def+sh.def,speed=177*(1+h.move+cg.move),cdr=clamp((h.cdr||0)+(cg.cdr||0),0,.25),
+ maxShield=100+sh.shield,maxStam=Math.round((160+(lvl-1)*3+(h.stam||0)+(cg.stam||0))*4.5),defense=h.def+cg.def+sh.def,speed=177*(1+h.move+cg.move),cdr=clamp((h.cdr||0)+(cg.cdr||0),0,.25),
  perks={flow:clamp(Number(p.perks?.flow)||0,0,2),focus:clamp(Number(p.perks?.focus)||0,0,2),breath:clamp(Number(p.perks?.breath)||0,0,2),herbal:clamp(Number(p.perks?.herbal)||0,0,2)};
  let wi=clamp(Math.floor(p.weapon||0),0,3);if(!owned.includes(wi))wi=0;
  const swordStyle=typeof p.swordStyle==='string'?p.swordStyle:'',equippedIds=Array.from({length:5},(_,i)=>typeof p.equippedSwordSkills?.[i]==='string'?p.equippedSwordSkills[i]:null),
