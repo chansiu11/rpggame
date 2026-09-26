@@ -1774,7 +1774,7 @@ function performSwordSkillHit(seq,hitIndex){
  else if(mode==='guardPierce'){const targets=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&combatDistance(e,player)<reach+combatRadius(e)&&Math.abs(angleDiff(Math.atan2(e.y-player.y,e.x-player.x),ang))<.5);meleeHit(reach,.52,damage,true);for(const e of targets)if(!e.dead){applyEnemyStun(e,e.kind==='boss'?.65:1.15);e.poise=(e.poise||0)+45;}}
  else if(mode==='tempest'){meleeHit(reach,TAU,damage,finalHit);}
  else if(mode==='earthSlam'){const cx=player.x+Math.cos(ang)*80,cy=player.y+Math.sin(ang)*80,r=145;for(const e of combatTargets())if(!e.dead&&!e.riftSleeping&&combatDistance(e,{x:cx,y:cy})<r+combatRadius(e))hitEnemy(e,damage,true);}
- else if(mode==='dawnWave'){fireProjectile(player.x+Math.cos(ang)*38,player.y+Math.sin(ang)*38,ang,720,damageValue(2.85),'player','wave',7);}
+ else if(mode==='dawnWave'){fireProjectile(player.x+Math.cos(ang)*38,player.y+Math.sin(ang)*38,ang,720,damageValue(2.1375),'player','wave',7);}
  else if(mode==='thunderDash'){meleeHit(reach,.64,damage,true);player.invuln=Math.max(player.invuln,.18);}
  else if(mode==='meteorNova'){const r=205;for(const e of combatTargets())if(!e.dead&&!e.riftSleeping&&combatDistance(e,player)<r+combatRadius(e)){hitEnemy(e,damage,true);if(!e.dead)applyEnemyStun(e,e.kind==='boss'?.7:1.0);}}
  else if(mode==='orbitStrike'){meleeHit(reach,cfg.arc[hitIndex],damage,finalHit);}
@@ -1791,7 +1791,7 @@ function performSwordSkillHit(seq,hitIndex){
   }
   
  }
- else if(mode==='boomerangWave'){const aa=hitIndex===0?ang:ang+Math.PI;fireProjectile(player.x,player.y,aa,560,damageValue(1.3),'player','wave',4);}
+ else if(mode==='boomerangWave'){const aa=hitIndex===0?ang:ang+Math.PI;fireProjectile(player.x,player.y,aa,560,damageValue(1.69),'player','wave',4);}
  else if(mode==='fanLances'){for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.16,680,damageValue(.92),'player','wave',2);}
  else if(mode==='skyFall'){const ox=player.x,oy=player.y,cx=player.x+Math.cos(ang)*105,cy=player.y+Math.sin(ang)*105,r=145;moveBody(player,Math.cos(ang)*90,Math.sin(ang)*90);syncSkillMoveIfNeeded(ox,oy,24,460);for(const e of combatTargets())if(!e.dead&&!e.riftSleeping&&combatDistance(e,{x:cx,y:cy})<r+combatRadius(e))hitEnemy(e,damage,true);ring(cx,cy,r,sk.color,.5);}
  else if(mode==='gravityDrift'){
@@ -3726,7 +3726,7 @@ function pvpWorldSwordHit(ev,k){
  else if(mode==='guardPierce'){heavyArc(reach,d,.52,true);if(enemyInArc(a,reach,.52))forceEnemyTo(enemy.x,enemy.y,.08,1.15)}
  else if(mode==='tempest'){heavyArc(reach,d,TAU,final)}
  else if(mode==='earthSlam'){const cx=me.x+Math.cos(a)*80,cy=me.y+Math.sin(a)*80;heavyCircle(cx,cy,145,d,true)}
- else if(mode==='dawnWave'){wave(a,720,pvpSkillAttack(me)*2.85,7)}
+ else if(mode==='dawnWave'){wave(a,720,pvpSkillAttack(me)*2.1375,7)}
  else if(mode==='orbitStrike'){heavyArc(reach,d,arc,final)}
  else if(mode==='mirrorBackstab'){const teleported=!!target;if(target){const aa=Math.atan2(me.y-target.y,me.x-target.x),tx=target.x+Math.cos(aa)*58,ty=target.y+Math.sin(aa)*58;me.x=clamp(tx,25,ARENA_W-25);me.y=clamp(ty,25,ARENA_H-25);me.a=ev.a=Math.atan2(target.y-me.y,target.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a})}heavyArc(reach,d,arc,true,{teleportHit:teleported})}
  else if(mode==='lunarPull'){const r=135,pull=28;if(targetNear(r+enemy.r)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x);forceEnemyTo(enemy.x+Math.cos(aa)*pull,enemy.y+Math.sin(aa)*pull,.24,.22)}heavyCircle(me.x,me.y,r,d,true)}
@@ -3736,7 +3736,7 @@ function pvpWorldSwordHit(ev,k){
         r=k===2?138:118,st=k===0?.48:k===1?.34:.95,confirmed=!!enemy&&Math.hypot(enemy.x-cx,enemy.y-cy)<=r+enemy.r;
   circleAttack(cx,cy,r,d,st,{color,force:0,forceA:a,breakShield:k===2,fx:false,teleportHit:confirmed});
  }
- else if(mode==='boomerangWave'){wave(k===0?a:a+Math.PI,560,pvpSkillAttack(me)*1.3,4)}
+ else if(mode==='boomerangWave'){wave(k===0?a:a+Math.PI,560,pvpSkillAttack(me)*1.69,4)}
  else if(mode==='fanLances'){for(let j=-2;j<=2;j++)wave(a+j*.16,680,pvpSkillAttack(me)*.92,2)}
  else if(mode==='skyFall'){me.x=clamp(me.x+Math.cos(a)*90,25,ARENA_W-25);me.y=clamp(me.y+Math.sin(a)*90,25,ARENA_H-25);net({t:'teleport',x:me.x,y:me.y,a});const cx=me.x+Math.cos(a)*105,cy=me.y+Math.sin(a)*105,confirmed=!!enemy&&Math.hypot(enemy.x-cx,enemy.y-cy)<=145+enemy.r;heavyCircle(cx,cy,145,d,true,{teleportHit:confirmed})}
  else if(mode==='riftAnchor'){
