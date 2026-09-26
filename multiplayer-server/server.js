@@ -7,11 +7,11 @@ const TICK_MS = 1000;
 const PARTY_MAX = 4;
 const BOSS_RESPAWN_MS = 3 * 60 * 1000;
 
-const SIM_TICK_MS = 50;
-const MOB_NET_TICK_MS = 100;
-const PLAYER_LIST_MS = 2000;
+const SIM_TICK_MS = 33;
+const MOB_NET_TICK_MS = 66;
+const PLAYER_LIST_MS = 1000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
-const MAX_SOCKET_BUFFER = 512 * 1024;
+const MAX_SOCKET_BUFFER = 384 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v2-leash';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
@@ -172,6 +172,15 @@ function publicPlayer(p){
     deathSeq:p.deathSeq||0,skillFxSeq:p.skillFxSeq||0,skillFxSlot:p.skillFxSlot||0,skillFxId:p.skillFxId||'',skillFxWeapon:p.skillFxWeapon||0,skillFxX:p.skillFxX,skillFxY:p.skillFxY,skillFxA:p.skillFxA,
     vx:p.vx||0,vy:p.vy||0,seq:p.seq||0,
     partyId:p.partyId||null,updatedAt:p.updatedAt
+  };
+}
+function publicPlayerState(p){
+  return {
+    id:p.id,x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,weapon:p.weapon,
+    attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,
+    combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
+    deathSeq:p.deathSeq||0,skillFxSeq:p.skillFxSeq||0,skillFxSlot:p.skillFxSlot||0,skillFxId:p.skillFxId||'',skillFxWeapon:p.skillFxWeapon||0,skillFxX:p.skillFxX,skillFxY:p.skillFxY,skillFxA:p.skillFxA,
+    vx:p.vx||0,vy:p.vy||0,seq:p.seq||0,updatedAt:p.updatedAt
   };
 }
 function bossSnapshot(){
@@ -480,7 +489,7 @@ function handleMessage(player,msg){
     if(Number.isFinite(Number(msg.skillFxSeq))&&Number(msg.skillFxSeq)>=(player.skillFxSeq||0)){player.skillFxSeq=Math.floor(clamp(msg.skillFxSeq,0,1e12));player.skillFxSlot=Math.floor(clamp(msg.skillFxSlot,0,4));player.skillFxId=String(msg.skillFxId||'').slice(0,40);player.skillFxWeapon=Math.floor(clamp(msg.skillFxWeapon,0,4));player.skillFxX=clamp(Number(msg.skillFxX)||player.x,40,WORLD.width-40);player.skillFxY=clamp(Number(msg.skillFxY)||player.y,40,WORLD.height-40);player.skillFxA=clamp(Number(msg.skillFxA)||player.a,-Math.PI*4,Math.PI*4);}
     player.attackAnim=clamp(player.attackAnim,0,5);player.attackDuration=clamp(player.attackDuration,.05,5);player.strikePose=Math.floor(clamp(player.strikePose,0,8));player.skillPose=Math.floor(clamp(player.skillPose,-1,8));player.combo=Math.floor(clamp(player.combo,0,10));player.parry=clamp(player.parry,0,2);player.dodge=clamp(player.dodge,0,2);player.dx=clamp(player.dx,-1,1);player.dy=clamp(player.dy,-1,1);player.walk=clamp(player.walk,0,1);player.phase=clamp(player.phase,-1e6,1e6);
     player.vx=clamp(Number.isFinite(Number(msg.vx))?msg.vx:(player.x-oldX)/elapsed,-3000,3000);player.vy=clamp(Number.isFinite(Number(msg.vy))?msg.vy:(player.y-oldY)/elapsed,-3000,3000);player.seq=Math.max((player.seq||0)+1,Math.floor(clamp(msg.seq,0,1e12)));player.updatedAt=now;player.lastStateAt=now;
-    const pub=publicPlayer(player);safeSend(player.ws,{type:'player:self',player:pub,serverTime:now},{volatile:true});broadcast({type:'player:state',player:pub},player.ws,{volatile:true});return;
+    const pub=publicPlayerState(player);safeSend(player.ws,{type:'player:self',player:{id:pub.id,x:pub.x,y:pub.y,hp:pub.hp,maxHp:pub.maxHp,seq:pub.seq},serverTime:now},{volatile:true});broadcast({type:'player:state',player:pub},player.ws,{volatile:true});return;
   }
   if(msg.type==='skill:effects'){
     const types=new Set(['particle','ring','line','slash','riftCut','nova','starSeal','flourish']),num=(v,min,max)=>clamp(Number(v)||0,min,max);
