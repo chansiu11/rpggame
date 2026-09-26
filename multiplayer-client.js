@@ -21,7 +21,7 @@ function url(){
 }
 function send(data){
   const ws=state.socket;if(ws?.readyState!==WebSocket.OPEN)return false;
-  if(ws.bufferedAmount>64000&&(data?.type==='state'||data?.type==='world:mobsDelta'))return false;
+  if(ws.bufferedAmount>48000&&(data?.type==='state'||data?.type==='world:mobsDelta'))return false;
   try{ws.send(JSON.stringify(data));return true;}catch{return false;}
 }
 function normalizeBoss(b){
