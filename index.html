@@ -1154,28 +1154,23 @@ function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color){
  else if(['solarReturn','prismLance'].includes(id)){for(let j=-2;j<=2;j++)effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(ang+j*.18)*150,y2:player.y+Math.sin(ang+j*.18)*150,color:j===0?sub:color,t:.22,max:.22});}
  else if(id==='skyFall'){effects.push({type:'nova',x:player.x,y:player.y,r:155,color,t:.5,max:.5});ring(player.x,player.y,160,color,.5);}
  else if(id==='chainReap'){
-  const seq=typeof activeSwordSkill!=='undefined'?activeSwordSkill:null,cx=seq?.skillId==='chainReap'&&Number.isFinite(seq.anchorX)?seq.anchorX:player.x+Math.cos(ang)*190,cy=seq?.skillId==='chainReap'&&Number.isFinite(seq.anchorY)?seq.anchorY:player.y+Math.sin(ang)*190;
-  if(hitIndex===0){effects.push({type:'starSeal',x:cx,y:cy,r:94,color,t:.52,max:.52});for(let j=0;j<4;j++){const aa=j*TAU/4;effects.push({type:'line',x:cx+Math.cos(aa)*150,y:cy+Math.sin(aa)*150,x2:cx,y2:cy,color:j%2?sub:color,t:.42,max:.42});}ring(cx,cy,118,accent,.4);}
-  else{for(let j=0;j<8;j++){const aa=j*TAU/8;effects.push({type:'line',x:cx+Math.cos(aa)*190,y:cy+Math.sin(aa)*190,x2:cx,y2:cy,color:j%2?sub:color,t:.30,max:.30});}effects.push({type:'nova',x:cx,y:cy,r:150,color:accent,t:.52,max:.52});burst(cx,cy,color,22,190);}
+  const bend=hitIndex===0?.42:-.30,tx=player.x+Math.cos(ang)*105-Math.sin(ang)*bend*95,ty=player.y+Math.sin(ang)*105+Math.cos(ang)*bend*95;
+  effects.push({type:'line',x:player.x-Math.cos(ang)*35,y:player.y-Math.sin(ang)*35,x2:tx,y2:ty,color:hitIndex===0?color:sub,t:.24,max:.24});
+  effects.push({type:'riftCut',x:player.x+Math.cos(ang)*62,y:player.y+Math.sin(ang)*62,a:ang+bend,len:175,width:20,color:accent,t:.28,max:.28});
  }
  else if(id==='phantomSwap'){
-  const seq=typeof activeSwordSkill!=='undefined'?activeSwordSkill:null,tgt=seq?.targetId?enemies.find(e=>e.id===seq.targetId):null,cx=tgt?.x??player.x+Math.cos(ang)*80,cy=tgt?.y??player.y+Math.sin(ang)*80;
-  const aa=ang+hitIndex*TAU/3,px=cx+Math.cos(aa)*88,py=cy+Math.sin(aa)*88;
-  effects.push({type:'riftCut',x:px,y:py,a:aa+Math.PI/2,len:145,width:24,color:hitIndex===2?sub:color,t:.28,max:.28});
-  effects.push({type:'line',x:player.x,y:player.y,x2:px,y2:py,color:accent,t:.22,max:.22});
-  if(finalHit){effects.push({type:'starSeal',x:cx,y:cy,r:128,color,t:.52,max:.52});effects.push({type:'nova',x:cx,y:cy,r:142,color:sub,t:.46,max:.46});}
+  const bx=player.x-Math.cos(ang)*92,by=player.y-Math.sin(ang)*92;
+  effects.push({type:'riftCut',x:bx,y:by,a:ang,len:235+hitIndex*70,width:18+hitIndex*8,color:hitIndex?sub:color,t:.24,max:.24});
+  for(let j=-1;j<=1;j++){const off=j*32;effects.push({type:'line',x:player.x-Math.sin(ang)*off,y:player.y+Math.cos(ang)*off,x2:player.x+Math.cos(ang)*180-Math.sin(ang)*off*.25,y2:player.y+Math.sin(ang)*180+Math.cos(ang)*off*.25,color:j===0?accent:color,t:.20,max:.20});}
  }
  else if(id==='gravityCut'){
-  const seq=typeof activeSwordSkill!=='undefined'?activeSwordSkill:null,cx=seq?.skillId==='gravityCut'&&Number.isFinite(seq.anchorX)?seq.anchorX:player.x+Math.cos(ang)*205,cy=seq?.skillId==='gravityCut'&&Number.isFinite(seq.anchorY)?seq.anchorY:player.y+Math.sin(ang)*205;
-  if(hitIndex<2){ring(cx,cy,hitIndex===0?168:116,color,.4);ring(cx,cy,hitIndex===0?112:72,sub,.34);effects.push({type:'starSeal',x:cx,y:cy,r:hitIndex===0?130:92,color:accent,t:.36,max:.36});}
-  else{effects.push({type:'nova',x:cx,y:cy,r:205,color:accent,t:.68,max:.68});for(let j=0;j<10;j++){const aa=j*TAU/10;effects.push({type:'line',x:cx,y:cy,x2:cx+Math.cos(aa)*210,y2:cy+Math.sin(aa)*210,color:j%2?sub:color,t:.42,max:.42});}burst(cx,cy,color,28,240);}
+  const w=hitIndex===0?96:58,L=250;
+  effects.push({type:'line',x:player.x-Math.sin(ang)*w,y:player.y+Math.cos(ang)*w,x2:player.x+Math.cos(ang)*L-Math.sin(ang)*w*.25,y2:player.y+Math.sin(ang)*L+Math.cos(ang)*w*.25,color,t:.20,max:.20});
+  effects.push({type:'line',x:player.x+Math.sin(ang)*w,y:player.y-Math.cos(ang)*w,x2:player.x+Math.cos(ang)*L+Math.sin(ang)*w*.25,y2:player.y+Math.sin(ang)*L-Math.cos(ang)*w*.25,color:sub,t:.20,max:.20});
  }
  else if(id==='bladeRain'){
-  const seq=typeof activeSwordSkill!=='undefined'?activeSwordSkill:null,cx=seq?.skillId==='bladeRain'&&Number.isFinite(seq.anchorX)?seq.anchorX:player.x+Math.cos(ang)*230,cy=seq?.skillId==='bladeRain'&&Number.isFinite(seq.anchorY)?seq.anchorY:player.y+Math.sin(ang)*230,aa=ang+hitIndex*Math.PI/2;
-  const px=cx+Math.cos(aa)*205,py=cy+Math.sin(aa)*205;
-  effects.push({type:'starSeal',x:px,y:py,r:52,color,t:.32,max:.32});effects.push({type:'riftCut',x:(px+cx)/2,y:(py+cy)/2,a:aa,len:300,width:30,color:hitIndex===3?sub:color,t:.36,max:.36});
-  effects.push({type:'line',x:px,y:py,x2:cx-Math.cos(aa)*105,y2:cy-Math.sin(aa)*105,color:sub,t:.30,max:.30});
-  if(finalHit){effects.push({type:'starSeal',x:cx,y:cy,r:150,color:accent,t:.58,max:.58});effects.push({type:'nova',x:cx,y:cy,r:172,color:sub,t:.54,max:.54});}
+  const off=hitIndex===0?92:hitIndex===1?48:0,L=350,offs=off?[off,-off]:[0];
+  for(const sideOff of offs){const sx=player.x-Math.sin(ang)*sideOff+Math.cos(ang)*30,sy=player.y+Math.cos(ang)*sideOff+Math.sin(ang)*30;effects.push({type:'riftCut',x:sx+Math.cos(ang)*150,y:sy+Math.sin(ang)*150,a:ang,len:L,width:hitIndex===2?46:24,color:hitIndex===2?sub:color,t:.38,max:.38});effects.push({type:'line',x:sx,y:sy,x2:sx+Math.cos(ang)*L,y2:sy+Math.sin(ang)*L,color:accent,t:.30,max:.30});}
  }
  else if(id==='voidDance'){effects.push({type:'starSeal',x:player.x,y:player.y,r:72,color,t:.22,max:.22});}
 }
@@ -1482,7 +1477,7 @@ function startHeldSwordSkill(slot){
  const motionTarget=(lockedTarget&&enemies.includes(lockedTarget)&&!lockedTarget.dead?lockedTarget:null);
  activeSwordSkill={slot,skillId:sk.id,held:true,elapsed:0,nextTick:0,facing:player.facing,duration:max,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:1,fx:0,carryIds:new Set(),ultimate:slot===4,ultPhase:0,ultFx:0,releaseQueued:false};
  sendSharedSkillFx(slot,sk.id,player.weapon,player.facing);
- ring(player.x,player.y,38,swordStyleFxForSkill(sk.id).main,.28);sound('swing');updateSkillTray();return true;
+ if(sk.id==='gravityCut'){const th=swordStyleFxForSkill(sk.id);effects.push({type:'line',x:player.x-Math.sin(player.facing)*90,y:player.y+Math.cos(player.facing)*90,x2:player.x+Math.cos(player.facing)*210-Math.sin(player.facing)*45,y2:player.y+Math.sin(player.facing)*210+Math.cos(player.facing)*45,color:th.main,t:.28,max:.28});effects.push({type:'line',x:player.x+Math.sin(player.facing)*90,y:player.y-Math.cos(player.facing)*90,x2:player.x+Math.cos(player.facing)*210+Math.sin(player.facing)*45,y2:player.y+Math.sin(player.facing)*210-Math.cos(player.facing)*45,color:th.sub,t:.28,max:.28});}else ring(player.x,player.y,38,swordStyleFxForSkill(sk.id).main,.28);sound('swing');updateSkillTray();return true;
 }
 function stopHeldSwordSkill(slot,interrupted=false){
  const seq=activeSwordSkill;if(!seq?.held||seq.slot!==slot)return false;
@@ -1606,7 +1601,7 @@ function startSwordSkill(slot){
   else if(sk.id==='voidDance')effects.push({type:'riftCut',x:player.x,y:player.y,a:player.facing,len:180,width:26,color:theme.accent,t:.30,max:.30});
   burst(player.x,player.y,theme.main,18,160);shake=Math.max(shake,9);
  }
- ring(player.x,player.y,slot===4?64:24,theme.main,slot===4?.38:.22);sound('swing');updateSkillTray();return true;
+ if(!['chainReap','phantomSwap','gravityCut','bladeRain'].includes(sk.id))ring(player.x,player.y,slot===4?64:24,theme.main,slot===4?.38:.22);else effects.push({type:'line',x:player.x-Math.sin(player.facing)*30,y:player.y+Math.cos(player.facing)*30,x2:player.x+Math.cos(player.facing)*125+Math.sin(player.facing)*30,y2:player.y+Math.sin(player.facing)*125-Math.cos(player.facing)*30,color:theme.main,t:.22,max:.22});sound('swing');updateSkillTray();return true;
 }
 const SWORD_CARRY_MODES=new Set(['blinkThrust','chaseCombo','stationaryFlurry','orbitStrike','mirrorBackstab','phantomSwap','quakeLine','guardPierce','tempest','earthSlam','skyFall','holdThunder','holdVortex','holdShadow']);
 function swordCarryEligible(e){return !!e&&!e.dead&&!e.riftSleeping&&e.kind!=='boss'&&e.type!=='dummy'&&!(e.type==='finalBoss'&&!e.alert);}
@@ -3217,7 +3212,7 @@ function showLobby(msg=''){
  $('pvpLobby').classList.remove('hidden');$('pvpHud').classList.add('hidden');$('pvpCooldowns').classList.add('hidden');$('pvpScore').classList.add('hidden');$('pvpResult').classList.add('hidden');
  if(msg){$('pvpRoomView').textContent=msg;$('pvpRoomView').classList.remove('hidden')}else if(!matchWaiting)$('pvpRoomView').classList.add('hidden');
 }
-function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-20';resize()}
+function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-21';resize()}
 function close(){stopNet();layer.classList.add('hidden');document.querySelector('#title')?.classList.remove('hidden')}
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){running=false;try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[]}
@@ -3367,7 +3362,7 @@ function startWorldSwordHold(i,sk){if(!skillReady(i)||!sk?.holdContinuous||!comm
   ring(me.x,me.y,64,sk.color||'#61f0c7',.38,true);
   burst(me.x,me.y,sk.color||'#61f0c7',18,160);
   pvpShake=Math.max(pvpShake,9);
- }else ring(me.x,me.y,38,sk.color||'#d7c181',.28,true);
+ }else if(sk.id==='gravityCut'){beamFx(me.x-Math.sin(a)*90,me.y+Math.cos(a)*90,me.x+Math.cos(a)*210-Math.sin(a)*45,me.y+Math.sin(a)*210+Math.cos(a)*45,sk.color||'#a76cff',.28,true);beamFx(me.x+Math.sin(a)*90,me.y-Math.cos(a)*90,me.x+Math.cos(a)*210+Math.sin(a)*45,me.y+Math.sin(a)*210-Math.cos(a)*45,sk.sub||'#fff',.28,true)}else ring(me.x,me.y,38,sk.color||'#d7c181',.28,true);
  return true}
 function stopWorldSwordHold(i,interrupted=false){const h=me?.skillHold;if(!h||h.kind!=='worldSwordHold'||h.index!==i)return;if(h.ultimate&&!interrupted&&h.elapsed<1.25){h.releaseQueued=true;return}const sk=h.skill,mode=sk?.cfg?.mode;if(h.ultimate&&!interrupted)pvpUltimateFinishFx(h,sk);
  if(!interrupted&&mode==='holdGravityLane'){
@@ -3377,7 +3372,7 @@ function stopWorldSwordHold(i,interrupted=false){const h=me?.skillHold;if(!h||h.
  if(h.carry&&enemy){if(mode==='holdShadow'){queueStigmaControl('voidDance',enemy.x,enemy.y,.20,interrupted?.35:1,.85,true)}else if(interrupted)forceEnemyTo(enemy.x,enemy.y,.18,.35);else if(mode==='holdThunder')forceEnemyTo(enemy.x+Math.cos(h.a)*62,enemy.y+Math.sin(h.a)*62,.28,.55);else forceEnemyTo(enemy.x,enemy.y,.18,1)}me.skillHold=null;me.skillPose=-1;me.skillKind='';me.skillLift=0;me.attackAnim=interrupted?0:.12;me.attackDuration=.12;me.attackCd=interrupted?0:.12;me.moveLock=Math.max(me.moveLock||0,.06);me.postSkillLock=interrupted?0:.06;if(!interrupted&&sk)ring(me.x,me.y,34,sk.color||'#d7c181',.18,true)}
 function pvpUltimateFinishFx(seq,sk){if(!seq?.ultimate||!sk)return;const main=sk.color||'#d7c181',sub=sk.sub||'#fff',accent=sk.accent||sub,a=seq.a||me.a;if(sk.id==='thunderDrive'){riftCutFx(me.x+Math.cos(a)*190,me.y+Math.sin(a)*190,a,620,68,sub,.58,true);nova(me.x,me.y,180,main,.46,true)}else if(sk.id==='lunarBind'){sealFx(me.x,me.y,320,sub,.72,true);for(let j=0;j<12;j++){const aa=j*TAU/12;slashFx(me.x,me.y,aa,.9,280,j%2?main:sub,.42,true)}}else if(sk.id==='meteorBreaker'){nova(me.x,me.y,350,accent,.76,true);for(let j=0;j<10;j++){const aa=j*TAU/10;riftCutFx(me.x+Math.cos(aa)*90,me.y+Math.sin(aa)*90,aa,270,44,main,.48,true)}}else if(sk.id==='prismLance'){riftCutFx(me.x+Math.cos(a)*260,me.y+Math.sin(a)*260,a,760,92,sub,.66,true);for(let j=-3;j<=3;j++){const aa=a+j*.13;beamFx(me.x,me.y,me.x+Math.cos(aa)*520,me.y+Math.sin(aa)*520,j===0?sub:main,.44,true)}}else if(sk.id==='voidDance'){nova(me.x,me.y,300,accent,.68,true);sealFx(me.x,me.y,285,sub,.62,true);for(let j=0;j<8;j++){const aa=j*TAU/8;riftCutFx(me.x+Math.cos(aa)*115,me.y+Math.sin(aa)*115,aa+Math.PI/2,230,32,main,.42,true)}}burst(me.x,me.y,main,42,285);pvpShake=Math.max(pvpShake,18)}
 function startSwordSequence(i,preparedA=null){if(!skillReady(i))return false;const sk=pvpSwordSkillAt(i);if(!sk?.cfg)return false;if(sk.holdContinuous)return startWorldSwordHold(i,sk);const cfg=sk.cfg;if(!commitSkill(i,sk.cost,sk.cool))return false;let a=Number.isFinite(preparedA)?preparedA:combatAimAngle(),dashCatch=['flashRush','mirrorStep','quakeRush','skyFall','phantomSwap'].includes(sk.id),gale=['windSlash','flashRush','starRush','galeOrbit','thunderDrive'].includes(sk.id),voidRange=sk.id==='chainReap'?360:sk.id==='phantomSwap'?620:sk.id==='bladeRain'?540:0,targetRange=sk.id==='flashRush'?720:(voidRange||(i===4?820:(gale?560:(dashCatch?720:300)))),hasTarget=enemy&&enemy.hp>0&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=targetRange;if(dashCatch&&hasTarget)a=Math.atan2(enemy.y-me.y,enemy.x-me.x);me.a=a;me.skillLift=0;{const anchorMode=cfg.mode==='fracturePrison',anchorDist=170;
- me.skillEvent={kind:'swordSeq',index:i,elapsed:0,next:0,cfg,skill:sk,a,side:Math.random()<.5?-1:1,fx:0,ultimate:i===4,dashCatch,targetRange,carry:false,carryDX:0,carryDY:0,carryAt:0,anchorX:anchorMode?(hasTarget?enemy.x:me.x+Math.cos(a)*anchorDist):null,anchorY:anchorMode?(hasTarget?enemy.y:me.y+Math.sin(a)*anchorDist):null,lastEchoX:me.x,lastEchoY:me.y};}me.skillKind=cfg.mode||'swordSeq';me.attackDuration=cfg.duration;me.attackAnim=cfg.duration;me.attackCd=cfg.duration;me.moveLock=cfg.duration;me.combo=0;me.comboTimer=0;queuePostSkillLock(cfg.duration);const main=sk.color||'#d7c181',sub=sk.sub||'#fff',accent=sk.accent||sub;if(i===4){if(sk.id==='lunarBind')sealFx(me.x,me.y,150,main,.55,true);else if(sk.id==='prismLance')for(let j=-2;j<=2;j++){const aa=a+j*.18;beamFx(me.x,me.y,me.x+Math.cos(aa)*180,me.y+Math.sin(aa)*180,j===0?sub:main,.28,true)}else if(sk.id==='thunderDrive')ring(me.x,me.y,115,accent,.38,true);else if(sk.id==='meteorBreaker')sealFx(me.x,me.y,180,main,.55,true);else if(sk.id==='voidDance')riftCutFx(me.x,me.y,a,180,26,accent,.30,true);burst(me.x,me.y,main,18,160);pvpShake=Math.max(pvpShake,9)}ring(me.x,me.y,i===4?64:24,main,i===4?.38:.22,true);triggerPvpShake(i,1,true);return true}
+ me.skillEvent={kind:'swordSeq',index:i,elapsed:0,next:0,cfg,skill:sk,a,side:Math.random()<.5?-1:1,fx:0,ultimate:i===4,dashCatch,targetRange,carry:false,carryDX:0,carryDY:0,carryAt:0,anchorX:anchorMode?(hasTarget?enemy.x:me.x+Math.cos(a)*anchorDist):null,anchorY:anchorMode?(hasTarget?enemy.y:me.y+Math.sin(a)*anchorDist):null,lastEchoX:me.x,lastEchoY:me.y};}me.skillKind=cfg.mode||'swordSeq';me.attackDuration=cfg.duration;me.attackAnim=cfg.duration;me.attackCd=cfg.duration;me.moveLock=cfg.duration;me.combo=0;me.comboTimer=0;queuePostSkillLock(cfg.duration);const main=sk.color||'#d7c181',sub=sk.sub||'#fff',accent=sk.accent||sub;if(i===4){if(sk.id==='lunarBind')sealFx(me.x,me.y,150,main,.55,true);else if(sk.id==='prismLance')for(let j=-2;j<=2;j++){const aa=a+j*.18;beamFx(me.x,me.y,me.x+Math.cos(aa)*180,me.y+Math.sin(aa)*180,j===0?sub:main,.28,true)}else if(sk.id==='thunderDrive')ring(me.x,me.y,115,accent,.38,true);else if(sk.id==='meteorBreaker')sealFx(me.x,me.y,180,main,.55,true);else if(sk.id==='voidDance')riftCutFx(me.x,me.y,a,180,26,accent,.30,true);burst(me.x,me.y,main,18,160);pvpShake=Math.max(pvpShake,9)}if(!['chainReap','phantomSwap','gravityCut','bladeRain'].includes(sk.id))ring(me.x,me.y,i===4?64:24,main,i===4?.38:.22,true);else beamFx(me.x-Math.sin(a)*30,me.y+Math.cos(a)*30,me.x+Math.cos(a)*125+Math.sin(a)*30,me.y+Math.sin(a)*125-Math.cos(a)*30,main,.22,true);triggerPvpShake(i,1,true);return true}
 function startSwordRPrepare(){if(!skillReady(1))return false;me.skillHold={kind:'swordRPrepare',index:1,a:combatAimAngle()};me.skillPose=1;me.skillKind='prepare';me.moveLock=.12;ring(me.x,me.y,34,'#9ddfff',.2,true);return true}
 function releaseSwordR(){const h=me.skillHold;if(!h||h.kind!=='swordRPrepare')return;me.skillHold=null;if(!commitSkill(1))return;me.skillEvent={kind:'swordRDash',index:1,elapsed:0,max:.5,a:combatAimAngle(h.a),hit:false};me.skillKind='swordRDash';me.attackDuration=.5;me.attackAnim=.5;me.attackCd=.58;me.inv=.12;queuePostSkillLock(.5);triggerPvpShake(1,1,true)}
 function startSwordGPrepare(){if(!skillReady(3))return false;me.skillHold={kind:'swordGPrepare',index:3,elapsed:0,a:combatAimAngle(),committed:false,tick:0};me.skillPose=3;me.skillKind='prepare';ring(me.x,me.y,36,'#ffd18b',.2,true);return true}
@@ -3488,24 +3483,18 @@ function pvpSwordSignatureFx(sk,hitIndex,finalHit,ang,reach){
  else if(id==='solarReturn'||id==='prismLance'){for(let j=-2;j<=2;j++)beamFx(me.x,me.y,me.x+Math.cos(ang+j*.18)*150,me.y+Math.sin(ang+j*.18)*150,j===0?sub:color,.22,true)}
  else if(id==='skyFall'){nova(me.x,me.y,155,color,.5,true);ring(me.x,me.y,160,color,.5,true)}
  else if(id==='chainReap'){
-  const ev=me?.skillEvent,cx=ev?.skill?.id==='chainReap'&&Number.isFinite(ev.anchorX)?ev.anchorX:me.x+Math.cos(ang)*190,cy=ev?.skill?.id==='chainReap'&&Number.isFinite(ev.anchorY)?ev.anchorY:me.y+Math.sin(ang)*190;
-  if(hitIndex===0){sealFx(cx,cy,94,color,.52,true);for(let j=0;j<4;j++){const aa=j*TAU/4;beamFx(cx+Math.cos(aa)*150,cy+Math.sin(aa)*150,cx,cy,j%2?sub:color,.42,true)}ring(cx,cy,118,accent,.4,true)}
-  else{for(let j=0;j<8;j++){const aa=j*TAU/8;beamFx(cx+Math.cos(aa)*190,cy+Math.sin(aa)*190,cx,cy,j%2?sub:color,.30,true)}nova(cx,cy,150,accent,.52,true);burst(cx,cy,color,22,190)}
+  const bend=hitIndex===0?.42:-.30,tx=me.x+Math.cos(ang)*105-Math.sin(ang)*bend*95,ty=me.y+Math.sin(ang)*105+Math.cos(ang)*bend*95;
+  beamFx(me.x-Math.cos(ang)*35,me.y-Math.sin(ang)*35,tx,ty,hitIndex===0?color:sub,.24,true);riftCutFx(me.x+Math.cos(ang)*62,me.y+Math.sin(ang)*62,ang+bend,175,20,accent,.28,true);
  }
  else if(id==='phantomSwap'){
-  const ev=me?.skillEvent,cx=enemy?.x??me.x+Math.cos(ang)*80,cy=enemy?.y??me.y+Math.sin(ang)*80,aa=ang+hitIndex*TAU/3,px=cx+Math.cos(aa)*88,py=cy+Math.sin(aa)*88;
-  riftCutFx(px,py,aa+Math.PI/2,145,24,hitIndex===2?sub:color,.28,true);beamFx(me.x,me.y,px,py,accent,.22,true);
-  if(finalHit){sealFx(cx,cy,128,color,.52,true);nova(cx,cy,142,sub,.46,true)}
+  riftCutFx(me.x-Math.cos(ang)*92,me.y-Math.sin(ang)*92,ang,235+hitIndex*70,18+hitIndex*8,hitIndex?sub:color,.24,true);
+  for(let j=-1;j<=1;j++){const off=j*32;beamFx(me.x-Math.sin(ang)*off,me.y+Math.cos(ang)*off,me.x+Math.cos(ang)*180-Math.sin(ang)*off*.25,me.y+Math.sin(ang)*180+Math.cos(ang)*off*.25,j===0?accent:color,.20,true)}
  }
  else if(id==='gravityCut'){
-  const ev=me?.skillEvent,cx=ev?.skill?.id==='gravityCut'&&Number.isFinite(ev.anchorX)?ev.anchorX:me.x+Math.cos(ang)*205,cy=ev?.skill?.id==='gravityCut'&&Number.isFinite(ev.anchorY)?ev.anchorY:me.y+Math.sin(ang)*205;
-  if(hitIndex<2){ring(cx,cy,hitIndex===0?168:116,color,.4,true);ring(cx,cy,hitIndex===0?112:72,sub,.34,true);sealFx(cx,cy,hitIndex===0?130:92,accent,.36,true)}
-  else{nova(cx,cy,205,accent,.68,true);for(let j=0;j<10;j++){const aa=j*TAU/10;beamFx(cx,cy,cx+Math.cos(aa)*210,cy+Math.sin(aa)*210,j%2?sub:color,.42,true)}burst(cx,cy,color,28,240)}
+  const w=hitIndex===0?96:58,L=250;beamFx(me.x-Math.sin(ang)*w,me.y+Math.cos(ang)*w,me.x+Math.cos(ang)*L-Math.sin(ang)*w*.25,me.y+Math.sin(ang)*L+Math.cos(ang)*w*.25,color,.20,true);beamFx(me.x+Math.sin(ang)*w,me.y-Math.cos(ang)*w,me.x+Math.cos(ang)*L+Math.sin(ang)*w*.25,me.y+Math.sin(ang)*L-Math.cos(ang)*w*.25,sub,.20,true);
  }
  else if(id==='bladeRain'){
-  const ev=me?.skillEvent,cx=ev?.skill?.id==='bladeRain'&&Number.isFinite(ev.anchorX)?ev.anchorX:me.x+Math.cos(ang)*230,cy=ev?.skill?.id==='bladeRain'&&Number.isFinite(ev.anchorY)?ev.anchorY:me.y+Math.sin(ang)*230,aa=ang+hitIndex*Math.PI/2,px=cx+Math.cos(aa)*205,py=cy+Math.sin(aa)*205;
-  sealFx(px,py,52,color,.32,true);riftCutFx((px+cx)/2,(py+cy)/2,aa,300,30,hitIndex===3?sub:color,.36,true);beamFx(px,py,cx-Math.cos(aa)*105,cy-Math.sin(aa)*105,sub,.30,true);
-  if(finalHit){sealFx(cx,cy,150,accent,.58,true);nova(cx,cy,172,sub,.54,true)}
+  const off=hitIndex===0?92:hitIndex===1?48:0,L=350,offs=off?[off,-off]:[0];for(const sideOff of offs){const sx=me.x-Math.sin(ang)*sideOff+Math.cos(ang)*30,sy=me.y+Math.cos(ang)*sideOff+Math.sin(ang)*30;riftCutFx(sx+Math.cos(ang)*150,sy+Math.sin(ang)*150,ang,L,hitIndex===2?46:24,hitIndex===2?sub:color,.38,true);beamFx(sx,sy,sx+Math.cos(ang)*L,sy+Math.sin(ang)*L,accent,.30,true)}
  }
  else if(id==='voidDance')sealFx(me.x,me.y,72,color,.22,true);
 }
