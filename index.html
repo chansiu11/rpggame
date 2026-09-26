@@ -2104,18 +2104,28 @@ function adminItemOptions(){return [
  ['blueprint1','비밀 · 설계도 조각 1'],['blueprint2','비밀 · 설계도 조각 2'],['blueprint3','비밀 · 설계도 조각 3'],['blueprint4','비밀 · 설계도 조각 4'],
  ...RUNES.map(r=>['rune_'+r.id,'룬 · '+r.name])
 ];}
-function showAdmin(){if(mode!=='play')return;openPanel('admin',header('ADMIN · LOCAL GAME','관리자 패널')+`<p class="lede">레벨 조정과 아이템 지급을 서로 분리했습니다. 원하는 것만 바꿀 수 있으며 저장되는 항목은 현재 계정 진행에 반영됩니다. 무적 같은 전투 스위치는 이번 실행에만 적용됩니다.</p><div class="grid two"><div class="card"><h3>전투 시스템</h3>${[['god','무적'],['free','지구력·쉴드 무제한'],['noCooldown','스킬 재사용 시간 제거'],['freeze','몬스터 정지']].map(([id,label])=>`<label class="check">${label}<input type="checkbox" data-admin-flag="${id}" ${admin[id]?'checked':''}></label>`).join('')}<button data-admin="heal">완전 회복</button><button data-admin="cooldown">재사용 시간 초기화</button><button data-admin="clear">주변 몬스터 정화</button></div>
+function showAdmin(){if(mode!=='play')return;admin.allSkillSets=false;if(player.weapon===4)player.weapon=0;player.ownedWeapons=player.ownedWeapons.filter(n=>n!==4);openPanel('admin',header('ADMIN · LOCAL GAME','관리자 패널')+`<p class="lede">레벨 조정과 아이템 지급을 서로 분리했습니다. 원하는 것만 바꿀 수 있으며 저장되는 항목은 현재 계정 진행에 반영됩니다. 무적 같은 전투 스위치는 이번 실행에만 적용됩니다.</p><div class="grid two"><div class="card"><h3>전투 시스템</h3>${[['god','무적'],['free','지구력·쉴드 무제한'],['noCooldown','스킬 재사용 시간 제거'],['freeze','몬스터 정지']].map(([id,label])=>`<label class="check">${label}<input type="checkbox" data-admin-flag="${id}" ${admin[id]?'checked':''}></label>`).join('')}<button data-admin="heal">완전 회복</button><button data-admin="cooldown">재사용 시간 초기화</button><button data-admin="clear">주변 몬스터 정화</button></div>
  <div class="card"><h3>레벨만 조정</h3><p>아이템에는 영향을 주지 않고 레벨만 변경합니다.</p><label class="check">현재 레벨<input id="adminLevel" type="number" min="1" max="${MAX_LEVEL}" value="${player.level}" style="width:78px"></label><div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0"><button data-admin="levelDelta" data-value="-10">-10</button><button data-admin="levelDelta" data-value="-1">-1</button><button data-admin="levelDelta" data-value="1">+1</button><button data-admin="levelDelta" data-value="10">+10</button></div><button class="primary" data-admin="level">입력한 레벨 적용</button><button data-admin="levelMax">레벨 100</button><p>레벨 변경 시 HP·지구력·장비 보정치도 즉시 다시 계산됩니다.</p></div>
  <div class="card"><h3>아이템 개별 지급</h3><p>레벨을 건드리지 않고 선택한 아이템만 획득합니다.</p><select id="adminItem" style="width:100%;margin-bottom:8px">${adminItemOptions().map(([id,n])=>`<option value="${id}">${n}</option>`).join('')}</select><label class="check">수량<input id="adminAmount" type="number" min="1" max="99999" value="1" style="width:82px"></label><button class="primary" data-admin="give">선택 아이템 지급</button><button data-admin="drop">재료를 발밑에 놓기</button><p>무기·방어구·방패·룬·설계도는 중복 지급되지 않습니다. 재료는 원하는 수량만큼 받을 수 있습니다.</p></div>
  <div class="card"><h3>아이템 일괄 해금</h3><p>레벨은 그대로 두고 현재 게임의 장비와 재료만 모두 지급합니다.</p><button data-admin="allItems">모든 무기·장비·룬 획득</button><button data-admin="hiddenItems">히든 무기 재료·설계도만 획득</button><button data-admin="materials">재료 대량 지급</button><p>일괄 해금 후에도 레벨은 현재 값으로 유지됩니다.</p></div>
  <div class="card"><h3>진행·세계</h3><button data-admin="progress">임무·인장·균열·기록 완료</button><button data-admin="map">지도·야영지 모두 해금</button><button data-admin="save">현재 상태 저장</button><p>진행 완료와 지도 해금도 레벨/아이템 지급과 별개로 동작합니다.</p></div>
  <div class="card"><h3>몬스터·보스 생성</h3><select id="adminMonster">${Object.entries(ENEMY_TYPES).map(([id,v])=>`<option value="${id}">${v.name}</option>`).join('')}</select><button data-admin="spawn">앞쪽에 생성</button><p>현재 지형의 체력·공격력 배율이 적용됩니다.</p><h3>빠른 이동</h3><select id="adminPlace">${camps.map(c=>`<option value="camp:${c.id}">${c.name}</option>`).join('')}${arenas.map((a,i)=>`<option value="boss:${i}">보스 ${i+1} 전장</option>`).join('')}</select><button data-admin="travel">즉시 이동</button></div>
  <div class="card"><h3>세계·균열</h3><select id="adminRift">${RIFTS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select><button data-admin="rift">균열 시작</button><button data-admin="day">낮으로</button><button data-admin="night">밤으로</button><button data-admin="resetEnemies">몬스터 상태 초기화</button></div>
- <div class="card"><h3>관리자 전용 무기</h3><p><b>관리자의 만능검</b>은 5개 유파 제한을 무시합니다. 관리자 패널을 연 상태에서 <b>숫자 1</b>을 눌러도 25개 검술 전체가 즉시 해금됩니다.</p><button class="primary" data-admin="adminSword">관리자의 만능검 획득 · 장착 · 모든 스킬 보기</button></div><div class="card"><h3>게임 시스템 열기</h3><button data-action="inventory">가방·제작·특성</button><button data-action="quests">임무·보상</button><button data-action="skills">스킬</button><button data-action="keys">키 설정</button><button data-action="map">세계 지도</button></div></div>`+footer('백틱(`): 관리자 패널 · 레벨과 아이템은 각각 독립적으로 조절됩니다.','<button data-action="pause">게임 메뉴</button><button data-action="close">게임으로</button>'),true);}
-function adminUnlockAllSwordSkills(){
- admin.allSkillSets=true;if(!player.ownedWeapons.includes(4))player.ownedWeapons.push(4);player.weapon=4;
- player.learnedSwordSkills=SWORD_SKILL_LIBRARY.map(sk=>sk.id);player.adminSwordSkills=SWORD_SKILL_LIBRARY.slice(0,5).map(sk=>sk.id);player.skillCds.fill(0);
- toast('<b>관리자 전체 검술 해금</b><br>25개 검술의 묶음 제한이 해제되었습니다. 스킬 메뉴에서 원하는 5개를 장착하세요.');showSkills(false);
+ <div class="card"><h3>검술 유파 변경</h3><p>개별 스킬을 섞지 않고 유파 전체를 바꿉니다. 선택한 유파의 Q/R/T/G/V 5개 스킬이 즉시 장착되고 저장되어 <b>PVP에도 동일하게 적용</b>됩니다.</p><div style="display:flex;flex-wrap:wrap;gap:6px">${SWORD_STYLE_GROUPS.map(g=>`<button class="${player.swordStyle===g.id?'primary':''}" data-admin="swordStyle" data-value="${g.id}">${g.name}</button>`).join('')}</div><p>현재 유파 · <b>${swordStyleById(player.swordStyle)?.name||'미선택'}</b></p></div><div class="card"><h3>게임 시스템 열기</h3><button data-action="inventory">가방·제작·특성</button><button data-action="quests">임무·보상</button><button data-action="skills">스킬</button><button data-action="keys">키 설정</button><button data-action="map">세계 지도</button></div></div>`+footer('백틱(`): 관리자 패널 · 유파 변경은 월드와 PVP에 함께 적용됩니다.','<button data-action="pause">게임 메뉴</button><button data-action="close">게임으로</button>'),true);}
+function adminSetSwordStyle(id){
+ const g=swordStyleById(id);if(!g)return false;
+ admin.allSkillSets=false;
+ player.swordStyle=g.id;
+ player.learnedSwordSkills=[...g.skills];
+ player.equippedSwordSkills=[...g.skills];
+ player.adminSwordSkills=[...g.skills];
+ player.ownedWeapons=player.ownedWeapons.filter(n=>n!==4);
+ if(player.weapon===4)player.weapon=0;
+ player.skillCds.fill(0);
+ saveGame(false);
+ updateHUD();
+ toast('<b>관리자 유파 변경 · '+g.name+'</b><br>Q/R/T/G/V가 '+g.name+'의 5개 검술로 교체되었으며 PVP에도 동일하게 적용됩니다.');
+ return true;
 }
 function adminLevel(n){player.level=Math.floor(clamp(Number(n)||1,1,MAX_LEVEL));recalculateEquipment(true);player.xp=0;}
 function adminGive(kind,n,drop){
@@ -2137,11 +2147,11 @@ $('panel').addEventListener('change',e=>{const flag=e.target.dataset.adminFlag;i
 $('panel').addEventListener('click',e=>{const b=e.target.closest('[data-admin]');if(!b)return;const action=b.dataset.admin;
  if(action==='heal'){player.hp=player.maxHp;player.stam=player.maxStam;player.shield=player.maxShield;player.shieldBroken=0;}
  if(action==='cooldown'){player.skillCds.fill(0);player.attackCd=player.dodgeCd=player.parryCd=player.potionCd=player.exhaust=player.cast=0;}
- if(action==='adminSword'){adminUnlockAllSwordSkills();return;}
+ if(action==='swordStyle'){adminSetSwordStyle(b.dataset.value);showAdmin();return;}
  if(action==='level')adminLevel($('adminLevel').value);
  if(action==='levelDelta')adminLevel(player.level+Number(b.dataset.value||0));
  if(action==='levelMax')adminLevel(MAX_LEVEL);
- if(action==='allItems'){player.ownedWeapons=[0,1,2,3];player.ownedHead=HEAD_GEAR.map(g=>g.id);player.ownedChest=CHEST_GEAR.map(g=>g.id);player.ownedShields=SHIELD_GEAR.map(g=>g.id);player.upgrades=[3,3,3,3];player.runes=RUNES.map(r=>r.id);player.learnedSwordSkills=SWORD_SKILL_LIBRARY.map(sk=>sk.id);recalculateEquipment(false);}
+ if(action==='allItems'){player.ownedWeapons=[0,1,2,3];player.ownedHead=HEAD_GEAR.map(g=>g.id);player.ownedChest=CHEST_GEAR.map(g=>g.id);player.ownedShields=SHIELD_GEAR.map(g=>g.id);player.upgrades=[3,3,3,3];player.runes=RUNES.map(r=>r.id);const g=swordStyleById(player.swordStyle);if(g){player.learnedSwordSkills=[...g.skills];player.equippedSwordSkills=[...g.skills]}recalculateEquipment(false);}
  if(action==='hiddenItems'){player.blueprintFragments=['blueprint1','blueprint2','blueprint3','blueprint4'];player.statueHits=3;player.statueBroken=true;player.frostCore=Math.max(player.frostCore,5);player.abyssCore=Math.max(player.abyssCore,5);}
  if(action==='materials'){player.gold+=50000;player.ore+=500;player.herbs+=500;player.potions=8;player.frostCore=Math.min(99,player.frostCore+10);player.abyssCore=Math.min(99,player.abyssCore+10);}
  if(action==='map'){player.camps=camps.map(c=>c.id);player.discovered=Array.from({length:MAP_TOTAL},(_,i)=>i);seen.clear();player.discovered.forEach(n=>seen.add(n));}
@@ -2462,7 +2472,7 @@ addEventListener('keydown',e=>{
  if(keyCapture&&modal==='keys'){captureKey(e);return;}keyCapture=null;
  if(layoutEditing){handleLayoutKey(e);return;}
  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].includes(e.code)&&!(modal&&e.code==='Tab'))e.preventDefault();
- if(modal==='admin'&&e.code==='Digit1'){e.preventDefault();adminUnlockAllSwordSkills();return;}
+ if(modal==='admin'&&e.code==='Digit1'){e.preventDefault();return;}
  if(modal){if(e.code==='Tab'){const items=[...$('panel').querySelectorAll('button:not(:disabled),input,select')];const first=items[0],last=items[items.length-1];if(!items.length)return;if(e.shiftKey&&document.activeElement===first){last.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===last){first.focus();e.preventDefault();}return;}if(e.code==='Escape'&&modal!=='defeat'){closeModal();}return;}
  if(mode!=='play'||e.ctrlKey||e.metaKey||e.altKey)return;const code=canonicalKey(e.code);if(e.code==='Escape'){showPause();return;}if(!code)return;e.preventDefault();if(e.repeat)return;initAudio();heldPhysical.set(e.code,code);keys.add(code);if(code==='Tab')cycleLock(e.shiftKey);if(code==='Space')dash();if(code==='KeyC')parry();const hiddenSkillKey={KeyQ:0,KeyR:1,KeyT:2,KeyG:3,KeyV:4}[code];if(hiddenSkillKey!=null){if(player.weapon===3)beginHiddenSkillInput(hiddenSkillKey);else beginStandardSkillInput(hiddenSkillKey);}if(code==='KeyF')potion();if(code==='KeyE')interact();if(code==='KeyZ')attack();
  if(code==='Digit1')switchWeapon(0);if(code==='Digit3')switchWeapon(2);if(code==='Digit4')switchWeapon(3);
@@ -3057,8 +3067,9 @@ function snapshot(){
  speed=(Number(WORLD_COMBAT.baseMove)||177)*(1+h.move+cg.move),cdr=clamp((h.cdr||0)+(cg.cdr||0),0,.25),
  perks={flow:clamp(Number(p.perks?.flow)||0,0,2),focus:clamp(Number(p.perks?.focus)||0,0,2),breath:clamp(Number(p.perks?.breath)||0,0,2),herbal:clamp(Number(p.perks?.herbal)||0,0,2)};
  let wi=clamp(Math.floor(p.weapon||0),0,3);if(wi===1||!owned.includes(wi))wi=0;
- const swordStyle=typeof p.swordStyle==='string'?p.swordStyle:'',equippedIds=Array.from({length:5},(_,i)=>typeof p.equippedSwordSkills?.[i]==='string'?p.equippedSwordSkills[i]:null),
- bridge=WORLD_PVP,swordSkills=equippedIds.map((id,i)=>id&&bridge?.swordSkill?bridge.swordSkill(id,i):null),styleInfo=bridge?.style?.(swordStyle)||null;
+ const swordStyle=typeof p.swordStyle==='string'?p.swordStyle:'',bridge=WORLD_PVP,styleInfo=bridge?.style?.(swordStyle)||null,
+ equippedIds=styleInfo?.skills?.length===5?[...styleInfo.skills]:Array.from({length:5},(_,i)=>typeof p.equippedSwordSkills?.[i]==='string'?p.equippedSwordSkills[i]:null),
+ swordSkills=equippedIds.map((id,i)=>id&&bridge?.swordSkill?bridge.swordSkill(id,i):null);
  return {ruleset:PVP_RULESET,name:displayName().slice(0,20),level:lvl,weapon:wi,weaponName:weaponData[wi].name,upgrades:ups,ownedWeapons:owned,attacks,maxHp,maxShield,maxStam,defense,speed,cdr,shieldRegen:sh.regen||0,
  headId,chestId,shieldId,perks,rune:typeof p.rune==='string'?p.rune:null,potions:clamp(Math.floor(Number(p.potions)||0),0,8),swordStyle,styleName:styleInfo?.name||'',equippedSwordSkills:equippedIds,swordSkills};
 }
@@ -3075,7 +3086,7 @@ function showLobby(msg=''){
  $('pvpLobby').classList.remove('hidden');$('pvpHud').classList.add('hidden');$('pvpCooldowns').classList.add('hidden');$('pvpScore').classList.add('hidden');$('pvpResult').classList.add('hidden');
  if(msg){$('pvpRoomView').textContent=msg;$('pvpRoomView').classList.remove('hidden')}else if(!matchWaiting)$('pvpRoomView').classList.add('hidden');
 }
-function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-16';resize()}
+function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-17';resize()}
 function close(){stopNet();layer.classList.add('hidden');document.querySelector('#title')?.classList.remove('hidden')}
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){running=false;try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[]}
