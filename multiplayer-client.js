@@ -5,7 +5,7 @@ const state={
   socket:null,connected:false,connecting:false,selfId:null,
   players:new Map(),bosses:new Map(),party:null,pendingInvite:null,
   world:null,worldRole:{leaderId:null,isLeader:false},worldSnapshot:{mobs:[],items:[],updatedAt:0},worldRevision:0,takenItems:new Set(),
-  profile:null,lastError:'',partyMax:4,reconnectTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
+  profile:null,lastError:'',partyMax:4,pvpRuleset:'',reconnectTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
 };
 function emit(type,payload){
   const set=listeners.get(type);if(!set)return;
@@ -33,7 +33,7 @@ function requestWorldResync(force=false){
 function handle(msg){
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='hello:ok'){
-    state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;
+    state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
     state.worldRole=msg.worldRole||{leaderId:null,isLeader:false,serverAuthority:true};
@@ -113,7 +113,7 @@ function connect(profile={},reconnecting=false){
     ws.addEventListener('open',()=>{
       opened=true;
       try{ws.binaryType='arraybuffer';}catch{}
-      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world'});
+      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world',pvpRuleset:profile.mode==='pvp'?String(window.EchoesWorldPvpData?.ruleset||''):''});
     });
     ws.addEventListener('message',e=>{
       let msg;try{msg=JSON.parse(e.data);}catch{return;}
