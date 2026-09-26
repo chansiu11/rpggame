@@ -1,6 +1,9 @@
 (()=>{
 'use strict';
 const listeners=new Map();
+let combatSeq=0,combatAck=0,combatQueue=[];
+function flushCombat(){if(!combatQueue.length)return;const events=combatQueue.splice(0,64);if(!send({type:'world:combat',seq:++combatSeq,events}))combatQueue=[];}
+function combatEvent(event){if(state.connected&&state.profile?.mode!=='pvp'){combatQueue.push(event);if(combatQueue.length>=64)flushCombat();}}
 const state={
   socket:null,connected:false,connecting:false,selfId:null,
   players:new Map(),bosses:new Map(),party:null,pendingInvite:null,
@@ -33,7 +36,7 @@ function requestWorldResync(force=false){
 function handle(msg){
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='hello:ok'){
-    state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
+    combatSeq=0;combatAck=0;combatQueue=[];state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
     state.worldRole=msg.worldRole||{leaderId:null,isLeader:false,serverAuthority:true};
@@ -52,6 +55,7 @@ function handle(msg){
     for(const p of msg.players||[]){if(p.id===state.selfId)continue;const old=state.players.get(p.id)||{};next.set(p.id,{...old,...p,netReceivedAt:performance.now()});}
     state.players=next;if(Number(msg.revision)>state.worldRevision)requestWorldResync();emit('players',[...state.players.values()]);return;
   }
+  if(msg.type==='world:combatResult'){if(msg.targetId===state.selfId){const rev=Number(msg.player?.combatRevision)||0;if(rev<=combatAck)return;combatAck=rev;}else if(msg.player){const old=state.players.get(msg.targetId)||{};if((old.combatRevision||0)>(msg.player.combatRevision||0))return;state.players.set(msg.targetId,{...old,...msg.player});}emit('world:combatResult',msg);return;}
   if(msg.type==='player:self'){emit('player:self',msg);return;}
   if(msg.type==='skill:fx'){emit('skill:fx',msg);return;}
   if(msg.type==='skill:effects'){emit('skill:effects',msg);return;}
@@ -142,13 +146,14 @@ function disconnect(){
   state.connected=false;state.connecting=false;state.socket=null;state.players.clear();state.party=null;state.selfId=null;
 }
 window.EchoesMulti={
-  state,on,connect,disconnect,requestWorldResync,
+  state,on,connect,disconnect,requestWorldResync,combatEvent,flushCombat,
+  get combatAck(){return combatAck;},
   get enabled(){return !!url();},
   get connected(){return state.connected;},
   get serverUrl(){return url();},
-  sendState(p){if(!state.connected||!p)return;send({type:'state',
+  sendState(p){if(!state.connected||!p)return;send({type:p.teleport?'world:teleport':'state',combatAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
     x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
-    swordStyle:p.swordStyle||'',swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):[],
+    swordStyle:p.swordStyle,swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):undefined,
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
     attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,
     combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
@@ -163,12 +168,12 @@ window.EchoesMulti={
   damageMob(mobId,damage,control={}){if(mobId)send({type:'world:mobDamage',mobId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0});},
   skillFx(fx){if(state.connected&&fx)send({type:'skill:fx',fxSeq:fx.seq||0,slot:fx.slot,skillId:fx.skillId,weapon:fx.weapon,x:fx.x,y:fx.y,a:fx.a});},
   skillEffects(packet){if(state.connected&&packet)send({type:'skill:effects',seq:packet.seq||0,effects:Array.isArray(packet.effects)?packet.effects.slice(0,90):[],projectiles:Array.isArray(packet.projectiles)?packet.projectiles.slice(0,24):[]});},
-  pvpDamage(targetId,damage,range=180,kind='melee',control={}){if(targetId)send({type:'pvp:damage',targetId,damage,range,kind,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0,stun:control.stun||0});},
-  pvpControl(targetId,dx,dy,stun=0,kind='skill-control'){if(targetId)send({type:'pvp:control',targetId,dx,dy,stun,kind});},
+  pvpDamage(targetId,damage,range=180,kind='melee',control={}){combatEvent({targetId,kind:'attack',damage,range,...control});},
+  pvpControl(targetId,dx,dy,stun=0,kind='skill-control'){combatEvent({targetId,kind:'control',dx,dy,stun});},
   pvpMatchJoin(){return send({type:'pvp:matchJoin'});},
   pvpMatchCancel(){return send({type:'pvp:matchCancel'});},
   damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0});},
-  hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){if(!state.connected)return;send({type:'pvp:hit',targetId,damage,range,kind,parryable});},
+  hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){combatEvent({targetId,kind:'attack',damage,range,parryable});},
   createParty(){send({type:'party:create'});},
   invite(targetId){send({type:'party:invite',targetId});},
   acceptParty(partyId){send({type:'party:accept',partyId});},
@@ -176,3 +181,4 @@ window.EchoesMulti={
   partyChat(message){send({type:'party:chat',message});}
 };
 })();
+
