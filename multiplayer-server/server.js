@@ -1,3 +1,4 @@
+import {selectMobInterest} from './world-interest.js';
 import { skillVisuals } from './visual-protocol.js';
 import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -378,8 +379,20 @@ function simulateMob(m,dt,now,ambientSelections){
   const range=mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.locked=a;m.attackAt=now+Math.max(260,m.wind*1000);m.lastAttackAt=now;markMobDirty(m);return;}
   m.state='chase';let dir=1;if(m.kind==='ranged'&&d<range*.55)dir=-1;else if(m.kind==='ranged'&&d<range*.82)dir=0;if(dir&&moveServerMob(m,Math.cos(a)*m.speed*dir*dt,Math.sin(a)*m.speed*dir*dt))markMobDirty(m);
 }
-function simulateWorld(now=Date.now()){if(!mobsBootstrapped)return;const dt=SIM_TICK_MS/1000,ambientSelections=buildAmbientAggroSelections();for(const m of authoritativeMobs.values())simulateMob(m,dt,now,ambientSelections);}
-function flushMobDeltas(now=Date.now()){if(!dirtyMobIds.size)return;const mobs=[];for(const id of dirtyMobIds){const m=authoritativeMobs.get(id);if(m)mobs.push(mobPublic(m));}dirtyMobIds.clear();if(!mobs.length)return;worldRevision++;worldSnapshot.updatedAt=now;worldSnapshot.revision=worldRevision;broadcast({type:'world:mobsDelta',mobs,serverTime:now,revision:worldRevision},null,{volatile:true});}
+function simulateWorld(now=Date.now()){if(!mobsBootstrapped)return;const dt=SIM_TICK_MS/1000,ambientSelections=buildAmbientAggroSelections();const observers=[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp');for(const m of authoritativeMobs.values()){if(!m.dead&&m.state==='idle'&&!m.targetId&&!m.provokedBy&&!m.forceMove&&now>=(m.stunUntil||0)&&Math.hypot(m.x-m.sx,m.y-m.sy)<18&&!observers.some(p=>(p.x-m.x)**2+(p.y-m.y)**2<1400**2))continue;simulateMob(m,dt,now,ambientSelections);}}
+function flushMobDeltas(now=Date.now()){
+ const dirty=new Set(dirtyMobIds);dirtyMobIds.clear();
+ if(dirty.size){worldRevision++;worldSnapshot.updatedAt=now;worldSnapshot.revision=worldRevision;}
+ const cache=new Map();
+ for(const p of players.values()){
+  if(!p.ready||p.clientMode==='pvp')continue;
+  const {ids,updates}=selectMobInterest(p,authoritativeMobs,dirty,p.mobInterest);
+  if(!dirty.size&&!updates.length)continue;
+  const mobs=updates.map(m=>{if(!cache.has(m.id))cache.set(m.id,mobPublic(m));return cache.get(m.id);});
+  // Even an empty delta carries the global revision; re-entry sends full current state.
+  if(safeSend(p.ws,{type:'world:mobsDelta',mobs,serverTime:now,revision:worldRevision},{volatile:true}))p.mobInterest=ids;
+ }
+}
 
 function handleBossDamage(player,msg){
   const boss=bosses.get(String(msg.bossId||''));if(!boss||!boss.alive)return;const now=Date.now(),damage=clamp(msg.damage,0,1200),stun=clamp(msg.stun,0,2.5),kx=clamp(msg.knockbackX,-180,180),ky=clamp(msg.knockbackY,-180,180);
