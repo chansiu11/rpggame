@@ -133,8 +133,8 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <input id="importFile" type="file" accept="application/json,.json" class="hidden">
 <script src="./firebase-config.js"></script>
 <script type="module" src="./cloud-save.js"></script>
-<script src="./multiplayer-config.js"></script>
-<script src="./multiplayer-client.js?v=20260926-6"></script>
+<script src="./multiplayer-config.js?v=20260926-2"></script>
+<script src="./multiplayer-client.js?v=20260926-7"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (() => {
@@ -3141,7 +3141,7 @@ function connectMatchedPeer(msg){
  }catch(e){matchPeerError(e.message)}
 }
 function bindConn(c){conn=c;c.on('open',()=>{remoteSnap=null;c.send({t:'hello',v:3,ruleset:PVP_RULESET,s:snapshot()});$('pvpStatus').textContent='일반 월드 전투 데이터 확인 중…'});c.on('data',onData);c.on('close',()=>{if(running)finish(false,'상대가 연결을 종료했습니다.');$('pvpStatus').textContent='연결 종료'});c.on('error',()=>{$('pvpStatus').textContent='데이터 연결 오류'})}
-function validSnap(s){return s&&s.ruleset===PVP_RULESET&&Number.isFinite(s.level)&&Number.isFinite(s.maxHp)&&Number.isFinite(s.maxShield)&&Number.isFinite(s.defense)&&Array.isArray(s.attacks)&&Array.isArray(s.ownedWeapons)&&(!s.swordSkills||Array.isArray(s.swordSkills))&&s.level>=1&&s.level<=100&&s.maxHp>0&&s.maxHp<10000&&s.attacks.every(v=>Number.isFinite(v)&&v>0&&v<3000)}
+function validSnap(s){return s&&Number.isFinite(s.level)&&Number.isFinite(s.maxHp)&&Number.isFinite(s.maxShield)&&Number.isFinite(s.defense)&&Array.isArray(s.attacks)&&Array.isArray(s.ownedWeapons)&&(!s.swordSkills||Array.isArray(s.swordSkills))&&s.level>=1&&s.level<=100&&s.maxHp>0&&s.maxHp<10000&&s.attacks.every(v=>Number.isFinite(v)&&v>0&&v<3000)}
 function net(m){if(conn?.open)conn.send(m)}
 function pvpShakePower(i){return [5,7,9,12,16][clamp(i|0,0,4)]}
 function triggerPvpShake(i,scale=1,send=false){pvpShake=Math.max(pvpShake,pvpShakePower(i)*scale);if(send)net({t:'skillShake',i:clamp(i|0,0,4),s:scale})}
@@ -3159,8 +3159,10 @@ function riftCutFx(x,y,a,len,width,c,t=.25,send=false){pushFx({kind:'riftCut',x,
 function burst(x,y,c,n=12,speed=150){for(let i=0;i<n;i++){const a=Math.random()*TAU,s=35+Math.random()*speed;fx.push({kind:'particle',x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:1.8+Math.random()*3.8,t:.28+Math.random()*.35,max:.65,c})}trimFx()}
 function sanitizeRemoteFx(f){if(!f||typeof f!=='object')return;const allowed=new Set(['ring','nova','rift','riftCut','slash','star','starSeal','line']);if(!allowed.has(f.kind))return;const g={kind:f.kind,x:clamp(+f.x||0,-100,ARENA_W+100),y:clamp(+f.y||0,-100,ARENA_H+100),c:String(f.c||'#fff').slice(0,20),t:clamp(+f.t||.2,.05,1.5),max:clamp(+f.max||+f.t||.2,.05,1.5)};for(const k of ['r','a','arc','len','width','x2','y2'])if(Number.isFinite(+f[k]))g[k]=+f[k];fx.push(g);trimFx()}
 function onData(m){if(!m||typeof m!=='object')return;
- if((m.t==='hello'||m.t==='helloAck')&&((m.ruleset&&m.ruleset!==PVP_RULESET)||(m.s&&m.s.ruleset!==PVP_RULESET))){net({t:'rulesetMismatch',ruleset:PVP_RULESET});matchPeerError('상대의 PVP 전투 규칙이 일반 월드와 다릅니다. 두 플레이어 모두 새로고침 후 다시 매칭해 주세요.');return;}
- if(m.t==='rulesetMismatch'){matchPeerError('PVP 전투 규칙이 갱신되었습니다. 페이지를 새로고침한 뒤 다시 매칭해 주세요.');return;}if(m.t==='hello'&&validSnap(m.s)){remoteSnap=m.s;net({t:'helloAck',v:3,ruleset:PVP_RULESET,s:snapshot()});startMatchIfReady()}else if(m.t==='helloAck'&&validSnap(m.s)){remoteSnap=m.s;startMatchIfReady()}
+ if((m.t==='hello'||m.t==='helloAck')&&Number.isFinite(Number(m.v))&&Number(m.v)!==3){net({t:'protocolMismatch',v:3});matchPeerError('상대의 PVP 연결 방식이 너무 오래된 버전입니다. 두 플레이어 모두 새로고침 후 다시 매칭해 주세요.');return;}
+ if(m.t==='rulesetMismatch'){return;}
+ if(m.t==='protocolMismatch'){matchPeerError('PVP 연결 방식이 갱신되었습니다. 페이지를 새로고침한 뒤 다시 매칭해 주세요.');return;}
+ if(m.t==='hello'&&validSnap(m.s)){remoteSnap=m.s;net({t:'helloAck',v:3,ruleset:PVP_RULESET,s:snapshot()});startMatchIfReady()}else if(m.t==='helloAck'&&validSnap(m.s)){remoteSnap=m.s;startMatchIfReady()}
  else if(m.t==='state'&&enemy){const forceLocked=!!enemy.remoteForce||performance.now()<(enemy.remoteForceLockUntil||0);if(!forceLocked){enemy.netX=clamp(Number.isFinite(+m.x)?+m.x:enemy.netX,25,ARENA_W-25);enemy.netY=clamp(Number.isFinite(+m.y)?+m.y:enemy.netY,25,ARENA_H-25);}else if(enemy.remoteForce){enemy.netX=enemy.remoteForce.x;enemy.netY=enemy.remoteForce.y;}enemy.netVX=forceLocked?0:(Number.isFinite(+m.vx)?+m.vx:0);enemy.netVY=forceLocked?0:(Number.isFinite(+m.vy)?+m.vy:0);enemy.a=Number.isFinite(+m.a)?+m.a:enemy.a;enemy.hp=clamp(+m.hp||0,0,enemy.maxHp);enemy.shield=clamp(+m.shield||0,0,enemy.maxShield);enemy.stam=clamp(Number.isFinite(+m.stam)?+m.stam:enemy.stam,0,enemy.maxStam);enemy.block=!!m.block;enemy.dash=Math.max(enemy.dash,+m.dash||0);enemy.stun=Math.max(Number(enemy.stun)||0,Number(m.stun)||0);enemy.attackAnim=Math.max(enemy.attackAnim,+m.attackAnim||0);enemy.attackDuration=Math.max(.05,+m.attackDuration||enemy.attackDuration);enemy.combo=clamp(+m.combo||0,0,5);enemy.weapon=enemy.ownedWeapons.includes(+m.weapon)?+m.weapon:enemy.weapon;enemy.skillPose=Number.isFinite(+m.skillPose)?+m.skillPose:-1;enemy.skillKind=typeof m.skillKind==='string'?m.skillKind:'';enemy.skillId=typeof m.skillId==='string'?m.skillId:''}
  else if(m.t==='teleport'&&enemy){enemy.x=enemy.netX=clamp(+m.x||enemy.x,25,ARENA_W-25);enemy.y=enemy.netY=clamp(+m.y||enemy.y,25,ARENA_H-25);enemy.a=+m.a||enemy.a;enemy.motion={x:enemy.x,y:enemy.y,phase:enemy.motion?.phase||0,walk:0,facing:enemy.a,lean:1};nova(enemy.x,enemy.y,70,'#ffffff',.22,false)}
  else if(m.t==='atk')receiveAttack(m)
