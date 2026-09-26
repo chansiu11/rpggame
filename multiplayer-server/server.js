@@ -6,6 +6,7 @@ const PORT = Number(process.env.PORT || 8787);
 const TICK_MS = 1000;
 const PARTY_MAX = 4;
 const BOSS_RESPAWN_MS = 3 * 60 * 1000;
+const PVP_RULESET = 'world-combat-20260926-1';
 
 const SIM_TICK_MS = 25;
 const MOB_NET_TICK_MS = 50;
@@ -143,23 +144,29 @@ function removePvpMatchQueue(player,notify=false){
 function joinPvpMatchQueue(player){
   if(!player?.ready||player.ws?.readyState!==WebSocket.OPEN)return;
   removePvpMatchQueue(player,false);
-  let rival=null;
-  while(pvpMatchQueue.length){
+  if(player.pvpRuleset!==PVP_RULESET){
+    safeSend(player.ws,{type:'pvp:matchStatus',queued:false,count:pvpMatchQueue.length,ruleset:PVP_RULESET,error:'ruleset-mismatch'});
+    safeSend(player.ws,{type:'notice',message:'PVP 전투 규칙이 일반 월드와 동기화되지 않았습니다. 페이지를 새로고침해 주세요.'});
+    return;
+  }
+  let rival=null,checks=pvpMatchQueue.length;
+  while(checks-->0&&pvpMatchQueue.length){
     const id=pvpMatchQueue.shift(),candidate=players.get(id);
     if(!candidate||candidate===player||!candidate.ready||!candidate.pvpQueued||candidate.ws.readyState!==WebSocket.OPEN)continue;
     if(candidate.accountId&&player.accountId&&candidate.accountId===player.accountId){candidate.pvpQueued=false;continue;}
+    if(candidate.pvpRuleset!==PVP_RULESET){candidate.pvpQueued=false;safeSend(candidate.ws,{type:'pvp:matchStatus',queued:false,count:pvpMatchQueue.length,ruleset:PVP_RULESET,error:'ruleset-mismatch'});continue;}
     rival=candidate;break;
   }
   if(!rival){
     player.pvpQueued=true;player.pvpQueuedAt=Date.now();pvpMatchQueue.push(player.id);
-    safeSend(player.ws,{type:'pvp:matchStatus',queued:true,count:pvpMatchQueue.length,startedAt:player.pvpQueuedAt});
+    safeSend(player.ws,{type:'pvp:matchStatus',queued:true,count:pvpMatchQueue.length,startedAt:player.pvpQueuedAt,ruleset:PVP_RULESET});
     return;
   }
   player.pvpQueued=false;rival.pvpQueued=false;
   const matchId=crypto.randomBytes(6).toString('hex'),peerId='echoes-pvp-auto-'+matchId;
-  safeSend(rival.ws,{type:'pvp:matchFound',matchId,peerId,role:'host',opponent:{id:player.id,name:player.name,level:player.level}});
-  safeSend(player.ws,{type:'pvp:matchFound',matchId,peerId,role:'guest',opponent:{id:rival.id,name:rival.name,level:rival.level}});
-  console.log('[pvp-match]',rival.id,'vs',player.id,matchId);
+  safeSend(rival.ws,{type:'pvp:matchFound',matchId,peerId,role:'host',ruleset:PVP_RULESET,opponent:{id:player.id,name:player.name,level:player.level}});
+  safeSend(player.ws,{type:'pvp:matchFound',matchId,peerId,role:'guest',ruleset:PVP_RULESET,opponent:{id:rival.id,name:rival.name,level:rival.level}});
+  console.log('[pvp-match]',rival.id,'vs',player.id,matchId,'ruleset',PVP_RULESET);
 }
 function publicPlayer(p){
   return {
@@ -532,7 +539,8 @@ const server=http.createServer((req,res)=>{
     ok:true,
     players:players.size,
     world:WORLD,
-    bossRespawnMinutes:BOSS_RESPAWN_MS/60000
+    bossRespawnMinutes:BOSS_RESPAWN_MS/60000,
+    pvpRuleset:PVP_RULESET
   }));
 });
 
@@ -546,7 +554,7 @@ wss.on('connection',(ws)=>{
     level:1,weapon:0,equippedHead:'wandererHood',equippedChest:'travelerCoat',equippedShield:'woodenShield',
     attackAnim:0,attackDuration:.26,strikePose:0,skillPose:-1,combo:0,parry:0,dodge:0,dx:0,dy:0,walk:0,phase:0,
     vx:0,vy:0,seq:0,lastStateAt:Date.now(),
-    partyId:null,accountId:'',clientMode:'world',pvpQueued:false,pvpQueuedAt:0,updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
+    partyId:null,accountId:'',clientMode:'world',pvpRuleset:'',pvpQueued:false,pvpQueuedAt:0,updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
   };
   players.set(player.id,player);
 
@@ -558,7 +566,7 @@ wss.on('connection',(ws)=>{
       if(msg.type!=='hello')return;
       player.name=cleanName(msg.name);
       player.accountId=cleanAccountId(msg.accountId,player.name);
-      player.clientMode=msg.mode==='pvp'?'pvp':'world';
+      player.clientMode=msg.mode==='pvp'?'pvp':'world';player.pvpRuleset=String(msg.pvpRuleset||'').slice(0,80);
       const replaced=[...players.values()].filter(p=>p!==player&&p.ready&&p.accountId===player.accountId);
       for(const old of replaced){
         safeSend(old.ws,{type:'session:replaced',message:'같은 계정이 다른 기기에서 접속했습니다.'});
@@ -579,6 +587,7 @@ wss.on('connection',(ws)=>{
         worldSnapshot:serverWorldSnapshot(),
         takenItemIds:[...takenItems],
         partyMax:PARTY_MAX,
+        pvpRuleset:PVP_RULESET,
         bossRespawnMs:BOSS_RESPAWN_MS
       });
       if(player.clientMode!=='pvp')broadcast({type:'player:join',player:publicPlayer(player)},ws);
