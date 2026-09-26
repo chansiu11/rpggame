@@ -281,7 +281,7 @@ function bootstrapAuthoritativeWorld(player,msg){
   for(const raw of nav){const x=Number(raw.x),y=Number(raw.y);if(!Number.isFinite(x)||!Number.isFinite(y))continue;const o={x:clamp(x,0,WORLD.width),y:clamp(y,0,WORLD.height),box:!!raw.box,ellipse:!!raw.ellipse};if(o.ellipse){o.rx=clamp(raw.rx,8,1400);o.ry=clamp(raw.ry,8,1400);}else if(o.box){o.w=clamp(raw.w,8,800);o.h=clamp(raw.h,8,800);}else o.r=clamp(raw.r,4,120);addNavObstacle(o);}
   mobsBootstrapped=authoritativeMobs.size>0;worldRevision++;worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=worldRevision;broadcast({type:'world:snapshot',snapshot:serverWorldSnapshot()});console.log('[world-bootstrap]',player.id,'layout',SPAWN_LAYOUT_VERSION,'mobs',authoritativeMobs.size,'nav',nav.length);
 }
-function validMobTarget(m,p){return !!p?.ready&&p.hp>0&&(m.kind==='boss'||!safeZoneAt(p.x,p.y));}
+function validMobTarget(m,p){return !!p?.ready&&p.clientMode!=='pvp'&&p.hp>0&&(m.kind==='boss'||!safeZoneAt(p.x,p.y));}
 function mobAggroGroupKey(m){if(m.kind==='boss')return 'boss:'+m.id;const zone=String(m.spawnZone||'');return !zone||zone==='lone'?'mob:'+m.id:'zone:'+zone;}
 function ambientAggroKey(m,playerId){return mobAggroGroupKey(m)+'|'+playerId;}
 function buildAmbientAggroSelections(){
