@@ -3171,7 +3171,10 @@ function arcAttack(range,d,arc,force=0,stun=.08,extra={}){sendAttack({shape:'arc
 function circleAttack(x,y,r,d,stun=.08,extra={}){sendAttack({shape:'circle',x,y,r,d,stun,force:extra.force||0,forceA:Number.isFinite(extra.forceA)?extra.forceA:me.a,breakShield:!!extra.breakShield,parryable:extra.parryable!==false});nova(x,y,r,extra.color||'#d7ead3',.42,true)}
 function rectAttack(a,forward,half,back,d,stun=.08,extra={}){sendAttack({shape:'rect',x:me.x,y:me.y,a,forward,half,back,d,stun,force:extra.force||0,forceA:Number.isFinite(extra.forceA)?extra.forceA:a,breakShield:!!extra.breakShield});rift(me.x+Math.cos(a)*forward*.5,me.y+Math.sin(a)*forward*.5,a+Math.PI/2,half*2.2,22,extra.color||'#d7ead3',.16,true)}
 function segmentAttack(x1,y1,x2,y2,r,d,stun=.08,extra={}){sendAttack({shape:'segment',x1,y1,x2,y2,r,d,stun,force:extra.force||0,forceA:Number.isFinite(extra.forceA)?extra.forceA:Math.atan2(y2-y1,x2-x1),breakShield:!!extra.breakShield});rift((x1+x2)/2,(y1+y2)/2,Math.atan2(y2-y1,x2-x1),Math.hypot(x2-x1,y2-y1)+90,r*.8,extra.color||'#d7ead3',.18,true)}
-function sendProjectile(a,speed,d,opts={}){const x=me.x+Math.cos(a)*23,y=me.y+Math.sin(a)*23,p={x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:opts.r||7,d,owner:'me',life:opts.life||1.7,stun:opts.stun??.22,force:opts.force||0,pierce:opts.pierce||1,parryable:opts.parryable!==false};projectiles.push(p);net({t:'proj',...p,owner:undefined})}){const x=me.x+Math.cos(a)*23,y=me.y+Math.sin(a)*23,p={x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:opts.r||7,d,owner:'me',life:opts.life||1.7,stun:opts.stun??.12,force:opts.force||0,pierce:opts.pierce||1,parryable:opts.parryable!==false};projectiles.push(p);net({t:'proj',...p,owner:undefined})}
+function sendProjectile(a,speed,d,opts={}){
+ const x=me.x+Math.cos(a)*23,y=me.y+Math.sin(a)*23,p={x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:opts.r||7,d,owner:'me',life:opts.life||1.7,stun:opts.stun??.22,force:opts.force||0,pierce:opts.pierce||1,parryable:opts.parryable!==false};
+ projectiles.push(p);net({t:'proj',...p,owner:undefined});
+}
 function useStam(n){if(me.stam<n)return false;me.stam-=n;me.stamDelay=.5;return true}
 function cdrScale(){return (me.rune==='dawn'?.8:1)*(1-clamp(me.cdr||0,0,.25))}
 function skillReady(i){return me&&running&&!roundLocked&&me.cool[i]<=0&&me.stun<=0&&me.exhaust<=0&&!me.skillHold&&!me.skillEvent&&me.attackCd<=0}
