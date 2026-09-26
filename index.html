@@ -3075,7 +3075,7 @@ function showLobby(msg=''){
  $('pvpLobby').classList.remove('hidden');$('pvpHud').classList.add('hidden');$('pvpCooldowns').classList.add('hidden');$('pvpScore').classList.add('hidden');$('pvpResult').classList.add('hidden');
  if(msg){$('pvpRoomView').textContent=msg;$('pvpRoomView').classList.remove('hidden')}else if(!matchWaiting)$('pvpRoomView').classList.add('hidden');
 }
-function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-10';resize()}
+function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-11';resize()}
 function close(){stopNet();layer.classList.add('hidden');document.querySelector('#title')?.classList.remove('hidden')}
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){running=false;try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[]}
@@ -3260,7 +3260,7 @@ function skillUp(i){
 }
 function switchWeapon(i){if(i===1)return;if(!me||!me.ownedWeapons.includes(i)||me.stun>0||me.skillHold||me.skillEvent||me.attackCd>.1||me.dash>0)return;me.weapon=i;me.combo=0;me.skillPose=-1;me.skillKind='';updateScore()}
 function basic(){
- if(!me||me.attackCd>0||me.stun>0||me.exhaust>0||me.skillHold||me.skillEvent||roundLocked)return;const w=weaponData[me.weapon];if(w.cost&&!useStam(w.cost))return;me.basicMoveSlow=.5;me.a=me.weapon===3?aimAngle():combatAimAngle();me.combo=me.comboTimer>0?Math.min(5,me.combo+1):1;me.comboTimer=1;me.attackCd=w.cool;me.attackDuration=me.weapon===1?.25:.34;me.attackAnim=me.attackDuration;let mult=me.weapon===2?1:me.combo===5?1.8:1+(me.combo-1)*.08;if(me.rune==='echo'&&me.riposte>0){mult*=1.45;me.riposte=0}const final=me.combo===5;if(final){me.exhaust=2;me.comboTimer=0}
+ if(!me||me.attackCd>0||me.stun>0||me.exhaust>0||me.skillHold||me.skillEvent||roundLocked)return;const w=weaponData[me.weapon];if(w.cost&&!useStam(w.cost))return;me.basicMoveSlow=.5;me.a=combatAimAngle();me.combo=me.comboTimer>0?Math.min(5,me.combo+1):1;me.comboTimer=1;me.attackCd=w.cool;me.attackDuration=me.weapon===1?.25:.34;me.attackAnim=me.attackDuration;let mult=me.weapon===2?1:me.combo===5?1.8:1+(me.combo-1)*.08;if(me.rune==='echo'&&me.riposte>0){mult*=1.45;me.riposte=0}const final=me.combo===5;if(final){me.exhaust=2;me.comboTimer=0}
  if(me.weapon===2)sendProjectile(me.a,650,fighterAttack(me)*mult,{pierce:1,stun:.22,force:0});
  else{if(me.weapon===1&&enemy){const behind=Math.abs(angleDiff(me.a,enemy.a))<1.1;if(behind)mult*=1.45}arcAttack(w.range,fighterAttack(me)*mult,w.arc+(final?.9:0),final?180:0,final?.75:.5,{color:me.weapon===3?'#e7c9ff':'#c9f4dd'});if(me.weapon===3&&final)sendProjectile(me.a,520,fighterAttack(me)*.68,{r:12,pierce:3,stun:.75,force:180})}
  if(final)burst(me.x+Math.cos(me.a)*45,me.y+Math.sin(me.a)*45,me.weapon===3?'#e7c9ff':'#ffe3a0',14,115);
