@@ -1440,7 +1440,7 @@ function startVoid3World(){
  if(!target){effects.push({type:'riftCut',x:player.x+Math.cos(a)*72,y:player.y+Math.sin(a)*72,a,len:190,width:24,color:'#a76cff',t:.28,max:.28});void3State=null;sound('swing');return true;}
  hitEnemy(target,damageValue(1.05),false);applyEnemyStun(target,target.kind==='boss'?.28:.62);
  const tc=combatCenter(target);effects.push({type:'riftCut',x:(player.x+tc.x)/2,y:(player.y+tc.y)/2,a,len:210,width:30,color:'#d8b7ff',t:.32,max:.32});burst(tc.x,tc.y,'#a76cff',14,150);ring(tc.x,tc.y,62,'#d8b7ff',.28);
- void3State={targetId:target.id,until:realTime+7,count:0,exitDash:null};sound('hit');return true;
+ void3State={targetId:target.id,until:realTime+7,count:0,exitDash:null};player.attackCd=0;player.cast=0;player.moveLock=0;sound('hit');return true;
 }
 function void3WorldBasic(){
  if(!void3State)return false;if(realTime>=void3State.until){endVoid3World();return false;}if(!keys.has('KeyT'))return false;if(void3State.exitDash)return true;
@@ -3301,7 +3301,7 @@ function showLobby(msg=''){
  $('pvpLobby').classList.remove('hidden');$('pvpHud').classList.add('hidden');$('pvpCooldowns').classList.add('hidden');$('pvpScore').classList.add('hidden');$('pvpResult').classList.add('hidden');
  if(msg){$('pvpRoomView').textContent=msg;$('pvpRoomView').classList.remove('hidden')}else if(!matchWaiting)$('pvpRoomView').classList.add('hidden');
 }
-function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-29';resize()}
+function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-30';resize()}
 function close(){stopNet();layer.classList.add('hidden');document.querySelector('#title')?.classList.remove('hidden')}
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){running=false;void3Pvp=null;try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[]}
@@ -3490,7 +3490,7 @@ function startVoid3Pvp(){
  me.a=a;me.attackDuration=me.attackAnim=.24;me.attackCd=.24;me.skillPose=-1;me.skillKind='';
  arcAttack(reach,pvpSkillAttack(me)*1.05,arc,0,.62,{color:sk.color||'#a76cff',fx:false,teleportHit:hit});
  riftCutFx(me.x+Math.cos(a)*72,me.y+Math.sin(a)*72,a,190,28,hit?'#d8b7ff':'#a76cff',.28,true);
- if(hit){void3Pvp={until:performance.now()+7000,count:0,exitDash:null};burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);}else endVoid3Pvp();
+ if(hit){void3Pvp={until:performance.now()+7000,count:0,exitDash:null};me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);}else endVoid3Pvp();
  return true;
 }
 function void3PvpBasic(){
