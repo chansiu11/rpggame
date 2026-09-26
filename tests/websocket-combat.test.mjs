@@ -22,6 +22,12 @@ test('real two-client WebSocket combat, stale input, force settlement and PVP ma
   for(let i=0;i<20;i++){b.state(1100,1000,0);await delay(25);}
   const last=b.messages.filter(m=>m.type==='player:self').at(-1).player;assert.equal(last.hp,900);assert.equal(last.x,1380);assert.equal(b.messages.filter(m=>m.type==='world:combatResult'&&m.damage>0).length,1);
   b.state(1385,900,hit.player.combatRevision);await delay(50);assert.equal(b.messages.filter(m=>m.type==='player:self').at(-1).player.x,1385);
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v2-leash',mobs:['mob-a','mob-b'].map((id,i)=>({id,type:'sprout',x:1080+i*30,y:1000,hp:1000,maxHp:1000,speed:10,r:18})),obstacles:[]});
+  await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(e=>e.id==='mob-a'));
+  const mobPacket={type:'world:mobCombat',seq:1,events:['mob-a','mob-b'].map(mobId=>({mobId,damage:100,stun:1,knockbackX:120}))};a.send(mobPacket);a.send(mobPacket);
+  for(const id of ['mob-a','mob-b']){const patch=await b.wait(m=>m.type==='world:mobPatch'&&m.mob.id===id);assert.equal(patch.mob.hp,900);assert.ok(patch.mob.forceMove);}
+  await delay(400);
+  for(const id of ['mob-a','mob-b']){const patches=b.messages.filter(m=>m.type==='world:mobPatch'&&m.mob.id===id);assert.equal(patches.length,1);const initial=patches[0].mob;const last=b.messages.filter(m=>m.type==='world:mobsDelta').flatMap(m=>m.mobs).filter(m=>m.id===id).at(-1);assert.equal(last.hp,900);assert.ok(last.x>initial.x+100);assert.equal(last.forceMove,null);}
   const p=await connect(port,'match-a','pvp'),q=await connect(port,'match-b','pvp');clients.push(p,q);p.send({type:'pvp:matchJoin'});q.send({type:'pvp:matchJoin'});const pm=await p.wait(m=>m.type==='pvp:matchFound'),qm=await q.wait(m=>m.type==='pvp:matchFound');assert.equal(pm.matchId,qm.matchId);assert.notEqual(pm.role,qm.role);
   p.send({type:'world:combat',seq:1,events:[{kind:'attack',targetId:a.id,damage:100}]});await delay(50);assert.ok(!a.messages.some(m=>m.type==='world:combatResult'&&m.targetId===a.id));assert.equal(stderr,'');
  }finally{for(const c of clients)c.ws.close();server.kill();}

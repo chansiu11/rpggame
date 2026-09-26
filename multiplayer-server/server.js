@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'node:crypto';
+import { forceMob, advanceMobControl } from './mob-control.js';
 import { createWorldCombat } from './world-combat.js';
 
 const PORT = Number(process.env.PORT || 8787);
@@ -282,7 +283,7 @@ function moveServerMob(m,dx,dy){
   for(let i=0;i<steps;i++){const nx=m.x+sx,ny=m.y+sy;if(!serverSolidAt(nx,ny,m.r)){m.x=nx;m.y=ny;moved=true;continue;}if(!serverSolidAt(nx,m.y,m.r)){m.x=nx;moved=true;}if(!serverSolidAt(m.x,ny,m.r)){m.y=ny;moved=true;}}
   return moved;
 }
-function mobPublic(m){const now=Date.now(),timer=m.state==='windup'?Math.max(0,(m.attackAt-now)/1000):m.state==='recover'?Math.max(0,(m.recoverUntil-now)/1000):m.state==='charge'?Math.max(0,(m.chargeUntil-now)/1000):0;return {id:m.id,type:m.type,x:Math.round(m.x*10)/10,y:Math.round(m.y*10)/10,hp:Math.max(0,Math.round(m.hp)),maxHp:Math.max(1,Math.round(m.maxHp)),dead:!!m.dead,state:m.state||'idle',facing:Math.round((m.facing||0)*100)/100,alert:!!m.alert,targetId:m.targetId||null,attackType:m.attackType||m.kind||'melee',timer,windTotal:m.state==='windup'?Math.max(timer,m.wind||.5):0,locked:Number.isFinite(m.locked)?m.locked:(m.facing||0),range:mobAttackRange(m)};}
+function mobPublic(m){const now=Date.now(),timer=m.state==='windup'?Math.max(0,(m.attackAt-now)/1000):m.state==='recover'?Math.max(0,(m.recoverUntil-now)/1000):m.state==='charge'?Math.max(0,(m.chargeUntil-now)/1000):0;return {stun:Math.max(0,((m.stunUntil||0)-now)/1000),forceMove:m.forceMove?{...m.forceMove,elapsed:(now-m.forceMove.startedAt)/1000}:null,id:m.id,type:m.type,x:Math.round(m.x*10)/10,y:Math.round(m.y*10)/10,hp:Math.max(0,Math.round(m.hp)),maxHp:Math.max(1,Math.round(m.maxHp)),dead:!!m.dead,state:m.state||'idle',facing:Math.round((m.facing||0)*100)/100,alert:!!m.alert,targetId:m.targetId||null,attackType:m.attackType||m.kind||'melee',timer,windTotal:m.state==='windup'?Math.max(timer,m.wind||.5):0,locked:Number.isFinite(m.locked)?m.locked:(m.facing||0),range:mobAttackRange(m)};}
 function mobSnapshot(){return [...authoritativeMobs.values()].map(mobPublic);}
 function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:worldSnapshot.items||[],updatedAt:Date.now(),revision:worldRevision};}
 function markMobDirty(m){if(m?.id)dirtyMobIds.add(m.id);}
@@ -347,9 +348,11 @@ function sendMobAttack(m,target){
   if(dist>allowed)return;
   broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage:m.damage,x:m.x,y:m.y,tx:target.x,ty:target.y,facing:m.facing,kind,attackType,serverTime:Date.now()},null,{volatile:true});
 }
-function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
+function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
 function simulateMob(m,dt,now,ambientSelections){
   if(m.dead){if(m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);return;}
+  if(advanceMobControl(m,now,moveServerMob)){m.state='stunned';markMobDirty(m);return;}
+  if(now<m.stunUntil){if(m.state!=='stunned'){m.state='stunned';markMobDirty(m);}return;}
   if(m.kind!=='boss'){
     const cx=Number.isFinite(m.spawnZoneX)?m.spawnZoneX:m.sx,cy=Number.isFinite(m.spawnZoneY)?m.spawnZoneY:m.sy,baseR=m.spawnZoneRadius>0?m.spawnZoneRadius:430,leash=baseR+(m.spawnZone==='lone'?220:300),zoneDist=Math.hypot(m.x-cx,m.y-cy);
     if(zoneDist>leash){m.targetId=null;m.provokedBy=null;m.alert=false;m.attackAt=0;m.chargeUntil=0;m.recoverUntil=0;m.state='return';const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>16){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;if(moveServerMob(m,Math.cos(a)*m.speed*1.55*dt,Math.sin(a)*m.speed*1.55*dt))markMobDirty(m);}else{m.state='idle';markMobDirty(m);}return;}
@@ -420,12 +423,13 @@ function handleItemSpawn(player,msg){
 }
 function handleMobDamage(player,msg){
   const mobId=String(msg.mobId||'').slice(0,50),mob=authoritativeMobs.get(mobId);if(!mob||mob.dead||mob.kind==='boss')return;if(Math.hypot(player.x-mob.x,player.y-mob.y)>1100)return;
-  const now=Date.now(),wasPassive=!mob.alert||!mob.targetId||mob.state==='idle'||mob.state==='return',damage=clamp(msg.damage,0,1800),stun=clamp(msg.stun,0,2.5),kx=clamp(msg.knockbackX,-180,180),ky=clamp(msg.knockbackY,-180,180);if(damage<=0&&stun<=0&&!kx&&!ky)return;
-  if(damage>0){if(now-(player.lastMobHitAt||0)<18)return;player.lastMobHitAt=now;mob.hp=Math.max(0,mob.hp-damage);}if(stun>0)mob.stunUntil=Math.max(mob.stunUntil||0,now+stun*1000);
-  if(kx||ky){moveServerMob(mob,kx,ky);mob.knockVX=clamp(kx*7,-900,900);mob.knockVY=clamp(ky*7,-900,900);}
-  if(mob.hp<=0){mob.dead=true;mob.hp=0;mob.state='dead';mob.targetId=null;mob.provokedBy=null;mob.alert=false;mob.respawnAt=now+NORMAL_MOB_RESPAWN_MS;}
+  const now=Date.now(),wasPassive=!mob.alert||!mob.targetId||mob.state==='idle'||mob.state==='return',damage=clamp(msg.damage,0,1800),stun=clamp(msg.stun,0,2.5),kx=clamp(msg.knockbackX,-720,720),ky=clamp(msg.knockbackY,-720,720);if(damage<=0&&stun<=0&&!kx&&!ky)return;
+  if(damage>0){player.mobHitTimes??=new Map();if(now-(player.mobHitTimes.get(mobId)||0)<18)return;player.mobHitTimes.set(mobId,now);mob.hp=Math.max(0,mob.hp-damage);}if(stun>0)mob.stunUntil=Math.max(mob.stunUntil||0,now+stun*1000);
+  if(stun>0){mob.state='stunned';mob.attackAt=0;mob.chargeUntil=0;mob.recoverUntil=0;}
+  if(kx||ky)forceMob(mob,kx,ky,now,Number(msg.duration)||.28,moveServerMob);
+  if(mob.hp<=0){mob.dead=true;mob.hp=0;mob.forceMove=null;mob.state='dead';mob.targetId=null;mob.provokedBy=null;mob.alert=false;mob.respawnAt=now+NORMAL_MOB_RESPAWN_MS;}
   else if(wasPassive&&validMobTarget(mob,player)){mob.provokedBy=player.id;mob.targetId=player.id;mob.alert=true;if(now>=mob.stunUntil)mob.state='chase';}
-  markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),by:player.id,respawnAt:mob.respawnAt||0}});
+  markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),damage,by:player.id,respawnAt:mob.respawnAt||0}});
 }
 function handleMessage(player,msg){
   if(!msg||typeof msg!=='object')return;
@@ -467,7 +471,7 @@ function handleMessage(player,msg){
     player.skillFxSeq=fxSeq;player.skillFxSlot=slot;player.skillFxId=skillId;player.skillFxWeapon=weapon;player.skillFxX=x;player.skillFxY=y;player.skillFxA=a;
     broadcast({type:'skill:fx',playerId:player.id,fxSeq,slot,skillId,weapon,x,y,a,serverTime:Date.now()},player.ws,{volatile:true});return;
   }
-  if(msg.type==='world:bootstrap'){bootstrapAuthoritativeWorld(player,msg);return;}if(msg.type==='world:resync'){const now=Date.now();if(now-(player.lastWorldResyncAt||0)>900){player.lastWorldResyncAt=now;safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});}return;}if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}if(msg.type==='world:mobsDelta'){handleWorldMobDelta(player,msg);return;}if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}
+  if(msg.type==='world:bootstrap'){bootstrapAuthoritativeWorld(player,msg);return;}if(msg.type==='world:resync'){const now=Date.now();if(now-(player.lastWorldResyncAt||0)>900){player.lastWorldResyncAt=now;safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});}return;}if(msg.type==='world:snapshot'){handleWorldSnapshot(player,msg);return;}if(msg.type==='world:mobsDelta'){handleWorldMobDelta(player,msg);return;}if(msg.type==='world:itemTaken'){handleItemTaken(player,msg);return;}if(msg.type==='world:itemSpawn'){handleItemSpawn(player,msg);return;}if(msg.type==='world:mobDamage'){handleMobDamage(player,msg);return;}if(msg.type==='world:mobCombat'){const seq=Number(msg.seq);if(!Number.isSafeInteger(seq)||seq<1||seq<=(player.mobCombatSeq||0))return;player.mobCombatSeq=seq;for(const e of (Array.isArray(msg.events)?msg.events:[]).slice(0,64))if(e&&typeof e==='object')handleMobDamage(player,e);return;}
   if(msg.type==='party:create'){createParty(player);return;}if(msg.type==='party:invite'){const r=inviteParty(player,msg.targetId);if(!r.ok)safeSend(player.ws,{type:'notice',message:r.message});return;}if(msg.type==='party:accept'){const r=acceptParty(player,msg.partyId);if(!r.ok)safeSend(player.ws,{type:'notice',message:r.message});return;}if(msg.type==='party:leave'){leaveParty(player);return;}if(msg.type==='boss:damage'){handleBossDamage(player,msg);return;}
   if(msg.type==='party:chat'){const party=parties.get(player.partyId);if(!party)return;const message=String(msg.message||'').trim().slice(0,120);if(!message)return;for(const pid of party.members){const target=players.get(pid);if(target)safeSend(target.ws,{type:'party:chat',fromId:player.id,fromName:player.name,message});}}
 }
@@ -476,7 +480,7 @@ setInterval(()=>worldCombat.tick(),50);
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,combatProtocol:1,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
+    res.end(JSON.stringify({ok:true,combatProtocol:1,mobCombatProtocol:1,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
@@ -525,7 +529,7 @@ wss.on('connection',(ws)=>{
       if(player.clientMode!=='pvp'&&!worldLeaderId)worldLeaderId=player.id;
       safeSend(ws,{
         type:'hello:ok',
-        selfId:player.id,combatProtocol:1,
+        selfId:player.id,combatProtocol:1,mobCombatProtocol:1,
         world:{...WORLD,combatPolicy:WORLD_COMBAT_POLICY,biomes:BIOMES,landmarks:LANDMARKS,hiddenItems:HIDDEN_ITEMS},
         players:player.clientMode==='pvp'?[]:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').map(publicPlayer),
         bosses:bossSnapshot(),

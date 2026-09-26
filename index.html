@@ -577,7 +577,7 @@ function moveBody(o,dx,dy){
  if(o?.networkPlayer){worldTargetControl(o.id,{x:o.x+dx,y:o.y+dy});return;}
  if(o===player&&multiplayerMode&&(worldForce||performance.now()<worldControlUntil))return;
  if(multiplayerMode&&window.EchoesMulti?.connected&&o!==player&&o.type!=='dummy'&&!o.riftId){
-  const control={knockbackX:clamp(dx,-180,180),knockbackY:clamp(dy,-180,180)};
+  const control={knockbackX:clamp(dx,-720,720),knockbackY:clamp(dy,-720,720)};
   if(o.kind==='boss')window.EchoesMulti.damageBoss(o.id,0,control);else window.EchoesMulti.damageMob(o.id,0,control);
   return;
  }
@@ -890,7 +890,7 @@ function buildSharedMobDelta(force=false){
  return changed;
 }
 function applySharedMobDelta(list){
- if(!Array.isArray(list))return;const now=performance.now();for(const m of list)applyServerMobState(m,now);bodyGridValid=false;
+ if(!Array.isArray(list))return;const now=performance.now(),lookup=new Map(enemies.map(e=>[e.id,e]));for(const m of list)applyServerMobState(m,now,lookup);bodyGridValid=false;
 }
 function applySharedItemSpawn(item){
  if(!item?.id)return;multiSharedAvailableItems.add(item.id);
@@ -899,9 +899,10 @@ function applySharedItemSpawn(item){
  if(o){o.x=item.x;o.y=item.y;o.lootKind=item.lootKind;o.amount=item.amount;o.expiresAt=Number(item.expiresAt)||0;return;}
  objects.push({type:'loot',id:item.id,x:item.x,y:item.y,r:13,lootKind:item.lootKind,amount:item.amount,fixed:!!item.fixed,expiresAt:Number(item.expiresAt)||0});
 }
-function applyServerMobState(m,now=performance.now()){
- if(!m?.id)return null;let e=enemies.find(v=>v.id===m.id);
+function applyServerMobState(m,now=performance.now(),lookup=null){
+ if(!m?.id)return null;let e=lookup?lookup.get(m.id):enemies.find(v=>v.id===m.id);
  if(!e&&ENEMY_TYPES[m.type])e=addEnemy(m.type,Number(m.x)||0,Number(m.y)||0,m.id);if(!e)return null;
+ if(lookup)lookup.set(m.id,e);e._netForce=m.forceMove?{...m.forceMove,receivedAt:now}:null;if(Number.isFinite(m.stun))e.stun=m.stun;
  const nx=Number(m.x),ny=Number(m.y),px=Number.isFinite(e._netX)?e._netX:e.x,py=Number.isFinite(e._netY)?e._netY:e.y,dt=Math.max(.03,(now-(e._netAt||now-100))/1000);
  e._netVX=Number.isFinite(nx)?clamp((nx-px)/dt,-1800,1800):0;e._netVY=Number.isFinite(ny)?clamp((ny-py)/dt,-1800,1800):0;e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;
  if(Math.hypot(e.x-e._netX,e.y-e._netY)>420){e.x=e._netX;e.y=e._netY;}
@@ -919,7 +920,7 @@ function applySharedWorldSnapshot(snapshot){
   objects=objects.filter(o=>o.type!=='loot'||!multiplayerMode||lootIds.has(o.id)||!multiWorldReady);for(const item of items)applySharedItemSpawn(item);
  }
  if(!ready)return;
- const ids=new Set();for(const m of snapshot.mobs){ids.add(m.id);applyServerMobState(m,now);}
+ const ids=new Set(),lookup=new Map(enemies.map(e=>[e.id,e]));for(const m of snapshot.mobs){ids.add(m.id);applyServerMobState(m,now,lookup);}
  if(multiplayerMode&&window.EchoesMulti?.connected){
   enemies=enemies.filter(e=>e.type==='dummy'||e.riftId||ids.has(e.id));
   if(activeBoss&&!enemies.includes(activeBoss))activeBoss=null;
@@ -928,6 +929,7 @@ function applySharedWorldSnapshot(snapshot){
 }
 function applySharedMobPatch(m){
  if(!m?.id)return;const prev=enemies.find(v=>v.id===m.id),wasDead=prev?.dead??true,e=applyServerMobState(m);if(!e||e.kind==='boss')return;
+ if(m.damage>0&&m.by!==window.EchoesMulti?.state?.selfId){e.flash=.15;damageFloating(e.x,e.y-e.r-18,m.damage,0,false);burst(e.x,e.y-e.r*.4,'#ffbd9f',6,85);}
  if(m.dead&&!wasDead){if(m.by===window.EchoesMulti?.state?.selfId)defeatEnemy(e,true);else{e.dead=true;e.hp=0;e.state='dead';e.respawn=160;burst(e.x,e.y,e.color,12,80);}}
  else if(!m.dead){e.dead=false;if(e.state==='dead')e.state='idle';}
 }
@@ -3038,6 +3040,7 @@ function update(dt){if(multiplayerMode&&player?.skillPose>=0)multiSkillCaptureUn
    const sd2=(e.x-player.x)*(e.x-player.x)+(e.y-player.y)*(e.y-player.y);
    if(e.type!=='finalBoss'&&sd2<115600&&player.bestiary[e.type]===undefined)player.bestiary[e.type]=0;
    if(e.kind==='boss'&&!e.dead&&e.alert&&sd2<302500)activeBoss=e;
+   if(!e.dead&&e._netForce){const f=e._netForce,q=window.EchoesCombat.forcePoint(f,(f.elapsed||0)+(performance.now()-f.receivedAt)/1000);e.x=q.x;e.y=q.y;if(q.done){e._netX=q.x;e._netY=q.y;e._netVX=e._netVY=0;e._netForce=null;}bodyGridValid=false;continue;}
    if(!e.dead&&Number.isFinite(e._netX)){const age=clamp((performance.now()-(e._netAt||performance.now()))/1000,0,.12),tx=e._netX+(e._netVX||0)*age*.35,ty=e._netY+(e._netVY||0)*age*.35,dist=Math.hypot(tx-e.x,ty-e.y);if(dist>220){e.x=tx;e.y=ty;}else{const rate=1-Math.exp(-dt*(dist>55?18:12));e.x+=(tx-e.x)*rate;e.y+=(ty-e.y)*rate;}bodyGridValid=false;}continue;
   }
   const d2=(e.x-player.x)*(e.x-player.x)+(e.y-player.y)*(e.y-player.y),critical=e.kind==='boss'||e.alert||e.riftId||e.type==='dummy'||d2<640000;
