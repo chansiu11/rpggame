@@ -7,9 +7,10 @@ export function advanceMobControl(m,now,move){
  if(q.done)m.forceMove=null;
  return true;
 }
-export function forceMob(m,dx,dy,now,duration=.28,move=null){
- const base=m.forceMove||m;
- m.forceMove={startX:m.x,startY:m.y,x:base.x+dx,y:base.y+dy,max:Math.max(.22,Math.min(.8,duration)),startedAt:now};
+export function forceMob(m,dx,dy,now,duration,move=null,fromCurrent=false){
+ if(move&&m.forceMove)advanceMobControl(m,now,move);
+ const base=fromCurrent?m:(m.forceMove||m);
+ m.forceMove={startX:m.x,startY:m.y,x:base.x+dx,y:base.y+dy,max:C.forceDuration(Math.hypot(dx,dy),duration),startedAt:now};
  if(move){const x=m.x,y=m.y;move(m,m.forceMove.x-x,m.forceMove.y-y);m.forceMove.x=m.x;m.forceMove.y=m.y;m.x=x;m.y=y;}
  m.attackAt=0;m.chargeUntil=0;m.recoverUntil=0;m.knockVX=m.knockVY=0;
 }

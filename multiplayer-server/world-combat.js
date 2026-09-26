@@ -81,7 +81,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    }
    if(b.hp>0){lease(b,e,t);if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t+1500;b.block=false;}if(e.mark)b.markUntil=t+clamp(e.mark,0,5)*1000;if(e.stun>0||e.dx||e.dy||number(e.x)&&number(e.y)){b.block=false;b.dodgeUntil=0;}}
    if(b.hp<=0){b.forceMove=null;b.controlBy=null;}
-   emit(b,{attackerId:a.id,outcome,damage,skillId:String(e.skillId||a.skillId||'').slice(0,48)});
+   emit(b,{attackerId:a.id,outcome,damage,prismCast:damage>0?String(e.prismCast||'').slice(0,64):'',skillId:String(e.skillId||a.skillId||'').slice(0,48)});
    if(b.hp<=0){b.forceMove=null;b.controlBy=null;broadcast({type:'pvp:defeated',targetId:b.id,targetName:b.name,killerId:a.id,killerName:a.name});}
   }
  }

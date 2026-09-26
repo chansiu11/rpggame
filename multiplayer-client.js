@@ -86,6 +86,7 @@ function handle(msg){
   if(msg.type==='pvp:blocked'){emit('pvp:blocked',msg);return;}
   if(msg.type==='world:role'){state.worldRole={leaderId:msg.leaderId||null,isLeader:!!msg.isLeader,serverAuthority:msg.serverAuthority!==false};emit('world:role',state.worldRole);return;}
   if(msg.type==='world:authority'){state.worldRole={...state.worldRole,serverAuthority:true};emit('world:role',state.worldRole);return;}
+  if(msg.type==='world:projectileHit'){emit('world:projectileHit',msg);return;}
   if(msg.type==='world:mobAttack'){emit('world:mobAttack',msg);return;}
   if(msg.type==='world:snapshot'){state.worldSnapshot=msg.snapshot||{mobs:[],items:[],updatedAt:0};state.worldRevision=Number(state.worldSnapshot.revision)||state.worldRevision||0;emit('world:snapshot',state.worldSnapshot);return;}
   if(msg.type==='world:mobsDelta'){const rev=Number(msg.revision)||0;if(rev&&state.worldRevision&&rev>state.worldRevision+1)requestWorldResync();if(rev)state.worldRevision=Math.max(state.worldRevision||0,rev);emit('world:mobsDelta',msg.mobs||[]);return;}
@@ -174,14 +175,14 @@ window.EchoesMulti={
   sendMobDelta(){return false;},
   itemTaken(itemId){if(itemId)send({type:'world:itemTaken',itemId});},
   itemSpawn(item){if(item?.id)send({type:'world:itemSpawn',item});},
-  damageMob(mobId,damage,control={}){if(mobId&&state.connected)queueMobHit({mobId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0,duration:control.duration||.28});},
+  damageMob(mobId,damage,control={}){if(mobId&&state.connected)queueMobHit({mobId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,prismCast:String(control.prismCast||'').slice(0,64),knockbackY:control.knockbackY||0,duration:control.duration,replaceForce:control.replaceForce===true});},
   skillFx(fx){if(state.connected&&fx)send({type:'skill:fx',fxSeq:fx.seq||0,slot:fx.slot,skillId:fx.skillId,weapon:fx.weapon,x:fx.x,y:fx.y,a:fx.a});},
   skillEffects(packet){if(state.connected&&packet)send({type:'skill:effects',seq:packet.seq||0,effects:Array.isArray(packet.effects)?packet.effects.slice(0,90):[],projectiles:Array.isArray(packet.projectiles)?packet.projectiles.slice(0,24):[]});},
   pvpDamage(targetId,damage,range=180,kind='melee',control={}){combatEvent({targetId,kind:'attack',damage,range,...control});},
   pvpControl(targetId,dx,dy,stun=0,kind='skill-control'){combatEvent({targetId,kind:'control',dx,dy,stun});},
   pvpMatchJoin(){return send({type:'pvp:matchJoin'});},
   pvpMatchCancel(){return send({type:'pvp:matchCancel'});},
-  damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,knockbackY:control.knockbackY||0});},
+  damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,prismCast:String(control.prismCast||'').slice(0,64),knockbackY:control.knockbackY||0});},
   hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){combatEvent({targetId,kind:'attack',damage,range,parryable});},
   createParty(){send({type:'party:create'});},
   invite(targetId){send({type:'party:invite',targetId});},

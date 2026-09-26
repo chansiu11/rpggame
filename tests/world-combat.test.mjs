@@ -20,3 +20,4 @@ test('repeated wave impacts renew force from victim actual position, not old end
  for(let i=0;i<5;i++){const x=f.b.x;f.hit({shape:'circle',x,y:f.b.y,r:32,range:1200,skillId:'dawnArc',dx:C.waveControl.force,stun:C.waveControl.stun,duration:C.forceDuration(180)});assert.equal(f.b.forceMove.startX,x);assert.equal(f.b.forceMove.x,x+180);f.step(110);}
  assert.equal(f.b.hp,500);assert.ok(f.b.x>1600);f.step(800);const end=f.b.x;assert.equal(f.c.ingest(f.b,{seq:1,combatAck:0,x:1100,y:1000}).x,end);
 });
+test('projectile cast acknowledgement is attached only to accepted damage',()=>{const f=fixture();f.hit({prismCast:'prism:1'});assert.equal(f.messages.at(-1).prismCast,'prism:1');const n=f.messages.length;f.hit({prismCast:'prism:2'});assert.equal(f.messages.length,n);});

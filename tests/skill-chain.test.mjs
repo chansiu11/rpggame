@@ -21,7 +21,7 @@ test('ordinary piercing arrows still hit the same target only once',()=>{
 });
 test('Void hold registers swept contact and carries the target over successive teleports',()=>{
  const e={id:'e',x:120,y:0,r:18},player={x:0,y:0},seq={ultimate:true,side:1,elapsed:0,fx:0,facing:0},hits=[];
- const ctx={player,seq,e,dt:.11,accent:'x',main:'x',effects:[],Math,Set,combatTargets:()=>[e],combatDistance:(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),combatCenter:e=>e,combatRadius:e=>e.r,swordCarryEligible:()=>true,segmentDistance:(x,y,a,b)=>C.segment(x,y,...a,...b),damageValue:m=>m,hitEnemy:(...args)=>hits.push(args),moveBody:(e,dx,dy)=>{e.x+=dx;e.y+=dy},syncSkillMoveIfNeeded:()=>{},ring:()=>{}};
+ const ctx={multiplayerMode:false,player,seq,e,dt:.11,accent:'x',main:'x',effects:[],Math,Set,combatTargets:()=>[e],combatDistance:(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),combatCenter:e=>e,combatRadius:e=>e.r,swordCarryEligible:()=>true,segmentDistance:(x,y,a,b)=>C.segment(x,y,...a,...b),damageValue:m=>m,hitEnemy:(...args)=>hits.push(args),moveBody:(e,dx,dy)=>{e.x+=dx;e.y+=dy},syncSkillMoveIfNeeded:()=>{},ring:()=>{}};
  vm.createContext(ctx);vm.runInContext(source('ensureSwordCarrySet')+'\n'+source('hitShadowCarryPath')+'\n'+source('moveSwordCarryTargets'),ctx);
  const fn=source('updateHeldSwordSkill'),a=fn.indexOf("}else if(mode==='holdShadow'){")+"}else if(mode==='holdShadow'){".length,b=fn.indexOf('\n }\n moveSwordCarryTargets',a),branch=fn.slice(a,b);
  let travel=0;
