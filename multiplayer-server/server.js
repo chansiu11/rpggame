@@ -95,6 +95,7 @@ const bosses = new Map(bossDefs.map(b => [b.id, {
 
 const players = new Map();
 const parties = new Map();
+const pvpMatchQueue=[];
 let worldLeaderId=null;
 let worldRevision=0;
 let worldSnapshot={mobs:[],items:[],updatedAt:0,revision:0};
@@ -122,15 +123,43 @@ function safeZoneName(x,y){
 }
 function sanitizeEquip(v,fallback){return String(v||fallback||'').replace(/[^A-Za-z0-9_\-]/g,'').slice(0,40);}
 function electWorldLeader(){
-  const next=[...players.values()].find(p=>p.ready),nextId=next?.id||null;if(nextId===worldLeaderId)return;worldLeaderId=nextId;
-  for(const p of players.values())if(p.ready)safeSend(p.ws,{type:'world:role',leaderId:worldLeaderId,isLeader:p.id===worldLeaderId,serverAuthority:true});
+  const next=[...players.values()].find(p=>p.ready&&p.clientMode!=='pvp'),nextId=next?.id||null;if(nextId===worldLeaderId)return;worldLeaderId=nextId;
+  for(const p of players.values())if(p.ready&&p.clientMode!=='pvp')safeSend(p.ws,{type:'world:role',leaderId:worldLeaderId,isLeader:p.id===worldLeaderId,serverAuthority:true});
 }
 function safeSend(ws,data,{volatile=false}={}){
   if(ws.readyState!==WebSocket.OPEN)return false;if(volatile&&Number(ws.bufferedAmount||0)>MAX_SOCKET_BUFFER)return false;
   try{ws.send(JSON.stringify(data));return true;}catch{return false;}
 }
 function broadcast(data,except=null,{volatile=false}={}){
-  const text=JSON.stringify(data);for(const p of players.values()){if(p.ws===except||p.ws.readyState!==WebSocket.OPEN)continue;if(volatile&&Number(p.ws.bufferedAmount||0)>MAX_SOCKET_BUFFER)continue;try{p.ws.send(text);}catch{}}
+  const text=JSON.stringify(data);for(const p of players.values()){if(p.clientMode==='pvp'||p.ws===except||p.ws.readyState!==WebSocket.OPEN)continue;if(volatile&&Number(p.ws.bufferedAmount||0)>MAX_SOCKET_BUFFER)continue;try{p.ws.send(text);}catch{}}
+}
+function removePvpMatchQueue(player,notify=false){
+  if(!player)return false;let removed=false;
+  for(let i=pvpMatchQueue.length-1;i>=0;i--)if(pvpMatchQueue[i]===player.id){pvpMatchQueue.splice(i,1);removed=true;}
+  player.pvpQueued=false;
+  if(notify&&player.ws?.readyState===WebSocket.OPEN)safeSend(player.ws,{type:'pvp:matchStatus',queued:false,count:pvpMatchQueue.length});
+  return removed;
+}
+function joinPvpMatchQueue(player){
+  if(!player?.ready||player.ws?.readyState!==WebSocket.OPEN)return;
+  removePvpMatchQueue(player,false);
+  let rival=null;
+  while(pvpMatchQueue.length){
+    const id=pvpMatchQueue.shift(),candidate=players.get(id);
+    if(!candidate||candidate===player||!candidate.ready||!candidate.pvpQueued||candidate.ws.readyState!==WebSocket.OPEN)continue;
+    if(candidate.accountId&&player.accountId&&candidate.accountId===player.accountId){candidate.pvpQueued=false;continue;}
+    rival=candidate;break;
+  }
+  if(!rival){
+    player.pvpQueued=true;player.pvpQueuedAt=Date.now();pvpMatchQueue.push(player.id);
+    safeSend(player.ws,{type:'pvp:matchStatus',queued:true,count:pvpMatchQueue.length,startedAt:player.pvpQueuedAt});
+    return;
+  }
+  player.pvpQueued=false;rival.pvpQueued=false;
+  const matchId=crypto.randomBytes(6).toString('hex'),peerId='echoes-pvp-auto-'+matchId;
+  safeSend(rival.ws,{type:'pvp:matchFound',matchId,peerId,role:'host',opponent:{id:player.id,name:player.name,level:player.level}});
+  safeSend(player.ws,{type:'pvp:matchFound',matchId,peerId,role:'guest',opponent:{id:rival.id,name:rival.name,level:rival.level}});
+  console.log('[pvp-match]',rival.id,'vs',player.id,matchId);
 }
 function publicPlayer(p){
   return {
@@ -437,6 +466,8 @@ function handlePvpDamage(player,msg){
 }
 function handleMessage(player,msg){
   if(!msg||typeof msg!=='object')return;
+  if(msg.type==='pvp:matchJoin'){joinPvpMatchQueue(player);return;}
+  if(msg.type==='pvp:matchCancel'){removePvpMatchQueue(player,true);return;}
   if(msg.type==='state'){
     const now=Date.now(),oldX=player.x,oldY=player.y,elapsed=Math.max(.016,Math.min(.5,(now-(player.lastStateAt||now-50))/1000));
     if(Number.isFinite(Number(msg.x)))player.x=clamp(msg.x,40,WORLD.width-40);if(Number.isFinite(Number(msg.y)))player.y=clamp(msg.y,40,WORLD.height-40);if(Number.isFinite(Number(msg.a)))player.a=clamp(msg.a,-Math.PI*4,Math.PI*4);
@@ -483,7 +514,7 @@ function handleMessage(player,msg){
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,players:players.size,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
+    res.end(JSON.stringify({ok:true,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
@@ -506,7 +537,7 @@ wss.on('connection',(ws)=>{
     level:1,weapon:0,equippedHead:'wandererHood',equippedChest:'travelerCoat',equippedShield:'woodenShield',
     attackAnim:0,attackDuration:.26,strikePose:0,skillPose:-1,combo:0,parry:0,dodge:0,dx:0,dy:0,walk:0,phase:0,
     vx:0,vy:0,seq:0,lastStateAt:Date.now(),
-    partyId:null,accountId:'',updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
+    partyId:null,accountId:'',clientMode:'world',pvpQueued:false,pvpQueuedAt:0,updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
   };
   players.set(player.id,player);
 
@@ -518,6 +549,7 @@ wss.on('connection',(ws)=>{
       if(msg.type!=='hello')return;
       player.name=cleanName(msg.name);
       player.accountId=cleanAccountId(msg.accountId,player.name);
+      player.clientMode=msg.mode==='pvp'?'pvp':'world';
       const replaced=[...players.values()].filter(p=>p!==player&&p.ready&&p.accountId===player.accountId);
       for(const old of replaced){
         safeSend(old.ws,{type:'session:replaced',message:'같은 계정이 다른 기기에서 접속했습니다.'});
@@ -527,12 +559,12 @@ wss.on('connection',(ws)=>{
       player.weapon=Math.floor(clamp(msg.weapon,0,4));
       player.ready=true;
       clearTimeout(helloTimer);
-      if(!worldLeaderId)worldLeaderId=player.id;
+      if(player.clientMode!=='pvp'&&!worldLeaderId)worldLeaderId=player.id;
       safeSend(ws,{
         type:'hello:ok',
         selfId:player.id,
         world:{...WORLD,biomes:BIOMES,landmarks:LANDMARKS,hiddenItems:HIDDEN_ITEMS},
-        players:[...players.values()].filter(p=>p.ready).map(publicPlayer),
+        players:player.clientMode==='pvp'?[]:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').map(publicPlayer),
         bosses:bossSnapshot(),
         worldRole:{leaderId:worldLeaderId,isLeader:player.id===worldLeaderId,serverAuthority:true},
         worldSnapshot:serverWorldSnapshot(),
@@ -540,9 +572,9 @@ wss.on('connection',(ws)=>{
         partyMax:PARTY_MAX,
         bossRespawnMs:BOSS_RESPAWN_MS
       });
-      broadcast({type:'player:join',player:publicPlayer(player)},ws);
-      console.log('[ws-open]',player.id,'players',players.size);
-      electWorldLeader();
+      if(player.clientMode!=='pvp')broadcast({type:'player:join',player:publicPlayer(player)},ws);
+      console.log('[ws-open]',player.id,'mode',player.clientMode,'players',players.size);
+      if(player.clientMode!=='pvp')electWorldLeader();
       return;
     }
     handleMessage(player,msg);
@@ -551,9 +583,10 @@ wss.on('connection',(ws)=>{
   ws.on('close',(code)=>{
     if(player.ready)console.log('[ws-close]',player.id,'code',code,'players',players.size);
     clearTimeout(helloTimer);
+    removePvpMatchQueue(player,false);
     leaveParty(player);
     players.delete(player.id);
-    if(player.ready)broadcast({type:'player:leave',id:player.id});
+    if(player.ready&&player.clientMode!=='pvp')broadcast({type:'player:leave',id:player.id});
     if(player.id===worldLeaderId)electWorldLeader();
   });
   ws.on('error',()=>{});
@@ -563,7 +596,7 @@ let playerListTick=0;
 setInterval(()=>{
   const now=Date.now();simulateWorld(now);if(now-lastMobNetFlush>=MOB_NET_TICK_MS){lastMobNetFlush=now;flushMobDeltas(now);}
   for(const boss of bosses.values())if(!boss.alive&&boss.respawnAt<=now){boss.alive=true;boss.hp=boss.maxHp;boss.respawnAt=0;syncBossMob(boss);broadcast({type:'boss:respawn',boss:{id:boss.id,name:boss.name,x:boss.x,y:boss.y,hp:boss.hp,maxHp:boss.maxHp,alive:true,respawnInMs:0}});}
-  playerListTick+=SIM_TICK_MS;if(playerListTick>=PLAYER_LIST_MS){playerListTick=0;broadcast({type:'players',players:[...players.values()].filter(p=>p.ready).map(publicPlayer),serverTime:now,revision:worldRevision},null,{volatile:true});}
+  playerListTick+=SIM_TICK_MS;if(playerListTick>=PLAYER_LIST_MS){playerListTick=0;broadcast({type:'players',players:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').map(publicPlayer),serverTime:now,revision:worldRevision},null,{volatile:true});}
 },SIM_TICK_MS);
 setInterval(()=>{
   for(const ws of wss.clients){
