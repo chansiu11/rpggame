@@ -379,7 +379,12 @@ function simulateMob(m,dt,now,ambientSelections){
   const range=mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.locked=a;m.attackAt=now+Math.max(260,m.wind*1000);m.lastAttackAt=now;markMobDirty(m);return;}
   m.state='chase';let dir=1;if(m.kind==='ranged'&&d<range*.55)dir=-1;else if(m.kind==='ranged'&&d<range*.82)dir=0;if(dir&&moveServerMob(m,Math.cos(a)*m.speed*dir*dt,Math.sin(a)*m.speed*dir*dt))markMobDirty(m);
 }
-function simulateWorld(now=Date.now()){if(!mobsBootstrapped)return;const dt=SIM_TICK_MS/1000,ambientSelections=buildAmbientAggroSelections();const observers=[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp');for(const m of authoritativeMobs.values()){if(!m.dead&&m.state==='idle'&&!m.targetId&&!m.provokedBy&&!m.forceMove&&now>=(m.stunUntil||0)&&Math.hypot(m.x-m.sx,m.y-m.sy)<18&&!observers.some(p=>(p.x-m.x)**2+(p.y-m.y)**2<1400**2))continue;simulateMob(m,dt,now,ambientSelections);}}
+let ambientSelectionAt=-Infinity,ambientSelectionCache=new Map();
+function simulateWorld(now=Date.now()){if(!mobsBootstrapped)return;const dt=SIM_TICK_MS/1000;const observers=[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp');
+ if(!observers.length){for(const m of authoritativeMobs.values())if(m.dead&&m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);ambientSelectionAt=-Infinity;return;}
+ // Acquisition scans at 10 Hz; active movement, hits and control still run at 40 Hz.
+ if(now-ambientSelectionAt>=100){ambientSelectionCache=buildAmbientAggroSelections();ambientSelectionAt=now;}
+ const ambientSelections=ambientSelectionCache;for(const m of authoritativeMobs.values()){if(!m.dead&&m.state==='idle'&&!m.targetId&&!m.provokedBy&&!m.forceMove&&now>=(m.stunUntil||0)&&Math.hypot(m.x-m.sx,m.y-m.sy)<18&&!observers.some(p=>(p.x-m.x)**2+(p.y-m.y)**2<1400**2))continue;simulateMob(m,dt,now,ambientSelections);}}
 function flushMobDeltas(now=Date.now()){
  const dirty=new Set(dirtyMobIds);dirtyMobIds.clear();
  if(dirty.size){worldRevision++;worldSnapshot.updatedAt=now;worldSnapshot.revision=worldRevision;}

@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
 const listeners=new Map();
+let connectingPromise=null;
 let mobQueue=[],mobScheduled=false,mobSeq=0;
 function queueMobHit(event){if(!state.mobCombatProtocol){send({type:'world:mobDamage',...event});return;}mobQueue.push(event);if(mobScheduled)return;mobScheduled=true;const socket=state.socket;queueMicrotask(()=>{mobScheduled=false;const events=mobQueue;mobQueue=[];if(socket!==state.socket)return;for(let i=0;i<events.length;i+=64)send({type:'world:mobCombat',seq:++mobSeq,events:events.slice(i,i+64)});});}
 let combatSeq=0,combatAck=0,combatQueue=[];
@@ -109,41 +110,44 @@ function scheduleReconnect(){
   },delay);
 }
 function connect(profile={},reconnecting=false){
-  if(state.connected||state.connecting)return Promise.resolve(state.connected);
+  if(state.connected)return Promise.resolve(true);
+  if(state.connecting&&connectingPromise)return connectingPromise;
   const endpoint=url();
   if(!endpoint)return Promise.reject(new Error('멀티플레이 서버 주소가 설정되지 않았습니다.'));
   state.profile=profile;state.connecting=true;state.lastError='';state.manualClose=false;
-  return new Promise((resolve,reject)=>{
+  return connectingPromise=new Promise((resolve,reject)=>{
     let settled=false,opened=false;
     const ws=new WebSocket(endpoint);state.socket=ws;
-    const timer=setTimeout(()=>{if(!settled){settled=true;try{ws.close();}catch{}state.connected=false;state.connecting=false;reject(new Error('멀티플레이 서버가 시작되는 데 시간이 오래 걸리고 있습니다. 다시 접속해 주세요.'));}},30000);
+    const waiting=setTimeout(()=>{if(!settled&&state.socket===ws)emit('notice','서버를 준비하고 있습니다. 무료 서버가 쉬고 있었다면 약 1분 걸릴 수 있습니다. 잠시 기다려 주세요.');},8000);
+    const timer=setTimeout(()=>{if(!settled){settled=true;try{ws.close();}catch{}state.connected=false;state.connecting=false;reject(new Error('멀티플레이 서버가 시작되는 데 시간이 오래 걸리고 있습니다. 다시 접속해 주세요.'));}},90000);
     ws.addEventListener('open',()=>{
-      opened=true;
+      if(state.socket!==ws){try{ws.close();}catch{}return;}opened=true;
       try{ws.binaryType='arraybuffer';}catch{}
       send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world',pvpRuleset:profile.mode==='pvp'?String(profile.pvpRuleset||window.EchoesWorldPvpData?.ruleset||''):''});
     });
     ws.addEventListener('message',e=>{
+      if(state.socket!==ws||state.manualClose)return;
       let msg;try{msg=JSON.parse(e.data);}catch{return;}
       handle(msg);
       if(msg.type==='hello:ok'){
         state.connected=true;state.connecting=false;state.reconnectAttempts=0;
         emit('connection',{connected:true,reconnected:reconnecting});
         if(reconnecting)emit('reconnected',{});
-        if(!settled){settled=true;clearTimeout(timer);resolve(true);}
+        if(!settled){settled=true;clearTimeout(timer);clearTimeout(waiting);connectingPromise=null;resolve(true);}
       }
     });
     ws.addEventListener('close',()=>{
-      clearTimeout(timer);const shouldReconnect=!state.manualClose&&!!state.profile&&(opened||reconnecting);
+      clearTimeout(timer);clearTimeout(waiting);if(state.socket!==ws){if(!settled){settled=true;reject(new Error('연결이 취소되었습니다.'));}return;}connectingPromise=null;const shouldReconnect=!state.manualClose&&!!state.profile&&(opened||reconnecting);
       state.connected=false;state.connecting=false;if(state.socket===ws)state.socket=null;state.selfId=null;state.party=null;
       emit('connection',{connected:false,reconnecting:shouldReconnect});
       if(!settled){settled=true;reject(new Error('멀티플레이 서버에 연결하지 못했습니다.'));}
       if(shouldReconnect)scheduleReconnect();
     });
-    ws.addEventListener('error',()=>{state.lastError='network';});
+    ws.addEventListener('error',()=>{if(state.socket===ws)state.lastError='network';});
   });
 }
 function disconnect(){
-  state.manualClose=true;state.profile=null;state.reconnectAttempts=0;
+  connectingPromise=null;state.manualClose=true;state.profile=null;state.reconnectAttempts=0;
   if(state.reconnectTimer){clearTimeout(state.reconnectTimer);state.reconnectTimer=null;}
   try{state.socket?.close();}catch{}
   state.connected=false;state.connecting=false;state.socket=null;state.players.clear();state.party=null;state.selfId=null;
