@@ -140,7 +140,7 @@ function disconnect(){
   state.connected=false;state.connecting=false;state.socket=null;state.players.clear();state.party=null;state.selfId=null;
 }
 window.EchoesMulti={
-  state,on,connect,disconnect,
+  state,on,connect,disconnect,requestWorldResync,
   get enabled(){return !!url();},
   get connected(){return state.connected;},
   get serverUrl(){return url();},
