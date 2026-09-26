@@ -3089,6 +3089,11 @@ async function ensureMatchServer(s){
  const m=window.EchoesMulti;if(!m?.enabled)throw Error('PVP 매칭 서버가 설정되지 않았습니다.');
  const profile={name:s.name||displayName(),accountId:pvpAccountId(),level:s.level||1,weapon:s.weapon||0,mode:'pvp',pvpRuleset:PVP_RULESET};
  if(m.connected){
+  const currentMode=String(m.state?.profile?.mode||'');
+  if(currentMode!=='pvp'){
+   m.disconnect();matchSocketOwned=true;
+   await m.connect(profile);
+  }
   const serverRuleset=String(m.state?.pvpRuleset||'');
   if(!serverRuleset||serverRuleset===PVP_RULESET)return m;
   m.disconnect();matchSocketOwned=true;
