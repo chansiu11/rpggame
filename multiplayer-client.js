@@ -27,8 +27,8 @@ function send(data){
 function normalizeBoss(b){
   return {...b,hp:Number(b.hp)||0,maxHp:Math.max(1,Number(b.maxHp)||1),alive:b.alive!==false,respawnInMs:Math.max(0,Number(b.respawnInMs)||0)};
 }
-function requestWorldResync(){
-  const now=performance.now();if(now-(state.lastWorldResyncAt||0)<900)return;state.lastWorldResyncAt=now;send({type:'world:resync',revision:state.worldRevision||0});
+function requestWorldResync(force=false){
+  const now=performance.now();if(!force&&now-(state.lastWorldResyncAt||0)<900)return;state.lastWorldResyncAt=now;send({type:'world:resync',revision:state.worldRevision||0});
 }
 function handle(msg){
   if(!msg||typeof msg!=='object')return;
