@@ -1223,6 +1223,7 @@ function balancedSwordSkill(sk,slot=-1){
    }
   }
  }
+ if(slot===4&&sk.id==='prismLance'){cfg.hits=[cfg.duration*.28,cfg.duration*.52,cfg.duration];cfg.finisher={back:120,forward:640,width:46,mult:3.4,stun:.75};}
  if(SWORD_DASH_SKILLS.has(sk.id)){cfg.dashSkill=true;cfg.rangeScale=SWORD_RANGE_SCALE;}
  return {...sk,holdMax,cfg};
 }
@@ -1742,7 +1743,10 @@ function performSwordSkillHit(seq,hitIndex){
  }else if(seq.ultimate&&sk.id==='prismLance'){
   if(hitIndex===0){for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.12,720,damageValue(.82),'player','wave',3);}
   else if(hitIndex===1){for(let j=-4;j<=4;j++)fireProjectile(player.x,player.y,ang+j*.10,780,damageValue(.72),'player','wave',3);}
-  else{for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.065,920,damageValue(1.15),'player','wave',6);fireProjectile(player.x,player.y,ang,1100,damageValue(3.4),'player','wave',10);}
+  else{const f=cfg.finisher,ca=Math.cos(ang),sa=Math.sin(ang),x1=player.x-ca*f.back,y1=player.y-sa*f.back,x2=player.x+ca*f.forward,y2=player.y+sa*f.forward;
+   for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const c=combatCenter(e);if(segmentDistance(c.x,c.y,[x1,y1],[x2,y2])<=f.width+combatRadius(e)){hitEnemy(e,damageValue(f.mult),true);if(!e.dead)applyEnemyStun(e,f.stun);}}
+   for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.065,920,damageValue(1.15),'player','wave',6);
+  }
  }else if(mode==='windShot'){meleeHit(reach,2.15,damage*.55,true);fireProjectile(player.x+Math.cos(ang)*42,player.y+Math.sin(ang)*42,ang,760,damageValue(1.35),'player','wave',5);}
  else if(mode==='blinkThrust'){meleeHit(reach,.58,damage,true);}
  else if(mode==='moonBurst'){for(const e of combatTargets())if(!e.dead&&!e.riftSleeping&&e.kind!=='boss'&&combatDistance(e,player)<reach+90){const aa=Math.atan2(player.y-e.y,player.x-e.x);moveBody(e,Math.cos(aa)*26,Math.sin(aa)*26);}meleeHit(reach,TAU,damage,true);}
@@ -3618,7 +3622,7 @@ function pvpWorldSwordHit(ev,k){
  }else if(ev.ultimate&&sk.id==='prismLance'){
   if(k===0)for(let j=-2;j<=2;j++)wave(a+j*.12,720,pvpSkillAttack(me)*.82,3);
   else if(k===1)for(let j=-4;j<=4;j++)wave(a+j*.10,780,pvpSkillAttack(me)*.72,3);
-  else{for(let j=-2;j<=2;j++)wave(a+j*.065,920,pvpSkillAttack(me)*1.15,6);wave(a,1100,pvpSkillAttack(me)*3.4,10);}
+  else{const f=cfg.finisher,ca=Math.cos(a),sa=Math.sin(a);segmentAttack(me.x-ca*f.back,me.y-sa*f.back,me.x+ca*f.forward,me.y+sa*f.forward,f.width,pvpSkillAttack(me)*f.mult,f.stun,{color,force:24,forceA:a,fx:false});for(let j=-2;j<=2;j++)wave(a+j*.065,920,pvpSkillAttack(me)*1.15,6);}
  }else if(mode==='windShot'){heavyArc(reach,d*.55,2.15,true);wave(a,760,pvpSkillAttack(me)*1.35,5)}
  else if(mode==='blinkThrust'){
   if(target&&Math.hypot(target.x-me.x,target.y-me.y)<=Math.max(760,ev.targetRange||0)+target.r){
