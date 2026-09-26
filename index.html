@@ -1654,8 +1654,8 @@ function performSwordSkillHit(seq,hitIndex){
  else if(mode==='thunderDash'){meleeHit(reach,.64,damage,true);player.invuln=Math.max(player.invuln,.18);}
  else if(mode==='meteorNova'){const r=205;for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,player)<r+combatRadius(e)){hitEnemy(e,damage,true);if(!e.dead)applyEnemyStun(e,e.kind==='boss'?.7:1.0);}sharedPvpRadiusHit(player.x,player.y,r,damage,true,true);}
  else if(mode==='orbitStrike'){meleeHit(reach,cfg.arc[hitIndex],damage,finalHit);}
- else if(mode==='mirrorBackstab'||mode==='phantomSwap'){const ox=player.x,oy=player.y,t=swordSeqTarget(seq);if(t){const a=Math.atan2(player.y-t.y,player.x-t.x),tx=t.x+Math.cos(a)*58,ty=t.y+Math.sin(a)*58;moveBody(player,clamp(tx-player.x,-150,150),clamp(ty-player.y,-150,150));player.facing=Math.atan2(t.y-player.y,t.x-player.x);syncSkillMoveIfNeeded(ox,oy,24,520);}meleeHit(reach,cfg.arc[hitIndex],damage,true);}
- else if(mode==='lunarPull'||mode==='gravityWell'){const r=mode==='gravityWell'?175:135,pull=mode==='gravityWell'?42:28;for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,player)<r+combatRadius(e)){if(e.kind!=='boss'){const aa=Math.atan2(player.y-e.y,player.x-e.x);moveBody(e,Math.cos(aa)*pull,Math.sin(aa)*pull);}hitEnemy(e,damage,true);}sharedPvpPullRadius(player.x,player.y,r,pull,0,mode==='gravityWell'?'gravity-pull':'lunar-pull');sharedPvpRadiusHit(player.x,player.y,r,damage,true,true);}
+ else if(mode==='mirrorBackstab'){const ox=player.x,oy=player.y,t=swordSeqTarget(seq);if(t){const a=Math.atan2(player.y-t.y,player.x-t.x),tx=t.x+Math.cos(a)*58,ty=t.y+Math.sin(a)*58;moveBody(player,clamp(tx-player.x,-150,150),clamp(ty-player.y,-150,150));player.facing=Math.atan2(t.y-player.y,t.x-player.x);syncSkillMoveIfNeeded(ox,oy,24,520);}meleeHit(reach,cfg.arc[hitIndex],damage,true);}
+ else if(mode==='lunarPull'){const r=135,pull=28;for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,player)<r+combatRadius(e)){if(e.kind!=='boss'){const aa=Math.atan2(player.y-e.y,player.x-e.x);moveBody(e,Math.cos(aa)*pull,Math.sin(aa)*pull);}hitEnemy(e,damage,true);}sharedPvpPullRadius(player.x,player.y,r,pull,0,'lunar-pull');sharedPvpRadiusHit(player.x,player.y,r,damage,true,true);}
  else if(mode==='quakeLine'){const cx=player.x+Math.cos(ang)*(55+hitIndex*38),cy=player.y+Math.sin(ang)*(55+hitIndex*38),r=62;for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,{x:cx,y:cy})<r+combatRadius(e))hitEnemy(e,damage,finalHit);sharedPvpRadiusHit(cx,cy,r,damage,finalHit,true);ring(cx,cy,r,sk.color,.26);}
  else if(mode==='fracturePrison'){
   const cx=Number.isFinite(seq.anchorX)?seq.anchorX:player.x+Math.cos(ang)*170,cy=Number.isFinite(seq.anchorY)?seq.anchorY:player.y+Math.sin(ang)*170;
@@ -1670,7 +1670,45 @@ function performSwordSkillHit(seq,hitIndex){
  else if(mode==='boomerangWave'){const aa=hitIndex===0?ang:ang+Math.PI;fireProjectile(player.x,player.y,aa,560,damageValue(1.3),'player','wave',4);}
  else if(mode==='fanLances'){for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.16,680,damageValue(.92),'player','wave',2);}
  else if(mode==='skyFall'){const ox=player.x,oy=player.y,cx=player.x+Math.cos(ang)*105,cy=player.y+Math.sin(ang)*105,r=145;moveBody(player,Math.cos(ang)*90,Math.sin(ang)*90);syncSkillMoveIfNeeded(ox,oy,24,460);for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,{x:cx,y:cy})<r+combatRadius(e))hitEnemy(e,damage,true);sharedPvpRadiusHit(cx,cy,r,damage,true,true);ring(cx,cy,r,sk.color,.5);}
- else if(mode==='chainPull'){for(const e of enemies){if(e.dead||e.riftSleeping)continue;const d=combatDistance(e,player),ea=Math.atan2(e.y-player.y,e.x-player.x);if(d<190+combatRadius(e)&&Math.abs(angleDiff(ea,ang))<1.15){if(e.kind!=='boss'){const aa=Math.atan2(player.y-e.y,player.x-e.x);moveBody(e,Math.cos(aa)*55,Math.sin(aa)*55);}hitEnemy(e,damage,false);}}for(const rp of multiRemotePlayers.values()){if(!sharedPvpEligible(rp))continue;const p=sharedPvpPoint(rp),dx=p.x-player.x,dy=p.y-player.y,d=Math.hypot(dx,dy),ea=Math.atan2(dy,dx);if(d<208&&Math.abs(angleDiff(ea,ang))<1.15){const aa=Math.atan2(player.y-p.y,player.x-p.x);sharedPvpControl(rp,Math.cos(aa)*55,Math.sin(aa)*55,.22,'chain-pull');sharedPvpSendHit(rp,damage,320,'skill',true);}}}
+ else if(mode==='riftAnchor'){
+  const cx=Number.isFinite(seq.anchorX)?seq.anchorX:player.x+Math.cos(ang)*190,cy=Number.isFinite(seq.anchorY)?seq.anchorY:player.y+Math.sin(ang)*190,r=hitIndex===0?112:145;
+  if(hitIndex===1)sharedPvpPullRadius(cx,cy,270,115,.58,'void-anchor-rewind');
+  for(const e of enemies){
+   if(e.dead||e.riftSleeping)continue;const c=combatCenter(e),dist=Math.hypot(c.x-cx,c.y-cy);
+   if(hitIndex===1&&dist<270+combatRadius(e)&&e.kind!=='boss'){const aa=Math.atan2(cy-c.y,cx-c.x),mv=Math.min(125,Math.max(0,dist-24));moveBody(e,Math.cos(aa)*mv,Math.sin(aa)*mv);}
+   if(dist<=r+combatRadius(e)){hitEnemy(e,damage,hitIndex===1);if(!e.dead)applyEnemyStun(e,e.kind==='boss'?.18:(hitIndex===0?.28:.62));}
+  }
+  sharedPvpRadiusHit(cx,cy,r,damage,hitIndex===1,true);
+ }
+ else if(mode==='echoTriad'){
+  const t=swordSeqTarget(seq),ox=player.x,oy=player.y;
+  if(t){
+   const base=Math.atan2(player.y-t.y,player.x-t.x),offs=[0,TAU/3,-TAU/3][hitIndex]||0,aa=base+offs,dist=76,tx=t.x+Math.cos(aa)*dist,ty=t.y+Math.sin(aa)*dist;
+   moveBody(player,clamp(tx-player.x,-620,620),clamp(ty-player.y,-620,620));player.facing=Math.atan2(t.y-player.y,t.x-player.x);seq.facing=player.facing;syncSkillMoveIfNeeded(ox,oy,18,620);
+  }
+  meleeHit(reach,cfg.arc[hitIndex],damage,hitIndex===2);
+ }
+ else if(mode==='gravityFlip'){
+  const cx=Number.isFinite(seq.anchorX)?seq.anchorX:player.x+Math.cos(ang)*205,cy=Number.isFinite(seq.anchorY)?seq.anchorY:player.y+Math.sin(ang)*205,r=hitIndex===2?178:158;
+  for(const e of enemies){
+   if(e.dead||e.riftSleeping)continue;const c=combatCenter(e),dist=Math.hypot(c.x-cx,c.y-cy);if(dist>r+combatRadius(e))continue;
+   if(e.kind!=='boss'){
+    if(hitIndex<2){const aa=Math.atan2(cy-c.y,cx-c.x),pull=hitIndex===0?82:42;moveBody(e,Math.cos(aa)*Math.min(pull,dist),Math.sin(aa)*Math.min(pull,dist));}
+    else{const aa=Math.atan2(c.y-cy,c.x-cx);moveBody(e,Math.cos(aa)*135,Math.sin(aa)*135);}
+   }
+   hitEnemy(e,damage,hitIndex===2);if(!e.dead)applyEnemyStun(e,e.kind==='boss'?.2:(hitIndex===2?.72:.36));
+  }
+  if(hitIndex<2)sharedPvpPullRadius(cx,cy,r,hitIndex===0?82:42,.36,'gravity-flip-pull');
+  else for(const rp of multiRemotePlayers.values()){if(!sharedPvpEligible(rp))continue;const p=sharedPvpPoint(rp),dist=Math.hypot(p.x-cx,p.y-cy);if(dist<=r+18){const aa=Math.atan2(p.y-cy,p.x-cx);sharedPvpControl(rp,Math.cos(aa)*135,Math.sin(aa)*135,.72,'gravity-flip-burst');}}
+  sharedPvpRadiusHit(cx,cy,r,damage,hitIndex===2,true);
+ }
+ else if(mode==='riftCrossfire'){
+  const cx=Number.isFinite(seq.anchorX)?seq.anchorX:player.x+Math.cos(ang)*230,cy=Number.isFinite(seq.anchorY)?seq.anchorY:player.y+Math.sin(ang)*230,aa=ang+hitIndex*Math.PI/2,
+        x1=cx+Math.cos(aa)*210,y1=cy+Math.sin(aa)*210,x2=cx-Math.cos(aa)*105,y2=cy-Math.sin(aa)*105,width=54;
+  for(const e of enemies){if(e.dead||e.riftSleeping)continue;const c=combatCenter(e);if(segmentDistance(c.x,c.y,[x1,y1],[x2,y2])<=width+combatRadius(e))hitEnemy(e,damage,hitIndex===3);}
+  sharedPvpSegmentHit(x1,y1,x2,y2,width,damage,hitIndex===3);
+  if(hitIndex===3){for(const e of enemies)if(!e.dead&&!e.riftSleeping&&combatDistance(e,{x:cx,y:cy})<120+combatRadius(e))hitEnemy(e,damageValue(.55),true);sharedPvpRadiusHit(cx,cy,120,damageValue(.55),true,true);}
+ }
  else if(mode==='bladeRain'){for(let j=-4;j<=4;j++)fireProjectile(player.x,player.y,ang+j*.13,520+Math.abs(j)*22,damageValue(.68),'player','wave',2);}
  moveSwordCarryTargets(seq,player.x-px0,player.y-py0);
  swordSignatureFx(sk.id,hitIndex,finalHit,ang,reach,sk.color);
@@ -3405,8 +3443,8 @@ function pvpWorldSwordHit(ev,k){
  else if(mode==='earthSlam'){const cx=me.x+Math.cos(a)*80,cy=me.y+Math.sin(a)*80;heavyCircle(cx,cy,145,d,true)}
  else if(mode==='dawnWave'){wave(a,720,pvpSkillAttack(me)*2.85,7)}
  else if(mode==='orbitStrike'){heavyArc(reach,d,arc,final)}
- else if(mode==='mirrorBackstab'||mode==='phantomSwap'){const teleported=!!target;if(target){const aa=Math.atan2(me.y-target.y,me.x-target.x),tx=target.x+Math.cos(aa)*58,ty=target.y+Math.sin(aa)*58;me.x=clamp(tx,25,ARENA_W-25);me.y=clamp(ty,25,ARENA_H-25);me.a=ev.a=Math.atan2(target.y-me.y,target.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a})}heavyArc(reach,d,arc,true,{teleportHit:teleported})}
- else if(mode==='lunarPull'||mode==='gravityWell'){const r=mode==='gravityWell'?175:135,pull=mode==='gravityWell'?42:28;if(targetNear(r+enemy.r)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x);forceEnemyTo(enemy.x+Math.cos(aa)*pull,enemy.y+Math.sin(aa)*pull,.24,.22)}heavyCircle(me.x,me.y,r,d,true)}
+ else if(mode==='mirrorBackstab'){const teleported=!!target;if(target){const aa=Math.atan2(me.y-target.y,me.x-target.x),tx=target.x+Math.cos(aa)*58,ty=target.y+Math.sin(aa)*58;me.x=clamp(tx,25,ARENA_W-25);me.y=clamp(ty,25,ARENA_H-25);me.a=ev.a=Math.atan2(target.y-me.y,target.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a})}heavyArc(reach,d,arc,true,{teleportHit:teleported})}
+ else if(mode==='lunarPull'){const r=135,pull=28;if(targetNear(r+enemy.r)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x);forceEnemyTo(enemy.x+Math.cos(aa)*pull,enemy.y+Math.sin(aa)*pull,.24,.22)}heavyCircle(me.x,me.y,r,d,true)}
  else if(mode==='quakeLine'){const cx=me.x+Math.cos(a)*(55+k*38),cy=me.y+Math.sin(a)*(55+k*38);heavyCircle(cx,cy,62,d,final)}
  else if(mode==='fracturePrison'){
   const cx=Number.isFinite(ev.anchorX)?ev.anchorX:me.x+Math.cos(a)*170,cy=Number.isFinite(ev.anchorY)?ev.anchorY:me.y+Math.sin(a)*170,
@@ -3416,7 +3454,26 @@ function pvpWorldSwordHit(ev,k){
  else if(mode==='boomerangWave'){wave(k===0?a:a+Math.PI,560,pvpSkillAttack(me)*1.3,4)}
  else if(mode==='fanLances'){for(let j=-2;j<=2;j++)wave(a+j*.16,680,pvpSkillAttack(me)*.92,2)}
  else if(mode==='skyFall'){me.x=clamp(me.x+Math.cos(a)*90,25,ARENA_W-25);me.y=clamp(me.y+Math.sin(a)*90,25,ARENA_H-25);net({t:'teleport',x:me.x,y:me.y,a});const cx=me.x+Math.cos(a)*105,cy=me.y+Math.sin(a)*105,confirmed=!!enemy&&Math.hypot(enemy.x-cx,enemy.y-cy)<=145+enemy.r;heavyCircle(cx,cy,145,d,true,{teleportHit:confirmed})}
- else if(mode==='chainPull'){if(targetNear(208)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x);forceEnemyTo(enemy.x+Math.cos(aa)*55,enemy.y+Math.sin(aa)*55,.28,.22)}heavyArc(190,d,2.3,false,{meleeForce:false})}
+ else if(mode==='riftAnchor'){
+  const cx=Number.isFinite(ev.anchorX)?ev.anchorX:me.x+Math.cos(a)*190,cy=Number.isFinite(ev.anchorY)?ev.anchorY:me.y+Math.sin(a)*190,r=k===0?112:145,near=!!enemy&&Math.hypot(enemy.x-cx,enemy.y-cy)<=270+enemy.r,hit=!!enemy&&Math.hypot(enemy.x-cx,enemy.y-cy)<=r+enemy.r;
+  circleAttack(cx,cy,r,d,k===0?.28:.62,{color,force:0,fx:false,teleportHit:hit,controlLease:'voidAnchor',controlLeaseMs:1100});
+  if(k===1&&near)queueStigmaControl('voidAnchor',cx,cy,.34,.62,.8,true);
+ }
+ else if(mode==='echoTriad'){
+  const teleported=!!target;
+  if(target){const base=Math.atan2(me.y-target.y,me.x-target.x),offs=[0,TAU/3,-TAU/3][k]||0,aa=base+offs,dist=me.r+target.r+42,tx=target.x+Math.cos(aa)*dist,ty=target.y+Math.sin(aa)*dist,ox=me.x,oy=me.y;me.x=clamp(tx,25,ARENA_W-25);me.y=clamp(ty,25,ARENA_H-25);me.a=ev.a=Math.atan2(target.y-me.y,target.x-me.x);beamFx(ox,oy,me.x,me.y,k===2?sub:color,.24,true);net({t:'teleport',x:me.x,y:me.y,a:me.a})}
+  heavyArc(reach,d,arc,k===2,{teleportHit:teleported});
+ }
+ else if(mode==='gravityFlip'){
+  const cx=Number.isFinite(ev.anchorX)?ev.anchorX:me.x+Math.cos(a)*205,cy=Number.isFinite(ev.anchorY)?ev.anchorY:me.y+Math.sin(a)*205,r=k===2?178:158,hit=!!enemy&&Math.hypot(enemy.x-cx,enemy.y-cy)<=r+enemy.r;
+  circleAttack(cx,cy,r,d,k===2?.72:.36,{color,force:0,fx:false,teleportHit:hit,controlLease:'voidGravity',controlLeaseMs:1200});
+  if(hit&&enemy){if(k<2)queueStigmaControl('voidGravity',cx,cy,k===0?.32:.20,.36,.65,false);else{const aa=Math.atan2(enemy.y-cy,enemy.x-cx),out=145;queueStigmaControl('voidGravity',cx+Math.cos(aa)*out,cy+Math.sin(aa)*out,.40,.72,.85,true)}}
+ }
+ else if(mode==='riftCrossfire'){
+  const cx=Number.isFinite(ev.anchorX)?ev.anchorX:me.x+Math.cos(a)*230,cy=Number.isFinite(ev.anchorY)?ev.anchorY:me.y+Math.sin(a)*230,aa=a+k*Math.PI/2,x1=cx+Math.cos(aa)*210,y1=cy+Math.sin(aa)*210,x2=cx-Math.cos(aa)*105,y2=cy-Math.sin(aa)*105,width=54,hit=!!enemy&&pointSegmentDistance(enemy.x,enemy.y,x1,y1,x2,y2)<=width+enemy.r;
+  segmentAttack(x1,y1,x2,y2,width,d,k===3?.68:.24,{color,force:0,fx:false,teleportHit:hit});
+  if(k===3){const fin=!!enemy&&Math.hypot(enemy.x-cx,enemy.y-cy)<=120+enemy.r;circleAttack(cx,cy,120,pvpSkillAttack(me)*.55,.68,{color,force:0,fx:false,teleportHit:fin})}
+ }
  else if(mode==='bladeRain'){for(let j=-4;j<=4;j++)wave(a+j*.13,520+Math.abs(j)*22,pvpSkillAttack(me)*.68,2)}
  else heavyArc(reach,d,arc,final);
  pvpSwordSignatureFx(sk,k,final,a,reach);
