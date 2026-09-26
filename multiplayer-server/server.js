@@ -7,11 +7,11 @@ const TICK_MS = 1000;
 const PARTY_MAX = 4;
 const BOSS_RESPAWN_MS = 3 * 60 * 1000;
 
-const SIM_TICK_MS = 33;
-const MOB_NET_TICK_MS = 66;
+const SIM_TICK_MS = 25;
+const MOB_NET_TICK_MS = 50;
 const PLAYER_LIST_MS = 1000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
-const MAX_SOCKET_BUFFER = 96 * 1024;
+const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v2-leash';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
@@ -178,7 +178,7 @@ function publicPlayerState(p){
   return {
     id:p.id,x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,weapon:p.weapon,
     attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,
-    combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
+    combo:p.combo,parry:p.parry,dodge:p.dodge,stun:p.stun||0,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
     deathSeq:p.deathSeq||0,skillFxSeq:p.skillFxSeq||0,skillFxSlot:p.skillFxSlot||0,skillFxId:p.skillFxId||'',skillFxWeapon:p.skillFxWeapon||0,skillFxX:p.skillFxX,skillFxY:p.skillFxY,skillFxA:p.skillFxA,
     vx:p.vx||0,vy:p.vy||0,seq:p.seq||0,updatedAt:p.updatedAt
   };
@@ -463,12 +463,12 @@ function handlePvpDamage(player,msg){
   if(safeA||safeB){safeSend(player.ws,{type:'notice',message:'마을 안전구역에서는 PVP를 할 수 없습니다.'});return;}
   const maxRange=clamp(msg.range,80,760);
   if(Math.hypot(player.x-target.x,player.y-target.y)>maxRange+70)return;
-  const damage=clamp(msg.damage,1,650),kx=clamp(msg.knockbackX,-280,280),ky=clamp(msg.knockbackY,-280,280),stun=clamp(msg.stun,0,.65);
+  const damage=clamp(msg.damage,1,650),kx=clamp(msg.knockbackX,-280,280),ky=clamp(msg.knockbackY,-280,280),stun=clamp(msg.stun,0,1.1);
   target.hp=Math.max(0,target.hp-damage);
   let targetX=target.x,targetY=target.y;
   if(target.hp>0&&(Math.abs(kx)+Math.abs(ky)>1)){targetX=clamp(target.x+kx,40,WORLD.width-40);targetY=clamp(target.y+ky,40,WORLD.height-40);}
   safeSend(target.ws,{type:'pvp:hit',attackerId:player.id,attackerName:player.name,damage,hp:target.hp,maxHp:target.maxHp,knockbackX:kx,knockbackY:ky,knockDuration:clamp(.18+Math.hypot(kx,ky)/900,.16,.42),stun,targetX,targetY});
-  safeSend(player.ws,{type:'pvp:confirm',targetId:target.id,damage,hp:target.hp,maxHp:target.maxHp,knockbackX:kx,knockbackY:ky,targetX,targetY});
+  safeSend(player.ws,{type:'pvp:confirm',targetId:target.id,damage,hp:target.hp,maxHp:target.maxHp,knockbackX:kx,knockbackY:ky,stun,targetX,targetY});
   if(target.hp<=0){
     broadcast({type:'pvp:defeated',targetId:target.id,targetName:target.name,killerId:player.id,killerName:player.name});
   }
@@ -484,10 +484,10 @@ function handleMessage(player,msg){
     if(msg.swordStyle!==undefined)player.swordStyle=String(msg.swordStyle||'').slice(0,20);
     if(Array.isArray(msg.swordSkills))player.swordSkills=msg.swordSkills.slice(0,5).map(v=>String(v||'').slice(0,40));
     if(msg.equippedHead!==undefined)player.equippedHead=sanitizeEquip(msg.equippedHead,'wandererHood');if(msg.equippedChest!==undefined)player.equippedChest=sanitizeEquip(msg.equippedChest,'travelerCoat');if(msg.equippedShield!==undefined)player.equippedShield=sanitizeEquip(msg.equippedShield,'woodenShield');
-    for(const k of ['attackAnim','attackDuration','strikePose','skillPose','combo','parry','dodge','dx','dy','walk','phase'])if(Number.isFinite(Number(msg[k])))player[k]=Number(msg[k]);
+    for(const k of ['attackAnim','attackDuration','strikePose','skillPose','combo','parry','dodge','stun','dx','dy','walk','phase'])if(Number.isFinite(Number(msg[k])))player[k]=Number(msg[k]);
     if(Number.isFinite(Number(msg.deathSeq)))player.deathSeq=Math.floor(clamp(msg.deathSeq,0,1e12));
     if(Number.isFinite(Number(msg.skillFxSeq))&&Number(msg.skillFxSeq)>=(player.skillFxSeq||0)){player.skillFxSeq=Math.floor(clamp(msg.skillFxSeq,0,1e12));player.skillFxSlot=Math.floor(clamp(msg.skillFxSlot,0,4));player.skillFxId=String(msg.skillFxId||'').slice(0,40);player.skillFxWeapon=Math.floor(clamp(msg.skillFxWeapon,0,4));player.skillFxX=clamp(Number(msg.skillFxX)||player.x,40,WORLD.width-40);player.skillFxY=clamp(Number(msg.skillFxY)||player.y,40,WORLD.height-40);player.skillFxA=clamp(Number(msg.skillFxA)||player.a,-Math.PI*4,Math.PI*4);}
-    player.attackAnim=clamp(player.attackAnim,0,5);player.attackDuration=clamp(player.attackDuration,.05,5);player.strikePose=Math.floor(clamp(player.strikePose,0,8));player.skillPose=Math.floor(clamp(player.skillPose,-1,8));player.combo=Math.floor(clamp(player.combo,0,10));player.parry=clamp(player.parry,0,2);player.dodge=clamp(player.dodge,0,2);player.dx=clamp(player.dx,-1,1);player.dy=clamp(player.dy,-1,1);player.walk=clamp(player.walk,0,1);player.phase=clamp(player.phase,-1e6,1e6);
+    player.attackAnim=clamp(player.attackAnim,0,5);player.attackDuration=clamp(player.attackDuration,.05,5);player.strikePose=Math.floor(clamp(player.strikePose,0,8));player.skillPose=Math.floor(clamp(player.skillPose,-1,8));player.combo=Math.floor(clamp(player.combo,0,10));player.parry=clamp(player.parry,0,2);player.dodge=clamp(player.dodge,0,2);player.stun=clamp(player.stun||0,0,1.5);player.dx=clamp(player.dx,-1,1);player.dy=clamp(player.dy,-1,1);player.walk=clamp(player.walk,0,1);player.phase=clamp(player.phase,-1e6,1e6);
     player.vx=clamp(Number.isFinite(Number(msg.vx))?msg.vx:(player.x-oldX)/elapsed,-3000,3000);player.vy=clamp(Number.isFinite(Number(msg.vy))?msg.vy:(player.y-oldY)/elapsed,-3000,3000);player.seq=Math.max((player.seq||0)+1,Math.floor(clamp(msg.seq,0,1e12)));player.updatedAt=now;player.lastStateAt=now;
     const pub=publicPlayerState(player);safeSend(player.ws,{type:'player:self',player:{id:pub.id,x:pub.x,y:pub.y,hp:pub.hp,maxHp:pub.maxHp,seq:pub.seq},serverTime:now},{volatile:true});broadcast({type:'player:state',player:pub},player.ws,{volatile:true});return;
   }
