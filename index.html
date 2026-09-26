@@ -2299,6 +2299,7 @@ async function startOnlineWorld(){
  catch(e){showMessage('공용 월드 서버 연결 실패',(e.message||'서버 상태를 확인해 주세요.')+'\n서버에 연결되지 않으면 게임 월드에 입장할 수 없습니다.');return;}
  multiplayerMode=true;multiNetTimer=0;multiNetSeq=0;multiLastSendX=player?.x||0;multiLastSendY=player?.y||0;multiLastSendAt=performance.now();multiWorldLeader=!!m.state.worldRole?.isLeader;multiWorldSyncTimer=0;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=false;multiMobLastSent.clear();
  if(mode!=='play'){if(preview){try{loadData(preview);}catch(e){player=newPlayer();player.difficulty='normal';resetWorldState();player.training.complete=true;startPlay();}}else{player=newPlayer();player.difficulty='normal';resetWorldState();player.training.complete=true;startPlay();}}
+ if(!player.swordStyle&&modal!=='swordStyle')showSwordStyleChoice();
  player.difficulty='normal';applyWorldDifficultyToEnemies(false);if(m.state.worldSnapshot)applySharedWorldSnapshot(m.state.worldSnapshot);(m.state.bosses?.values?Array.from(m.state.bosses.values()):[]).forEach(applySharedBossState);
  m.bootstrapWorld(buildServerWorldBootstrap());if(m.state.worldRole?.isLeader)m.sendWorldSnapshot(buildSharedWorldSnapshot(true));
  toast('<b>공용 월드 접속</b><br>서버 권한형 동기화 · 난이도 보통 · 접속자 '+((m.state.players?.size||0)+1)+'명');updateHUD();updateFullscreenUI();
