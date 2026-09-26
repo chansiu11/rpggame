@@ -141,7 +141,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
-const TAU = Math.PI * 2, MAX_LEVEL=100, PLAYER_HP_PER_LEVEL=14.4, PLAYER_DAMAGE_PER_LEVEL=1.7, OVERWORLD_H=11000, WORLD = {w:22000,h:11000}, SAVE_KEY = 'echoes_wild_save_v1', OPT_KEY='echoes_wild_options_v1', KEYS_KEY='echoes_keys_v1', LAYOUT_KEY='echoes_touch_layout_v1', SAVE_RESET_EPOCH='2026-09-26-global-reset-3';
+const TAU = Math.PI * 2, MAX_LEVEL=100, PLAYER_HP_PER_LEVEL=28.8, PLAYER_DAMAGE_PER_LEVEL=1.7, OVERWORLD_H=11000, WORLD = {w:22000,h:11000}, SAVE_KEY = 'echoes_wild_save_v1', OPT_KEY='echoes_wild_options_v1', KEYS_KEY='echoes_keys_v1', LAYOUT_KEY='echoes_touch_layout_v1', SAVE_RESET_EPOCH='2026-09-26-global-reset-3';
 const ENEMY_HP_MULT=2.5;
 const WORLD_DIFFICULTIES={
  veryEasy:{name:'매우 쉬움',hp:.85,damage:.90,speed:.95},
@@ -3279,7 +3279,7 @@ const hiddenFallback=[
  {name:'성흔·삼연 성흔',level:20,cost:88,cool:20.3,color:'#ff9ee8'}
 ];
 const HIDDEN_SKILLS=hiddenFallback.map((base,i)=>WORLD_PVP.hiddenSkill?.(i)||base);
-const PVP_HP_PER_LEVEL=Number(WORLD_COMBAT.playerHpPerLevel)||14.4,PVP_DAMAGE_PER_LEVEL=Number(WORLD_COMBAT.playerDamagePerLevel)||1.7;
+const PVP_HP_PER_LEVEL=Number(WORLD_COMBAT.playerHpPerLevel)||28.8,PVP_DAMAGE_PER_LEVEL=Number(WORLD_COMBAT.playerDamagePerLevel)||1.7;
 const SWORD_CFG=[
  {duration:1.00,hits:[.16,.45,.76],mult:[.82,.92,1.22],arc:[1.75,2.05,2.35],reach:[8,12,18],step:[8,8,12]},
  {duration:.92,hits:[.13,.36,.66],mult:[.78,.95,1.30],arc:[.62,.70,.82],reach:[16,22,28],step:[26,30,38]},
