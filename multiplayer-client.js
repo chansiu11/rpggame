@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const listeners=new Map();
-const REQUIRED_SERVER_BUILD='2026-09-27-style-exact-geometry-1';
+const REQUIRED_SERVER_BUILD='2026-09-27-style-bot-skill-reset-1';
 let connectingPromise=null;
 let mobQueue=[],mobScheduled=false,mobSeq=0;
 function queueMobHit(event){if(!state.mobCombatProtocol){send({type:'world:mobDamage',...event});return;}mobQueue.push(event);if(mobScheduled)return;mobScheduled=true;const socket=state.socket;queueMicrotask(()=>{mobScheduled=false;const events=mobQueue;mobQueue=[];if(socket!==state.socket)return;for(let i=0;i<events.length;i+=64)send({type:'world:mobCombat',seq:++mobSeq,events:events.slice(i,i+64)});});}
