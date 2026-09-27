@@ -334,23 +334,24 @@ function buildAmbientAggroSelections(){
   // Natural aggro is exclusive per player: one normal mob at a time. Directly attacked mobs (provokedBy) are exempt.
   for(const m of authoritativeMobs.values()){
     if(m.dead||m.kind==='boss'||m.kind==='style'||m.provokedBy||!m.targetId)continue;
-    const p=players.get(m.targetId);if(!validMobTarget(m,p)||Math.hypot(p.x-m.x,p.y-m.y)>1150)continue;
-    const key=ambientAggroKey(m,p.id),d=Math.hypot(p.x-m.x,p.y-m.y),prev=selected.get(key);
-    if(!prev||d<prev.d)selected.set(key,{mobId:m.id,d});
+    const p=players.get(m.targetId);if(!validMobTarget(m,p))continue;
+    const dx=p.x-m.x,dy=p.y-m.y,d2=dx*dx+dy*dy;if(d2>1150*1150)continue;
+    const key=ambientAggroKey(m,p.id),prev=selected.get(key);
+    if(!prev||d2<prev.d2)selected.set(key,{mobId:m.id,d2});
   }
   for(const p of players.values()){
     if(!p.ready||p.hp<=0)continue;
     const key=ambientAggroKey(null,p.id);if(selected.has(key))continue;
     for(const m of authoritativeMobs.values()){
       if(m.dead||m.kind==='boss'||m.kind==='style'||m.provokedBy||!validMobTarget(m,p))continue;
-      const d=Math.hypot(p.x-m.x,p.y-m.y),aggroRange=720;if(d>=aggroRange)continue;
-      const prev=best.get(key);if(!prev||d<prev.d)best.set(key,{mobId:m.id,d});
+      const dx=p.x-m.x,dy=p.y-m.y,d2=dx*dx+dy*dy,aggroRange2=720*720;if(d2>=aggroRange2)continue;
+      const prev=best.get(key);if(!prev||d2<prev.d2)best.set(key,{mobId:m.id,d2});
     }
   }
   for(const [key,v] of best)if(!selected.has(key))selected.set(key,v);
   return new Map([...selected].map(([key,v])=>[key,v.mobId]));
 }
-function nearestMobTarget(m,ambientSelections=null){let best=null,bestD=m.kind==='boss'||m.kind==='style'?900:720;for(const p of players.values()){if(!validMobTarget(m,p))continue;if(m.kind!=='boss'&&ambientSelections&&ambientSelections.get(ambientAggroKey(m,p.id))!==m.id)continue;const d=Math.hypot(p.x-m.x,p.y-m.y);if(d<bestD){best=p;bestD=d;}}return best;}
+function nearestMobTarget(m,ambientSelections=null){let best=null,bestD2=(m.kind==='boss'||m.kind==='style'?900:720)**2;for(const p of players.values()){if(!validMobTarget(m,p))continue;if(m.kind!=='boss'&&ambientSelections&&ambientSelections.get(ambientAggroKey(m,p.id))!==m.id)continue;const dx=p.x-m.x,dy=p.y-m.y,d2=dx*dx+dy*dy;if(d2<bestD2){best=p;bestD2=d2;}}return best;}
 function serverStyleRange(cfg,slot=0){
  if(!cfg)return 180;const mode=cfg.mode,maxReach=Math.max(0,...(cfg.reach||[0]));
  if(['windShot','dawnWave','fanLances'].includes(mode))return slot===4?760:650;
@@ -615,7 +616,7 @@ function handleMessage(player,msg){
     if(Number.isFinite(Number(msg.skillFxSeq))&&Number(msg.skillFxSeq)>=(player.skillFxSeq||0)){player.skillFxSeq=Math.floor(clamp(msg.skillFxSeq,0,1e12));player.skillFxSlot=Math.floor(clamp(msg.skillFxSlot,0,4));player.skillFxId=String(msg.skillFxId||'').slice(0,40);player.skillFxWeapon=Math.floor(clamp(msg.skillFxWeapon,0,4));player.skillFxX=clamp(Number(msg.skillFxX)||player.x,40,WORLD.width-40);player.skillFxY=clamp(Number(msg.skillFxY)||player.y,40,WORLD.height-40);player.skillFxA=clamp(Number(msg.skillFxA)||player.a,-Math.PI*4,Math.PI*4);}
     player.attackAnim=clamp(player.attackAnim,0,5);player.attackDuration=clamp(player.attackDuration,.05,5);player.strikePose=Math.floor(clamp(player.strikePose,0,8));player.skillPose=Math.floor(clamp(player.skillPose,-1,8));player.combo=Math.floor(clamp(player.combo,0,10));player.parry=clamp(player.parry,0,2);player.dodge=clamp(player.dodge,0,2);player.stun=clamp(player.stun||0,0,1.5);player.dx=clamp(player.dx,-1,1);player.dy=clamp(player.dy,-1,1);player.walk=clamp(player.walk,0,1);player.phase=clamp(player.phase,-1e6,1e6);
     player.vx=clamp(Number.isFinite(Number(msg.vx))?msg.vx:(player.x-oldX)/elapsed,-3000,3000);player.vy=clamp(Number.isFinite(Number(msg.vy))?msg.vy:(player.y-oldY)/elapsed,-3000,3000);player.seq=Math.max((player.seq||0)+1,Math.floor(clamp(msg.seq,0,1e12)));player.updatedAt=now;player.lastStateAt=now;
-    const pub=publicPlayerState(player);safeSend(player.ws,{type:'player:self',player:pub,serverTime:now},{volatile:true});broadcast({type:'player:state',player:pub},player.ws,{volatile:true});return;
+    const pub=publicPlayerState(player);if(msg.teleport||now-(player.lastSelfAckAt||0)>=100){player.lastSelfAckAt=now;safeSend(player.ws,{type:'player:self',player:pub,serverTime:now},{volatile:true});}broadcast({type:'player:state',player:pub},player.ws,{volatile:true});return;
   }
   if(msg.type==='skill:effects'){
     const seq=Math.floor(clamp(msg.seq,0,1e12));if(seq<=(player.visualSeq||0))return;player.visualSeq=seq;
