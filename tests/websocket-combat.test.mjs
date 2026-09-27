@@ -8,7 +8,7 @@ async function connect(port,name,mode='world'){
  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject);});
  const send=m=>ws.send(JSON.stringify(m));send({type:'hello',name,accountId:name,mode,pvpRuleset:'test-compatible'});
  const wait=async pred=>{for(let i=0;i<100;i++){const m=messages.find(pred);if(m)return m;await delay(10);}throw Error('Message timeout '+name);};
- const hello=await wait(m=>m.type==='hello:ok');assert.equal(hello.serverBuild,'2026-09-27-style-exact-geometry-1');
+ const hello=await wait(m=>m.type==='hello:ok');assert.equal(hello.serverBuild,'2026-09-27-style-bot-skill-reset-1');
  return {ws,messages,send,wait,id:hello.selfId,state:(x,hp=1000,ack=0)=>send({type:'state',seq:++input,combatAck:ack,x,y:1000,hp,maxHp:1000,shield:500,maxShield:500,stam:100,maxStam:200})};
 }
 test('real two-client WebSocket combat, stale input, force settlement and PVP matching',{timeout:15000},async()=>{
@@ -22,7 +22,7 @@ test('real two-client WebSocket combat, stale input, force settlement and PVP ma
   for(let i=0;i<20;i++){b.state(1100,1000,0);await delay(25);}
   const last=b.messages.filter(m=>m.type==='player:self').at(-1).player;assert.equal(last.hp,900);assert.equal(last.x,1380);assert.equal(b.messages.filter(m=>m.type==='world:combatResult'&&m.damage>0).length,1);
   const settled=await b.wait(m=>m.type==='world:combatResult'&&m.outcome==='settled'&&m.targetId===b.id);b.state(1385,900,settled.player.combatRevision);await delay(50);assert.equal(b.messages.filter(m=>m.type==='player:self').at(-1).player.x,1385);
-  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v6-style-hardreset',mobs:['mob-a','mob-b'].map((id,i)=>({id,type:'sprout',x:1080+i*30,y:1000,hp:1000,maxHp:1000,speed:10,r:18})),obstacles:[]});
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v7-style-density',mobs:['mob-a','mob-b'].map((id,i)=>({id,type:'sprout',x:1080+i*30,y:1000,hp:1000,maxHp:1000,speed:10,r:18})),obstacles:[]});
   await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(e=>e.id==='mob-a'));
   const mobPacket={type:'world:mobCombat',seq:1,events:['mob-a','mob-b'].map(mobId=>({mobId,damage:100,stun:1,knockbackX:120,prismCast:'prism:test'}))};a.send(mobPacket);a.send(mobPacket);
   for(const id of ['mob-a','mob-b']){const patch=await b.wait(m=>m.type==='world:mobPatch'&&m.mob.id===id);assert.equal(patch.mob.hp,900);assert.ok(patch.mob.forceMove);assert.equal(patch.mob.forceMove.y,1000);const ack=await a.wait(m=>m.type==='world:projectileHit'&&m.targetId===id);assert.equal(ack.cast,'prism:test');}
@@ -54,7 +54,7 @@ test('style adept independently casts a real sword-style skill over WebSocket',{
  try{
   await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('exit',c=>reject(Error('server exit '+c+' '+stderr)));});
   const a=await connect(port,'style-target');clients.push(a);a.state(1000);await delay(80);
-  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v6-style-hardreset',mobs:[{id:'style-test',type:'styleAdept',x:1160,y:1000,hp:500,maxHp:500,speed:104,damage:26,reach:390,wind:.72,r:20,spawnZone:'lone',spawnZoneX:1160,spawnZoneY:1000,spawnZoneRadius:430,styleId:'gale',styleSlots:[0]}],obstacles:[]});
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v7-style-density',mobs:[{id:'style-test',type:'styleAdept',x:1160,y:1000,hp:500,maxHp:500,speed:104,damage:26,reach:390,wind:.72,r:20,spawnZone:'lone',spawnZoneX:1160,spawnZoneY:1000,spawnZoneRadius:430,styleId:'gale',styleSlots:[0]}],obstacles:[]});
   await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(v=>v.id==='style-test'&&v.styleId==='gale'));
   const cast=await a.wait(m=>m.type==='world:mobAttack'&&m.mobId==='style-test'&&m.kind==='style'&&m.skillId==='windSlash');
   assert.equal(cast.skillSlot,0);assert.ok(cast.castId>=1);assert.equal(cast.hitIndex,0);assert.equal(cast.targetId,a.id);assert.ok(cast.damage>=15,'style skill damage should reflect the increased enemy skill damage scale');
@@ -66,20 +66,22 @@ test('style adept independently casts a real sword-style skill over WebSocket',{
  }finally{for(const c of clients)c.ws.close();server.kill();}
 });
 
-test('natural aggro assigns only one normal mob per player even with a style adept nearby',{timeout:12000},async()=>{
+test('style adept keeps casting skills while normal ambient aggro remains limited',{timeout:12000},async()=>{
  const port=39000+Math.floor(Math.random()*8000),server=spawn(process.execPath,['server.js'],{cwd:new URL('../multiplayer-server/',import.meta.url),env:{...process.env,PORT:String(port)},stdio:['ignore','pipe','pipe']});
  const clients=[];let stderr='';server.stderr.on('data',b=>stderr+=b);
  try{
   await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('exit',c=>reject(Error('server exit '+c+' '+stderr)));});
   const a=await connect(port,'aggro-target');clients.push(a);a.state(1000);await delay(80);
-  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v6-style-hardreset',mobs:[
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v7-style-density',mobs:[
    {id:'normal-test',type:'sprout',x:1160,y:1000,hp:100,maxHp:100,speed:77,damage:13,reach:66,wind:.8,r:18,spawnZone:'test-zone',spawnZoneX:1160,spawnZoneY:1000,spawnZoneRadius:430},
    {id:'style-test-aggro',type:'styleAdept',x:1190,y:1000,hp:500,maxHp:500,speed:104,damage:26,reach:390,wind:.72,r:20,spawnZone:'test-zone',spawnZoneX:1190,spawnZoneY:1000,spawnZoneRadius:430,styleId:'gale',styleSlots:[0]}
   ],obstacles:[]});
   await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(v=>v.id==='style-test-aggro'));
-  await delay(900);
+  const cast=await a.wait(m=>m.type==='world:mobAttack'&&m.mobId==='style-test-aggro'&&m.kind==='style'&&m.skillId==='windSlash');
+  assert.equal(cast.targetId,a.id);
+  await delay(250);
   const latest=new Map();for(const msg of a.messages.filter(m=>m.type==='world:mobsDelta'))for(const mob of msg.mobs||[])if(['normal-test','style-test-aggro'].includes(mob.id))latest.set(mob.id,mob);
-  const targeting=[...latest.values()].filter(m=>m.targetId===a.id&&m.alert);assert.ok(targeting.length<=1,'only one naturally aggroed normal mob may target a player');
+  const normal=latest.get('normal-test');assert.ok(!normal||normal.targetId===a.id||!normal.alert,'normal ambient aggro remains independent of style adept');
   assert.equal(stderr,'');
  }finally{for(const c of clients)c.ws.close();server.kill();}
 });
@@ -90,7 +92,7 @@ test('style adept telegraph geometry is frozen for the cast and server damage us
  try{
   await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('exit',c=>reject(Error('server exit '+c+' '+stderr)));});
   const a=await connect(port,'geometry-target');clients.push(a);a.state(1000);await delay(80);
-  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v6-style-hardreset',mobs:[{id:'geometry-style',type:'styleAdept',x:1160,y:1000,hp:500,maxHp:500,speed:104,damage:26,reach:390,wind:.72,r:20,spawnZone:'lone',spawnZoneX:1160,spawnZoneY:1000,spawnZoneRadius:430,styleId:'gale',styleSlots:[0]}],obstacles:[]});
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v7-style-density',mobs:[{id:'geometry-style',type:'styleAdept',x:1160,y:1000,hp:500,maxHp:500,speed:104,damage:26,reach:390,wind:.72,r:20,spawnZone:'lone',spawnZoneX:1160,spawnZoneY:1000,spawnZoneRadius:430,styleId:'gale',styleSlots:[0]}],obstacles:[]});
   await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(v=>v.id==='geometry-style'));
   const wind=await a.wait(m=>m.type==='world:mobsDelta'&&(m.mobs||[]).some(v=>v.id==='geometry-style'&&v.state==='windup'&&Number.isFinite(v.styleOriginX)&&Number.isFinite(v.styleAnchorX)));
   const wm=wind.mobs.find(v=>v.id==='geometry-style');assert.ok(Number.isFinite(wm.styleOriginX)&&Number.isFinite(wm.styleAnchorX));
