@@ -54,7 +54,7 @@ test('PVP critical ultimates stay on the legacy-compatible atk message type',{ti
  assert.match(html,/m\.t==='atkAck'\|\|m\.t==='ultAck'/);
  assert.match(html,/sendPvpUltimateHit\(\{skillId:'thunderDrive'/);
  assert.match(html,/sendPvpUltimateHit\(\{skillId:'voidDance'/);
- assert.match(html,/PVP build 20260927-ULT-DIRECT-5/);
+ assert.match(html,/PVP build 20260927-DAMAGE-SCOPE-7/);
 });
 
 test('admin sword maps to sword combat instead of hidden greatsword in PVP',{timeout:1000},()=>{
@@ -116,4 +116,26 @@ test('Gale and Void V-slot ultimates use the direct PVP startup path',{timeout:1
  assert.match(html,/if\(i===4\)\{const ult=resolvePvpStyleUltimate\(me\);if\(ult&&skillReady\(i\)\)/);
  assert.match(html,/startSwordSequence\(i,a,ult\)/);
  assert.match(html,/function startSwordSequence\(i,preparedA=null,forcedSkill=null\)/);
+});
+
+
+test('PVP damage helpers live inside the PVP script scope',{timeout:1000},()=>{
+ const marker=html.indexOf("const ONLINE_PVP_V2=true");
+ assert.ok(marker>0);
+ const pvp=html.slice(marker);
+ assert.match(pvp,/function pvpUltimateTargetDamage\(maxAt100,level=me\?\.level\|\|1\)/);
+ assert.match(pvp,/function pvpGale5Damage\(finalHit=false,level=me\?\.level\|\|1\)/);
+ assert.match(pvp,/function pvpVoid5Damage\(level=me\?\.level\|\|1\)/);
+ assert.equal((pvp.match(/\bgale5Damage\(/g)||[]).length,0);
+ assert.equal((pvp.match(/\bvoid5Damage\(/g)||[]).length,0);
+ assert.match(pvp,/pvpGale5Damage\(false,me\.level\)/);
+ assert.match(pvp,/pvpGale5Damage\(final,me\.level\)/);
+ assert.match(pvp,/pvpVoid5Damage\(me\.level\)/);
+});
+
+test('PVP ultimate target damage keeps the requested level-100 values',{timeout:1000},()=>{
+ const calc=(maxAt100,level)=>maxAt100*(.30+.70*((level-1)/99));
+ assert.equal(calc(100,100),100);
+ assert.equal(calc(200,100),200);
+ assert.equal(calc(70,100),70);
 });
