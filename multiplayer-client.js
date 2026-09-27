@@ -132,10 +132,11 @@ function connect(profile={},reconnecting=false){
       let msg;try{msg=JSON.parse(e.data);}catch{return;}
       handle(msg);
       if(msg.type==='hello:ok'){
-        if(String(msg.serverBuild||'')!==REQUIRED_SERVER_BUILD){
-          state.lastError='server-version';state.connected=false;state.connecting=false;state.manualClose=true;
-          try{ws.close(4002,'server version mismatch');}catch{}
-          if(!settled){settled=true;clearTimeout(timer);clearTimeout(waiting);connectingPromise=null;reject(new Error('서버가 아직 최신 게임 버전으로 재시작되지 않았습니다. 잠시 후 새로고침해 주세요.'));}
+        const protocolCompatible=(Number(msg.combatProtocol)||0)>=1&&(Number(msg.mobCombatProtocol)||0)>=1&&(Number(msg.controlProtocol)||0)>=2&&(Number(msg.visualProtocol)||0)>=2;
+        if(!protocolCompatible){
+          state.lastError='server-protocol';state.connected=false;state.connecting=false;state.manualClose=true;
+          try{ws.close(4002,'server protocol mismatch');}catch{}
+          if(!settled){settled=true;clearTimeout(timer);clearTimeout(waiting);connectingPromise=null;reject(new Error('멀티플레이 서버 통신 규격이 현재 게임과 맞지 않습니다.'));}
           return;
         }
         state.connected=true;state.connecting=false;state.reconnectAttempts=0;
