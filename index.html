@@ -984,7 +984,7 @@ function applySharedWorldSnapshot(snapshot){
 function applySharedMobPatch(m){
  if(!m?.id)return;const prev=enemies.find(v=>v.id===m.id),wasDead=prev?.dead??true,e=applyServerMobState(m);if(!e||e.kind==='boss')return;
  if(m.damage>0&&m.by!==window.EchoesMulti?.state?.selfId){e.flash=.15;damageFloating(e.x,e.y-e.r-18,m.damage,0,false);burst(e.x,e.y-e.r*.4,'#ffbd9f',6,85);}
- if(m.dead&&!wasDead){if(m.by===window.EchoesMulti?.state?.selfId)defeatEnemy(e,true);else{e.dead=true;e.hp=0;e.state='dead';e.respawn=160;burst(e.x,e.y,e.color,12,80);}}
+ if(m.dead&&!wasDead){if(m.by===window.EchoesMulti?.state?.selfId)defeatEnemy(e,true);else{e.dead=true;e.hp=0;e.state='dead';e.respawn=30;burst(e.x,e.y,e.color,12,80);}}
  else if(!m.dead){e.dead=false;if(e.state==='dead')e.state='idle';}
 }
 // Player targets adapt to the existing world skill engine, never to monster AI,
@@ -2114,8 +2114,8 @@ function hitEnemy(e,amount,heavy=false,source=player,controlOverride=null){
  if(e.hp<=0)defeatEnemy(e);
 }
 function defeatEnemy(e,serverConfirmed=false){
- const shared=multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId;if(shared&&!serverConfirmed){e.dead=true;e.hp=0;e.respawn=160;e.state='dead';return;}
- if(e.type!=='dummy')player.bestiary[e.type]=(player.bestiary[e.type]||0)+1;e.dead=true;e.hp=0;e.respawn=160;e.state='dead';burst(e.x,e.y,e.color,23,130);ring(e.x,e.y,65,e.color);player.stats.kills++;
+ const shared=multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId;if(shared&&!serverConfirmed){e.dead=true;e.hp=0;e.respawn=30;e.state='dead';return;}
+ if(e.type!=='dummy')player.bestiary[e.type]=(player.bestiary[e.type]||0)+1;e.dead=true;e.hp=0;e.respawn=30;e.state='dead';burst(e.x,e.y,e.color,23,130);ring(e.x,e.y,65,e.color);player.stats.kills++;
  const reg=regionAt(e.x,e.y);if(e.kind!=='boss'&&reg===2)player.stats.frostKills=(player.stats.frostKills||0)+1;if(e.kind!=='boss'&&reg===7)player.stats.abyssKills=(player.stats.abyssKills||0)+1;
  if(e.gold>0)dropMonsterLoot(e.x,e.y,'gold',e.gold,serverConfirmed);if(player.stats.kills%3===0)dropMonsterLoot(e.x+24,e.y,'potion',1,serverConfirmed);addXp(e.xp);
  if(e.kind==='boss'){
