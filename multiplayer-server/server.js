@@ -13,12 +13,12 @@ const BOSS_RESPAWN_MS = 3 * 60 * 1000;
 const PVP_RULESET = 'world-combat-20260926-3';
 
 const SIM_TICK_MS = 33;
-const MOB_NET_TICK_MS = 66;
+const MOB_NET_TICK_MS = 100;
 const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v7-style-density';
-const SERVER_BUILD = '2026-09-27-style-bot-skill-reset-1';
+const SERVER_BUILD = '2026-09-27-session-stability-opt-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const WORLD_RESET_EPOCH = '2026-09-27-world-reset-2';
@@ -136,6 +136,7 @@ function cleanAccountId(v,name=''){
   if(raw)return raw.replace(/[^A-Za-z0-9_:\-.]/g,'');
   return 'name:'+String(name||'player').trim().toLowerCase().replace(/[^a-z0-9가-힣_\-]/g,'').slice(0,40);
 }
+function cleanClientSessionId(v){return String(v||'').trim().replace(/[^A-Za-z0-9_:\-.]/g,'').slice(0,96);}
 function clamp(v,a,b){v=Number(v);return Number.isFinite(v)?Math.max(a,Math.min(b,v)):a;}
 function safeZoneName(x,y){
   if(Math.hypot(x-760,y-3010)<430)return '이끼빛 마을';
@@ -522,8 +523,8 @@ let ambientSelectionAt=-Infinity,ambientSelectionCache=new Map();
 function simulateWorld(now=Date.now()){if(!mobsBootstrapped)return;const dt=SIM_TICK_MS/1000;const observers=[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp');
  if(!observers.length){for(const m of authoritativeMobs.values())if(m.dead&&m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);ambientSelectionAt=-Infinity;return;}
  // Acquisition scans at 10 Hz; active movement, hits and control still run at 40 Hz.
- if(now-ambientSelectionAt>=100){ambientSelectionCache=buildAmbientAggroSelections();ambientSelectionAt=now;}
- const ambientSelections=ambientSelectionCache;for(const m of authoritativeMobs.values()){if(!m.dead&&m.state==='idle'&&!m.targetId&&!m.provokedBy&&!m.forceMove&&now>=(m.stunUntil||0)&&Math.hypot(m.x-m.sx,m.y-m.sy)<18&&!observers.some(p=>(p.x-m.x)**2+(p.y-m.y)**2<1400**2))continue;simulateMob(m,dt,now,ambientSelections);}}
+ if(now-ambientSelectionAt>=200){ambientSelectionCache=buildAmbientAggroSelections();ambientSelectionAt=now;}
+ const ambientSelections=ambientSelectionCache;for(const m of authoritativeMobs.values()){if(!m.dead&&m.state==='idle'&&!m.targetId&&!m.provokedBy&&!m.forceMove&&now>=(m.stunUntil||0)&&(m.x-m.sx)*(m.x-m.sx)+(m.y-m.sy)*(m.y-m.sy)<324&&!observers.some(p=>(p.x-m.x)**2+(p.y-m.y)**2<1400**2))continue;simulateMob(m,dt,now,ambientSelections);}}
 function flushMobDeltas(now=Date.now()){
  const dirty=new Set(dirtyMobIds);dirtyMobIds.clear();
  if(dirty.size){worldRevision++;worldSnapshot.updatedAt=now;worldSnapshot.revision=worldRevision;}
@@ -605,7 +606,7 @@ function handleMessage(player,msg){
     msg=worldCombat.ingest(player,msg);if(!msg)return;
     const now=Date.now(),oldX=player.x,oldY=player.y,elapsed=Math.max(.016,Math.min(.5,(now-(player.lastStateAt||now-50))/1000));
     if(Number.isFinite(Number(msg.x)))player.x=clamp(msg.x,40,WORLD.width-40);if(Number.isFinite(Number(msg.y)))player.y=clamp(msg.y,40,WORLD.height-40);if(Number.isFinite(Number(msg.a)))player.a=clamp(msg.a,-Math.PI*4,Math.PI*4);
-    if(Number.isFinite(Number(msg.hp)))player.hp=clamp(msg.hp,0,999999);if(Number.isFinite(Number(msg.maxHp)))player.maxHp=clamp(msg.maxHp,1,999999);if(Number.isFinite(Number(msg.level)))player.level=Math.floor(clamp(msg.level,1,100));if(Number.isFinite(Number(msg.weapon)))player.weapon=Math.floor(clamp(msg.weapon,0,4));
+    if(Number.isFinite(Number(msg.hp)))player.hp=clamp(msg.hp,0,999999);if(Number.isFinite(Number(msg.maxHp)))player.maxHp=clamp(msg.maxHp,1,999999);if(Number.isFinite(Number(msg.level)))player.level=Math.floor(clamp(msg.level,1,200));if(Number.isFinite(Number(msg.weapon)))player.weapon=Math.floor(clamp(msg.weapon,0,4));
     if(msg.swordStyle!==undefined)player.swordStyle=String(msg.swordStyle||'').slice(0,20);
     if(Array.isArray(msg.swordSkills))player.swordSkills=msg.swordSkills.slice(0,5).map(v=>String(v||'').slice(0,40));
     if(msg.equippedHead!==undefined)player.equippedHead=sanitizeEquip(msg.equippedHead,'wandererHood');if(msg.equippedChest!==undefined)player.equippedChest=sanitizeEquip(msg.equippedChest,'travelerCoat');if(msg.equippedShield!==undefined)player.equippedShield=sanitizeEquip(msg.equippedShield,'woodenShield');
@@ -666,7 +667,7 @@ wss.on('connection',(ws)=>{
     level:1,weapon:0,equippedHead:'wandererHood',equippedChest:'travelerCoat',equippedShield:'woodenShield',
     attackAnim:0,attackDuration:.26,strikePose:0,skillPose:-1,combo:0,parry:0,dodge:0,dx:0,dy:0,walk:0,phase:0,
     vx:0,vy:0,seq:0,lastStateAt:Date.now(),
-    partyId:null,accountId:'',clientMode:'world',pvpRuleset:'',pvpQueued:false,pvpQueuedAt:0,updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
+    partyId:null,accountId:'',clientSessionId:'',clientMode:'world',pvpRuleset:'',pvpQueued:false,pvpQueuedAt:0,updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
   };
   players.set(player.id,player);
 
@@ -678,13 +679,19 @@ wss.on('connection',(ws)=>{
       if(msg.type!=='hello')return;
       player.name=cleanName(msg.name);
       player.accountId=cleanAccountId(msg.accountId,player.name);
+      player.clientSessionId=cleanClientSessionId(msg.clientSessionId);
       player.clientMode=msg.mode==='pvp'?'pvp':'world';player.pvpRuleset=String(msg.pvpRuleset||'').slice(0,80);
       const replaced=[...players.values()].filter(p=>p!==player&&p.ready&&p.accountId===player.accountId);
       for(const old of replaced){
-        safeSend(old.ws,{type:'session:replaced',message:'같은 계정이 다른 기기에서 접속했습니다.'});
-        setTimeout(()=>{try{old.ws.close(4001,'duplicate account session');}catch{}},80);
+        const sameClient=!!player.clientSessionId&&old.clientSessionId===player.clientSessionId;
+        if(sameClient){
+          setTimeout(()=>{try{old.ws.close(4000,'reconnect superseded');}catch{}},20);
+        }else{
+          safeSend(old.ws,{type:'session:replaced',connectionOnly:true,message:'같은 계정이 다른 기기에서 접속했습니다.'});
+          setTimeout(()=>{try{old.ws.close(4001,'duplicate account session');}catch{}},80);
+        }
       }
-      player.level=Math.floor(clamp(msg.level,1,100));
+      player.level=Math.floor(clamp(msg.level,1,200));
       player.weapon=Math.floor(clamp(msg.weapon,0,4));
       player.ready=true;
       clearTimeout(helloTimer);
