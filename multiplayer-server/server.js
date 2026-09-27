@@ -17,7 +17,7 @@ const MOB_NET_TICK_MS = 50;
 const PLAYER_LIST_MS = 1000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
-const SPAWN_LAYOUT_VERSION = 'regional-clusters-v2-leash';
+const SPAWN_LAYOUT_VERSION = 'regional-clusters-v3-style-adept';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
   sentry:{speed:65,damage:16,reach:360,wind:1.05,kind:'ranged',r:18},golem:{speed:55,damage:27,reach:116,wind:1.2,kind:'slam',r:26},
@@ -25,10 +25,25 @@ const MOB_TYPES = {
   frostling:{speed:105,damage:24,reach:92,wind:.72,kind:'melee',r:18},shardStalker:{speed:142,damage:29,reach:180,wind:.82,kind:'charge',r:20},
   crystalMage:{speed:72,damage:27,reach:390,wind:.96,kind:'ranged',r:18},abyssHound:{speed:151,damage:34,reach:190,wind:.75,kind:'charge',r:20},
   bloodWisp:{speed:91,damage:32,reach:420,wind:.9,kind:'ranged',r:18},voidKnight:{speed:92,damage:39,reach:125,wind:.82,kind:'slam',r:23},
+  styleAdept:{speed:104,damage:26,reach:390,wind:.72,kind:'style',r:20},
   forestBoss:{speed:62,damage:28,reach:210,wind:1.1,kind:'boss',r:40},marshBoss:{speed:92,damage:27,reach:240,wind:1,kind:'boss',r:35},
   plateauBoss:{speed:70,damage:34,reach:230,wind:1.1,kind:'boss',r:41},frostBoss:{speed:84,damage:39,reach:250,wind:.95,kind:'boss',r:43},
   abyssBoss:{speed:98,damage:45,reach:260,wind:.88,kind:'boss',r:45},finalBoss:{speed:90,damage:50,reach:275,wind:.86,kind:'boss',r:48}
 };
+const STYLE_ADEPT_SKILLS={
+  gale:['windSlash','flashRush','galeOrbit','starRush','thunderDrive'],
+  moon:['moonSpin','mirrorStep','crossBloom','crescent','lunarBind'],
+  break:['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'],
+  dawn:['dawnArc','tempest','skyFall','solarReturn','prismLance'],
+  void:['chainReap','phantomSwap','gravityCut','bladeRain','voidDance']
+};
+const STYLE_ADEPT_META=[
+  {range:245,wind:.48,mul:.78,recover:.56},
+  {range:360,wind:.56,mul:.90,recover:.64,dash:250},
+  {range:220,wind:.68,mul:1.00,recover:.74},
+  {range:430,wind:.76,mul:1.10,recover:.82},
+  {range:340,wind:.96,mul:1.38,recover:1.05}
+];
 const BOSS_ATTACKS = {
   forestBoss:['roots','melee','branches','roots'],marshBoss:['ranged','tide','rain','tide'],plateauBoss:['charge','fissure','slam','charge'],
   frostBoss:['iceLance','shardRing','frostLine','iceLance'],abyssBoss:['bloodRain','gravityWell','voidVolley','bloodRain'],finalBoss:['constellation','starfall','cross','charge']
@@ -285,7 +300,12 @@ function moveServerMob(m,dx,dy){
   for(let i=0;i<steps;i++){const nx=m.x+sx,ny=m.y+sy;if(!serverSolidAt(nx,ny,m.r)){m.x=nx;m.y=ny;moved=true;continue;}if(!serverSolidAt(nx,m.y,m.r)){m.x=nx;moved=true;}if(!serverSolidAt(m.x,ny,m.r)){m.y=ny;moved=true;}}
   return moved;
 }
-function mobPublic(m){const now=Date.now(),timer=m.state==='windup'?Math.max(0,(m.attackAt-now)/1000):m.state==='recover'?Math.max(0,(m.recoverUntil-now)/1000):m.state==='charge'?Math.max(0,(m.chargeUntil-now)/1000):0;return {stun:Math.max(0,((m.stunUntil||0)-now)/1000),forceMove:m.forceMove?{...m.forceMove,elapsed:(now-m.forceMove.startedAt)/1000}:null,id:m.id,type:m.type,x:Math.round(m.x*10)/10,y:Math.round(m.y*10)/10,hp:Math.max(0,Math.round(m.hp)),maxHp:Math.max(1,Math.round(m.maxHp)),dead:!!m.dead,state:m.state||'idle',facing:Math.round((m.facing||0)*100)/100,alert:!!m.alert,targetId:m.targetId||null,attackType:m.attackType||m.kind||'melee',timer,windTotal:m.state==='windup'?Math.max(timer,m.wind||.5):0,locked:Number.isFinite(m.locked)?m.locked:(m.facing||0),range:mobAttackRange(m)};}
+function mobPublic(m){
+ const now=Date.now(),timer=m.state==='windup'?Math.max(0,(m.attackAt-now)/1000):m.state==='recover'?Math.max(0,(m.recoverUntil-now)/1000):m.state==='charge'?Math.max(0,(m.chargeUntil-now)/1000):0;
+ const out={stun:Math.max(0,((m.stunUntil||0)-now)/1000),forceMove:m.forceMove?{...m.forceMove,elapsed:(now-m.forceMove.startedAt)/1000}:null,id:m.id,type:m.type,x:Math.round(m.x*10)/10,y:Math.round(m.y*10)/10,hp:Math.max(0,Math.round(m.hp)),maxHp:Math.max(1,Math.round(m.maxHp)),dead:!!m.dead,state:m.state||'idle',facing:Math.round((m.facing||0)*100)/100,alert:!!m.alert,targetId:m.targetId||null,attackType:m.attackType||m.kind||'melee',timer,windTotal:m.state==='windup'?Math.max(timer,m.wind||.5):0,locked:Number.isFinite(m.locked)?m.locked:(m.facing||0),range:mobAttackRange(m)};
+ if(m.type==='styleAdept'){out.styleId=m.styleId||'gale';out.styleSlots=Array.isArray(m.styleSlots)?m.styleSlots:[];out.skillId=m.skillId||'';out.skillSlot=Number.isFinite(m.skillSlot)?m.skillSlot:0;}
+ return out;
+}
 function mobSnapshot(){return [...authoritativeMobs.values()].map(mobPublic);}
 function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:worldSnapshot.items||[],updatedAt:Date.now(),revision:worldRevision};}
 function markMobDirty(m){if(m?.id)dirtyMobIds.add(m.id);}
@@ -299,7 +319,8 @@ function bootstrapAuthoritativeWorld(player,msg){
     const boss=bosses.get(id),maxHp=boss?boss.maxHp:clamp(raw.maxHp,1,9999999),hp=boss?boss.hp:clamp(raw.hp,0,maxHp),x=clamp(raw.x,50,WORLD.width-50),y=clamp(raw.y,50,WORLD.height-50);
     const m={id,type,x,y,sx:x,sy:y,hp,maxHp,dead:boss?!boss.alive:!!raw.dead,state:raw.dead?'dead':'idle',facing:clamp(raw.facing,-20,20),alert:false,targetId:null,provokedBy:null,attackType:def.kind,
       speed:clamp(raw.speed,10,900)||def.speed,damage:clamp(raw.damage,0,5000)||def.damage,reach:clamp(raw.reach,40,900)||def.reach,wind:clamp(raw.wind,.1,4)||def.wind,kind:def.kind,r:clamp(raw.r,8,80)||def.r,
-      attackAt:0,recoverUntil:0,chargeUntil:0,chargeHit:false,locked:0,stunUntil:0,respawnAt:0,pattern:0,knockVX:0,knockVY:0,lastAttackAt:0,spawnZone:String(raw.spawnZone||'').slice(0,40),spawnZoneX:Number.isFinite(Number(raw.spawnZoneX))?clamp(raw.spawnZoneX,50,WORLD.width-50):x,spawnZoneY:Number.isFinite(Number(raw.spawnZoneY))?clamp(raw.spawnZoneY,50,WORLD.height-50):y,spawnZoneRadius:clamp(raw.spawnZoneRadius,0,1200)};
+      attackAt:0,recoverUntil:0,chargeUntil:0,chargeHit:false,locked:0,stunUntil:0,respawnAt:0,pattern:0,knockVX:0,knockVY:0,lastAttackAt:0,spawnZone:String(raw.spawnZone||'').slice(0,40),spawnZoneX:Number.isFinite(Number(raw.spawnZoneX))?clamp(raw.spawnZoneX,50,WORLD.width-50):x,spawnZoneY:Number.isFinite(Number(raw.spawnZoneY))?clamp(raw.spawnZoneY,50,WORLD.height-50):y,spawnZoneRadius:clamp(raw.spawnZoneRadius,0,1200),styleId:'',styleSlots:[],stylePattern:0,skillId:'',skillSlot:0,skillRange:0,skillDamageMul:1};
+    if(type==='styleAdept'){const ids=Object.keys(STYLE_ADEPT_SKILLS),requested=String(raw.styleId||'');m.styleId=STYLE_ADEPT_SKILLS[requested]?requested:ids[(String(id).length+Math.round(x+y))%ids.length];m.styleSlots=Array.isArray(raw.styleSlots)?raw.styleSlots.slice(0,5).map(v=>clamp(v,0,4)|0):[0];if(!m.styleSlots.length)m.styleSlots=[0];}
     if(m.dead)m.respawnAt=Date.now()+(boss?Math.max(0,boss.respawnAt-Date.now()):NORMAL_MOB_RESPAWN_MS);authoritativeMobs.set(id,m);markMobDirty(m);
   }
   const nav=Array.isArray(msg.obstacles)?msg.obstacles.slice(0,2200):[];
@@ -332,12 +353,17 @@ function buildAmbientAggroSelections(){
   return new Map([...selected].map(([key,v])=>[key,v.mobId]));
 }
 function nearestMobTarget(m,ambientSelections=null){let best=null,bestD=m.kind==='boss'?900:720;for(const p of players.values()){if(!validMobTarget(m,p))continue;if(m.kind!=='boss'&&ambientSelections&&ambientSelections.get(ambientAggroKey(m,p.id))!==m.id)continue;const d=Math.hypot(p.x-m.x,p.y-m.y);if(d<bestD){best=p;bestD=d;}}return best;}
-function mobAttackRange(m){if(m.kind==='ranged')return Math.max(220,m.reach||320);if(m.kind==='charge')return Math.max(130,Math.min(210,m.reach||170));if(m.kind==='boss')return Math.max(180,Math.min(280,m.reach||220));return Math.max(75,m.reach||90);}
+function styleAdeptSpec(m,advance=false){
+ const skills=STYLE_ADEPT_SKILLS[m.styleId]||STYLE_ADEPT_SKILLS.gale,slots=Array.isArray(m.styleSlots)&&m.styleSlots.length?m.styleSlots:[0],step=(m.stylePattern||0)%slots.length,slot=clamp(slots[step],0,4)|0;
+ if(advance)m.stylePattern=(m.stylePattern||0)+1;return {slot,skillId:skills[slot],...STYLE_ADEPT_META[slot]};
+}
+function mobAttackRange(m){if(m.kind==='style')return Math.max(180,m.skillRange||m.reach||390);if(m.kind==='ranged')return Math.max(220,m.reach||320);if(m.kind==='charge')return Math.max(130,Math.min(210,m.reach||170));if(m.kind==='boss')return Math.max(180,Math.min(280,m.reach||220));return Math.max(75,m.reach||90);}
 function chooseBossAttack(m){const list=BOSS_ATTACKS[m.type];if(!list?.length)return 'melee';const t=list[m.pattern%list.length];m.pattern++;return t;}
 function sendMobAttack(m,target){
   if(!target||!validMobTarget(m,target))return;
-  const dx=target.x-m.x,dy=target.y-m.y,dist=Math.hypot(dx,dy),range=mobAttackRange(m),attackType=m.attackType||m.kind;
-  let kind=m.kind,allowed=m.kind==='ranged'?range+80:range+55;
+  const dx=target.x-m.x,dy=target.y-m.y,dist=Math.hypot(dx,dy),range=mobAttackRange(m),attackType=m.attackType||m.kind,isStyle=m.kind==='style';
+  let kind=isStyle?'style':m.kind,allowed=m.kind==='ranged'?range+80:range+55;
+  if(isStyle)allowed=range+60;
   if(m.kind==='boss'){
     const direct=attackType==='melee'||attackType==='slam'||attackType==='charge';
     if(!direct){kind='ranged';allowed=range+180;}
@@ -348,9 +374,10 @@ function sendMobAttack(m,target){
     }
   }
   if(dist>allowed)return;
-  broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage:m.damage,x:m.x,y:m.y,tx:target.x,ty:target.y,facing:m.facing,kind,attackType,serverTime:Date.now()},null,{volatile:true});
+  const damage=Math.max(0,Math.round(m.damage*(isStyle?(m.skillDamageMul||1):1)));
+  broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage,x:m.x,y:m.y,tx:target.x,ty:target.y,facing:m.facing,kind,attackType,skillId:isStyle?(m.skillId||''):'',skillSlot:isStyle?(m.skillSlot||0):null,styleId:isStyle?(m.styleId||''):'',serverTime:Date.now()},null,{volatile:true});
 }
-function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
+function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;m.skillId='';m.skillSlot=0;m.skillRange=0;m.skillDamageMul=1;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
 function simulateMob(m,dt,now,ambientSelections){
   if(m.dead){if(m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);return;}
   if(advanceMobControl(m,now,moveServerMob)){m.state='stunned';markMobDirty(m);return;}
@@ -374,9 +401,9 @@ function simulateMob(m,dt,now,ambientSelections){
   if(!target){m.targetId=null;m.alert=false;const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>18){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;m.state='return';if(moveServerMob(m,Math.cos(a)*m.speed*1.15*dt,Math.sin(a)*m.speed*1.15*dt))markMobDirty(m);}else if(m.state!=='idle'){m.state='idle';markMobDirty(m);}return;}
   if(m.targetId!==target.id){m.targetId=target.id;m.alert=true;markMobDirty(m);}const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);m.facing=a;m.alert=true;
   if(m.state==='charge'){if(now<m.chargeUntil){const speed=m.kind==='boss'?620:(m.type==='abyssHound'?560:m.type==='shardStalker'?520:470);if(moveServerMob(m,Math.cos(m.locked)*speed*dt,Math.sin(m.locked)*speed*dt))markMobDirty(m);if(!m.chargeHit&&Math.hypot(target.x-m.x,target.y-m.y)<m.r+34){sendMobAttack(m,target);m.chargeHit=true;}return;}m.state='recover';m.recoverUntil=now+650;markMobDirty(m);return;}
-  if(m.state==='windup'){if(now>=m.attackAt){if(m.kind==='charge'||m.attackType==='charge'){m.state='charge';m.chargeUntil=now+420;m.chargeHit=false;}else{sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+(m.kind==='boss'?760:520);}markMobDirty(m);}return;}
+  if(m.state==='windup'){if(now>=m.attackAt){if(m.kind==='style'){const meta=STYLE_ADEPT_META[clamp(m.skillSlot,0,4)|0]||STYLE_ADEPT_META[0];if(meta.dash){const dd=Math.hypot(target.x-m.x,target.y-m.y),dash=Math.min(meta.dash,Math.max(0,dd-58));if(dash>0)moveServerMob(m,Math.cos(m.locked)*dash,Math.sin(m.locked)*dash);}sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+meta.recover*1000;}else if(m.kind==='charge'||m.attackType==='charge'){m.state='charge';m.chargeUntil=now+420;m.chargeHit=false;}else{sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+(m.kind==='boss'?760:520);}markMobDirty(m);}return;}
   if(now<m.recoverUntil){if(m.state!=='recover'){m.state='recover';markMobDirty(m);}return;}
-  const range=mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.locked=a;m.attackAt=now+Math.max(260,m.wind*1000);m.lastAttackAt=now;markMobDirty(m);return;}
+  const stylePreview=m.kind==='style'?styleAdeptSpec(m,false):null,range=stylePreview?.range||mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.locked=a;m.lastAttackAt=now;if(m.kind==='style'){const sk=styleAdeptSpec(m,true);m.attackType='style';m.skillId=sk.skillId;m.skillSlot=sk.slot;m.skillRange=sk.range;m.skillDamageMul=sk.mul;m.attackAt=now+Math.max(260,sk.wind*1000);}else{m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.attackAt=now+Math.max(260,m.wind*1000);}markMobDirty(m);return;}
   m.state='chase';let dir=1;if(m.kind==='ranged'&&d<range*.55)dir=-1;else if(m.kind==='ranged'&&d<range*.82)dir=0;if(dir&&moveServerMob(m,Math.cos(a)*m.speed*dir*dt,Math.sin(a)*m.speed*dir*dt))markMobDirty(m);
 }
 let ambientSelectionAt=-Infinity,ambientSelectionCache=new Map();

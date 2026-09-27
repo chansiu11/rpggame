@@ -312,15 +312,15 @@ const camps=[
 ];
 function spawnTypesForRegion(reg){return [
  ['sprout','sprout','wolf','sentry'],
- ['wisp','wisp','wolf','sentry'],
- ['frostling','frostling','shardStalker','crystalMage'],
- ['shade','voidKnight','sentry','golem'],
+ ['wisp','wisp','wolf','sentry','styleAdept'],
+ ['frostling','frostling','shardStalker','crystalMage','styleAdept'],
+ ['shade','voidKnight','sentry','golem','styleAdept'],
  ['sprout','sprout','wolf','sentry'],
- ['golem','golem','wolf','sentry'],
+ ['golem','golem','wolf','sentry','styleAdept'],
  [],
- ['abyssHound','bloodWisp','voidKnight','abyssHound']
+ ['abyssHound','bloodWisp','voidKnight','abyssHound','styleAdept']
  ][reg]||['sprout'];}
-const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v2-leash';
+const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v3-style-adept';
 const MOB_SPAWN_ZONES=[
  {id:'moss_gate',name:'이끼빛 외곽',region:4,x:1700,y:3100,r:300,count:6},
  {id:'moss_south',name:'이끼 남쪽 들판',region:4,x:1100,y:4700,r:340,count:6},
@@ -514,6 +514,31 @@ function sideQuestHud(){
 }
 function acceptSideQuest(id){const q=sideQuestById(id);if(!q||player.acceptedSideQuests.includes(id)||player.claimedSideQuests.includes(id))return;if(!player.acceptedSideQuests.includes(id))player.acceptedSideQuests.push(id);toast('<b>서브퀘스트 수락 · '+q.name+'</b><br>'+q.desc);sound('reward');saveGame(false);showQuests('side',true);}
 function claimSideQuest(id){const q=sideQuestById(id);if(!q||!player.acceptedSideQuests.includes(id)||player.claimedSideQuests.includes(id)||sideQuestProgress(q)<q.target)return;player.claimedSideQuests.push(id);player.gold+=q.gold;addXp(q.xp);if(q.reward==='potion')player.potions=Math.min(8,player.potions+2);if(q.reward==='ore')player.ore+=5;toast('<b>서브퀘스트 완료 · '+q.name+'</b><br>'+q.gold+' G · 경험치 '+q.xp+(q.reward==='potion'?' · 회복약 2':q.reward==='ore'?' · 광석 5':''));sound('reward');saveGame(false);showQuests('side',true);}
+const STYLE_ADEPT_STYLES=[
+ {id:'gale',name:'질풍',main:'#61f0c7',sub:'#eafff8',accent:'#2ec9ff',skills:['windSlash','flashRush','galeOrbit','starRush','thunderDrive']},
+ {id:'moon',name:'월영',main:'#b88cff',sub:'#f4efff',accent:'#7fa7ff',skills:['moonSpin','mirrorStep','crossBloom','crescent','lunarBind']},
+ {id:'break',name:'파쇄',main:'#ff9f55',sub:'#fff0c9',accent:'#ffd34f',skills:['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker']},
+ {id:'dawn',name:'여명',main:'#ffd95c',sub:'#fffbe8',accent:'#fff29a',skills:['dawnArc','tempest','skyFall','solarReturn','prismLance']},
+ {id:'void',name:'이형',main:'#a76cff',sub:'#f1e6ff',accent:'#ff63d8',skills:['chainReap','phantomSwap','gravityCut','bladeRain','voidDance']}
+];
+const STYLE_ADEPT_SKILL_META=[
+ {range:245,wind:.48,mul:.78,recover:.56},
+ {range:360,wind:.56,mul:.90,recover:.64,dash:250},
+ {range:220,wind:.68,mul:1.00,recover:.74},
+ {range:430,wind:.76,mul:1.10,recover:.82},
+ {range:340,wind:.96,mul:1.38,recover:1.05}
+];
+function styleAdeptSeed(id,x,y){let h=2166136261>>>0,text=String(id||'')+'|'+Math.round(x)+'|'+Math.round(y);for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function styleAdeptProfile(region,id,x,y){
+ const seed=styleAdeptSeed(id,x,y),style=STYLE_ADEPT_STYLES[(seed>>>4)%STYLE_ADEPT_STYLES.length];
+ const slots=region===3?[0,1,2,3,4]:(region===2||region===7)?[0,1,2,3]:[seed%4];
+ return {style,styleId:style.id,slots};
+}
+function styleAdeptSkillSpec(e,advance=false){
+ const style=STYLE_ADEPT_STYLES.find(v=>v.id===e?.styleId)||STYLE_ADEPT_STYLES[0],slots=Array.isArray(e?.styleSlots)&&e.styleSlots.length?e.styleSlots:[0];
+ const step=(e?.stylePattern||0)%slots.length,slot=clamp(Number(slots[step])||0,0,4)|0;if(advance)e.stylePattern=(e.stylePattern||0)+1;
+ return {style,slot,skillId:style.skills[slot],meta:STYLE_ADEPT_SKILL_META[slot]};
+}
 const ENEMY_TYPES={
  sprout:{name:'이끼 정령',hp:64,speed:77,damage:13,reach:66,wind:.8,color:'#8caf73',xp:18,gold:9,r:18,kind:'melee'},
  wolf:{name:'가시 늑대',hp:78,speed:127,damage:18,reach:155,wind:.8,color:'#acb69d',xp:24,gold:12,r:18,kind:'charge'},
@@ -527,6 +552,7 @@ const ENEMY_TYPES={
  abyssHound:{name:'심연 사냥개',hp:154,speed:151,damage:34,reach:190,wind:.75,color:'#cf7182',xp:68,gold:42,r:20,kind:'charge'},
  bloodWisp:{name:'적월 부유체',hp:140,speed:91,damage:32,reach:420,wind:.9,color:'#ef8798',xp:70,gold:44,r:18,kind:'ranged'},
  voidKnight:{name:'공허 기사',hp:205,speed:92,damage:39,reach:125,wind:.82,color:'#a67891',xp:82,gold:52,r:23,kind:'slam'},
+ styleAdept:{name:'유파 수련자',hp:132,speed:104,damage:26,reach:390,wind:.72,color:'#d8c98f',xp:62,gold:38,r:20,kind:'style'},
  dummy:{name:'수련 골렘',hp:500,speed:0,damage:0,reach:108,wind:1.1,color:'#b6a481',xp:0,gold:0,r:22,kind:'melee'},
  forestBoss:{name:'고목의 수호자',hp:900,speed:62,damage:28,reach:153,wind:1.1,color:'#a8c180',xp:320,gold:190,r:40,kind:'boss',seal:0},
  marshBoss:{name:'유리 날개의 수호자',hp:1080,speed:92,damage:27,reach:175,wind:1,color:'#94d9d7',xp:430,gold:240,r:35,kind:'boss',seal:1},
@@ -638,7 +664,9 @@ function animateBody(o,dt){
  m.facing+=angleDiff(target,m.facing)*(1-Math.exp(-dt*(o===player?22:14)));m.lean+=((dashActive?1:0)-m.lean)*(1-Math.exp(-dt*20));m.x=o.x;m.y=o.y;
 }
 
-function addEnemy(type,x,y,id){const region=regionAt(x,y),base=ENEMY_TYPES[type];if(!base)return null;const variance=type==='dummy'?0:Math.floor(hash(Math.floor(x/40),Math.floor(y/40))*7)-2,level=type==='dummy'?1:Math.floor(clamp(zoneRecommendedLevel(region)+(base.kind==='boss'?6:variance),1,MAX_LEVEL));const hpScale=type==='dummy'?1:1+(level-1)*(base.kind==='boss'?.065:.075),damageScale=type==='dummy'?1:1+(level-1)*(base.kind==='boss'?.026:.028),rewardScale=Math.sqrt(hpScale)*(1+level/130),d=type==='dummy'?base:{...base,hp:Math.round(base.hp*hpScale),damage:Math.round(base.damage*damageScale),xp:Math.round(base.xp*rewardScale),gold:Math.round(base.gold*rewardScale)},spot=freeBodySpot(x,y,d.r+8);x=spot.x;y=spot.y;bodyGridValid=false;const diff=worldDifficulty(),scaledHp=Math.max(1,Math.round(d.hp*diff.hp*(type==='dummy'?1:ENEMY_HP_MULT))),scaledDamage=Math.max(0,Math.round(d.damage*diff.damage));const e={...d,type,x,y,sx:x,sy:y,id,r:d.r,baseMaxHp:d.hp,baseDamage:d.damage,maxHp:scaledHp,hp:scaledHp,damage:scaledDamage,mobLevel:level,state:'idle',timer:rnd(.3,1.5),facing:0,flash:0,stun:0,poise:0,pattern:0,phase:1,attackType:'melee',locked:0,dead:false,respawn:0,alert:false,defeated:false,firstGuardDone:false,firstGuardPending:false,guardActive:false,guardSawAttack:false,guardTime:0,guardIsFirst:false,aiDashCd:rnd(.35,1.15),aiDashTime:0,aiDashAngle:0,aiDashEvade:0,aiDashBack:false,aiDecision:rnd(.10,.28),aiReaction:.11+hash(Math.floor(x/13),Math.floor(y/13))*.17,aiGuardChance:.34+hash(Math.floor(x/19),Math.floor(y/19))*.31,aiEvadeChance:.30+hash(Math.floor(x/23),Math.floor(y/23))*.34};enemies.push(e);return e;}
+function addEnemy(type,x,y,id){const region=regionAt(x,y),base=ENEMY_TYPES[type];if(!base)return null;const variance=type==='dummy'?0:Math.floor(hash(Math.floor(x/40),Math.floor(y/40))*7)-2,level=type==='dummy'?1:Math.floor(clamp(zoneRecommendedLevel(region)+(base.kind==='boss'?6:variance),1,MAX_LEVEL));const hpScale=type==='dummy'?1:1+(level-1)*(base.kind==='boss'?.065:.075),damageScale=type==='dummy'?1:1+(level-1)*(base.kind==='boss'?.026:.028),rewardScale=Math.sqrt(hpScale)*(1+level/130),d=type==='dummy'?base:{...base,hp:Math.round(base.hp*hpScale),damage:Math.round(base.damage*damageScale),xp:Math.round(base.xp*rewardScale),gold:Math.round(base.gold*rewardScale)},spot=freeBodySpot(x,y,d.r+8);x=spot.x;y=spot.y;bodyGridValid=false;const diff=worldDifficulty(),scaledHp=Math.max(1,Math.round(d.hp*diff.hp*(type==='dummy'?1:ENEMY_HP_MULT))),scaledDamage=Math.max(0,Math.round(d.damage*diff.damage));const e={...d,type,x,y,sx:x,sy:y,id,r:d.r,baseMaxHp:d.hp,baseDamage:d.damage,maxHp:scaledHp,hp:scaledHp,damage:scaledDamage,mobLevel:level,state:'idle',timer:rnd(.3,1.5),facing:0,flash:0,stun:0,poise:0,pattern:0,phase:1,attackType:'melee',locked:0,dead:false,respawn:0,alert:false,defeated:false,firstGuardDone:false,firstGuardPending:false,guardActive:false,guardSawAttack:false,guardTime:0,guardIsFirst:false,aiDashCd:rnd(.35,1.15),aiDashTime:0,aiDashAngle:0,aiDashEvade:0,aiDashBack:false,aiDecision:rnd(.10,.28),aiReaction:.11+hash(Math.floor(x/13),Math.floor(y/13))*.17,aiGuardChance:.34+hash(Math.floor(x/19),Math.floor(y/19))*.31,aiEvadeChance:.30+hash(Math.floor(x/23),Math.floor(y/23))*.34};
+ if(type==='styleAdept'){const p=styleAdeptProfile(region,id,x,y);e.styleId=p.styleId;e.styleSlots=p.slots;e.stylePattern=0;e.name=p.style.name+' 유파 수련자';e.color=p.style.main;}
+ enemies.push(e);return e;}
 function regularMonsterSpawnSpot(x,y,zone=null,minEnemyGap=72){
  if(inSecretCaveCoord(x,y)||inSafe(x,y)||solidAt(x,y,34))return false;
  if(camps.some(c=>Math.hypot(c.x-x,c.y-y)<245))return false;
@@ -876,7 +904,7 @@ function buildSharedWorldSnapshot(includeItems=true){
  return out;
 }
 function buildServerWorldBootstrap(){
- const mobs=enemies.filter(e=>e.type!=='dummy'&&!e.riftId).map(e=>({...mobNetState(e),speed:e.speed||0,damage:e.damage||0,reach:e.reach||0,wind:e.wind||0,r:e.r||18,spawnZone:e.spawnZone||'',spawnZoneX:Number.isFinite(e.spawnZoneX)?e.spawnZoneX:e.sx,spawnZoneY:Number.isFinite(e.spawnZoneY)?e.spawnZoneY:e.sy,spawnZoneRadius:Number.isFinite(e.spawnZoneRadius)?e.spawnZoneRadius:0}));
+ const mobs=enemies.filter(e=>e.type!=='dummy'&&!e.riftId).map(e=>({...mobNetState(e),speed:e.speed||0,damage:e.damage||0,reach:e.reach||0,wind:e.wind||0,r:e.r||18,spawnZone:e.spawnZone||'',spawnZoneX:Number.isFinite(e.spawnZoneX)?e.spawnZoneX:e.sx,spawnZoneY:Number.isFinite(e.spawnZoneY)?e.spawnZoneY:e.sy,spawnZoneRadius:Number.isFinite(e.spawnZoneRadius)?e.spawnZoneRadius:0,...(e.type==='styleAdept'?{styleId:e.styleId||'',styleSlots:Array.isArray(e.styleSlots)?e.styleSlots:[]}:{})}));
  const nav=obstacles.filter(o=>o.solid).slice(0,2200).map(o=>o.box?{x:o.x,y:o.y,box:true,w:o.w,h:o.h}:{x:o.x,y:o.y,r:groundRadius(o)});
  nav.push({x:wellCollider.x,y:wellCollider.y,r:wellCollider.r+8});
  for(const p of pools)nav.push({x:p.x,y:p.y,ellipse:true,rx:p.rx,ry:p.ry});
@@ -908,7 +936,7 @@ function applyServerMobState(m,now=performance.now(),lookup=null){
  e._netVX=Number.isFinite(nx)?clamp((nx-px)/dt,-1800,1800):0;e._netVY=Number.isFinite(ny)?clamp((ny-py)/dt,-1800,1800):0;e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;
  if(Math.hypot(e.x-e._netX,e.y-e._netY)>420){e.x=e._netX;e.y=e._netY;}
  if(Number.isFinite(Number(m.facing)))e.facing=Number(m.facing);if(typeof m.state==='string')e.state=m.state;if(m.alert!==undefined)e.alert=!!m.alert;
- if(m.targetId!==undefined)e.serverTargetId=m.targetId||null;if(m.attackType!==undefined)e.attackType=m.attackType||e.attackType;if(Number.isFinite(Number(m.timer)))e.timer=Math.max(0,Number(m.timer));
+ if(m.targetId!==undefined)e.serverTargetId=m.targetId||null;if(m.attackType!==undefined)e.attackType=m.attackType||e.attackType;if(typeof m.styleId==='string'&&m.styleId)e.styleId=m.styleId;if(Array.isArray(m.styleSlots)&&m.styleSlots.length)e.styleSlots=m.styleSlots.map(v=>clamp(Number(v)||0,0,4)|0);if(typeof m.skillId==='string')e.styleSkillId=m.skillId;if(Number.isFinite(Number(m.skillSlot)))e.styleSkillSlot=clamp(Number(m.skillSlot),0,4)|0;if(Number.isFinite(Number(m.timer)))e.timer=Math.max(0,Number(m.timer));
  if(Number.isFinite(Number(m.windTotal))&&Number(m.windTotal)>0)e.windTotal=Number(m.windTotal);if(Number.isFinite(Number(m.locked)))e.locked=Number(m.locked);if(Number.isFinite(Number(m.range))&&Number(m.range)>0)e.range=Number(m.range);
  if(Number.isFinite(Number(m.maxHp)))e.maxHp=Math.max(1,Number(m.maxHp));if(Number.isFinite(Number(m.hp)))e.hp=clamp(Number(m.hp),0,e.maxHp);if(m.dead!==undefined)e.dead=!!m.dead;if(e.dead)e.state='dead';return e;
 }
@@ -2157,7 +2185,25 @@ function enemyAttackSpeed(e){
  if(activeRift&&e.riftId===activeRift.id)speed*=1.15;
  return Math.min(speed,3.10);
 }
+function styleAdeptSkillFx(e,skillId,slot,a=e.locked,tx=player.x,ty=player.y){
+ const style=STYLE_ADEPT_STYLES.find(v=>v.id===e.styleId)||STYLE_ADEPT_STYLES[0],main=style.main,sub=style.sub,accent=style.accent,cx=e.x+Math.cos(a)*Math.min(130,Math.hypot(tx-e.x,ty-e.y)*.45),cy=e.y+Math.sin(a)*Math.min(130,Math.hypot(tx-e.x,ty-e.y)*.45);
+ if(slot===0){effects.push({type:'slash',x:cx,y:cy,a,arc:1.65,r:125,color:main,t:.24,max:.24});effects.push({type:'riftCut',x:cx,y:cy,a,len:225,width:24,color:sub,t:.22,max:.22});}
+ else if(slot===1){effects.push({type:'line',x:e.x-Math.cos(a)*95,y:e.y-Math.sin(a)*95,x2:e.x,y2:e.y,color:main,t:.20,max:.20});effects.push({type:'riftCut',x:cx,y:cy,a,len:260,width:28,color:accent,t:.28,max:.28});}
+ else if(slot===2){ring(e.x,e.y,128,main,.34);effects.push({type:'nova',x:e.x,y:e.y,r:155,color:accent,t:.38,max:.38});}
+ else if(slot===3){for(let j=-1;j<=1;j++){const aa=a+j*.16;effects.push({type:'line',x:e.x,y:e.y,x2:e.x+Math.cos(aa)*390,y2:e.y+Math.sin(aa)*390,color:j?main:sub,t:.28,max:.28});}effects.push({type:'riftCut',x:cx,y:cy,a,len:310,width:30,color:accent,t:.30,max:.30});}
+ else{effects.push({type:'starSeal',x:tx,y:ty,r:145,color:main,t:.48,max:.48});effects.push({type:'nova',x:tx,y:ty,r:190,color:accent,t:.52,max:.52});for(let j=0;j<4;j++){const aa=j*TAU/4;effects.push({type:'riftCut',x:tx+Math.cos(aa)*70,y:ty+Math.sin(aa)*70,a:aa,len:175,width:24,color:j%2?sub:main,t:.36,max:.36});}}
+ burst(cx,cy,main,slot===4?16:8,slot===4?150:95);
+}
+function executeStyleAdeptAttack(e){
+ const slot=clamp(Number(e.styleSkillSlot)||0,0,4)|0,meta=STYLE_ADEPT_SKILL_META[slot],style=STYLE_ADEPT_STYLES.find(v=>v.id===e.styleId)||STYLE_ADEPT_STYLES[0],skillId=e.styleSkillId||style.skills[slot],a=e.locked;
+ e.state='recover';e.timer=meta.recover/enemyAttackSpeed(e);
+ if(slot===1){const d0=Math.hypot(player.x-e.x,player.y-e.y),dash=Math.min(meta.dash||0,Math.max(0,d0-56));if(dash>0)moveBody(e,Math.cos(a)*dash,Math.sin(a)*dash);}
+ const d=distance(e,player),diff=Math.abs(angleDiff(Math.atan2(player.y-e.y,player.x-e.x),a)),tx=player.x,ty=player.y;styleAdeptSkillFx(e,skillId,slot,a,tx,ty);
+ let hit=false;if(slot===0)hit=d<meta.range+player.r&&diff<.78;else if(slot===1)hit=d<125+player.r&&diff<1.05;else if(slot===2)hit=d<meta.range+player.r;else if(slot===3)hit=d<meta.range+player.r&&diff<.58;else hit=d<meta.range+player.r;
+ if(hit)hitPlayer(Math.max(1,Math.round(e.damage*meta.mul)),e,slot<=1);sound(slot>=3?'enemyShot':'swing');
+}
 function prepareEnemyAttack(e,forcedType=null){const atkSpeed=enemyAttackSpeed(e);e.state='windup';e.timer=e.wind/((e.phase===2?1.12:1)*atkSpeed);e.windTotal=e.timer;e.facing=Math.atan2(player.y-e.y,player.x-e.x);e.locked=e.facing;e.perfectDodged=false;e.attackType=forcedType||e.kind;e.pattern++;e.castId=(e.castId||0)+1;
+ if(e.type==='styleAdept'&&!forcedType){const sk=styleAdeptSkillSpec(e,true);e.attackType='style';e.styleSkillSlot=sk.slot;e.styleSkillId=sk.skillId;e.range=sk.meta.range;e.timer=e.windTotal=sk.meta.wind/atkSpeed;const info=typeof swordSkillById==='function'?swordSkillById(sk.skillId):null;floating(e.x,e.y-e.r-28,(info?.name||sk.style.name+' '+(sk.slot+1)+'식'),sk.style.main);return;}
  if(e.kind==='boss'){e.phase=e.hp<e.maxHp*.5?2:1;e.attackType=BOSS_PATTERNS[e.type][(e.pattern-1)%4];e.timer=e.windTotal=(e.attackType==='charge'?1.05:e.attackType==='melee'?.85:1.25)/atkSpeed;e.range=e.attackType==='slam'?210:e.attackType==='charge'?380:e.attackType==='melee'?175:650;
  const x=player.x,y=player.y,a=e.locked;
  if(e.attackType==='roots')for(let i=0;i<3+e.phase;i++)bossHazard(e,x+Math.cos(a)*(i-1)*70,y+Math.sin(a)*(i-1)*70,46,1.1+i*.22);
@@ -2186,7 +2232,7 @@ function executeBossPattern(e){if(e.kind!=='boss')return false;const a=e.locked;
  if(e.attackType==='frostLine'||e.attackType==='bloodRain'||e.attackType==='gravityWell'){flourish(e.x,e.y,e.color,e.attackType==='gravityWell'?150:95,3);return true;}
  if(e.attackType==='voidVolley'){for(let wave=0;wave<3;wave++)for(let j=-2;j<=2;j++)fireProjectile(e.x,e.y,a+j*.18+wave*.05,300+wave*65,e.damage,'enemy','star');flourish(e.x,e.y,e.color,130,0);return true;}return false;
 }
-function executeEnemyAttack(e){if(executeBossPattern(e))return;e.state='recover';e.timer=(e.kind==='boss'?.9:.85)/enemyAttackSpeed(e);const a=e.locked;const d=distance(e,player),difference=Math.abs(angleDiff(Math.atan2(player.y-e.y,player.x-e.x),a));
+function executeEnemyAttack(e){if(e.type==='styleAdept'&&e.attackType==='style'){executeStyleAdeptAttack(e);return;}if(executeBossPattern(e))return;e.state='recover';e.timer=(e.kind==='boss'?.9:.85)/enemyAttackSpeed(e);const a=e.locked;const d=distance(e,player),difference=Math.abs(angleDiff(Math.atan2(player.y-e.y,player.x-e.x),a));
  if(e.attackType==='ranged'){const spread=e.kind==='boss'?(e.phase===2?5:3):1;const projectileSpeed=e.kind==='boss'?240:560;for(let j=0;j<spread;j++)fireProjectile(e.x+Math.cos(a)*26,e.y+Math.sin(a)*26,a+(j-(spread-1)/2)*.22,projectileSpeed,e.damage,'enemy',e.kind==='boss'?'star':'orb');tone(210,.12,'sine',.07,130);}
  else if(e.attackType==='charge'){e.state='charge';e.timer=.5;e.chargeHit=false;}
  else if(e.attackType==='slam'){ring(e.x,e.y,e.range,'#e9a87f',.5);burst(e.x,e.y,'#dac99b',20,170);if(d<e.range+player.r)hitPlayer(e.damage,e,false);if(e.kind==='boss'&&e.phase===2){effects.push({type:'hazard',x:player.x,y:player.y,r:90,t:1.0,max:1,color:'#dc9c96',damage:e.damage});}}
@@ -2206,7 +2252,7 @@ function updateEnemy(e,dt){if(admin.freeze)return;if(e.riftSleeping)return;if(e.
  e.timer-=dt;e.poise=Math.max(0,e.poise-dt*6);
  if(e.state==='idle'){if(d<(e.kind==='boss'?380:300)&&!inSafe(player.x,player.y)&&(e.kind==='boss'||e.riftId||e.provoked||localAmbientAggroAvailable(e))){wakeEnemy(e);}else if(e.timer<=0){e.facing+=rnd(-1.6,1.6);e.timer=rnd(1,3);}if(e.kind!=='boss'&&distance(e,{x:e.sx,y:e.sy})<120){moveBody(e,Math.cos(e.facing)*e.speed*.12*dt,Math.sin(e.facing)*e.speed*.12*dt);}return;}
  if(e.state==='chase'){
-  const a=Math.atan2(player.y-e.y,player.x-e.x);e.facing=a;const range=e.kind==='boss'?210:e.kind==='ranged'?340:e.kind==='charge'?190:e.reach-8;
+  const a=Math.atan2(player.y-e.y,player.x-e.x);e.facing=a;const range=e.type==='styleAdept'?styleAdeptSkillSpec(e,false).meta.range:e.kind==='boss'?210:e.kind==='ranged'?340:e.kind==='charge'?190:e.reach-8;
   // 모든 일반 잡몹은 방패 장비 없이 에너지 쉴드와 전투 대쉬를 사용한다.
   // 멀리서는 접근 대쉬, 근접에서는 플레이어의 다음 공격을 읽고 후퇴 대쉬/쉴드를 섞는다.
   const basicRange=Math.max(88,e.r+player.r+54),guardRange=Math.max(125,e.r+player.r+82);
@@ -2225,7 +2271,7 @@ function updateEnemy(e,dt){if(admin.freeze)return;if(e.riftSleeping)return;if(e.
    }
   }
   // 첫 교전의 방어 자세를 끝내기 전에는 공격하지 않고 거리를 좁힌다.
-  if(!e.firstGuardPending&&e.kind!=='boss'&&e.type!=='dummy'&&d<basicRange&&e.timer<=0&&e.kind!=='melee'){
+  if(!e.firstGuardPending&&e.kind!=='boss'&&e.type!=='dummy'&&e.type!=='styleAdept'&&d<basicRange&&e.timer<=0&&e.kind!=='melee'){
    if(rand()<.68){prepareEnemyAttack(e,'melee');return;}
   }
   if(!e.firstGuardPending&&d<range&&e.timer<=0){prepareEnemyAttack(e);return;}
@@ -2710,8 +2756,12 @@ function bindMultiplayerEvents(){
  m.on('world:role',role=>{multiWorldLeader=!!role?.isLeader;multiWorldSyncTimer=0;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=false;multiMobLastSent.clear();});
  m.on('world:snapshot',applySharedWorldSnapshot);m.on('world:mobsDelta',applySharedMobDelta);
  m.on('world:mobAttack',msg=>{
-  const e=enemies.find(v=>v.id===msg?.mobId);if(!e)return;e.attackType=msg.attackType||e.attackType;e.facing=Number(msg.facing)||e.facing;ring(e.x,e.y,e.kind==='boss'?70:38,e.color||'#e1c28d',.22);
+  const e=enemies.find(v=>v.id===msg?.mobId);if(!e)return;e.attackType=msg.attackType||e.attackType;e.facing=Number(msg.facing)||e.facing;
+  const styleAttack=e.type==='styleAdept'&&Number.isFinite(Number(msg.skillSlot));
+  if(styleAttack){if(typeof msg.styleId==='string'&&msg.styleId)e.styleId=msg.styleId;e.styleSkillSlot=clamp(Number(msg.skillSlot),0,4)|0;e.styleSkillId=String(msg.skillId||'');if(distance(e,player)<1250)styleAdeptSkillFx(e,e.styleSkillId,e.styleSkillSlot,e.facing,Number(msg.tx)||e.x,Number(msg.ty)||e.y);}
+  else ring(e.x,e.y,e.kind==='boss'?70:38,e.color||'#e1c28d',.22);
   if(msg.targetId!==m.state.selfId||player.hp<=0)return;
+  if(styleAttack){const result=hitPlayer(Math.max(0,Number(msg.damage)||e.damage||1),e,e.styleSkillSlot<=1);if(result==='parried'){const a=Math.atan2(e.y-player.y,e.x-player.x),control={stun:1.25,knockbackX:Math.cos(a)*18,knockbackY:Math.sin(a)*18};m.damageMob(e.id,0,control);}return;}
   if(msg.kind==='ranged'){
    const sx=Number.isFinite(Number(msg.x))?Number(msg.x):e.x,sy=Number.isFinite(Number(msg.y))?Number(msg.y):e.y;
    const tx=Number.isFinite(Number(msg.tx))?Number(msg.tx):player.x,ty=Number.isFinite(Number(msg.ty))?Number(msg.ty):player.y;
