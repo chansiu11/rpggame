@@ -17,7 +17,9 @@ const MOB_NET_TICK_MS = 50;
 const PLAYER_LIST_MS = 1000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
-const SPAWN_LAYOUT_VERSION = 'regional-clusters-v5-style-live';
+const SPAWN_LAYOUT_VERSION = 'regional-clusters-v6-style-hardreset';
+const SERVER_BUILD = '2026-09-27-style-adept-hardreset-1';
+const WORLD_RESET_EPOCH = '2026-09-27-world-reset-1';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
   sentry:{speed:65,damage:16,reach:360,wind:1.05,kind:'ranged',r:18},golem:{speed:55,damage:27,reach:116,wind:1.2,kind:'slam',r:26},
@@ -301,12 +303,12 @@ function mobPublic(m){
  return out;
 }
 function mobSnapshot(){return [...authoritativeMobs.values()].map(mobPublic);}
-function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:worldSnapshot.items||[],updatedAt:Date.now(),revision:worldRevision};}
+function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:worldSnapshot.items||[],updatedAt:Date.now(),revision:worldRevision,serverBuild:SERVER_BUILD,resetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION};}
 function markMobDirty(m){if(m?.id)dirtyMobIds.add(m.id);}
 function syncBossMob(boss){const m=authoritativeMobs.get(boss.id);if(!m)return;m.hp=boss.hp;m.maxHp=boss.maxHp;m.dead=!boss.alive;m.respawnAt=boss.respawnAt||0;if(m.dead){m.state='dead';m.targetId=null;m.alert=false;}else if(m.state==='dead'){m.state='idle';m.x=m.sx;m.y=m.sy;}markMobDirty(m);}
 function bootstrapAuthoritativeWorld(player,msg){
-  if(mobsBootstrapped&&authoritativeMobs.size){safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});return;}
   if(String(msg.spawnLayoutVersion||'')!==SPAWN_LAYOUT_VERSION){safeSend(player.ws,{type:'notice',message:'몬스터 스폰 배치가 업데이트되었습니다. 게임 페이지를 새로고침해 주세요.'});return;}
+  if(mobsBootstrapped&&authoritativeMobs.size){safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});return;}
   const list=Array.isArray(msg.mobs)?msg.mobs.slice(0,900):[];if(!list.length)return;authoritativeMobs.clear();navGrid.clear();
   for(const raw of list){
     const id=String(raw.id||'').slice(0,50),type=String(raw.type||'').slice(0,40),def=MOB_TYPES[type];if(!id||!def||type==='dummy'||id.startsWith('rift_'))continue;
@@ -419,6 +421,24 @@ function advanceStyleCast(m,target,now){
 }
 
 function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;m.skillId='';m.skillSlot=0;m.skillRange=0;m.styleHits=[];m.styleHitIndex=0;m.styleCastId=0;m.styleStartedAt=0;m.styleDuration=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
+function simulateStyleAdept(m,target,dt,now){
+  if(!target||m.dead)return;
+  const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);m.facing=a;m.alert=true;
+  if(m.state==='styleSkill'){advanceStyleCast(m,target,now);return;}
+  if(now<m.recoverUntil){if(m.state!=='recover'){m.state='recover';markMobDirty(m);}return;}
+  if(m.state==='windup'){
+    m.locked=Math.atan2(target.y-m.y,target.x-m.x);
+    if(now>=m.attackAt){if(!beginStyleCast(m,target,now)){m.state='recover';m.recoverUntil=now+350;}markMobDirty(m);}
+    return;
+  }
+  const sk=styleAdeptSpec(m,false),range=sk.range;
+  if(d<=range&&now-(m.lastAttackAt||0)>=650){
+    const cast=styleAdeptSpec(m,true);m.attackType='style';m.skillId=cast.skillId;m.skillSlot=cast.slot;m.skillRange=cast.range;m.locked=a;m.lastAttackAt=now;m.state='windup';m.attackAt=now+Math.max(180,cast.wind*1000);markMobDirty(m);return;
+  }
+  m.state='chase';
+  const desired=d>Math.max(105,Math.min(range*.72,280))?1:d<72?-1:0;
+  if(desired&&moveServerMob(m,Math.cos(a)*m.speed*desired*dt,Math.sin(a)*m.speed*desired*dt))markMobDirty(m);
+}
 function simulateMob(m,dt,now,ambientSelections){
   if(m.dead){if(m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);return;}
   if(advanceMobControl(m,now,moveServerMob)){m.state='stunned';markMobDirty(m);return;}
@@ -430,7 +450,9 @@ function simulateMob(m,dt,now,ambientSelections){
   if(now<m.stunUntil){if(m.state!=='stunned'){m.state='stunned';markMobDirty(m);}return;}
   if(Math.abs(m.knockVX)+Math.abs(m.knockVY)>2){if(moveServerMob(m,m.knockVX*dt,m.knockVY*dt))markMobDirty(m);const decay=Math.exp(-dt*9);m.knockVX*=decay;m.knockVY*=decay;}
   let target=null;
-  if(m.kind==='boss'){
+  if(m.kind==='style'){
+    target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1100)target=null;if(!target)target=nearestMobTarget(m,null);
+  }else if(m.kind==='boss'){
     target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150)target=null;if(!target)target=nearestMobTarget(m,null);
   }else if(m.provokedBy){
     target=players.get(m.provokedBy);if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150){m.provokedBy=null;target=null;}
@@ -441,6 +463,7 @@ function simulateMob(m,dt,now,ambientSelections){
   }
   if(!target){m.targetId=null;m.alert=false;const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>18){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;m.state='return';if(moveServerMob(m,Math.cos(a)*m.speed*1.15*dt,Math.sin(a)*m.speed*1.15*dt))markMobDirty(m);}else if(m.state!=='idle'){m.state='idle';markMobDirty(m);}return;}
   if(m.targetId!==target.id){m.targetId=target.id;m.alert=true;markMobDirty(m);}const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);m.facing=a;m.alert=true;
+  if(m.kind==='style'){simulateStyleAdept(m,target,dt,now);return;}
   if(m.state==='styleSkill'){advanceStyleCast(m,target,now);return;}
   if(m.state==='charge'){if(now<m.chargeUntil){const speed=m.kind==='boss'?620:(m.type==='abyssHound'?560:m.type==='shardStalker'?520:470);if(moveServerMob(m,Math.cos(m.locked)*speed*dt,Math.sin(m.locked)*speed*dt))markMobDirty(m);if(!m.chargeHit&&Math.hypot(target.x-m.x,target.y-m.y)<m.r+34){sendMobAttack(m,target);m.chargeHit=true;}return;}m.state='recover';m.recoverUntil=now+650;markMobDirty(m);return;}
   if(m.state==='windup'){if(now>=m.attackAt){if(m.kind==='style'){beginStyleCast(m,target,now);}else if(m.kind==='charge'||m.attackType==='charge'){m.state='charge';m.chargeUntil=now+420;m.chargeHit=false;}else{sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+(m.kind==='boss'?760:520);}markMobDirty(m);}return;}
@@ -572,7 +595,7 @@ setInterval(()=>worldCombat.tick(),50);
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
+    res.end(JSON.stringify({ok:true,serverBuild:SERVER_BUILD,worldResetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
@@ -621,7 +644,7 @@ wss.on('connection',(ws)=>{
       if(player.clientMode!=='pvp'&&!worldLeaderId)worldLeaderId=player.id;
       safeSend(ws,{
         type:'hello:ok',
-        selfId:player.id,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,
+        selfId:player.id,serverBuild:SERVER_BUILD,worldResetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,
         world:{...WORLD,combatPolicy:WORLD_COMBAT_POLICY,biomes:BIOMES,landmarks:LANDMARKS,hiddenItems:HIDDEN_ITEMS},
         players:player.clientMode==='pvp'?[]:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').map(publicPlayer),
         bosses:bossSnapshot(),

@@ -8,7 +8,7 @@ async function connect(port,name,mode='world'){
  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject);});
  const send=m=>ws.send(JSON.stringify(m));send({type:'hello',name,accountId:name,mode,pvpRuleset:'test-compatible'});
  const wait=async pred=>{for(let i=0;i<100;i++){const m=messages.find(pred);if(m)return m;await delay(10);}throw Error('Message timeout '+name);};
- const hello=await wait(m=>m.type==='hello:ok');
+ const hello=await wait(m=>m.type==='hello:ok');assert.equal(hello.serverBuild,'2026-09-27-style-adept-hardreset-1');
  return {ws,messages,send,wait,id:hello.selfId,state:(x,hp=1000,ack=0)=>send({type:'state',seq:++input,combatAck:ack,x,y:1000,hp,maxHp:1000,shield:500,maxShield:500,stam:100,maxStam:200})};
 }
 test('real two-client WebSocket combat, stale input, force settlement and PVP matching',{timeout:15000},async()=>{
@@ -22,7 +22,7 @@ test('real two-client WebSocket combat, stale input, force settlement and PVP ma
   for(let i=0;i<20;i++){b.state(1100,1000,0);await delay(25);}
   const last=b.messages.filter(m=>m.type==='player:self').at(-1).player;assert.equal(last.hp,900);assert.equal(last.x,1380);assert.equal(b.messages.filter(m=>m.type==='world:combatResult'&&m.damage>0).length,1);
   const settled=await b.wait(m=>m.type==='world:combatResult'&&m.outcome==='settled'&&m.targetId===b.id);b.state(1385,900,settled.player.combatRevision);await delay(50);assert.equal(b.messages.filter(m=>m.type==='player:self').at(-1).player.x,1385);
-  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v2-leash',mobs:['mob-a','mob-b'].map((id,i)=>({id,type:'sprout',x:1080+i*30,y:1000,hp:1000,maxHp:1000,speed:10,r:18})),obstacles:[]});
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v6-style-hardreset',mobs:['mob-a','mob-b'].map((id,i)=>({id,type:'sprout',x:1080+i*30,y:1000,hp:1000,maxHp:1000,speed:10,r:18})),obstacles:[]});
   await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(e=>e.id==='mob-a'));
   const mobPacket={type:'world:mobCombat',seq:1,events:['mob-a','mob-b'].map(mobId=>({mobId,damage:100,stun:1,knockbackX:120,prismCast:'prism:test'}))};a.send(mobPacket);a.send(mobPacket);
   for(const id of ['mob-a','mob-b']){const patch=await b.wait(m=>m.type==='world:mobPatch'&&m.mob.id===id);assert.equal(patch.mob.hp,900);assert.ok(patch.mob.forceMove);assert.equal(patch.mob.forceMove.y,1000);const ack=await a.wait(m=>m.type==='world:projectileHit'&&m.targetId===id);assert.equal(ack.cast,'prism:test');}
@@ -45,5 +45,21 @@ test('two clients with delayed hit/settlement acknowledgements and bounded visua
   await delay(80);b.state(1280,900,settled.player.combatRevision);a.state(1190);await delay(80);
   a.send({type:'world:combat',seq:2,events:[{kind:'attack',targetId:b.id,damage:100,dx:180,stun:.75}]});const second=await b.wait(m=>m.type==='world:combatResult'&&m.player.hp===800);assert.equal(second.damage,100);assert.ok(second.player.forceMove.x>=1459);
   a.send({type:'skill:effects',seq:1,effects:[{type:'particle',x:1190,y:1000},{type:'riftCut',x:1190,y:1000,len:300,width:35,t:.3,color:'#fff'}],projectiles:[]});const fx=await b.wait(m=>m.type==='skill:effects');assert.equal(fx.effects.length,1);assert.equal(fx.effects[0].type,'riftCut');
+ }finally{for(const c of clients)c.ws.close();server.kill();}
+});
+
+test('style adept independently casts a real sword-style skill over WebSocket',{timeout:15000},async()=>{
+ const port=38000+Math.floor(Math.random()*10000),server=spawn(process.execPath,['server.js'],{cwd:new URL('../multiplayer-server/',import.meta.url),env:{...process.env,PORT:String(port)},stdio:['ignore','pipe','pipe']});
+ const clients=[];let stderr='';server.stderr.on('data',b=>stderr+=b);
+ try{
+  await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('exit',c=>reject(Error('server exit '+c+' '+stderr)));});
+  const a=await connect(port,'style-target');clients.push(a);a.state(1000);await delay(80);
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v6-style-hardreset',mobs:[{id:'style-test',type:'styleAdept',x:1160,y:1000,hp:500,maxHp:500,speed:104,damage:26,reach:390,wind:.72,r:20,spawnZone:'lone',spawnZoneX:1160,spawnZoneY:1000,spawnZoneRadius:430,styleId:'gale',styleSlots:[0]}],obstacles:[]});
+  await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(v=>v.id==='style-test'&&v.styleId==='gale'));
+  const cast=await a.wait(m=>m.type==='world:mobAttack'&&m.mobId==='style-test'&&m.kind==='style'&&m.skillId==='windSlash');
+  assert.equal(cast.skillSlot,0);assert.ok(cast.castId>=1);assert.equal(cast.hitIndex,0);assert.equal(cast.targetId,a.id);
+  const states=a.messages.filter(m=>m.type==='world:mobsDelta').flatMap(m=>m.mobs).filter(m=>m.id==='style-test');
+  assert.ok(states.some(m=>m.state==='windup'||m.state==='styleSkill'||m.styleCastId>=1));
+  assert.equal(stderr,'');
  }finally{for(const c of clients)c.ws.close();server.kill();}
 });

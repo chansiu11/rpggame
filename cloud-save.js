@@ -29,6 +29,7 @@ window.EchoesCloud={
   save:async()=>{},
   load:async()=>null,
   hasSave:async()=>false,
+  clearSave:async()=>false,
   currentUid:()=>null,
   message:friendlyMessage
 };
@@ -103,6 +104,12 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
         if(!u) return false;
         const snap=await storeMod.getDoc(storeMod.doc(db,'users',u.uid,'saves','main'));
         return snap.exists();
+      },
+      async clearSave(){
+        const u=auth.currentUser;
+        if(!u) return false;
+        await storeMod.deleteDoc(storeMod.doc(db,'users',u.uid,'saves','main'));
+        return true;
       }
     };
   }catch(err){

@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
 const listeners=new Map();
+const REQUIRED_SERVER_BUILD='2026-09-27-style-adept-hardreset-1';
 let connectingPromise=null;
 let mobQueue=[],mobScheduled=false,mobSeq=0;
 function queueMobHit(event){if(!state.mobCombatProtocol){send({type:'world:mobDamage',...event});return;}mobQueue.push(event);if(mobScheduled)return;mobScheduled=true;const socket=state.socket;queueMicrotask(()=>{mobScheduled=false;const events=mobQueue;mobQueue=[];if(socket!==state.socket)return;for(let i=0;i<events.length;i+=64)send({type:'world:mobCombat',seq:++mobSeq,events:events.slice(i,i+64)});});}
@@ -11,7 +12,7 @@ const state={
   socket:null,connected:false,connecting:false,selfId:null,
   players:new Map(),bosses:new Map(),party:null,pendingInvite:null,
   world:null,worldRole:{leaderId:null,isLeader:false},worldSnapshot:{mobs:[],items:[],updatedAt:0},worldRevision:0,takenItems:new Set(),
-  profile:null,lastError:'',partyMax:4,pvpRuleset:'',reconnectTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
+  profile:null,lastError:'',partyMax:4,pvpRuleset:'',serverBuild:'',reconnectTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
 };
 function emit(type,payload){
   const set=listeners.get(type);if(!set)return;
@@ -40,7 +41,7 @@ function handle(msg){
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='net:pong'){if(msg.nonce!==state.lastPingNonce)return;const rtt=Date.now()-msg.nonce;if(rtt>=0&&rtt<3000){state.rtt=rtt;state.serverOffset=msg.serverTime-(msg.nonce+rtt/2);}return;}
   if(msg.type==='hello:ok'){
-    state.lastPingAt=0;delete state.serverOffset;mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;combatQueue=[];state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
+    state.lastPingAt=0;delete state.serverOffset;mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;combatQueue=[];state.serverBuild=String(msg.serverBuild||'');state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
     state.worldRole=msg.worldRole||{leaderId:null,isLeader:false,serverAuthority:true};
@@ -131,6 +132,12 @@ function connect(profile={},reconnecting=false){
       let msg;try{msg=JSON.parse(e.data);}catch{return;}
       handle(msg);
       if(msg.type==='hello:ok'){
+        if(String(msg.serverBuild||'')!==REQUIRED_SERVER_BUILD){
+          state.lastError='server-version';state.connected=false;state.connecting=false;state.manualClose=true;
+          try{ws.close(4002,'server version mismatch');}catch{}
+          if(!settled){settled=true;clearTimeout(timer);clearTimeout(waiting);connectingPromise=null;reject(new Error('서버가 아직 최신 게임 버전으로 재시작되지 않았습니다. 잠시 후 새로고침해 주세요.'));}
+          return;
+        }
         state.connected=true;state.connecting=false;state.reconnectAttempts=0;
         emit('connection',{connected:true,reconnected:reconnecting});
         if(reconnecting)emit('reconnected',{});
