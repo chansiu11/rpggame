@@ -1,8 +1,20 @@
 (()=>{
 'use strict';
 const listeners=new Map();
-const REQUIRED_SERVER_BUILD='2026-09-27-style-bot-skill-reset-1';
+const REQUIRED_SERVER_BUILD='2026-09-27-session-stability-opt-1';
 let connectingPromise=null;
+const CLIENT_SESSION_KEY='echoes_multi_client_session_v1';
+let fallbackClientSessionId='';
+function getClientSessionId(){
+  try{
+    let v=sessionStorage.getItem(CLIENT_SESSION_KEY)||'';
+    if(!v){v=(globalThis.crypto?.randomUUID?.()||('c_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)));sessionStorage.setItem(CLIENT_SESSION_KEY,v);}
+    return String(v).slice(0,96);
+  }catch{
+    if(!fallbackClientSessionId)fallbackClientSessionId='c_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
+    return fallbackClientSessionId;
+  }
+}
 let mobQueue=[],mobScheduled=false,mobSeq=0;
 function queueMobHit(event){if(!state.mobCombatProtocol){send({type:'world:mobDamage',...event});return;}mobQueue.push(event);if(mobScheduled)return;mobScheduled=true;const socket=state.socket;queueMicrotask(()=>{mobScheduled=false;const events=mobQueue;mobQueue=[];if(socket!==state.socket)return;for(let i=0;i<events.length;i+=64)send({type:'world:mobCombat',seq:++mobSeq,events:events.slice(i,i+64)});});}
 let combatSeq=0,combatAck=0,combatQueue=[];
@@ -12,7 +24,7 @@ const state={
   socket:null,connected:false,connecting:false,selfId:null,
   players:new Map(),bosses:new Map(),party:null,pendingInvite:null,
   world:null,worldRole:{leaderId:null,isLeader:false},worldSnapshot:{mobs:[],items:[],updatedAt:0},worldRevision:0,takenItems:new Set(),
-  profile:null,lastError:'',partyMax:4,pvpRuleset:'',serverBuild:'',reconnectTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
+  profile:null,lastError:'',partyMax:4,pvpRuleset:'',serverBuild:'',clientSessionId:getClientSessionId(),reconnectTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
 };
 function emit(type,payload){
   const set=listeners.get(type);if(!set)return;
@@ -125,7 +137,7 @@ function connect(profile={},reconnecting=false){
     ws.addEventListener('open',()=>{
       if(state.socket!==ws){try{ws.close();}catch{}return;}opened=true;
       try{ws.binaryType='arraybuffer';}catch{}
-      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world',pvpRuleset:profile.mode==='pvp'?String(profile.pvpRuleset||window.EchoesWorldPvpData?.ruleset||''):''});
+      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',clientSessionId:state.clientSessionId,level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world',pvpRuleset:profile.mode==='pvp'?String(profile.pvpRuleset||window.EchoesWorldPvpData?.ruleset||''):''});
     });
     ws.addEventListener('message',e=>{
       if(state.socket!==ws||state.manualClose)return;
