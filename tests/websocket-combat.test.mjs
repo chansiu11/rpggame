@@ -8,7 +8,7 @@ async function connect(port,name,mode='world'){
  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject);});
  const send=m=>ws.send(JSON.stringify(m));send({type:'hello',name,accountId:name,mode,pvpRuleset:'test-compatible'});
  const wait=async pred=>{for(let i=0;i<100;i++){const m=messages.find(pred);if(m)return m;await delay(10);}throw Error('Message timeout '+name);};
- const hello=await wait(m=>m.type==='hello:ok');assert.equal(hello.serverBuild,'2026-09-27-net-opt-aggro-1');
+ const hello=await wait(m=>m.type==='hello:ok');assert.equal(hello.serverBuild,'2026-09-27-style-exact-geometry-1');
  return {ws,messages,send,wait,id:hello.selfId,state:(x,hp=1000,ack=0)=>send({type:'state',seq:++input,combatAck:ack,x,y:1000,hp,maxHp:1000,shield:500,maxShield:500,stam:100,maxStam:200})};
 }
 test('real two-client WebSocket combat, stale input, force settlement and PVP matching',{timeout:15000},async()=>{
@@ -80,6 +80,21 @@ test('natural aggro assigns only one normal mob per player even with a style ade
   await delay(900);
   const latest=new Map();for(const msg of a.messages.filter(m=>m.type==='world:mobsDelta'))for(const mob of msg.mobs||[])if(['normal-test','style-test-aggro'].includes(mob.id))latest.set(mob.id,mob);
   const targeting=[...latest.values()].filter(m=>m.targetId===a.id&&m.alert);assert.ok(targeting.length<=1,'only one naturally aggroed normal mob may target a player');
+  assert.equal(stderr,'');
+ }finally{for(const c of clients)c.ws.close();server.kill();}
+});
+
+test('style adept telegraph geometry is frozen for the cast and server damage uses the same locked origin',{timeout:15000},async()=>{
+ const port=41000+Math.floor(Math.random()*6000),server=spawn(process.execPath,['server.js'],{cwd:new URL('../multiplayer-server/',import.meta.url),env:{...process.env,PORT:String(port)},stdio:['ignore','pipe','pipe']});
+ const clients=[];let stderr='';server.stderr.on('data',b=>stderr+=b);
+ try{
+  await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('exit',c=>reject(Error('server exit '+c+' '+stderr)));});
+  const a=await connect(port,'geometry-target');clients.push(a);a.state(1000);await delay(80);
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v6-style-hardreset',mobs:[{id:'geometry-style',type:'styleAdept',x:1160,y:1000,hp:500,maxHp:500,speed:104,damage:26,reach:390,wind:.72,r:20,spawnZone:'lone',spawnZoneX:1160,spawnZoneY:1000,spawnZoneRadius:430,styleId:'gale',styleSlots:[0]}],obstacles:[]});
+  await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(v=>v.id==='geometry-style'));
+  const wind=await a.wait(m=>m.type==='world:mobsDelta'&&(m.mobs||[]).some(v=>v.id==='geometry-style'&&v.state==='windup'&&Number.isFinite(v.styleOriginX)&&Number.isFinite(v.styleAnchorX)));
+  const wm=wind.mobs.find(v=>v.id==='geometry-style');assert.ok(Number.isFinite(wm.styleOriginX)&&Number.isFinite(wm.styleAnchorX));
+  const hit=await a.wait(m=>m.type==='world:mobAttack'&&m.mobId==='geometry-style');assert.equal(hit.originX,wm.styleOriginX);assert.equal(hit.originY,wm.styleOriginY);assert.equal(hit.anchorX,wm.styleAnchorX);assert.equal(hit.anchorY,wm.styleAnchorY);
   assert.equal(stderr,'');
  }finally{for(const c of clients)c.ws.close();server.kill();}
 });
