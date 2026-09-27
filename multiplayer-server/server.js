@@ -17,7 +17,7 @@ const MOB_NET_TICK_MS = 50;
 const PLAYER_LIST_MS = 1000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
-const SPAWN_LAYOUT_VERSION = 'regional-clusters-v3-style-adept';
+const SPAWN_LAYOUT_VERSION = 'regional-clusters-v4-style-exact';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
   sentry:{speed:65,damage:16,reach:360,wind:1.05,kind:'ranged',r:18},golem:{speed:55,damage:27,reach:116,wind:1.2,kind:'slam',r:26},
@@ -37,13 +37,7 @@ const STYLE_ADEPT_SKILLS={
   dawn:['dawnArc','tempest','skyFall','solarReturn','prismLance'],
   void:['chainReap','phantomSwap','gravityCut','bladeRain','voidDance']
 };
-const STYLE_ADEPT_META=[
-  {range:245,wind:.48,mul:.78,recover:.56},
-  {range:360,wind:.56,mul:.90,recover:.64,dash:250},
-  {range:220,wind:.68,mul:1.00,recover:.74},
-  {range:430,wind:.76,mul:1.10,recover:.82},
-  {range:340,wind:.96,mul:1.38,recover:1.05}
-];
+const STYLE_ADEPT_SKILL_DATA=Object.freeze({"windSlash":{"id":"windSlash","name":"삼렬 풍도","slot":0,"hold":false,"damageScale":0.85,"cfg":{"duration":0.44,"hits":[0.18],"mult":[1],"arc":[1.652],"reach":[0],"step":[0],"mode":"windShot"}},"flashRush":{"id":"flashRush","name":"질풍 점멸","slot":1,"hold":false,"damageScale":0.9,"cfg":{"duration":0.48,"hits":[0.16],"mult":[2.05],"arc":[1.593],"reach":[0],"step":[0],"mode":"galeBlink"}},"galeOrbit":{"id":"galeOrbit","name":"풍환 폭발","slot":2,"hold":false,"damageScale":0.52,"cfg":{"duration":0.78,"hits":[0.5],"mult":[6.45],"arc":[6.283185307179586],"reach":[0],"step":[0],"mode":"galePulse"}},"starRush":{"id":"starRush","name":"풍압 연파","slot":3,"hold":false,"damageScale":1.05,"cfg":{"duration":1.2,"hits":[0.22,0.58,0.98],"mult":[0.78,1.05,1.95],"arc":[6.283185307179586,6.283185307179586,6.283185307179586],"reach":[0,0,0],"step":[0,0,0],"mode":"galeCrescendo"}},"thunderDrive":{"id":"thunderDrive","name":"천풍 추살","slot":4,"hold":false,"damageScale":0.9,"cfg":{"duration":2.35,"hits":[0.7,0.75,0.7999999999999999,0.85,0.8999999999999999,0.95,1,1.05,1.1,1.15,1.2,1.25,1.3,1.35,1.4,1.45,1.5,1.55,1.6,1.65,1.7,1.75,1.8,1.85,1.9000000000000001,1.95,2,2.05,2.1,2.1500000000000004],"mult":[0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.38],"arc":[6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586],"reach":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"step":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"mode":"galePursuit"}},"moonSpin":{"id":"moonSpin","name":"달빛 회전","slot":0,"hold":false,"damageScale":1.05,"cfg":{"duration":0.62,"hits":[0.26],"mult":[1.75],"arc":[6.283185307179586],"reach":[62],"step":[0],"mode":"moonBurst"}},"mirrorStep":{"id":"mirrorStep","name":"거울 걸음","slot":1,"hold":false,"damageScale":0.95,"cfg":{"duration":0.55,"hits":[0.32],"mult":[2.25],"arc":[1.1],"reach":[49],"step":[0],"mode":"mirrorBackstab"}},"crossBloom":{"id":"crossBloom","name":"연속 교차 베기","slot":2,"hold":false,"damageScale":0.95,"cfg":{"duration":1.42,"hits":[0.1,0.26,0.42,0.58,0.76,0.96,1.2],"mult":[0.43,0.45,0.48,0.52,0.56,0.66,1.08],"arc":[1.2,1.25,1.3,1.35,1.4,1.5,1.85],"reach":[27,27,30,30,32,35,41],"step":[0,0,0,0,0,0,5],"mode":"stationaryFlurry"}},"crescent":{"id":"crescent","name":"초승달 이연참","slot":3,"hold":false,"damageScale":1.25,"cfg":{"duration":0.8,"hits":[0.16,0.52],"mult":[0.9,1.18],"arc":[2.4,2.7],"reach":[24,30],"step":[2,5],"mode":"crescentRetreat"}},"lunarBind":{"id":"lunarBind","name":"월인 결박","slot":4,"hold":false,"damageScale":0.95,"cfg":{"duration":1.9,"hits":[0.48658536585365847,0.8109756097560975,1.1585365853658536],"mult":[1.2167999999999999,1.6223999999999998,3.38],"arc":[5.15221195188726,5.7805304826052195,6.283185307179586],"reach":[110,135,153],"step":[0,0,0],"mode":"lunarPull"}},"guardBreak":{"id":"guardBreak","name":"파갑 일섬","slot":0,"hold":false,"damageScale":0.65,"cfg":{"duration":0.58,"hits":[0.28],"mult":[3.05],"arc":[0.52],"reach":[92],"step":[21],"mode":"guardPierce"}},"earthRend":{"id":"earthRend","name":"대지 절단","slot":1,"hold":false,"damageScale":0.9,"cfg":{"duration":0.92,"hits":[0.58],"mult":[2.65],"arc":[2.1],"reach":[65],"step":[9],"mode":"earthSlam"}},"quakeRush":{"id":"quakeRush","name":"파진 돌파","slot":2,"hold":false,"damageScale":1.2,"cfg":{"duration":0.75,"hits":[0.16,0.36,0.58],"mult":[0.72,0.82,1.18],"arc":[1,1,1.2],"reach":[27,27,35],"step":[43,47,53],"mode":"quakeLine"}},"ironJudgment":{"id":"ironJudgment","name":"쇄성 감옥","slot":3,"hold":false,"damageScale":1.1,"cfg":{"duration":1.22,"hits":[0.18,0.62,1.02],"mult":[0.38,0.58,2.35],"arc":[6.283185307179586,6.283185307179586,6.283185307179586],"reach":[230,230,230],"step":[0,0,0],"mode":"fracturePrison"}},"meteorBreaker":{"id":"meteorBreaker","name":"성운 검진","slot":4,"hold":true,"damageScale":0.58,"cfg":{"duration":4.32,"hits":[],"mult":[],"arc":[6.283185307179586],"reach":[200],"step":[0],"mode":"holdVortex"}},"dawnArc":{"id":"dawnArc","name":"여명 검파","slot":0,"hold":false,"damageScale":1.45,"cfg":{"duration":0.72,"hits":[0.28],"mult":[1.15],"arc":[1.7],"reach":[27],"step":[0],"mode":"dawnWave"}},"tempest":{"id":"tempest","name":"폭풍 검무","slot":1,"hold":false,"damageScale":0.75,"cfg":{"duration":1.28,"hits":[0.08,0.25,0.42,0.59,0.78,1.02],"mult":[0.42,0.45,0.48,0.52,0.58,0.92],"arc":[6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586,6.283185307179586],"reach":[24,30,35,41,46,57],"step":[0,0,0,0,0,0],"mode":"tempest"}},"skyFall":{"id":"skyFall","name":"천광 낙하","slot":2,"hold":false,"damageScale":0.95,"cfg":{"duration":1,"hits":[0.78],"mult":[3.25],"arc":[6.283185307179586],"reach":[0],"step":[0],"mode":"skyFall"}},"solarReturn":{"id":"solarReturn","name":"태양 회귀","slot":3,"hold":false,"damageScale":1.15,"cfg":{"duration":0.66,"hits":[0.24,0.46],"mult":[1,1],"arc":[1.5,1.5],"reach":[24,24],"step":[0,0],"dashDistance":360,"dashDuration":0.3,"mode":"boomerangWave"}},"prismLance":{"id":"prismLance","name":"프리즘 창렬","slot":4,"hold":false,"damageScale":0.58,"cfg":{"duration":1.9,"hits":[0.532,0.988,1.9],"mult":[0.594,0.7919999999999999,1.65],"arc":[1.476,1.6560000000000001,1.8],"reach":[13,16,18],"step":[0,0,0],"mode":"fanLances","finisher":{"back":120,"forward":640,"width":46,"mult":3.4,"stun":0.75}}},"chainReap":{"id":"chainReap","name":"궤도 편향","slot":0,"hold":false,"damageScale":1,"cfg":{"duration":0.58,"hits":[0.18,0.44],"mult":[0.48,1.34],"arc":[1.35,2],"reach":[70,103],"step":[0,0],"mode":"gravityDrift"}},"phantomSwap":{"id":"phantomSwap","name":"특이점 관통","slot":1,"hold":false,"damageScale":0.65,"cfg":{"duration":0.72,"hits":[0.2,0.48],"mult":[0.72,1.72],"arc":[0.72,1],"reach":[92,124],"step":[0,0],"mode":"singularityRush"}},"gravityCut":{"id":"gravityCut","name":"중력 점멸","slot":2,"hold":false,"damageScale":0.75,"cfg":{"duration":0.28,"hits":[],"mult":[],"arc":[1.35],"reach":[124],"step":[0],"mode":"void3Trigger"}},"bladeRain":{"id":"bladeRain","name":"사건선 절단","slot":3,"hold":false,"damageScale":1.15,"cfg":{"duration":1.05,"hits":[0.18,0.52,0.88],"mult":[0.38,0.62,2.05],"arc":[0.72,0.72,0.82],"reach":[297,311,358],"step":[0,0,0],"mode":"eventHorizonShear"}},"voidDance":{"id":"voidDance","name":"공허 유영","slot":4,"hold":true,"damageScale":0.32,"cfg":{"duration":3.8,"hits":[],"mult":[],"arc":[1.6],"reach":[120],"step":[0],"mode":"holdShadow"}}});
 const BOSS_ATTACKS = {
   forestBoss:['roots','melee','branches','roots'],marshBoss:['ranged','tide','rain','tide'],plateauBoss:['charge','fissure','slam','charge'],
   frostBoss:['iceLance','shardRing','frostLine','iceLance'],abyssBoss:['bloodRain','gravityWell','voidVolley','bloodRain'],finalBoss:['constellation','starfall','cross','charge']
@@ -319,7 +313,7 @@ function bootstrapAuthoritativeWorld(player,msg){
     const boss=bosses.get(id),maxHp=boss?boss.maxHp:clamp(raw.maxHp,1,9999999),hp=boss?boss.hp:clamp(raw.hp,0,maxHp),x=clamp(raw.x,50,WORLD.width-50),y=clamp(raw.y,50,WORLD.height-50);
     const m={id,type,x,y,sx:x,sy:y,hp,maxHp,dead:boss?!boss.alive:!!raw.dead,state:raw.dead?'dead':'idle',facing:clamp(raw.facing,-20,20),alert:false,targetId:null,provokedBy:null,attackType:def.kind,
       speed:clamp(raw.speed,10,900)||def.speed,damage:clamp(raw.damage,0,5000)||def.damage,reach:clamp(raw.reach,40,900)||def.reach,wind:clamp(raw.wind,.1,4)||def.wind,kind:def.kind,r:clamp(raw.r,8,80)||def.r,
-      attackAt:0,recoverUntil:0,chargeUntil:0,chargeHit:false,locked:0,stunUntil:0,respawnAt:0,pattern:0,knockVX:0,knockVY:0,lastAttackAt:0,spawnZone:String(raw.spawnZone||'').slice(0,40),spawnZoneX:Number.isFinite(Number(raw.spawnZoneX))?clamp(raw.spawnZoneX,50,WORLD.width-50):x,spawnZoneY:Number.isFinite(Number(raw.spawnZoneY))?clamp(raw.spawnZoneY,50,WORLD.height-50):y,spawnZoneRadius:clamp(raw.spawnZoneRadius,0,1200),styleId:'',styleSlots:[],stylePattern:0,skillId:'',skillSlot:0,skillRange:0,skillDamageMul:1};
+      attackAt:0,recoverUntil:0,chargeUntil:0,chargeHit:false,locked:0,stunUntil:0,respawnAt:0,pattern:0,knockVX:0,knockVY:0,lastAttackAt:0,spawnZone:String(raw.spawnZone||'').slice(0,40),spawnZoneX:Number.isFinite(Number(raw.spawnZoneX))?clamp(raw.spawnZoneX,50,WORLD.width-50):x,spawnZoneY:Number.isFinite(Number(raw.spawnZoneY))?clamp(raw.spawnZoneY,50,WORLD.height-50):y,spawnZoneRadius:clamp(raw.spawnZoneRadius,0,1200),styleId:'',styleSlots:[],stylePattern:0,skillId:'',skillSlot:0,skillRange:0,styleHits:[],styleHitIndex:0,styleStartedAt:0,styleDuration:0,styleAnchorX:0,styleAnchorY:0};
     if(type==='styleAdept'){const ids=Object.keys(STYLE_ADEPT_SKILLS),requested=String(raw.styleId||'');m.styleId=STYLE_ADEPT_SKILLS[requested]?requested:ids[(String(id).length+Math.round(x+y))%ids.length];m.styleSlots=Array.isArray(raw.styleSlots)?raw.styleSlots.slice(0,5).map(v=>clamp(v,0,4)|0):[0];if(!m.styleSlots.length)m.styleSlots=[0];}
     if(m.dead)m.respawnAt=Date.now()+(boss?Math.max(0,boss.respawnAt-Date.now()):NORMAL_MOB_RESPAWN_MS);authoritativeMobs.set(id,m);markMobDirty(m);
   }
@@ -353,9 +347,18 @@ function buildAmbientAggroSelections(){
   return new Map([...selected].map(([key,v])=>[key,v.mobId]));
 }
 function nearestMobTarget(m,ambientSelections=null){let best=null,bestD=m.kind==='boss'?900:720;for(const p of players.values()){if(!validMobTarget(m,p))continue;if(m.kind!=='boss'&&ambientSelections&&ambientSelections.get(ambientAggroKey(m,p.id))!==m.id)continue;const d=Math.hypot(p.x-m.x,p.y-m.y);if(d<bestD){best=p;bestD=d;}}return best;}
+function serverStyleRange(cfg,slot=0){
+ if(!cfg)return 180;const mode=cfg.mode,maxReach=Math.max(0,...(cfg.reach||[0]));
+ if(['windShot','dawnWave','fanLances'].includes(mode))return slot===4?760:650;
+ if(['galeBlink','galePursuit','mirrorBackstab','singularityRush'].includes(mode))return 760;
+ if(['eventHorizonShear','bladeRain'].includes(mode))return 460;
+ if(['fracturePrison','galeCrescendo','skyFall'].includes(mode))return 390;
+ if(['holdVortex','holdShadow','void3Trigger'].includes(mode))return 430;
+ return Math.max(150,94+maxReach+70);
+}
 function styleAdeptSpec(m,advance=false){
  const skills=STYLE_ADEPT_SKILLS[m.styleId]||STYLE_ADEPT_SKILLS.gale,slots=Array.isArray(m.styleSlots)&&m.styleSlots.length?m.styleSlots:[0],step=(m.stylePattern||0)%slots.length,slot=clamp(slots[step],0,4)|0;
- if(advance)m.stylePattern=(m.stylePattern||0)+1;return {slot,skillId:skills[slot],...STYLE_ADEPT_META[slot]};
+ if(advance)m.stylePattern=(m.stylePattern||0)+1;const skillId=skills[slot],data=STYLE_ADEPT_SKILL_DATA[skillId]||STYLE_ADEPT_SKILL_DATA.windSlash;return {...data,slot,skillId,range:serverStyleRange(data.cfg,slot),wind:Math.max(.20,Math.min(.55,((data.cfg?.hits?.[0]??.18)*.70+.16)))};
 }
 function mobAttackRange(m){if(m.kind==='style')return Math.max(180,m.skillRange||m.reach||390);if(m.kind==='ranged')return Math.max(220,m.reach||320);if(m.kind==='charge')return Math.max(130,Math.min(210,m.reach||170));if(m.kind==='boss')return Math.max(180,Math.min(280,m.reach||220));return Math.max(75,m.reach||90);}
 function chooseBossAttack(m){const list=BOSS_ATTACKS[m.type];if(!list?.length)return 'melee';const t=list[m.pattern%list.length];m.pattern++;return t;}
@@ -374,10 +377,48 @@ function sendMobAttack(m,target){
     }
   }
   if(dist>allowed)return;
-  const damage=Math.max(0,Math.round(m.damage*(isStyle?(m.skillDamageMul||1):1)));
+  const damage=Math.max(0,Math.round(m.damage));
   broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage,x:m.x,y:m.y,tx:target.x,ty:target.y,facing:m.facing,kind,attackType,skillId:isStyle?(m.skillId||''):'',skillSlot:isStyle?(m.skillSlot||0):null,styleId:isStyle?(m.styleId||''):'',serverTime:Date.now()},null,{volatile:true});
 }
-function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;m.skillId='';m.skillSlot=0;m.skillRange=0;m.skillDamageMul=1;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
+function styleSyntheticHits(data){
+ const cfg=data?.cfg;if(cfg?.hits?.length)return cfg.hits.slice();if(data?.id==='gravityCut')return [.10,.34,.58,.82,1.06];const duration=Math.max(.7,cfg?.duration||1.6),step=data?.id==='voidDance'?.22:.28,out=[];for(let t=.16;t<duration-.08;t+=step)out.push(t);return out.length?out:[duration*.55];
+}
+function styleServerMove(m,target,data,k){
+ const mode=data.cfg.mode,a=Math.atan2(target.y-m.y,target.x-m.x);m.locked=m.facing=a;
+ if(mode==='galeBlink'){const dist=Math.hypot(target.x-m.x,target.y-m.y),mv=Math.min(540,Math.max(0,dist-58));moveServerMob(m,Math.cos(a)*mv,Math.sin(a)*mv);}
+ else if(mode==='mirrorBackstab'){const tx=target.x-Math.cos(a)*58,ty=target.y-Math.sin(a)*58;moveServerMob(m,clamp(tx-m.x,-520,520),clamp(ty-m.y,-520,520));}
+ else if(mode==='stationaryFlurry'||mode==='galePursuit'||mode==='holdShadow'){const offs=[2.35,-2.35,1.55,-1.55,Math.PI,.85,-.85,2.75,-2.75,0],aa=a+offs[k%offs.length],dist=k===m.styleHits.length-1?62:82,tx=target.x+Math.cos(aa)*dist,ty=target.y+Math.sin(aa)*dist;moveServerMob(m,clamp(tx-m.x,-620,620),clamp(ty-m.y,-620,620));}
+ else if(['singularityRush','guardPierce','quakeLine','earthSlam'].includes(mode)){const mv=Math.min(mode==='singularityRush'?155:95,Math.max(0,Math.hypot(target.x-m.x,target.y-m.y)-54));moveServerMob(m,Math.cos(a)*mv,Math.sin(a)*mv);}
+ else if(mode==='crescentRetreat')moveServerMob(m,-Math.cos(a)*70,-Math.sin(a)*70);
+ else if(mode==='boomerangWave'){const mv=(data.cfg.dashDistance||360)/Math.max(1,m.styleHits.length);moveServerMob(m,Math.cos(a)*mv,Math.sin(a)*mv);}
+ else if(mode==='gravityDrift'){const side=k%2?1:-1;moveServerMob(m,-Math.sin(a)*side*65+Math.cos(a)*36,Math.cos(a)*side*65+Math.sin(a)*36);}
+}
+function styleServerHitTest(m,target,data,k){
+ const cfg=data.cfg,mode=cfg.mode,a=m.locked,dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy),diff=Math.abs(((Math.atan2(dy,dx)-a+Math.PI*3)%(Math.PI*2))-Math.PI),reach=94+(cfg.reach?.[Math.min(k,(cfg.reach?.length||1)-1)]||0),arc=cfg.arc?.[Math.min(k,(cfg.arc?.length||1)-1)]||1.5;
+ if(mode==='galeCrescendo'){const dd=[125,235,355][k]||355,r=[120,170,230][k]||230,cx=m.x+Math.cos(a)*dd,cy=m.y+Math.sin(a)*dd;return Math.hypot(target.x-cx,target.y-cy)<r+24;}
+ if(mode==='fracturePrison')return Math.hypot(target.x-m.styleAnchorX,target.y-m.styleAnchorY)<(k===2?162:142);
+ if(mode==='quakeLine'){const cx=m.x+Math.cos(a)*(55+k*38),cy=m.y+Math.sin(a)*(55+k*38);return Math.hypot(target.x-cx,target.y-cy)<86;}
+ if(['galePulse','moonBurst','tempest','lunarPull','holdVortex'].includes(mode))return d<(mode==='galePulse'?264:Math.max(169,reach));
+ if(mode==='skyFall')return Math.hypot(target.x-m.styleAnchorX,target.y-m.styleAnchorY)<190;
+ if(['windShot','dawnWave','fanLances','eventHorizonShear'].includes(mode))return d<serverStyleRange(cfg,m.skillSlot)+24&&diff<(mode==='fanLances'?.58:.34);
+ if(mode==='boomerangWave')return d<544&&(diff<.42||Math.abs(diff-Math.PI)<.42);
+ if(['void3Trigger','holdShadow','galePursuit'].includes(mode))return d<214;
+ return d<reach+24&&diff<arc/2+24/Math.max(d,35);
+}
+function broadcastStyleHit(m,target,data,k){
+ styleServerMove(m,target,data,k);const hit=styleServerHitTest(m,target,data,k),mult=(data.cfg.mult?.[Math.min(k,(data.cfg.mult?.length||1)-1)]??(data.id==='gravityCut'?.72:data.hold?.44:1))*(data.damageScale||1),damage=hit?Math.max(1,Math.round(m.damage*mult*.58)):0,finalHit=k===m.styleHits.length-1;
+ broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage,x:m.x,y:m.y,tx:target.x,ty:target.y,anchorX:m.styleAnchorX,anchorY:m.styleAnchorY,facing:m.locked,kind:'style',attackType:'style',skillId:data.id,skillSlot:m.skillSlot,styleId:m.styleId,hitIndex:k,finalHit,heavy:finalHit||['galeBlink','guardPierce','singularityRush'].includes(data.cfg.mode),serverTime:Date.now()},null,{volatile:true});
+}
+function beginStyleCast(m,target,now){
+ const data=STYLE_ADEPT_SKILL_DATA[m.skillId];if(!data)return false;m.styleHits=styleSyntheticHits(data);m.styleHitIndex=0;m.styleStartedAt=now;m.styleDuration=Math.max(data.cfg.duration||.5,(m.styleHits[m.styleHits.length-1]||0)+.18);m.styleAnchorX=target.x;m.styleAnchorY=target.y;m.state='styleSkill';markMobDirty(m);return true;
+}
+function advanceStyleCast(m,target,now){
+ const data=STYLE_ADEPT_SKILL_DATA[m.skillId];if(!data||!target)return false;const elapsed=(now-m.styleStartedAt)/1000;
+ while(m.styleHitIndex<m.styleHits.length&&elapsed>=m.styleHits[m.styleHitIndex]){broadcastStyleHit(m,target,data,m.styleHitIndex);m.styleHitIndex++;markMobDirty(m);}
+ if(elapsed>=m.styleDuration){m.state='recover';m.recoverUntil=now+420;m.styleHitIndex=0;m.styleHits=[];markMobDirty(m);return false;}return true;
+}
+
+function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;m.skillId='';m.skillSlot=0;m.skillRange=0;m.styleHits=[];m.styleHitIndex=0;m.styleStartedAt=0;m.styleDuration=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
 function simulateMob(m,dt,now,ambientSelections){
   if(m.dead){if(m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);return;}
   if(advanceMobControl(m,now,moveServerMob)){m.state='stunned';markMobDirty(m);return;}
@@ -400,10 +441,11 @@ function simulateMob(m,dt,now,ambientSelections){
   }
   if(!target){m.targetId=null;m.alert=false;const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>18){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;m.state='return';if(moveServerMob(m,Math.cos(a)*m.speed*1.15*dt,Math.sin(a)*m.speed*1.15*dt))markMobDirty(m);}else if(m.state!=='idle'){m.state='idle';markMobDirty(m);}return;}
   if(m.targetId!==target.id){m.targetId=target.id;m.alert=true;markMobDirty(m);}const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);m.facing=a;m.alert=true;
+  if(m.state==='styleSkill'){advanceStyleCast(m,target,now);return;}
   if(m.state==='charge'){if(now<m.chargeUntil){const speed=m.kind==='boss'?620:(m.type==='abyssHound'?560:m.type==='shardStalker'?520:470);if(moveServerMob(m,Math.cos(m.locked)*speed*dt,Math.sin(m.locked)*speed*dt))markMobDirty(m);if(!m.chargeHit&&Math.hypot(target.x-m.x,target.y-m.y)<m.r+34){sendMobAttack(m,target);m.chargeHit=true;}return;}m.state='recover';m.recoverUntil=now+650;markMobDirty(m);return;}
-  if(m.state==='windup'){if(now>=m.attackAt){if(m.kind==='style'){const meta=STYLE_ADEPT_META[clamp(m.skillSlot,0,4)|0]||STYLE_ADEPT_META[0];if(meta.dash){const dd=Math.hypot(target.x-m.x,target.y-m.y),dash=Math.min(meta.dash,Math.max(0,dd-58));if(dash>0)moveServerMob(m,Math.cos(m.locked)*dash,Math.sin(m.locked)*dash);}sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+meta.recover*1000;}else if(m.kind==='charge'||m.attackType==='charge'){m.state='charge';m.chargeUntil=now+420;m.chargeHit=false;}else{sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+(m.kind==='boss'?760:520);}markMobDirty(m);}return;}
+  if(m.state==='windup'){if(now>=m.attackAt){if(m.kind==='style'){beginStyleCast(m,target,now);}else if(m.kind==='charge'||m.attackType==='charge'){m.state='charge';m.chargeUntil=now+420;m.chargeHit=false;}else{sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+(m.kind==='boss'?760:520);}markMobDirty(m);}return;}
   if(now<m.recoverUntil){if(m.state!=='recover'){m.state='recover';markMobDirty(m);}return;}
-  const stylePreview=m.kind==='style'?styleAdeptSpec(m,false):null,range=stylePreview?.range||mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.locked=a;m.lastAttackAt=now;if(m.kind==='style'){const sk=styleAdeptSpec(m,true);m.attackType='style';m.skillId=sk.skillId;m.skillSlot=sk.slot;m.skillRange=sk.range;m.skillDamageMul=sk.mul;m.attackAt=now+Math.max(260,sk.wind*1000);}else{m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.attackAt=now+Math.max(260,m.wind*1000);}markMobDirty(m);return;}
+  const stylePreview=m.kind==='style'?styleAdeptSpec(m,false):null,range=stylePreview?.range||mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.locked=a;m.lastAttackAt=now;if(m.kind==='style'){const sk=styleAdeptSpec(m,true);m.attackType='style';m.skillId=sk.skillId;m.skillSlot=sk.slot;m.skillRange=sk.range;m.attackAt=now+Math.max(220,sk.wind*1000);}else{m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.attackAt=now+Math.max(260,m.wind*1000);}markMobDirty(m);return;}
   m.state='chase';let dir=1;if(m.kind==='ranged'&&d<range*.55)dir=-1;else if(m.kind==='ranged'&&d<range*.82)dir=0;if(dir&&moveServerMob(m,Math.cos(a)*m.speed*dir*dt,Math.sin(a)*m.speed*dir*dt))markMobDirty(m);
 }
 let ambientSelectionAt=-Infinity,ambientSelectionCache=new Map();
