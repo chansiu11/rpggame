@@ -18,8 +18,9 @@ const PLAYER_LIST_MS = 1000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v6-style-hardreset';
-const SERVER_BUILD = '2026-09-27-style-adept-combat-2';
-const STYLE_ADEPT_RECAST_MS = 2500;
+const SERVER_BUILD = '2026-09-27-style-adept-combat-3';
+const STYLE_ADEPT_RECAST_MS = 1250;
+const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const WORLD_RESET_EPOCH = '2026-09-27-world-reset-1';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
@@ -409,7 +410,7 @@ function styleServerHitTest(m,target,data,k){
  return d<reach+pad&&diff<arc/2+pad/Math.max(d,35);
 }
 function broadcastStyleHit(m,target,data,k){
- styleServerMove(m,target,data,k);const hit=styleServerHitTest(m,target,data,k),mult=(data.cfg.mult?.[Math.min(k,(data.cfg.mult?.length||1)-1)]??(data.id==='gravityCut'?.72:data.hold?.44:1))*(data.damageScale||1),damage=hit?Math.max(1,Math.round(m.damage*mult*.58)):0,finalHit=k===m.styleHits.length-1;
+ styleServerMove(m,target,data,k);const hit=styleServerHitTest(m,target,data,k),mult=(data.cfg.mult?.[Math.min(k,(data.cfg.mult?.length||1)-1)]??(data.id==='gravityCut'?.72:data.hold?.44:1))*(data.damageScale||1),damage=hit?Math.max(1,Math.round(m.damage*mult*STYLE_ADEPT_DAMAGE_SCALE)):0,finalHit=k===m.styleHits.length-1;
  broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage,x:m.x,y:m.y,tx:target.x,ty:target.y,anchorX:m.styleAnchorX,anchorY:m.styleAnchorY,facing:m.locked,kind:'style',attackType:'style',skillId:data.id,skillSlot:m.skillSlot,styleId:m.styleId,castId:m.styleCastId||0,hitIndex:k,finalHit,heavy:finalHit||['galeBlink','guardPierce','singularityRush'].includes(data.cfg.mode),serverTime:Date.now()},null,{volatile:false});
 }
 function beginStyleCast(m,target,now){

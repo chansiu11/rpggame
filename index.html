@@ -135,7 +135,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <script type="module" src="./cloud-save.js?v=20260927-reset-1"></script>
 <script src="./multiplayer-config.js?v=20260926-2"></script>
 <script src="./multiplayer-server/combat-core.js?v=20260927-dawn-pull"></script>
-<script src="./multiplayer-client.js?v=20260927-style-combat-2"></script>
+<script src="./multiplayer-client.js?v=20260927-style-combat-3"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (() => {
@@ -2247,7 +2247,7 @@ function styleAdeptPerformHit(e,seq,k,dealDamage=true){
  const cfg=seq.cfg,sk=seq.sk,finalHit=k===seq.hits.length-1;styleAdeptMoveForHit(e,seq,k);
  const reach=94+(cfg.reach?.[Math.min(k,(cfg.reach?.length||1)-1)]||0),ctx={...seq,target:player};if(distance(e,player)<1350)swordSignatureFx(sk.id,k,finalHit,seq.facing,reach,sk.color,e,ctx);
  if(!dealDamage)return;const mult=(cfg.mult?.[Math.min(k,(cfg.mult?.length||1)-1)]??(sk.id==='gravityCut'?.72:sk.holdContinuous?.44:1))*(SWORD_DAMAGE_BALANCE[sk.id]||1),hit=styleAdeptHitTest(e,seq,k);
- if(hit){const result=hitPlayer(Math.max(1,Math.round(e.damage*mult*.58)),e,k===seq.hits.length-1||['galeBlink','guardPierce','singularityRush'].includes(cfg.mode));if(result==='parried'){e.stun=Math.max(e.stun,1.1);e.state='stunned';e.styleSeq=null;}}
+ if(hit){const result=hitPlayer(Math.max(1,Math.round(e.damage*mult*.725)),e,k===seq.hits.length-1||['galeBlink','guardPierce','singularityRush'].includes(cfg.mode));if(result==='parried'){e.stun=Math.max(e.stun,1.1);e.state='stunned';e.styleSeq=null;}}
 }
 function updateStyleAdeptCast(e,dt){
  const seq=e.styleSeq;if(!seq){e.state='recover';e.timer=.35;return;}seq.elapsed+=dt;const mode=seq.cfg.mode;
@@ -2256,7 +2256,7 @@ function updateStyleAdeptCast(e,dt){
  else if(mode==='holdShadow'){seq.fx-=dt;if(seq.fx<=0){seq.fx=.12;const th=swordStyleFxForSkill(seq.skillId);effects.push({type:'starSeal',x:e.x,y:e.y,r:75,color:th.accent,t:.17,max:.17});}}
  else if(mode==='galePulse'&&seq.elapsed<.5){seq.fx-=dt;if(seq.fx<=0){seq.fx=.06;const th=swordStyleFxForSkill(seq.skillId),p=clamp(seq.elapsed/.5,0,1);ring(e.x,e.y,205-p*118,th.main,.13);}}
  while(seq.nextHit<seq.hits.length&&seq.elapsed>=seq.hits[seq.nextHit]){styleAdeptPerformHit(e,seq,seq.nextHit,true);seq.nextHit++;if(e.state==='stunned')return;}
- if(seq.elapsed>=seq.duration){e.styleSeq=null;e.state='recover';e.timer=2.5;}
+ if(seq.elapsed>=seq.duration){e.styleSeq=null;e.state='recover';e.timer=1.25;}
 }
 function executeStyleAdeptAttack(e){styleAdeptStartCast(e);}
 
