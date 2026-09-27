@@ -1232,9 +1232,9 @@ function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color,actor=player,cont
   effects.push({type:'line',x:actor.x,y:actor.y,x2:actor.x+Math.cos(ang)*330,y2:actor.y+Math.sin(ang)*330,color:sub,t:.32,max:.32});
  }else if(id==='thunderDrive'){
   const seq=context||activeSwordSkill,target=context?.target||(seq?swordSeqTarget(seq):null),cx=target?.x??actor.x,cy=target?.y??actor.y,fa=target?Math.atan2(target.y-actor.y,target.x-actor.x):ang;
-  effects.push({type:'riftCut',x:(actor.x+cx)/2,y:(actor.y+cy)/2,a:fa,len:210+hitIndex*26,width:28+hitIndex*5,color:hitIndex%2?sub:color,t:.34,max:.34});
-  effects.push({type:'slash',x:cx,y:cy,a:fa+(hitIndex%2?1:-1)*.9,arc:1.9,r:115+hitIndex*13,color:accent,t:.30,max:.30});
-  ring(cx,cy,86+hitIndex*14,hitIndex%2?color:sub,.28);
+  const phase=hitIndex%6;effects.push({type:'riftCut',x:(actor.x+cx)/2,y:(actor.y+cy)/2,a:fa+(hitIndex%2?.16:-.16),len:150+phase*7,width:16+phase*2,color:hitIndex%2?sub:color,t:.16,max:.16});
+  effects.push({type:'slash',x:cx,y:cy,a:fa+(hitIndex%2?1:-1)*.75,arc:1.45,r:82+phase*4,color:accent,t:.15,max:.15});
+  if(hitIndex%3===0)ring(cx,cy,68+phase*3,hitIndex%2?color:sub,.15);
   if(finalHit){for(let j=0;j<8;j++){const aa=j*TAU/8;effects.push({type:'riftCut',x:cx+Math.cos(aa)*92,y:cy+Math.sin(aa)*92,a:aa+Math.PI/2,len:210,width:34,color:j%2?sub:color,t:.48,max:.48});}effects.push({type:'nova',x:cx,y:cy,r:245,color:accent,t:.66,max:.66});effects.push({type:'starSeal',x:cx,y:cy,r:205,color:sub,t:.60,max:.60});burst(cx,cy,color,42,300);}
  }else if(id==='meteorBreaker'){
   effects.push({type:'starSeal',x:actor.x,y:actor.y,r:175,color,t:.62,max:.62});
@@ -1279,7 +1279,7 @@ function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color,actor=player,cont
   const off=hitIndex===0?92:hitIndex===1?48:0,L=350,offs=off?[off,-off]:[0];
   for(const sideOff of offs){const sx=actor.x-Math.sin(ang)*sideOff+Math.cos(ang)*30,sy=actor.y+Math.cos(ang)*sideOff+Math.sin(ang)*30;effects.push({type:'riftCut',x:sx+Math.cos(ang)*150,y:sy+Math.sin(ang)*150,a:ang,len:L,width:hitIndex===2?46:24,color:hitIndex===2?sub:color,t:.38,max:.38});effects.push({type:'line',x:sx,y:sy,x2:sx+Math.cos(ang)*L,y2:sy+Math.sin(ang)*L,color:accent,t:.30,max:.30});}
  }
- else if(id==='voidDance'){effects.push({type:'starSeal',x:actor.x,y:actor.y,r:72,color,t:.22,max:.22});}
+ else if(id==='voidDance'){const target=context?.target,tx=target?.x??actor.x+Math.cos(ang)*72,ty=target?.y??actor.y+Math.sin(ang)*72;effects.push({type:'riftCut',x:(actor.x+tx)/2,y:(actor.y+ty)/2,a:Math.atan2(ty-actor.y,tx-actor.x),len:Math.min(220,Math.max(90,Math.hypot(tx-actor.x,ty-actor.y)+55)),width:20,color,t:.18,max:.18});if(finalHit)effects.push({type:'starSeal',x:tx,y:ty,r:88,color:sub,t:.30,max:.30});}
 }
 function swordSkillById(id){return SWORD_SKILL_LIBRARY.find(s=>s.id===id)||null;}
 const SWORD_RANGE_SCALE=1.35,GALE_SKILLS=new Set(['windSlash','flashRush','starRush','galeOrbit','thunderDrive']),GALE_RANGE_SCALE=1.45,SWORD_DASH_SKILLS=new Set(['flashRush','mirrorStep','quakeRush','skyFall','phantomSwap']);
@@ -1791,7 +1791,7 @@ function hitShadowCarryPath(seq,ox,oy){
  for(const e of combatTargets()){
   if(!swordCarryEligible(e))continue;const c=combatCenter(e);
   if(segmentDistance(c.x,c.y,[ox,oy],[player.x,player.y])>width+combatRadius(e))continue;
-  hitEnemy(e,seq.ultimate?levelTargetDamage(70):damageValue(.52),false,player,{stun:.5,dx:0,dy:0,shape:'segment',x1:ox,y1:oy,x2:player.x,y2:player.y,r:width});
+  hitEnemy(e,seq.ultimate?levelTargetDamage(70):damageValue(.52),false,player,{stun:.5,dx:0,dy:0,shape:'segment',x1:ox,y1:oy,x2:player.x,y2:player.y,r:width,teleportHit:true});
   ids.add(e.id);
  }
 }
@@ -1837,12 +1837,12 @@ function performSwordSkillHit(seq,hitIndex){
  else if(mode==='galeCrescendo'){const dist=[125,235,355][hitIndex]||355,r=[120,170,230][hitIndex]||230,cx=player.x+Math.cos(ang)*dist,cy=player.y+Math.sin(ang)*dist,push=[110,120,145][hitIndex]||145;seq.galeCrescendoTargets??=new Set();for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const inWave=combatDistance(e,{x:cx,y:cy})<=r+combatRadius(e),locked=seq.galeCrescendoTargets.has(e.id);if(!inWave&&!locked)continue;if(inWave)seq.galeCrescendoTargets.add(e.id);if(!seq.galeCrescendoTargets.has(e.id))continue;hitEnemy(e,damage,finalHit,player,{stun:finalHit?.62:.26,dx:Math.cos(ang)*push,dy:Math.sin(ang)*push,duration:window.EchoesCombat.forceDuration(push)});}}
  else if(mode==='galePursuit'){
   const target=seq.galePursuitTargetId?combatTargets().find(e=>e.id===seq.galePursuitTargetId&&!e.dead&&!e.riftSleeping):null;
-  if(target){
+  if(target&&seq.galePursuitHit){
    const ox=player.x,oy=player.y,base=seq.galePursuitBaseA??seq.facing,offs=[2.35,-2.35,1.55,-1.55,Math.PI,.85,-.85,2.75,-2.75,0],aa=base+offs[hitIndex%offs.length],dist=hitIndex===cfg.hits.length-1?62:82,tx=target.x+Math.cos(aa)*dist,ty=target.y+Math.sin(aa)*dist;
    moveBody(player,clamp(tx-player.x,-760,760),clamp(ty-player.y,-760,760));syncSkillMoveIfNeeded(ox,oy,16,760);
    const face=Math.atan2(target.y-player.y,target.x-player.x);seq.facing=player.facing=player.attackAngle=face;
    hitEnemy(target,damage,true,player,{stun:finalHit?.85:.24,dx:finalHit?Math.cos(face)*120:0,dy:finalHit?Math.sin(face)*120:0,duration:finalHit?window.EchoesCombat.forceDuration(120):0});
-   const th=swordStyleFxForSkill(sk.id);effects.push({type:'line',x:ox,y:oy,x2:player.x,y2:player.y,color:hitIndex%2?th.sub:th.main,t:.20,max:.20});effects.push({type:'riftCut',x:(player.x+target.x)/2,y:(player.y+target.y)/2,a:face,len:190+hitIndex*22,width:24+hitIndex*5,color:hitIndex%2?th.accent:th.sub,t:.28,max:.28});
+   const th=swordStyleFxForSkill(sk.id);effects.push({type:'line',x:ox,y:oy,x2:player.x,y2:player.y,color:hitIndex%2?th.sub:th.main,t:.20,max:.20});const phase=hitIndex%6;effects.push({type:'riftCut',x:(player.x+target.x)/2,y:(player.y+target.y)/2,a:face+(hitIndex%2?.16:-.16),len:150+phase*7,width:16+phase*2,color:hitIndex%2?th.accent:th.sub,t:.16,max:.16});
   }else{seq.nextHit=cfg.hits.length;seq.elapsed=seq.duration;}
  }
  else if(mode==='blinkThrust'){meleeHit(reach,.58,damage,true);}
