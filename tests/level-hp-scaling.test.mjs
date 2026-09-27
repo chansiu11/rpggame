@@ -41,3 +41,9 @@ test('level extension does not rescale the existing Gale and Void ultimate damag
  assert.match(html,/function ultimateTargetDamage\(maxAt100,level=player\?\.level\|\|1\)\{const lv=clamp\(Number\(level\)\|\|1,1,100\)/);
  assert.match(html,/function pvpUltimateTargetDamage\(maxAt100,level=me\?\.level\|\|1\)\{const lv=clamp\(Number\(level\)\|\|1,1,100\)/);
 });
+
+
+test('per-level player damage growth is increased by 1.5x',()=>{
+ assert.match(html,/PLAYER_DAMAGE_PER_LEVEL=2\.55/);
+ assert.equal(2.55,1.7*1.5);
+});
