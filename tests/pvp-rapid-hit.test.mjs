@@ -54,7 +54,7 @@ test('PVP critical ultimates stay on the legacy-compatible atk message type',{ti
  assert.match(html,/m\.t==='atkAck'\|\|m\.t==='ultAck'/);
  assert.match(html,/sendPvpUltimateHit\(\{skillId:'thunderDrive'/);
  assert.match(html,/sendPvpUltimateHit\(\{skillId:'voidDance'/);
- assert.match(html,/PVP build 20260927-ULT-HIT-4/);
+ assert.match(html,/PVP build 20260927-ULT-DIRECT-5/);
 });
 
 test('admin sword maps to sword combat instead of hidden greatsword in PVP',{timeout:1000},()=>{
@@ -108,4 +108,12 @@ test('rapid multi-hit still does not bypass real dash or skill invulnerability',
  const times=[0,.05,.10,.15];
  const hits=simulateHitInv(times,{rapid:true,trueInvWindows:[[0,.12]]});
  assert.deepEqual(hits,[3]);
+});
+
+
+test('Gale and Void V-slot ultimates use the direct PVP startup path',{timeout:1000},()=>{
+ assert.match(html,/function resolvePvpStyleUltimate\(f=me\)/);
+ assert.match(html,/if\(i===4\)\{const ult=resolvePvpStyleUltimate\(me\);if\(ult&&skillReady\(i\)\)/);
+ assert.match(html,/startSwordSequence\(i,a,ult\)/);
+ assert.match(html,/function startSwordSequence\(i,preparedA=null,forcedSkill=null\)/);
 });
