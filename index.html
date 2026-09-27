@@ -1232,9 +1232,9 @@ function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color,actor=player,cont
   effects.push({type:'line',x:actor.x,y:actor.y,x2:actor.x+Math.cos(ang)*330,y2:actor.y+Math.sin(ang)*330,color:sub,t:.32,max:.32});
  }else if(id==='thunderDrive'){
   const seq=context||activeSwordSkill,target=context?.target||(seq?swordSeqTarget(seq):null),cx=target?.x??actor.x,cy=target?.y??actor.y,fa=target?Math.atan2(target.y-actor.y,target.x-actor.x):ang;
-  const phase=hitIndex%6;effects.push({type:'riftCut',x:(actor.x+cx)/2,y:(actor.y+cy)/2,a:fa+(hitIndex%2?.16:-.16),len:150+phase*7,width:16+phase*2,color:hitIndex%2?sub:color,t:.16,max:.16});
-  effects.push({type:'slash',x:cx,y:cy,a:fa+(hitIndex%2?1:-1)*.75,arc:1.45,r:82+phase*4,color:accent,t:.15,max:.15});
-  if(hitIndex%3===0)ring(cx,cy,68+phase*3,hitIndex%2?color:sub,.15);
+  effects.push({type:'riftCut',x:(actor.x+cx)/2,y:(actor.y+cy)/2,a:fa,len:210+hitIndex*26,width:28+hitIndex*5,color:hitIndex%2?sub:color,t:.34,max:.34});
+  effects.push({type:'slash',x:cx,y:cy,a:fa+(hitIndex%2?1:-1)*.9,arc:1.9,r:115+hitIndex*13,color:accent,t:.30,max:.30});
+  ring(cx,cy,86+hitIndex*14,hitIndex%2?color:sub,.28);
   if(finalHit){for(let j=0;j<8;j++){const aa=j*TAU/8;effects.push({type:'riftCut',x:cx+Math.cos(aa)*92,y:cy+Math.sin(aa)*92,a:aa+Math.PI/2,len:210,width:34,color:j%2?sub:color,t:.48,max:.48});}effects.push({type:'nova',x:cx,y:cy,r:245,color:accent,t:.66,max:.66});effects.push({type:'starSeal',x:cx,y:cy,r:205,color:sub,t:.60,max:.60});burst(cx,cy,color,42,300);}
  }else if(id==='meteorBreaker'){
   effects.push({type:'starSeal',x:actor.x,y:actor.y,r:175,color,t:.62,max:.62});
@@ -1279,7 +1279,7 @@ function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color,actor=player,cont
   const off=hitIndex===0?92:hitIndex===1?48:0,L=350,offs=off?[off,-off]:[0];
   for(const sideOff of offs){const sx=actor.x-Math.sin(ang)*sideOff+Math.cos(ang)*30,sy=actor.y+Math.cos(ang)*sideOff+Math.sin(ang)*30;effects.push({type:'riftCut',x:sx+Math.cos(ang)*150,y:sy+Math.sin(ang)*150,a:ang,len:L,width:hitIndex===2?46:24,color:hitIndex===2?sub:color,t:.38,max:.38});effects.push({type:'line',x:sx,y:sy,x2:sx+Math.cos(ang)*L,y2:sy+Math.sin(ang)*L,color:accent,t:.30,max:.30});}
  }
- else if(id==='voidDance'){const target=context?.target,tx=target?.x??actor.x+Math.cos(ang)*72,ty=target?.y??actor.y+Math.sin(ang)*72;effects.push({type:'riftCut',x:(actor.x+tx)/2,y:(actor.y+ty)/2,a:Math.atan2(ty-actor.y,tx-actor.x),len:Math.min(220,Math.max(90,Math.hypot(tx-actor.x,ty-actor.y)+55)),width:20,color,t:.18,max:.18});if(finalHit)effects.push({type:'starSeal',x:tx,y:ty,r:88,color:sub,t:.30,max:.30});}
+ else if(id==='voidDance'){effects.push({type:'starSeal',x:actor.x,y:actor.y,r:72,color,t:.22,max:.22});}
 }
 function swordSkillById(id){return SWORD_SKILL_LIBRARY.find(s=>s.id===id)||null;}
 const SWORD_RANGE_SCALE=1.35,GALE_SKILLS=new Set(['windSlash','flashRush','starRush','galeOrbit','thunderDrive']),GALE_RANGE_SCALE=1.45,SWORD_DASH_SKILLS=new Set(['flashRush','mirrorStep','quakeRush','skyFall','phantomSwap']);
@@ -1817,7 +1817,7 @@ function finishSwordCarryTargets(seq,interrupted=false){
 function performSwordSkillHit(seq,hitIndex){
  const baseSk=swordSkillById(seq.skillId),sk=balancedSwordSkill(baseSk,seq.slot),cfg=sk?.cfg,w=WEAPONS[player.weapon]||WEAPONS[0];if(!cfg||!sk)return;
  const ang=seq.facing;player.facing=ang;player.attackAngle=ang;player.attackArc=cfg.arc[hitIndex];
- const reach=w.reach+(cfg.reach[hitIndex]||0),finalHit=hitIndex===cfg.hits.length-1,damage=sk.id==='thunderDrive'?levelTargetDamage(finalHit?200:100):damageValue(cfg.mult[hitIndex]||1),mode=cfg.mode;
+ const reach=w.reach+(cfg.reach[hitIndex]||0),finalHit=hitIndex===cfg.hits.length-1,damage=sk.id==='thunderDrive'?levelTargetDamage(finalHit?200:100):sk.id==='voidDance'?levelTargetDamage(70):damageValue(cfg.mult[hitIndex]||1),mode=cfg.mode;
  captureSwordCarryTargets(seq,ang,reach,cfg.arc[hitIndex]);
  const px0=player.x,py0=player.y,step=cfg.step[hitIndex]||0;if(step)moveBody(player,Math.cos(ang)*step,Math.sin(ang)*step);
  if(seq.ultimate&&sk.id==='lunarBind'){
@@ -2014,7 +2014,7 @@ function updateSwordSkillMotion(seq,sk,dt){
   if(!seq.galePursuitResolved){
    const ox=player.x,oy=player.y;moveBody(player,Math.cos(seq.facing)*1500*dt,Math.sin(seq.facing)*1500*dt);player.invuln=Math.max(player.invuln,.08);
    effects.push({type:'line',x:ox,y:oy,x2:player.x,y2:player.y,color:th.main,t:.16,max:.16});
-   if(!seq.galePursuitTargetId){const hit=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)).filter(e=>{const cc=combatCenter(e);return segmentDistance(cc.x,cc.y,[ox,oy],[player.x,player.y])<=72+combatRadius(e);}).sort((a,b)=>combatDistance(a,{x:ox,y:oy})-combatDistance(b,{x:ox,y:oy}))[0];if(hit){seq.galePursuitHit=true;seq.galePursuitTargetId=hit.id;seq.targetId=hit.id;seq.galePursuitBaseA=seq.facing;const hc=combatCenter(hit),push=720,pdx=Math.cos(seq.facing)*push,pdy=Math.sin(seq.facing)*push,pdur=window.EchoesCombat.forceDuration(push);hitEnemy(hit,levelTargetDamage(100),true,player,{stun:.34,dx:pdx,dy:pdy,duration:pdur});if(hit.networkPlayer)worldTargetControl(hit.id,{dx:pdx,dy:pdy,stun:.34,duration:pdur});effects.push({type:'nova',x:hc.x,y:hc.y,r:105,color:th.accent,t:.34,max:.34});ring(hc.x,hc.y,118,th.sub,.32);burst(hc.x,hc.y,th.main,20,205);shake=Math.max(shake,8);}}
+   if(!seq.galePursuitTargetId){const hit=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)).filter(e=>{const cc=combatCenter(e);return segmentDistance(cc.x,cc.y,[ox,oy],[player.x,player.y])<=72+combatRadius(e);}).sort((a,b)=>combatDistance(a,{x:ox,y:oy})-combatDistance(b,{x:ox,y:oy}))[0];if(hit){seq.galePursuitHit=true;seq.galePursuitTargetId=hit.id;seq.targetId=hit.id;seq.galePursuitBaseA=seq.facing;const hc=combatCenter(hit),push=720,pdx=Math.cos(seq.facing)*push,pdy=Math.sin(seq.facing)*push,pdur=window.EchoesCombat.forceDuration(push);hitEnemy(hit,damageValue(.92),true,player,{stun:.34,dx:pdx,dy:pdy,duration:pdur});if(hit.networkPlayer)worldTargetControl(hit.id,{dx:pdx,dy:pdy,stun:.34,duration:pdur});effects.push({type:'nova',x:hc.x,y:hc.y,r:105,color:th.accent,t:.34,max:.34});ring(hc.x,hc.y,118,th.sub,.32);burst(hc.x,hc.y,th.main,20,205);shake=Math.max(shake,8);}}
    if(seq.elapsed>=dashEnd){
     if(!seq.galePursuitTargetId){seq.galePursuitResolved=true;seq.galePursuitMiss=true;seq.nextHit=cfg.hits.length;seq.elapsed=seq.duration;player.cast=0;player.attackCd=.10;player.attackAnim=.10;player.moveLock=0;player.postSkillLockTimer=.05;}
     else{const target=combatTargets().find(e=>e.id===seq.galePursuitTargetId&&!e.dead&&!e.riftSleeping);if(!target){seq.galePursuitResolved=true;seq.galePursuitMiss=true;seq.nextHit=cfg.hits.length;seq.elapsed=seq.duration;}else{seq.galePursuitResolved=true;const carry=player.r+combatRadius(target)+20,tx=player.x+Math.cos(seq.facing)*carry,ty=player.y+Math.sin(seq.facing)*carry;seq.galePursuitCarryX=tx;seq.galePursuitCarryY=ty;if(target.networkPlayer){worldTargetControl(target.id,{x:tx,y:ty,stun:.34,duration:.22});}else{moveBody(target,tx-target.x,ty-target.y);applyEnemyStun(target,.34);}syncInstantPlayerMove(1600);ring(tx,ty,110,th.accent,.32);}}
