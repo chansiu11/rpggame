@@ -1042,16 +1042,16 @@ const SWORD_SKILL_LIBRARY=[
  {id:'windSlash',name:'삼렬 풍도',level:1,price:0,cost:20,cool:3.4,color:'#61f0c7',desc:'짧은 거리만 전진하는 길쭉한 검풍 세 개를 좌우로 나란히 발사합니다. 세 검풍은 같은 방향으로 평행하게 뻗어 넓은 전면을 동시에 압박합니다.',cfg:{duration:.44,hits:[.18],mult:[1.0],arc:[1.4],reach:[0],step:[0],mode:'windShot'}},
  {id:'flashRush',name:'질풍 점멸',level:4,price:180,cost:29,cool:4.8,color:'#61f0c7',desc:'조준 방향 또는 표적을 향해 한 번에 점멸 돌진합니다. 점멸 경로에 닿은 적들은 내가 실제로 이동한 거리와 같은 거리만큼 진행 방향으로 날아갑니다.',cfg:{duration:.48,hits:[.16],mult:[2.05],arc:[1.35],reach:[0],step:[0],mode:'galeBlink'}},
  {id:'moonSpin',name:'달빛 회전',level:7,price:260,cost:32,cool:5.4,color:'#b88cff',desc:'가까운 적의 옆을 반원으로 돌며 적들을 중심 쪽으로 끌어당긴 뒤 한 번에 베어냅니다.',cfg:{duration:.62,hits:[.26],mult:[1.75],arc:[TAU],reach:[46],step:[0],mode:'moonBurst'}},
- {id:'starRush',name:'풍압 연파',level:18,price:0,cost:49,cool:9.4,color:'#61f0c7',desc:'제자리에서 전방에 세 단계의 거대한 풍압층을 펼칩니다. 각 파문은 이전 것보다 멀고 넓게 터지며, 마지막 파문은 다층 풍압륜과 교차 바람칼이 동시에 폭발합니다. 3번보다 강하고 궁극기보다 약한 상급 광역기입니다.',cfg:{duration:1.20,hits:[.22,.58,.98],mult:[.78,1.05,1.95],arc:[TAU,TAU,TAU],reach:[0,0,0],step:[0,0,0],mode:'galeCrescendo'}},
+ {id:'starRush',name:'풍압 연파',level:18,price:0,cost:49,cool:9.4,color:'#61f0c7',desc:'전방에 3단 풍압을 연속으로 펼칩니다. 첫 풍압에 맞은 대상은 뒤로 밀리며 다음 풍압 위치로 이어져 세 타를 연속으로 맞습니다.',cfg:{duration:1.20,hits:[.22,.58,.98],mult:[.78,1.05,1.95],arc:[TAU,TAU,TAU],reach:[0,0,0],step:[0,0,0],mode:'galeCrescendo'}},
  {id:'crossBloom',name:'연속 교차 베기',level:13,price:420,cost:40,cool:7.2,color:'#b88cff',desc:'표적의 좌우를 번갈아 밟으며 위치를 바꾸고 일곱 번의 교차 베기를 한 대상 주변에 집중합니다.',cfg:{duration:1.42,hits:[.10,.26,.42,.58,.76,.96,1.20],mult:[.43,.45,.48,.52,.56,.66,1.08],arc:[1.20,1.25,1.30,1.35,1.40,1.50,1.85],reach:[20,20,22,22,24,26,30],step:[0,0,0,0,0,0,4],mode:'stationaryFlurry'}},
  {id:'crescent',name:'초승달 이연참',level:16,price:520,cost:34,cool:5.8,color:'#b88cff',desc:'뒤로 크게 빠지면서 서로 다른 각도의 초승달 검압 두 개를 연속 발사합니다.',cfg:{duration:.80,hits:[.16,.52],mult:[.90,1.18],arc:[2.4,2.7],reach:[18,22],step:[2,4],mode:'crescentRetreat'}},
  {id:'guardBreak',name:'파갑 일섬',level:20,price:650,cost:42,cool:7.8,color:'#ff9f55',desc:'표적 옆으로 짧게 비켜선 뒤 원래 공격선으로 파고들어 한 번만 강하게 관통합니다.',cfg:{duration:.58,hits:[.28],mult:[3.05],arc:[.52],reach:[68],step:[18],mode:'guardPierce'}},
  {id:'tempest',name:'폭풍 검무',level:24,price:780,cost:48,cool:9,color:'#ffd95c',desc:'작은 나선 궤도를 직접 돌면서 여섯 번 회전 베기해 주변 적을 휩쓸어갑니다.',cfg:{duration:1.28,hits:[.08,.25,.42,.59,.78,1.02],mult:[.42,.45,.48,.52,.58,.92],arc:[TAU,TAU,TAU,TAU,TAU,TAU],reach:[18,22,26,30,34,42],step:[0,0,0,0,0,0],mode:'tempest'}},
  {id:'earthRend',name:'대지 절단',level:30,price:920,cost:52,cool:10,color:'#ff9f55',desc:'앞으로 도약하는 듯 몸이 떠오른 뒤 착지 지점을 내려찍어 전방 지면을 폭발시킵니다.',cfg:{duration:.92,hits:[.58],mult:[2.65],arc:[2.1],reach:[48],step:[8],mode:'earthSlam'}},
  {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:11.5,color:'#ffd95c',desc:'강한 검압 하나를 발사한 반동으로 몸이 뒤로 밀리는 초장거리 단발기입니다.',cfg:{duration:.72,hits:[.28],mult:[1.15],arc:[1.7],reach:[20],step:[0],mode:'dawnWave'}},
- {id:'thunderDrive',name:'천풍 추살',level:44,price:1280,cost:74,cool:15.4,color:'#61f0c7',desc:'질풍 유파의 궁극기. 먼저 조준 방향으로 초고속 돌진합니다. 첫 돌진이 누구에게도 맞지 않으면 즉시 종료됩니다. 적중하면 그 대상을 고정 추적해 좌우와 후방을 빠르게 가로지르며 연속 공격하고 강한 추살 일격으로 마무리합니다.',cfg:{duration:1.35,hits:[.25,.43,.61,.79,.97,1.15],mult:[.42,.48,.55,.65,.78,1.85],arc:[TAU,TAU,TAU,TAU,TAU,TAU],reach:[0,0,0,0,0,0],step:[0,0,0,0,0,0],mode:'galePursuit'}},
+ {id:'thunderDrive',name:'천풍 추살',level:44,price:1280,cost:74,cool:15.4,color:'#61f0c7',desc:'질풍 유파의 궁극기. 기존보다 약 2배 긴 초고속 돌진을 끝까지 진행합니다. 돌진에 맞은 적은 돌진 종료 지점으로 끌려오며, 이후 0.25초마다 한 번씩 총 20회의 고속 추살 연계를 받습니다. 돌진이 빗나가면 즉시 종료됩니다.',cfg:{duration:5.75,hits:Array.from({length:20},(_,i)=>.72+i*.25),mult:Array.from({length:20},(_,i)=>i===19?.55:.34),arc:Array(20).fill(TAU),reach:Array(20).fill(0),step:Array(20).fill(0),mode:'galePursuit'}},
  {id:'meteorBreaker',name:'성운 검진',level:52,price:1520,cost:70,cool:14.5,color:'#ff9f55',holdContinuous:true,holdMax:3.2,desc:'먼 적에게 빠르게 돌진한 뒤 움직이는 성운 검진을 전개해 적을 끌고 다니며 절단하고, 종료 순간 광역 붕괴를 일으킵니다.',cfg:{duration:3.2,hits:[],mult:[],arc:[TAU],reach:[110],step:[0],mode:'holdVortex'}},
- {id:'galeOrbit',name:'풍환 폭발',level:10,price:340,cost:39,cool:7.6,color:'#61f0c7',desc:'스킬 사용 후 0.5초 동안 주변에 바람 고리가 모이고, 정확히 한 번 넓은 원형 범위를 베어냅니다. 공격 전에는 범위를 보여주는 회전 고리가 겹쳐지고 발동 순간 바깥으로 터집니다.',cfg:{duration:.78,hits:[.50],mult:[2.15],arc:[TAU],reach:[0],step:[0],mode:'galePulse'}},
+ {id:'galeOrbit',name:'풍환 폭발',level:10,price:340,cost:39,cool:7.6,color:'#61f0c7',desc:'0.5초 동안 아무 모션이나 예고 이펙트 없이 대기한 뒤, 발동 순간 한 번 넓은 원형 범위를 강하게 베어냅니다.',cfg:{duration:.78,hits:[.50],mult:[6.45],arc:[TAU],reach:[0],step:[0],mode:'galePulse'}},
  {id:'mirrorStep',name:'거울 걸음',level:8,price:0,cost:30,cool:5.5,color:'#b88cff',desc:'멀리 있는 적을 포착해 반대편까지 단숨에 파고든 뒤 뒤쪽에서 베는 장거리 추격 돌진기입니다.',cfg:{duration:.55,hits:[.32],mult:[2.25],arc:[1.1],reach:[36],step:[0],mode:'mirrorBackstab'}},
  {id:'lunarBind',name:'월인 결박',level:26,price:0,cost:46,cool:9.0,color:'#b88cff',desc:'표적의 좌우와 뒤로 세 번 순간이동하며 달빛 결계를 이동시켜 적을 구속하고, 마지막 위치에서 월륜 참격으로 마무리합니다.',cfg:{duration:.82,hits:[.50],mult:[2.05],arc:[TAU],reach:[84],step:[0],mode:'lunarPull'}},
  {id:'quakeRush',name:'파진 돌파',level:12,price:0,cost:39,cool:7.2,color:'#ff9f55',desc:'멀리 있는 적을 향해 길게 돌진하며 진행선에 세 번의 지면 폭발을 일으키는 추격 돌진기입니다.',cfg:{duration:.75,hits:[.16,.36,.58],mult:[.72,.82,1.18],arc:[1.0,1.0,1.2],reach:[20,20,26],step:[28,30,34],mode:'quakeLine'}},
@@ -1076,7 +1076,7 @@ const SWORD_SKILL_IDENTITY={
  tempest:{trait:'6연 광역 · 회전 폭풍',fx:'민트 소용돌이 층'},
  earthRend:{trait:'도약 착지 · 지면 폭발',fx:'황금 낙하 충격진'},
  dawnArc:{trait:'초장거리 단발 · 대검압',fx:'백금 수평 광파'},
- thunderDrive:{trait:'궁극기 · 적중 조건부 추적 연계 · 대상 고정',fx:'초고속 돌진/교차 추살 잔상/확정 피니시'},
+ thunderDrive:{trait:'궁극기 · 장거리 돌진 적중 시 20연타 추살 · 대상 고정',fx:'장거리 풍속 돌진/0.25초 간격 교차 추살/확정 피니시'},
  meteorBreaker:{trait:'누르는 동안 유지 · 이동형 흡인 검진',fx:'주홍 회전 검진/내부 별궤도'},
  galeOrbit:{trait:'0.5초 지연 · 넓은 원형 단타',fx:'회전 예고 고리/원형 폭발'},
  mirrorStep:{trait:'반대편 순간이동 · 후방 단타',fx:'보랏빛 거울 잔상'},
@@ -1239,6 +1239,7 @@ function balancedSwordSkill(sk,slot=-1){
   }
  }
  if(slot===4&&sk.id==='prismLance'){cfg.hits=[cfg.duration*.28,cfg.duration*.52,cfg.duration];cfg.finisher={back:120,forward:640,width:46,mult:3.4,stun:.75};}
+ if(slot===4&&sk.id==='thunderDrive'){cfg.duration=5.75;cfg.hits=Array.from({length:20},(_,i)=>.72+i*.25);cfg.mult=Array.from({length:20},(_,i)=>i===19?.55:.34);cfg.arc=Array(20).fill(TAU);cfg.reach=Array(20).fill(0);cfg.step=Array(20).fill(0);}
  if(SWORD_DASH_SKILLS.has(sk.id)){cfg.dashSkill=true;cfg.rangeScale=SWORD_RANGE_SCALE;}
  return {...sk,holdMax,cfg};
 }
@@ -1762,11 +1763,11 @@ function performSwordSkillHit(seq,hitIndex){
  }else if(mode==='windShot'){const nx=-Math.sin(ang),ny=Math.cos(ang);for(const off of [-58,0,58])fireProjectile(player.x+Math.cos(ang)*38+nx*off,player.y+Math.sin(ang)*38+ny*off,ang,470,damageValue(.72),'player','wave',3,.48,105);}
  else if(mode==='galeBlink'){for(const id of seq.galeBlinkTargets||[]){const e=combatTargets().find(v=>v.id===id);if(e&&!e.dead&&!e.riftSleeping)hitEnemy(e,damage,true,player,{stun:.55,dx:0,dy:0});}}
  else if(mode==='galePulse'){player.skillPose=seq.slot;player.attackDuration=.18;player.attackAnim=.18;const r=240;for(const e of combatTargets()){if(e.dead||e.riftSleeping||combatDistance(e,player)>r+combatRadius(e))continue;hitEnemy(e,damage,true,player,{stun:.42,dx:0,dy:0});}}
- else if(mode==='galeCrescendo'){const dist=[125,235,355][hitIndex]||355,r=[120,170,230][hitIndex]||230,cx=player.x+Math.cos(ang)*dist,cy=player.y+Math.sin(ang)*dist;for(const e of combatTargets()){if(e.dead||e.riftSleeping||combatDistance(e,{x:cx,y:cy})>r+combatRadius(e))continue;hitEnemy(e,damage,finalHit,player,{stun:finalHit?.55:.18,dx:0,dy:0});}}
+ else if(mode==='galeCrescendo'){const dist=[125,235,355][hitIndex]||355,r=[120,170,230][hitIndex]||230,cx=player.x+Math.cos(ang)*dist,cy=player.y+Math.sin(ang)*dist,push=[110,120,145][hitIndex]||145;seq.galeCrescendoTargets??=new Set();for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const inWave=combatDistance(e,{x:cx,y:cy})<=r+combatRadius(e),locked=seq.galeCrescendoTargets.has(e.id);if(!inWave&&!locked)continue;if(inWave)seq.galeCrescendoTargets.add(e.id);if(!seq.galeCrescendoTargets.has(e.id))continue;hitEnemy(e,damage,finalHit,player,{stun:finalHit?.62:.26,dx:Math.cos(ang)*push,dy:Math.sin(ang)*push,duration:window.EchoesCombat.forceDuration(push)});}}
  else if(mode==='galePursuit'){
   const target=seq.galePursuitTargetId?combatTargets().find(e=>e.id===seq.galePursuitTargetId&&!e.dead&&!e.riftSleeping):null;
   if(target){
-   const ox=player.x,oy=player.y,base=seq.galePursuitBaseA??seq.facing,offs=[2.35,-2.35,1.55,-1.55,Math.PI,0],aa=base+(offs[hitIndex]||0),dist=hitIndex===cfg.hits.length-1?62:82,tx=target.x+Math.cos(aa)*dist,ty=target.y+Math.sin(aa)*dist;
+   const ox=player.x,oy=player.y,base=seq.galePursuitBaseA??seq.facing,offs=[2.35,-2.35,1.55,-1.55,Math.PI,.85,-.85,2.75,-2.75,0],aa=base+offs[hitIndex%offs.length],dist=hitIndex===cfg.hits.length-1?62:82,tx=target.x+Math.cos(aa)*dist,ty=target.y+Math.sin(aa)*dist;
    moveBody(player,clamp(tx-player.x,-760,760),clamp(ty-player.y,-760,760));syncSkillMoveIfNeeded(ox,oy,16,760);
    const face=Math.atan2(target.y-player.y,target.x-player.x);seq.facing=player.facing=player.attackAngle=face;
    hitEnemy(target,damage,true,player,{stun:finalHit?.85:.24,dx:finalHit?Math.cos(face)*120:0,dy:finalHit?Math.sin(face)*120:0,duration:finalHit?window.EchoesCombat.forceDuration(120):0});
@@ -1885,8 +1886,10 @@ function updateSwordSkillMotion(seq,sk,dt){
   seq.galeBlinkDone=true;const ox=player.x,oy=player.y,target=swordSeqTarget(seq);let da=seq.facing,desired=360;
   if(target){const tc=combatCenter(target),dx=tc.x-player.x,dy=tc.y-player.y,d=Math.hypot(dx,dy);if(d>1)da=Math.atan2(dy,dx);desired=clamp(d+82,240,520);}
   seq.facing=player.facing=player.attackAngle=da;moveBody(player,Math.cos(da)*desired,Math.sin(da)*desired);const travelled=Math.hypot(player.x-ox,player.y-oy);
-  seq.galeBlinkFromX=ox;seq.galeBlinkFromY=oy;seq.galeBlinkToX=player.x;seq.galeBlinkToY=player.y;seq.galeBlinkDistance=travelled;seq.galeBlinkTargets=[];
-  if(travelled>1){const ca2=Math.cos(da),sa2=Math.sin(da),nx=-sa2,ny=ca2,duration=window.EchoesCombat.forceDuration(travelled),th=swordStyleFxForSkill(sk.id);for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const cc=combatCenter(e);if(segmentDistance(cc.x,cc.y,[ox,oy],[player.x,player.y])>110+combatRadius(e))continue;seq.galeBlinkTargets.push(e.id);if(e.networkPlayer)worldTargetControl(e.id,{dx:ca2*travelled,dy:sa2*travelled,stun:.55,duration});else if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId)window.EchoesMulti.damageMob(e.id,0,{knockbackX:ca2*travelled,knockbackY:sa2*travelled,duration,stun:.55});else{moveBody(e,ca2*travelled,sa2*travelled);applyEnemyStun(e,.55);}}syncSkillMoveIfNeeded(ox,oy,0,760);effects.push({type:'line',x:ox+nx*72,y:oy+ny*72,x2:player.x+nx*72,y2:player.y+ny*72,color:th.main,t:.32,max:.32});effects.push({type:'line',x:ox-nx*72,y:oy-ny*72,x2:player.x-nx*72,y2:player.y-ny*72,color:th.sub,t:.32,max:.32});for(let j=1;j<=8;j++){const q=j/9,px=ox+(player.x-ox)*q,py=oy+(player.y-oy)*q;ring(px,py,44+Math.sin(q*Math.PI)*32,j%2?th.main:th.sub,.22+j*.012);}ring(player.x,player.y,104,th.accent,.32);}
+  seq.galeBlinkFromX=ox;seq.galeBlinkFromY=oy;seq.galeBlinkToX=player.x;seq.galeBlinkToY=player.y;seq.galeBlinkDistance=travelled;seq.galeBlinkLandingX=player.x;seq.galeBlinkLandingY=player.y;seq.galeBlinkLockUntil=performance.now()+950;seq.galeBlinkTargets=[];
+  if(travelled>1){const ca2=Math.cos(da),sa2=Math.sin(da),nx=-sa2,ny=ca2,duration=window.EchoesCombat.forceDuration(travelled),th=swordStyleFxForSkill(sk.id);for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const cc=combatCenter(e);if(segmentDistance(cc.x,cc.y,[ox,oy],[player.x,player.y])>110+combatRadius(e))continue;seq.galeBlinkTargets.push(e.id);if(e.networkPlayer)worldTargetControl(e.id,{dx:ca2*travelled,dy:sa2*travelled,stun:.55,duration});else if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId)window.EchoesMulti.damageMob(e.id,0,{knockbackX:ca2*travelled,knockbackY:sa2*travelled,duration,stun:.55});else{moveBody(e,ca2*travelled,sa2*travelled);applyEnemyStun(e,.55);}}syncSkillMoveIfNeeded(ox,oy,0,1500);effects.push({type:'line',x:ox+nx*72,y:oy+ny*72,x2:player.x+nx*72,y2:player.y+ny*72,color:th.main,t:.32,max:.32});effects.push({type:'line',x:ox-nx*72,y:oy-ny*72,x2:player.x-nx*72,y2:player.y-ny*72,color:th.sub,t:.32,max:.32});for(let j=1;j<=8;j++){const q=j/9,px=ox+(player.x-ox)*q,py=oy+(player.y-oy)*q;ring(px,py,44+Math.sin(q*Math.PI)*32,j%2?th.main:th.sub,.22+j*.012);}ring(player.x,player.y,104,th.accent,.32);}
+ }else if(mode==='galeBlink'&&seq.galeBlinkDone&&performance.now()<(seq.galeBlinkLockUntil||0)&&!worldForce&&Number.isFinite(seq.galeBlinkLandingX)&&Number.isFinite(seq.galeBlinkLandingY)){
+  if(Math.hypot(player.x-seq.galeBlinkLandingX,player.y-seq.galeBlinkLandingY)>46){player.x=seq.galeBlinkLandingX;player.y=seq.galeBlinkLandingY;bodyGridValid=false;syncInstantPlayerMove(1500);}
  }
  if(seq.dashCatch&&mode!=='singularityRush'&&mode!=='galeBlink'&&t<.72){
   if(target){
@@ -1929,17 +1932,14 @@ function updateSwordSkillMotion(seq,sk,dt){
  else if(mode==='galePulse'){player.skillLift=0;}
  else if(mode==='galeCrescendo'){seq.fx-=dt;if(seq.fx<=0){seq.fx=.08;const th=swordStyleFxForSkill(sk.id),p=clamp(seq.elapsed/seq.duration,0,1);effects.push({type:'line',x:player.x,y:player.y,x2:player.x+Math.cos(seq.facing)*(100+p*270),y2:player.y+Math.sin(seq.facing)*(100+p*270),color:th.main,t:.13,max:.13});}}
  else if(mode==='galePursuit'){
-  const th=swordStyleFxForSkill(sk.id);
+  const th=swordStyleFxForSkill(sk.id),dashEnd=.64;
   if(!seq.galePursuitResolved){
    const ox=player.x,oy=player.y;moveBody(player,Math.cos(seq.facing)*1500*dt,Math.sin(seq.facing)*1500*dt);player.invuln=Math.max(player.invuln,.08);
    effects.push({type:'line',x:ox,y:oy,x2:player.x,y2:player.y,color:th.main,t:.16,max:.16});
-   const hit=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)).filter(e=>{const cc=combatCenter(e);return segmentDistance(cc.x,cc.y,[ox,oy],[player.x,player.y])<=72+combatRadius(e);}).sort((a,b)=>combatDistance(a,{x:ox,y:oy})-combatDistance(b,{x:ox,y:oy}))[0];
-   if(hit){
-    seq.galePursuitResolved=true;seq.galePursuitHit=true;seq.galePursuitTargetId=hit.id;seq.targetId=hit.id;seq.galePursuitBaseA=seq.facing;
-    hitEnemy(hit,damageValue(1.25),true,player,{stun:.30,dx:0,dy:0});
-    const cc=combatCenter(hit);effects.push({type:'nova',x:cc.x,y:cc.y,r:105,color:th.accent,t:.34,max:.34});ring(cc.x,cc.y,118,th.sub,.32);burst(cc.x,cc.y,th.main,20,205);shake=Math.max(shake,8);
-   }else if(seq.elapsed>=.32){
-    seq.galePursuitResolved=true;seq.galePursuitMiss=true;seq.nextHit=cfg.hits.length;seq.elapsed=seq.duration;player.cast=0;player.attackCd=.10;player.attackAnim=.10;player.moveLock=0;player.postSkillLockTimer=.05;
+   if(!seq.galePursuitTargetId){const hit=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)).filter(e=>{const cc=combatCenter(e);return segmentDistance(cc.x,cc.y,[ox,oy],[player.x,player.y])<=72+combatRadius(e);}).sort((a,b)=>combatDistance(a,{x:ox,y:oy})-combatDistance(b,{x:ox,y:oy}))[0];if(hit){seq.galePursuitHit=true;seq.galePursuitTargetId=hit.id;seq.targetId=hit.id;seq.galePursuitBaseA=seq.facing;hitEnemy(hit,damageValue(1.10),true,player,{stun:.30,dx:0,dy:0});const cc=combatCenter(hit);effects.push({type:'nova',x:cc.x,y:cc.y,r:105,color:th.accent,t:.34,max:.34});ring(cc.x,cc.y,118,th.sub,.32);burst(cc.x,cc.y,th.main,20,205);shake=Math.max(shake,8);}}
+   if(seq.elapsed>=dashEnd){
+    if(!seq.galePursuitTargetId){seq.galePursuitResolved=true;seq.galePursuitMiss=true;seq.nextHit=cfg.hits.length;seq.elapsed=seq.duration;player.cast=0;player.attackCd=.10;player.attackAnim=.10;player.moveLock=0;player.postSkillLockTimer=.05;}
+    else{const target=combatTargets().find(e=>e.id===seq.galePursuitTargetId&&!e.dead&&!e.riftSleeping);if(!target){seq.galePursuitResolved=true;seq.galePursuitMiss=true;seq.nextHit=cfg.hits.length;seq.elapsed=seq.duration;}else{seq.galePursuitResolved=true;const carry=player.r+combatRadius(target)+20,tx=player.x+Math.cos(seq.facing)*carry,ty=player.y+Math.sin(seq.facing)*carry;seq.galePursuitCarryX=tx;seq.galePursuitCarryY=ty;if(target.networkPlayer){worldTargetControl(target.id,{x:tx,y:ty,stun:.34,duration:.22});}else{moveBody(target,tx-target.x,ty-target.y);applyEnemyStun(target,.34);}syncInstantPlayerMove(1600);ring(tx,ty,110,th.accent,.32);}}
    }
   }else if(seq.galePursuitHit){
    const target=seq.galePursuitTargetId?combatTargets().find(e=>e.id===seq.galePursuitTargetId&&!e.dead&&!e.riftSleeping):null;
@@ -3652,7 +3652,9 @@ function pvpWorldSwordTarget(ev=null){if(!enemy||enemy.hp<=0)return null;if(ev?.
 function pvpWorldSwordMotion(ev,dt){const sk=ev.skill,cfg=ev.cfg,mode=cfg.mode,t=clamp(ev.elapsed/Math.max(.01,cfg.duration),0,1),a=ev.a,ca=Math.cos(a),sa=Math.sin(a),target=pvpWorldSwordTarget(ev),px0=me.x,py0=me.y;me.skillLift=0;
  if(mode==='boomerangWave'){const end=cfg.dashDuration,step=cfg.dashDistance/end*Math.max(0,Math.min(ev.elapsed,end)-Math.min(Math.max(0,ev.elapsed-dt),end));if(step>0){me.x=clamp(me.x+ca*step,25,ARENA_W-25);me.y=clamp(me.y+sa*step,25,ARENA_H-25);ev.fx-=dt;if(ev.fx<=0){ev.fx=.05;beamFx(px0,py0,me.x,me.y,sk.color,.13,true);}if(ev.elapsed>=end)net({t:'teleport',x:me.x,y:me.y,a:me.a});}}
  if(mode==='galeBlink'&&!ev.galeBlinkDone){
-  ev.galeBlinkDone=true;const ox=me.x,oy=me.y;let da=ev.a,desired=360;if(target){const dx=target.x-me.x,dy=target.y-me.y,d=Math.hypot(dx,dy);if(d>1)da=Math.atan2(dy,dx);desired=clamp(d+82,240,520);}ev.a=me.a=da;me.x=clamp(me.x+Math.cos(da)*desired,25,ARENA_W-25);me.y=clamp(me.y+Math.sin(da)*desired,25,ARENA_H-25);const travelled=Math.hypot(me.x-ox,me.y-oy);ev.galeBlinkFromX=ox;ev.galeBlinkFromY=oy;ev.galeBlinkToX=me.x;ev.galeBlinkToY=me.y;ev.galeBlinkDistance=travelled;ev.galeBlinkHit=!!enemy&&pointSegmentDistance(enemy.x,enemy.y,ox,oy,me.x,me.y)<=110+enemy.r;if(ev.galeBlinkHit&&travelled>1)forceEnemyTo(enemy.x+Math.cos(da)*travelled,enemy.y+Math.sin(da)*travelled,window.EchoesCombat.forceDuration(travelled),.55);net({t:'teleport',x:me.x,y:me.y,a:me.a});const nx=-Math.sin(da),ny=Math.cos(da),main=sk.color||'#61f0c7',sub=sk.sub||'#ffffff',accent=sk.accent||'#2ec9ff';beamFx(ox+nx*72,oy+ny*72,me.x+nx*72,me.y+ny*72,main,.32,true);beamFx(ox-nx*72,oy-ny*72,me.x-nx*72,me.y-ny*72,sub,.32,true);for(let j=1;j<=8;j++){const q=j/9,px=ox+(me.x-ox)*q,py=oy+(me.y-oy)*q;ring(px,py,44+Math.sin(q*Math.PI)*32,j%2?main:sub,.22+j*.012,true)}ring(me.x,me.y,104,accent,.32,true);me.inv=Math.max(me.inv,.10);
+  ev.galeBlinkDone=true;const ox=me.x,oy=me.y;let da=ev.a,desired=360;if(target){const dx=target.x-me.x,dy=target.y-me.y,d=Math.hypot(dx,dy);if(d>1)da=Math.atan2(dy,dx);desired=clamp(d+82,240,520);}ev.a=me.a=da;me.x=clamp(me.x+Math.cos(da)*desired,25,ARENA_W-25);me.y=clamp(me.y+Math.sin(da)*desired,25,ARENA_H-25);const travelled=Math.hypot(me.x-ox,me.y-oy);ev.galeBlinkFromX=ox;ev.galeBlinkFromY=oy;ev.galeBlinkToX=me.x;ev.galeBlinkToY=me.y;ev.galeBlinkDistance=travelled;ev.galeBlinkLandingX=me.x;ev.galeBlinkLandingY=me.y;ev.galeBlinkLockUntil=performance.now()+850;ev.galeBlinkHit=!!enemy&&pointSegmentDistance(enemy.x,enemy.y,ox,oy,me.x,me.y)<=110+enemy.r;if(ev.galeBlinkHit&&travelled>1)forceEnemyTo(enemy.x+Math.cos(da)*travelled,enemy.y+Math.sin(da)*travelled,window.EchoesCombat.forceDuration(travelled),.55);net({t:'teleport',x:me.x,y:me.y,a:me.a});const nx=-Math.sin(da),ny=Math.cos(da),main=sk.color||'#61f0c7',sub=sk.sub||'#ffffff',accent=sk.accent||'#2ec9ff';beamFx(ox+nx*72,oy+ny*72,me.x+nx*72,me.y+ny*72,main,.32,true);beamFx(ox-nx*72,oy-ny*72,me.x-nx*72,me.y-ny*72,sub,.32,true);for(let j=1;j<=8;j++){const q=j/9,px=ox+(me.x-ox)*q,py=oy+(me.y-oy)*q;ring(px,py,44+Math.sin(q*Math.PI)*32,j%2?main:sub,.22+j*.012,true)}ring(me.x,me.y,104,accent,.32,true);me.inv=Math.max(me.inv,.10);
+ }else if(mode==='galeBlink'&&ev.galeBlinkDone&&performance.now()<(ev.galeBlinkLockUntil||0)&&Number.isFinite(ev.galeBlinkLandingX)&&Number.isFinite(ev.galeBlinkLandingY)){
+  if(Math.hypot(me.x-ev.galeBlinkLandingX,me.y-ev.galeBlinkLandingY)>40&&!me.forcedMove&&!me.forceTrack){me.x=ev.galeBlinkLandingX;me.y=ev.galeBlinkLandingY;net({t:'teleport',x:me.x,y:me.y,a:me.a});}
  }
  if(ev.dashCatch&&mode!=='singularityRush'&&mode!=='galeBlink'&&t<.72){if(target){const dx=target.x-me.x,dy=target.y-me.y,d=Math.hypot(dx,dy),stop=me.r+target.r+42;if(d>stop){const da=Math.atan2(dy,dx),speed=Math.min(1250,760+d*1.15),step=Math.min(speed*dt,Math.max(0,d-stop));me.x+=Math.cos(da)*step;me.y+=Math.sin(da)*step;me.a=ev.a=da;me.inv=Math.max(me.inv,.045)}}else if(t<.55){me.x+=ca*900*dt;me.y+=sa*900*dt;me.inv=Math.max(me.inv,.035)}ev.fx-=dt;if(ev.fx<=0){ev.fx=.045;beamFx(me.x-Math.cos(ev.a)*26,me.y-Math.sin(ev.a)*26,me.x-Math.cos(ev.a)*105,me.y-Math.sin(ev.a)*105,sk.color||'#d7c181',.12,true)}}
  if(mode==='gravityDrift'&&t<.78){
@@ -3681,15 +3683,13 @@ function pvpWorldSwordMotion(ev,dt){const sk=ev.skill,cfg=ev.cfg,mode=cfg.mode,t
  else if(mode==='galePulse'){me.skillLift=0;}
  else if(mode==='galeCrescendo'){ev.fx-=dt;if(ev.fx<=0){ev.fx=.08;const p=clamp(ev.elapsed/cfg.duration,0,1);beamFx(me.x,me.y,me.x+Math.cos(ev.a)*(100+p*270),me.y+Math.sin(ev.a)*(100+p*270),sk.color||'#61f0c7',.13,true)}}
  else if(mode==='galePursuit'){
-  const color=sk.color||'#61f0c7',sub=sk.sub||'#fff',accent=sk.accent||'#2ec9ff';
+  const color=sk.color||'#61f0c7',sub=sk.sub||'#fff',accent=sk.accent||'#2ec9ff',dashEnd=.64;
   if(!ev.galePursuitResolved){
    const ox=me.x,oy=me.y;me.x=clamp(me.x+Math.cos(ev.a)*1500*dt,25,ARENA_W-25);me.y=clamp(me.y+Math.sin(ev.a)*1500*dt,25,ARENA_H-25);me.inv=Math.max(me.inv,.08);beamFx(ox,oy,me.x,me.y,color,.16,true);
-   if(enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,ox,oy,me.x,me.y)<=72+enemy.r){
-    ev.galePursuitResolved=true;ev.galePursuitHit=true;ev.galePursuitBaseA=ev.a;
-    sendAttack({shape:'circle',x:enemy.x,y:enemy.y,r:enemy.r+52,d:pvpSkillAttack(me)*1.25,stun:.30,force:0,teleportHit:true,parryable:true});
-    nova(enemy.x,enemy.y,105,accent,.34,true);ring(enemy.x,enemy.y,118,sub,.32,true);burst(enemy.x,enemy.y,color,20,205);pvpShake=Math.max(pvpShake,8);
-   }else if(ev.elapsed>=.32){
-    ev.galePursuitResolved=true;ev.galePursuitMiss=true;ev.next=cfg.hits.length;ev.elapsed=cfg.duration;me.attackCd=.10;me.attackAnim=.10;me.moveLock=.05;me.postSkillLock=.05;
+   if(!ev.galePursuitHit&&enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,ox,oy,me.x,me.y)<=72+enemy.r){ev.galePursuitHit=true;ev.galePursuitBaseA=ev.a;sendAttack({shape:'circle',x:enemy.x,y:enemy.y,r:enemy.r+52,d:pvpSkillAttack(me)*1.10,stun:.30,force:0,teleportHit:true,parryable:true,controlLease:'galePursuit',controlLeaseMs:1400});nova(enemy.x,enemy.y,105,accent,.34,true);ring(enemy.x,enemy.y,118,sub,.32,true);burst(enemy.x,enemy.y,color,20,205);pvpShake=Math.max(pvpShake,8);}
+   if(ev.elapsed>=dashEnd){
+    if(!ev.galePursuitHit||!enemy||enemy.hp<=0){ev.galePursuitResolved=true;ev.galePursuitMiss=true;ev.next=cfg.hits.length;ev.elapsed=cfg.duration;me.attackCd=.10;me.attackAnim=.10;me.moveLock=.05;me.postSkillLock=.05;}
+    else{ev.galePursuitResolved=true;const carry=me.r+enemy.r+20,tx=clamp(me.x+Math.cos(ev.a)*carry,25,ARENA_W-25),ty=clamp(me.y+Math.sin(ev.a)*carry,25,ARENA_H-25);ev.galePursuitCarryX=tx;ev.galePursuitCarryY=ty;queueStigmaControl('galePursuit',tx,ty,.26,.34,.9,false);ring(tx,ty,110,accent,.32,true);net({t:'teleport',x:me.x,y:me.y,a:me.a});}
    }
   }else if(ev.galePursuitHit&&enemy&&enemy.hp>0){
    ev.fx-=dt;if(ev.fx<=0){ev.fx=.045;const face=Math.atan2(enemy.y-me.y,enemy.x-me.x),nx=-Math.sin(face),ny=Math.cos(face);beamFx(me.x+nx*32,me.y+ny*32,me.x-Math.cos(face)*92+nx*60,me.y-Math.sin(face)*92+ny*60,color,.14,true);beamFx(me.x-nx*32,me.y-ny*32,me.x-Math.cos(face)*92-nx*60,me.y-Math.sin(face)*92-ny*60,sub,.14,true)}
@@ -3766,13 +3766,13 @@ function pvpWorldSwordHit(ev,k){
  }else if(mode==='windShot'){for(const off of [-58,0,58])sendProjectile(a,470,pvpSkillAttack(me)*.72,{...window.EchoesCombat.waveControl,pierce:3,life:.48,side:off,visualLen:105})}
  else if(mode==='galeBlink'){if(ev.galeBlinkHit)sendAttack({shape:'circle',x:enemy?.x||me.x,y:enemy?.y||me.y,r:120,d,stun:.55,force:0,forceA:a,teleportHit:true,parryable:true});}
  else if(mode==='galePulse'){me.skillPose=ev.index;me.attackDuration=.18;me.attackAnim=.18;circleAttack(me.x,me.y,240,d,.42,{color,force:0,fx:false});}
- else if(mode==='galeCrescendo'){const dist=[125,235,355][k]||355,r=[120,170,230][k]||230;circleAttack(me.x+Math.cos(a)*dist,me.y+Math.sin(a)*dist,r,d,final?.62:.18,{color,force:final?52:0,forceA:a,fx:false});}
+ else if(mode==='galeCrescendo'){const dist=[125,235,355][k]||355,r=[120,170,230][k]||230,cx=me.x+Math.cos(a)*dist,cy=me.y+Math.sin(a)*dist,push=[110,120,145][k]||145,localHit=!!enemy&&Math.hypot(enemy.x-cx,enemy.y-cy)<=r+enemy.r;if(localHit)ev.galeCrescendoHit=true;if(ev.galeCrescendoHit&&enemy&&enemy.hp>0){sendAttack({shape:'circle',x:enemy.x,y:enemy.y,r:enemy.r+66,d,stun:final?.62:.26,force:push,forceA:a,teleportHit:true,parryable:true});}else circleAttack(cx,cy,r,d,.18,{color,force:0,forceA:a,fx:false,teleportHit:localHit});}
  else if(mode==='galePursuit'){
   if(ev.galePursuitHit&&enemy&&enemy.hp>0){
-   const ox=me.x,oy=me.y,base=ev.galePursuitBaseA??ev.a,offs=[2.35,-2.35,1.55,-1.55,Math.PI,0],aa=base+(offs[k]||0),dist=final?62:82;
+   const ox=me.x,oy=me.y,base=ev.galePursuitBaseA??ev.a,offs=[2.35,-2.35,1.55,-1.55,Math.PI,.85,-.85,2.75,-2.75,0],aa=base+offs[k%offs.length],dist=final?62:82;
    me.x=clamp(enemy.x+Math.cos(aa)*dist,25,ARENA_W-25);me.y=clamp(enemy.y+Math.sin(aa)*dist,25,ARENA_H-25);ev.a=me.a=Math.atan2(enemy.y-me.y,enemy.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a});
    beamFx(ox,oy,me.x,me.y,k%2?sub:color,.20,true);riftCutFx((me.x+enemy.x)/2,(me.y+enemy.y)/2,me.a,190+k*22,24+k*5,k%2?(sk.accent||sub):sub,.28,true);
-   sendAttack({shape:'circle',x:enemy.x,y:enemy.y,r:enemy.r+58,d,stun:final?.85:.24,force:final?120:0,forceA:me.a,teleportHit:true,parryable:true});
+   sendAttack({shape:'circle',x:enemy.x,y:enemy.y,r:enemy.r+58,d,stun:final?.85:.24,force:final?120:0,forceA:me.a,teleportHit:true,parryable:true,controlLease:'galePursuit',controlLeaseMs:1400});
   }else{ev.next=cfg.hits.length;ev.elapsed=cfg.duration;}
  }
  else if(mode==='blinkThrust'){
