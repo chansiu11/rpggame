@@ -3591,7 +3591,7 @@ function snapshot(){
  maxShield=((Number(WORLD_COMBAT.baseShield)||100)+(lvl-1)*2+sh.shield)*10,maxStam=Math.round((baseStam+(lvl-1)*stamPerLevel+(h.stam||0)+(cg.stam||0))*stamScale),defense=h.def+cg.def+sh.def,
  speed=(Number(WORLD_COMBAT.baseMove)||177)*(1+h.move+cg.move),cdr=clamp((h.cdr||0)+(cg.cdr||0),0,.25),
  perks={flow:clamp(Number(p.perks?.flow)||0,0,2),focus:clamp(Number(p.perks?.focus)||0,0,2),breath:clamp(Number(p.perks?.breath)||0,0,2),herbal:clamp(Number(p.perks?.herbal)||0,0,2)};
- let wi=clamp(Math.floor(p.weapon||0),0,3);if(wi===1||!owned.includes(wi))wi=0;
+ const savedWeapon=Math.floor(Number(p.weapon)||0);let wi=savedWeapon===4?0:clamp(savedWeapon,0,3);if(wi===1||!owned.includes(wi))wi=0;
  const swordStyle=typeof p.swordStyle==='string'?p.swordStyle:'',bridge=WORLD_PVP,styleInfo=bridge?.style?.(swordStyle)||null,
  equippedIds=styleInfo?.skills?.length===5?[...styleInfo.skills]:Array.from({length:5},(_,i)=>typeof p.equippedSwordSkills?.[i]==='string'?p.equippedSwordSkills[i]:null),
  swordSkills=equippedIds.map((id,i)=>id&&bridge?.swordSkill?bridge.swordSkill(id,i):null);
@@ -3600,7 +3600,7 @@ function snapshot(){
 }
 function fighterAttack(f){return f?.attacks?.[f.weapon]||weaponData[f?.weapon||0].d}
 function pvpSkillAttack(f=me,skillId=''){const id=skillId||(f===me?(me?.skillEvent?.skill?.id||me?.skillHold?.skill?.id||(void3Pvp?'gravityCut':'')):'')||'',scale=Number(window.EchoesSwordBalance?.[id])||1;return fighterAttack(f)*.7*scale}
-function pvpSwordSkillAt(i,f=me){return f?.weapon<2&&Array.isArray(f?.swordSkills)?f.swordSkills[i]||null:null}
+function pvpSwordSkillAt(i,f=me){if(!f||f.weapon>=2)return null;const direct=Array.isArray(f.swordSkills)?f.swordSkills[i]||null:null;if(direct?.cfg)return direct;const style=WORLD_PVP.style?.(f.swordStyle||''),id=style?.skills?.[i];return id&&WORLD_PVP.swordSkill?WORLD_PVP.swordSkill(id,i):null}
 function pvpSwordSkillId(i,f=me){return pvpSwordSkillAt(i,f)?.id||''}
 function pvpSwordColor(i,f=me){return pvpSwordSkillAt(i,f)?.color||['#a5f1d8','#9ddfff','#d2b4ff','#ffd18b','#ffcaeb'][i]||'#d7c181'}
 function pvpSkillName(i,f=me){if(f?.weapon===3)return HIDDEN_SKILLS[i]?.name||'성흔술';if(f?.weapon===2)return ['삼연 사격','관통 사격','후퇴 사격','확산 사격','집중 화살비'][i];return pvpSwordSkillAt(i,f)?.name||'미장착'}
@@ -3611,7 +3611,7 @@ function showLobby(msg=''){
  $('pvpLobby').classList.remove('hidden');$('pvpHud').classList.add('hidden');$('pvpCooldowns').classList.add('hidden');$('pvpScore').classList.add('hidden');$('pvpResult').classList.add('hidden');
  if(msg){$('pvpRoomView').textContent=msg;$('pvpRoomView').classList.remove('hidden')}else if(!matchWaiting)$('pvpRoomView').classList.add('hidden');
 }
-function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260927-ULT-HIT-3';resize()}
+function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260927-ULT-HIT-4';resize()}
 function close(){stopNet();layer.classList.add('hidden');document.querySelector('#title')?.classList.remove('hidden')}
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){running=false;void3Pvp=null;remoteCriticalAck=false;resetPvpCriticalHits();try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[]}
