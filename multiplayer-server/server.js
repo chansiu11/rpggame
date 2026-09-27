@@ -17,7 +17,7 @@ const MOB_NET_TICK_MS = 66;
 const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
-const SPAWN_LAYOUT_VERSION = 'regional-clusters-v6-style-hardreset';
+const SPAWN_LAYOUT_VERSION = 'regional-clusters-v7-style-density';
 const SERVER_BUILD = '2026-09-27-style-exact-geometry-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
@@ -496,7 +496,9 @@ function simulateMob(m,dt,now,ambientSelections){
   if(Math.abs(m.knockVX)+Math.abs(m.knockVY)>2){if(moveServerMob(m,m.knockVX*dt,m.knockVY*dt))markMobDirty(m);const decay=Math.exp(-dt*9);m.knockVX*=decay;m.knockVY*=decay;}
   let target=null;
   if(m.kind==='style'){
-    target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1100||ambientSelections?.get(ambientAggroKey(m,target?.id))!==m.id)target=null;if(!target)target=nearestMobTarget(m,ambientSelections);
+    if(m.provokedBy){target=players.get(m.provokedBy);if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150){m.provokedBy=null;target=null;}}
+    if(!target){target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1100||ambientSelections?.get(ambientAggroKey(m,target?.id))!==m.id)target=null;}
+    if(!target)target=nearestMobTarget(m,ambientSelections);
   }else if(m.kind==='boss'){
     target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150)target=null;if(!target)target=nearestMobTarget(m,null);
   }else if(m.provokedBy){
