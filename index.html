@@ -311,16 +311,16 @@ const camps=[
  {id:'lastStar',name:'동쪽 별길',x:20150,y:5100}
 ];
 function spawnTypesForRegion(reg){return [
+ ['sprout','styleAdept','sprout','wolf','sentry'],
+ ['wisp','styleAdept','wisp','wolf','styleAdept','sentry'],
+ ['frostling','styleAdept','frostling','styleAdept','shardStalker','styleAdept','crystalMage','styleAdept'],
+ ['shade','styleAdept','voidKnight','styleAdept','sentry','styleAdept','golem','styleAdept','styleAdept','styleAdept'],
  ['sprout','sprout','wolf','sentry'],
- ['wisp','wisp','wolf','sentry','styleAdept'],
- ['frostling','frostling','shardStalker','crystalMage','styleAdept'],
- ['shade','voidKnight','sentry','golem','styleAdept'],
- ['sprout','sprout','wolf','sentry'],
- ['golem','golem','wolf','sentry','styleAdept'],
+ ['golem','styleAdept','golem','styleAdept','wolf','styleAdept','sentry'],
  [],
- ['abyssHound','bloodWisp','voidKnight','abyssHound','styleAdept']
+ ['abyssHound','styleAdept','bloodWisp','styleAdept','voidKnight','styleAdept','abyssHound','styleAdept','styleAdept']
  ][reg]||['sprout'];}
-const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v6-style-hardreset';
+const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v7-style-density';
 const MOB_SPAWN_ZONES=[
  {id:'moss_gate',name:'이끼빛 외곽',region:4,x:1700,y:3100,r:300,count:6},
  {id:'moss_south',name:'이끼 남쪽 들판',region:4,x:1100,y:4700,r:340,count:6},
@@ -687,7 +687,7 @@ function regularMonsterSpawnSpot(x,y,zone=null,minEnemyGap=72){
 function spawnRegionalMonsterLayout(){
  const rr=seeded(2026092501),range=(a,b)=>a+rr()*(b-a);
  for(const zone of MOB_SPAWN_ZONES){
-  const pool=[...new Set(spawnTypesForRegion(zone.region))];if(!pool.length)continue;
+  const pool=spawnTypesForRegion(zone.region);if(!pool.length)continue;
   const rotate=Math.floor(rr()*pool.length);
   for(let i=0;i<zone.count;i++){
    let placed=false;
@@ -702,7 +702,7 @@ function spawnRegionalMonsterLayout(){
  // 스폰 지역 밖은 비워 두고, 탐험 중 가끔 마주치는 단독 일반 몬스터만 소수 배치한다.
  let lone=0,attempts=0;
  while(lone<10&&attempts++<320){
-  const x=range(420,WORLD.w-420),y=range(420,OVERWORLD_H-420),reg=regionAt(x,y),pool=[...new Set(spawnTypesForRegion(reg))];
+  const x=range(420,WORLD.w-420),y=range(420,OVERWORLD_H-420),reg=regionAt(x,y),pool=spawnTypesForRegion(reg);
   if(!pool.length||MOB_SPAWN_ZONES.some(z=>Math.hypot(z.x-x,z.y-y)<z.r+650))continue;
   if(!regularMonsterSpawnSpot(x,y,null,520))continue;
   const type=pool[Math.floor(rr()*pool.length)],e=addEnemy(type,x,y,'lone_'+lone);
