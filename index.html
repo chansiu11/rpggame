@@ -3611,7 +3611,7 @@ function showLobby(msg=''){
  $('pvpLobby').classList.remove('hidden');$('pvpHud').classList.add('hidden');$('pvpCooldowns').classList.add('hidden');$('pvpScore').classList.add('hidden');$('pvpResult').classList.add('hidden');
  if(msg){$('pvpRoomView').textContent=msg;$('pvpRoomView').classList.remove('hidden')}else if(!matchWaiting)$('pvpRoomView').classList.add('hidden');
 }
-function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260926-30';resize()}
+function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260927-ULT-HIT-2';resize()}
 function close(){stopNet();layer.classList.add('hidden');document.querySelector('#title')?.classList.remove('hidden')}
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){running=false;void3Pvp=null;resetPvpCriticalHits();try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[]}
