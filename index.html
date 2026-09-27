@@ -320,7 +320,7 @@ function spawnTypesForRegion(reg){return [
  [],
  ['abyssHound','bloodWisp','voidKnight','abyssHound','styleAdept']
  ][reg]||['sprout'];}
-const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v4-style-exact';
+const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v5-style-live';
 const MOB_SPAWN_ZONES=[
  {id:'moss_gate',name:'이끼빛 외곽',region:4,x:1700,y:3100,r:300,count:6},
  {id:'moss_south',name:'이끼 남쪽 들판',region:4,x:1100,y:4700,r:340,count:6},
@@ -931,6 +931,28 @@ function applySharedItemSpawn(item){
  if(o){o.x=item.x;o.y=item.y;o.lootKind=item.lootKind;o.amount=item.amount;o.expiresAt=Number(item.expiresAt)||0;return;}
  objects.push({type:'loot',id:item.id,x:item.x,y:item.y,r:13,lootKind:item.lootKind,amount:item.amount,fixed:!!item.fixed,expiresAt:Number(item.expiresAt)||0});
 }
+function styleAdeptNetworkTarget(e){
+ const self=window.EchoesMulti?.state?.selfId;if(e?.serverTargetId===self)return {x:player.x,y:player.y};
+ const rp=multiRemotePlayers.get(e?.serverTargetId);if(rp)return {x:Number(rp.rx??rp.x)||e.x,y:Number(rp.ry??rp.y)||e.y};
+ const a=Number(e?.locked)||Number(e?.facing)||0,r=Math.max(120,Number(e?.range)||260);return {x:e.x+Math.cos(a)*r,y:e.y+Math.sin(a)*r};
+}
+function playStyleAdeptNetworkFx(e,castId,hitIndex,finalHit=false,tx=null,ty=null){
+ if(!e||e.type!=='styleAdept'||!e.styleSkillId)return;
+ castId=Math.max(0,Number(castId)||0);hitIndex=clamp(Number(hitIndex)||0,0,40)|0;
+ if(e._styleFxCast!==castId){e._styleFxCast=castId;e._styleFxHits=new Set();}
+ e._styleFxHits??=new Set();if(e._styleFxHits.has(hitIndex))return;e._styleFxHits.add(hitIndex);
+ const base=swordSkillById(e.styleSkillId),sk=base?balancedSwordSkill(base,e.styleSkillSlot):null,cfg=sk?.cfg;if(!sk||!cfg)return;
+ const k=Math.min(hitIndex,Math.max(0,(cfg.reach?.length||1)-1)),reach=94+(cfg.reach?.[k]||0),target=Number.isFinite(tx)&&Number.isFinite(ty)?{x:tx,y:ty}:styleAdeptNetworkTarget(e);
+ const ctx={skillId:sk.id,slot:e.styleSkillSlot,target,anchorX:Number.isFinite(e.styleAnchorX)?e.styleAnchorX:target.x,anchorY:Number.isFinite(e.styleAnchorY)?e.styleAnchorY:target.y};
+ swordSignatureFx(sk.id,hitIndex,finalHit,Number(e.locked)||Number(e.facing)||0,reach,sk.color,e,ctx);
+}
+function recoverStyleAdeptNetworkFx(e){
+ if(!e||e.type!=='styleAdept'||e.state!=='styleSkill'||!e.styleSkillId)return;
+ const cast=Math.max(0,Number(e.styleCastId)||0),done=Math.max(0,Number(e.styleHitIndex)||0);
+ if(e._styleFxCast!==cast){e._styleFxCast=cast;e._styleFxHits=new Set();const th=swordStyleFxForSkill(e.styleSkillId);ring(e.x,e.y,42,th.main,.28);effects.push({type:'starSeal',x:e.x,y:e.y,r:64,color:th.main,t:.26,max:.26});const info=swordSkillById(e.styleSkillId);if(info)floating(e.x,e.y-e.r-28,info.name,th.main);}
+ const base=swordSkillById(e.styleSkillId),sk=base?balancedSwordSkill(base,e.styleSkillSlot):null,cfg=sk?.cfg,hits=sk&&cfg?styleAdeptSyntheticHits(sk,cfg):[];
+ for(let k=0;k<done;k++)playStyleAdeptNetworkFx(e,cast,k,k===hits.length-1);
+}
 function applyServerMobState(m,now=performance.now(),lookup=null){
  if(!m?.id)return null;let e=lookup?lookup.get(m.id):enemies.find(v=>v.id===m.id);
  if(!e&&ENEMY_TYPES[m.type])e=addEnemy(m.type,Number(m.x)||0,Number(m.y)||0,m.id);if(!e)return null;
@@ -939,9 +961,9 @@ function applyServerMobState(m,now=performance.now(),lookup=null){
  e._netVX=Number.isFinite(nx)?clamp((nx-px)/dt,-1800,1800):0;e._netVY=Number.isFinite(ny)?clamp((ny-py)/dt,-1800,1800):0;e._netX=Number.isFinite(nx)?nx:e.x;e._netY=Number.isFinite(ny)?ny:e.y;e._netAt=now;e._netInit=true;
  if(Math.hypot(e.x-e._netX,e.y-e._netY)>420){e.x=e._netX;e.y=e._netY;}
  if(Number.isFinite(Number(m.facing)))e.facing=Number(m.facing);if(typeof m.state==='string')e.state=m.state;if(m.alert!==undefined)e.alert=!!m.alert;
- if(m.targetId!==undefined)e.serverTargetId=m.targetId||null;if(m.attackType!==undefined)e.attackType=m.attackType||e.attackType;if(typeof m.styleId==='string'&&m.styleId)e.styleId=m.styleId;if(Array.isArray(m.styleSlots)&&m.styleSlots.length)e.styleSlots=m.styleSlots.map(v=>clamp(Number(v)||0,0,4)|0);if(typeof m.skillId==='string')e.styleSkillId=m.skillId;if(Number.isFinite(Number(m.skillSlot)))e.styleSkillSlot=clamp(Number(m.skillSlot),0,4)|0;if(Number.isFinite(Number(m.timer)))e.timer=Math.max(0,Number(m.timer));
+ if(m.targetId!==undefined)e.serverTargetId=m.targetId||null;if(m.attackType!==undefined)e.attackType=m.attackType||e.attackType;if(typeof m.styleId==='string'&&m.styleId)e.styleId=m.styleId;if(Array.isArray(m.styleSlots)&&m.styleSlots.length)e.styleSlots=m.styleSlots.map(v=>clamp(Number(v)||0,0,4)|0);if(typeof m.skillId==='string')e.styleSkillId=m.skillId;if(Number.isFinite(Number(m.skillSlot)))e.styleSkillSlot=clamp(Number(m.skillSlot),0,4)|0;if(Number.isFinite(Number(m.styleCastId)))e.styleCastId=Math.max(0,Number(m.styleCastId)||0);if(Number.isFinite(Number(m.styleHitIndex)))e.styleHitIndex=Math.max(0,Number(m.styleHitIndex)||0);if(Number.isFinite(Number(m.styleAnchorX)))e.styleAnchorX=Number(m.styleAnchorX);if(Number.isFinite(Number(m.styleAnchorY)))e.styleAnchorY=Number(m.styleAnchorY);if(Number.isFinite(Number(m.timer)))e.timer=Math.max(0,Number(m.timer));
  if(Number.isFinite(Number(m.windTotal))&&Number(m.windTotal)>0)e.windTotal=Number(m.windTotal);if(Number.isFinite(Number(m.locked)))e.locked=Number(m.locked);if(Number.isFinite(Number(m.range))&&Number(m.range)>0)e.range=Number(m.range);
- if(Number.isFinite(Number(m.maxHp)))e.maxHp=Math.max(1,Number(m.maxHp));if(Number.isFinite(Number(m.hp)))e.hp=clamp(Number(m.hp),0,e.maxHp);if(m.dead!==undefined)e.dead=!!m.dead;if(e.dead)e.state='dead';return e;
+ if(Number.isFinite(Number(m.maxHp)))e.maxHp=Math.max(1,Number(m.maxHp));if(Number.isFinite(Number(m.hp)))e.hp=clamp(Number(m.hp),0,e.maxHp);if(m.dead!==undefined)e.dead=!!m.dead;if(e.dead)e.state='dead';if(e.type==='styleAdept'&&e.state==='styleSkill')recoverStyleAdeptNetworkFx(e);return e;
 }
 
 function applySharedWorldSnapshot(snapshot){
@@ -2171,7 +2193,7 @@ function finishEnemyGuard(e,counter=true){
 }
 function localAggroGroupKey(e){const zone=String(e?.spawnZone||'');return !zone||zone==='lone'?'mob:'+e.id:'zone:'+zone;}
 function localAmbientAggroAvailable(e){
- if(!e||e.kind==='boss'||e.riftId||e.spawnZone==='lone'||!e.spawnZone)return true;
+ if(!e||e.kind==='boss'||e.riftId||e.type==='styleAdept'||e.spawnZone==='lone'||!e.spawnZone)return true;
  const key=localAggroGroupKey(e);
  return !enemies.some(o=>o!==e&&!o.dead&&!o.riftSleeping&&o.kind!=='boss'&&!o.riftId&&!o.provoked&&o.alert&&o.state!=='return'&&localAggroGroupKey(o)===key);
 }
@@ -2797,8 +2819,8 @@ function bindMultiplayerEvents(){
   const styleAttack=e.type==='styleAdept'&&Number.isFinite(Number(msg.skillSlot));
   if(styleAttack){
    if(typeof msg.styleId==='string'&&msg.styleId)e.styleId=msg.styleId;e.styleSkillSlot=clamp(Number(msg.skillSlot),0,4)|0;e.styleSkillId=String(msg.skillId||'');
-   const base=swordSkillById(e.styleSkillId),sk=base?balancedSwordSkill(base,e.styleSkillSlot):null,cfg=sk?.cfg,k=clamp(Number(msg.hitIndex)||0,0,40)|0,reach=94+(cfg?.reach?.[Math.min(k,(cfg?.reach?.length||1)-1)]||0),finalHit=!!msg.finalHit;
-   if(sk&&distance(e,player)<1350)swordSignatureFx(sk.id,k,finalHit,e.facing,reach,sk.color,e,{skillId:sk.id,slot:e.styleSkillSlot,target:{x:Number(msg.tx)||player.x,y:Number(msg.ty)||player.y},anchorX:Number(msg.anchorX),anchorY:Number(msg.anchorY)});
+   e.styleCastId=Math.max(0,Number(msg.castId)||e.styleCastId||0);e.styleAnchorX=Number.isFinite(Number(msg.anchorX))?Number(msg.anchorX):e.styleAnchorX;e.styleAnchorY=Number.isFinite(Number(msg.anchorY))?Number(msg.anchorY):e.styleAnchorY;
+   if(distance(e,player)<1350)playStyleAdeptNetworkFx(e,e.styleCastId,Number(msg.hitIndex)||0,!!msg.finalHit,Number(msg.tx),Number(msg.ty));
   }else ring(e.x,e.y,e.kind==='boss'?70:38,e.color||'#e1c28d',.22);
   if(msg.targetId!==m.state.selfId||player.hp<=0)return;
   if(styleAttack){const dmg=Math.max(0,Number(msg.damage)||0);if(dmg<=0)return;const result=hitPlayer(dmg,e,!!msg.heavy);if(result==='parried'){const a=Math.atan2(e.y-player.y,e.x-player.x),control={stun:1.25,knockbackX:Math.cos(a)*18,knockbackY:Math.sin(a)*18};m.damageMob(e.id,0,control);}return;}
