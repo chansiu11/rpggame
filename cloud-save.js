@@ -18,12 +18,17 @@ function friendlyMessage(err){
   if(code.includes('too-many-requests')) return '로그인 시도가 너무 많습니다. 잠시 뒤 다시 시도하세요.';
   if(code.includes('network-request-failed')) return '네트워크 연결을 확인하세요.';
   if(code.includes('permission-denied')) return '서버 저장 권한 설정을 확인하세요.';
+  if(code.includes('operation-not-allowed')) return 'Firebase에서 이메일/비밀번호 로그인을 활성화해야 합니다.';
+  if(code.includes('unauthorized-domain')) return '현재 사이트 주소가 Firebase 허용 도메인에 등록되지 않았습니다.';
+  if(code.includes('invalid-api-key')) return 'Firebase 설정의 API 키를 확인하세요.';
   return err?.message || '서버 연결 중 오류가 발생했습니다.';
 }
+let resolveCloudReady;
+const cloudReady=new Promise(resolve=>{resolveCloudReady=resolve;});
 window.EchoesCloud={
   enabled:false,
-  ready:Promise.resolve(false),
-  register:async()=>{throw new Error('Firebase가 설정되지 않았습니다.');},
+  ready:cloudReady,
+  register:async()=>{throw new Error('Firebase가 아직 준비되지 않았습니다.');},
   login:async()=>{throw new Error('Firebase가 설정되지 않았습니다.');},
   logout:async()=>{},
   save:async()=>{},
@@ -59,30 +64,38 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
 
     window.EchoesCloud={
       enabled:true,
-      ready:Promise.resolve(true),
+      ready:cloudReady,
       message:friendlyMessage,
       currentUid:()=>auth.currentUser?.uid||null,
       async register(username,password){
         const displayName=String(username||'').trim();
         const userKey=normalizeUser(displayName);
         const cred=await authMod.createUserWithEmailAndPassword(auth,authEmail(userKey),password);
-        await storeMod.setDoc(storeMod.doc(db,'users',cred.user.uid),{
-          username:userKey,displayName,
-          createdAt:storeMod.serverTimestamp(),
-          lastLogin:storeMod.serverTimestamp()
-        },{merge:true});
-        return {uid:cred.user.uid,username:userKey,displayName};
+        let profileSynced=true;
+        try{
+          await storeMod.setDoc(storeMod.doc(db,'users',cred.user.uid),{
+            username:userKey,displayName,
+            createdAt:storeMod.serverTimestamp(),
+            lastLogin:storeMod.serverTimestamp()
+          },{merge:true});
+        }catch(err){
+          profileSynced=false;
+          console.warn('Firebase 계정은 생성됐지만 프로필 저장이 지연됩니다:',err);
+        }
+        return {uid:cred.user.uid,username:userKey,displayName,profileSynced};
       },
       async login(username,password){
         const userKey=normalizeUser(username);
         const cred=await authMod.signInWithEmailAndPassword(auth,authEmail(userKey),password);
-        const p=await profile(cred.user.uid);
-        await storeMod.setDoc(storeMod.doc(db,'users',cred.user.uid),{
-          username:userKey,
-          displayName:p?.displayName||username,
-          lastLogin:storeMod.serverTimestamp()
-        },{merge:true});
-        return {uid:cred.user.uid,username:userKey,displayName:p?.displayName||username};
+        let p=null;
+        try{p=await profile(cred.user.uid);}catch(err){console.warn('프로필 불러오기 지연:',err);}
+        const displayName=p?.displayName||username;
+        try{
+          await storeMod.setDoc(storeMod.doc(db,'users',cred.user.uid),{
+            username:userKey,displayName,lastLogin:storeMod.serverTimestamp()
+          },{merge:true});
+        }catch(err){console.warn('최근 로그인 기록 저장 지연:',err);}
+        return {uid:cred.user.uid,username:userKey,displayName};
       },
       async logout(){await authMod.signOut(auth);},
       async save(data){
@@ -112,8 +125,12 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
         return true;
       }
     };
+    resolveCloudReady(true);
   }catch(err){
     console.error('Firebase 초기화 실패:',err);
     window.EchoesCloud.enabled=false;
+    resolveCloudReady(false);
   }
+}else{
+  resolveCloudReady(false);
 }
