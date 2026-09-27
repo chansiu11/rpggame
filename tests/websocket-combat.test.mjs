@@ -8,7 +8,7 @@ async function connect(port,name,mode='world'){
  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject);});
  const send=m=>ws.send(JSON.stringify(m));send({type:'hello',name,accountId:name,mode,pvpRuleset:'test-compatible'});
  const wait=async pred=>{for(let i=0;i<100;i++){const m=messages.find(pred);if(m)return m;await delay(10);}throw Error('Message timeout '+name);};
- const hello=await wait(m=>m.type==='hello:ok');assert.equal(hello.serverBuild,'2026-09-27-style-adept-combat-3');
+ const hello=await wait(m=>m.type==='hello:ok');assert.equal(hello.serverBuild,'2026-09-27-net-opt-aggro-1');
  return {ws,messages,send,wait,id:hello.selfId,state:(x,hp=1000,ack=0)=>send({type:'state',seq:++input,combatAck:ack,x,y:1000,hp,maxHp:1000,shield:500,maxShield:500,stam:100,maxStam:200})};
 }
 test('real two-client WebSocket combat, stale input, force settlement and PVP matching',{timeout:15000},async()=>{
@@ -62,6 +62,24 @@ test('style adept independently casts a real sword-style skill over WebSocket',{
   assert.ok(states.some(m=>m.state==='windup'||m.state==='styleSkill'||m.styleCastId>=1));
   await delay(800);assert.equal(a.messages.filter(m=>m.type==='world:mobAttack'&&m.mobId==='style-test'&&m.castId>cast.castId).length,0,'style skill recast must wait at least 1.25s after completion');
   let second=null;for(let i=0;i<180&&!second;i++){second=a.messages.find(m=>m.type==='world:mobAttack'&&m.mobId==='style-test'&&m.castId>cast.castId);if(!second)await delay(20);}assert.ok(second,'style adept should cast again after cooldown');
+  assert.equal(stderr,'');
+ }finally{for(const c of clients)c.ws.close();server.kill();}
+});
+
+test('natural aggro assigns only one normal mob per player even with a style adept nearby',{timeout:12000},async()=>{
+ const port=39000+Math.floor(Math.random()*8000),server=spawn(process.execPath,['server.js'],{cwd:new URL('../multiplayer-server/',import.meta.url),env:{...process.env,PORT:String(port)},stdio:['ignore','pipe','pipe']});
+ const clients=[];let stderr='';server.stderr.on('data',b=>stderr+=b);
+ try{
+  await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('exit',c=>reject(Error('server exit '+c+' '+stderr)));});
+  const a=await connect(port,'aggro-target');clients.push(a);a.state(1000);await delay(80);
+  a.send({type:'world:bootstrap',spawnLayoutVersion:'regional-clusters-v6-style-hardreset',mobs:[
+   {id:'normal-test',type:'sprout',x:1160,y:1000,hp:100,maxHp:100,speed:77,damage:13,reach:66,wind:.8,r:18,spawnZone:'test-zone',spawnZoneX:1160,spawnZoneY:1000,spawnZoneRadius:430},
+   {id:'style-test-aggro',type:'styleAdept',x:1190,y:1000,hp:500,maxHp:500,speed:104,damage:26,reach:390,wind:.72,r:20,spawnZone:'test-zone',spawnZoneX:1190,spawnZoneY:1000,spawnZoneRadius:430,styleId:'gale',styleSlots:[0]}
+  ],obstacles:[]});
+  await a.wait(m=>m.type==='world:snapshot'&&m.snapshot.mobs.some(v=>v.id==='style-test-aggro'));
+  await delay(900);
+  const latest=new Map();for(const msg of a.messages.filter(m=>m.type==='world:mobsDelta'))for(const mob of msg.mobs||[])if(['normal-test','style-test-aggro'].includes(mob.id))latest.set(mob.id,mob);
+  const targeting=[...latest.values()].filter(m=>m.targetId===a.id&&m.alert);assert.ok(targeting.length<=1,'only one naturally aggroed normal mob may target a player');
   assert.equal(stderr,'');
  }finally{for(const c of clients)c.ws.close();server.kill();}
 });

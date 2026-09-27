@@ -12,13 +12,13 @@ const PARTY_MAX = 4;
 const BOSS_RESPAWN_MS = 3 * 60 * 1000;
 const PVP_RULESET = 'world-combat-20260926-3';
 
-const SIM_TICK_MS = 25;
-const MOB_NET_TICK_MS = 50;
-const PLAYER_LIST_MS = 1000;
+const SIM_TICK_MS = 33;
+const MOB_NET_TICK_MS = 66;
+const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 160 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v6-style-hardreset';
-const SERVER_BUILD = '2026-09-27-style-adept-combat-3';
+const SERVER_BUILD = '2026-09-27-net-opt-aggro-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const WORLD_RESET_EPOCH = '2026-09-27-world-reset-1';
@@ -152,7 +152,7 @@ function safeSend(ws,data,{volatile=false}={}){
   try{ws.send(JSON.stringify(data));return true;}catch{return false;}
 }
 function broadcast(data,except=null,{volatile=false}={}){
-  const text=JSON.stringify(data),origin=data.player||data.fx||(['skill:fx','skill:effects'].includes(data.type)?data:null),interest=['player:state','skill:fx','skill:effects','world:combatResult'].includes(data.type);for(const p of players.values()){if(interest&&origin&&Number.isFinite(origin.x)&&Math.hypot(p.x-origin.x,p.y-origin.y)>2200&&p.id!==data.attackerId&&p.id!==data.targetId)continue;if(p.clientMode==='pvp'||p.ws===except||p.ws.readyState!==WebSocket.OPEN)continue;if(volatile&&Number(p.ws.bufferedAmount||0)>MAX_SOCKET_BUFFER)continue;try{p.ws.send(text);}catch{}}
+  const text=JSON.stringify(data),origin=data.player||data.fx||data.mob||(['skill:fx','skill:effects','world:mobAttack'].includes(data.type)?data:null),interest=['player:state','skill:fx','skill:effects','world:combatResult','world:mobAttack','world:mobPatch'].includes(data.type);for(const p of players.values()){if(interest&&origin&&Number.isFinite(origin.x)&&Math.hypot(p.x-origin.x,p.y-origin.y)>2200&&p.id!==data.attackerId&&p.id!==data.targetId)continue;if(p.clientMode==='pvp'||p.ws===except||p.ws.readyState!==WebSocket.OPEN)continue;if(volatile&&Number(p.ws.bufferedAmount||0)>MAX_SOCKET_BUFFER)continue;try{p.ws.send(text);}catch{}}
 }
 function removePvpMatchQueue(player,notify=false){
   if(!player)return false;let removed=false;
@@ -327,23 +327,22 @@ function bootstrapAuthoritativeWorld(player,msg){
 }
 function validMobTarget(m,p){return !!p?.ready&&p.clientMode!=='pvp'&&p.hp>0&&(m.kind==='boss'||!safeZoneAt(p.x,p.y));}
 function mobAggroGroupKey(m){if(m.kind==='boss')return 'boss:'+m.id;if(m.kind==='style')return 'style:'+m.id;const zone=String(m.spawnZone||'');return !zone||zone==='lone'?'mob:'+m.id:'zone:'+zone;}
-function ambientAggroKey(m,playerId){return mobAggroGroupKey(m)+'|'+playerId;}
+function ambientAggroKey(m,playerId){return 'player:'+playerId;}
 function buildAmbientAggroSelections(){
   const selected=new Map(),best=new Map();
-  // Keep one already-engaged monster per spawn group/player so aggro does not jump around every tick.
+  // Natural aggro is exclusive per player: one normal mob at a time. Directly attacked mobs (provokedBy) are exempt.
   for(const m of authoritativeMobs.values()){
     if(m.dead||m.kind==='boss'||m.provokedBy||!m.targetId)continue;
     const p=players.get(m.targetId);if(!validMobTarget(m,p)||Math.hypot(p.x-m.x,p.y-m.y)>1150)continue;
     const key=ambientAggroKey(m,p.id),d=Math.hypot(p.x-m.x,p.y-m.y),prev=selected.get(key);
     if(!prev||d<prev.d)selected.set(key,{mobId:m.id,d});
   }
-  // If nobody from the group is engaged yet, choose only the nearest monster in that group.
   for(const p of players.values()){
     if(!p.ready||p.hp<=0)continue;
+    const key=ambientAggroKey(null,p.id);if(selected.has(key))continue;
     for(const m of authoritativeMobs.values()){
       if(m.dead||m.kind==='boss'||m.provokedBy||!validMobTarget(m,p))continue;
       const d=Math.hypot(p.x-m.x,p.y-m.y),aggroRange=m.kind==='style'?900:720;if(d>=aggroRange)continue;
-      const key=ambientAggroKey(m,p.id);if(selected.has(key))continue;
       const prev=best.get(key);if(!prev||d<prev.d)best.set(key,{mobId:m.id,d});
     }
   }
@@ -362,7 +361,7 @@ function serverStyleRange(cfg,slot=0){
 }
 function styleAdeptSpec(m,advance=false){
  const skills=STYLE_ADEPT_SKILLS[m.styleId]||STYLE_ADEPT_SKILLS.gale,slots=Array.isArray(m.styleSlots)&&m.styleSlots.length?m.styleSlots:[0],step=(m.stylePattern||0)%slots.length,slot=clamp(slots[step],0,4)|0;
- if(advance)m.stylePattern=(m.stylePattern||0)+1;const skillId=skills[slot],data=STYLE_ADEPT_SKILL_DATA[skillId]||STYLE_ADEPT_SKILL_DATA.windSlash;return {...data,slot,skillId,range:serverStyleRange(data.cfg,slot),wind:Math.max(.20,Math.min(.55,((data.cfg?.hits?.[0]??.18)*.70+.16)))};
+ if(advance)m.stylePattern=(m.stylePattern||0)+1;const skillId=skills[slot],data=STYLE_ADEPT_SKILL_DATA[skillId]||STYLE_ADEPT_SKILL_DATA.windSlash;const baseWind=Math.max(.20,Math.min(.55,((data.cfg?.hits?.[0]??.18)*.70+.16)));return {...data,slot,skillId,range:serverStyleRange(data.cfg,slot),wind:Math.max(.34,Math.min(.95,baseWind*1.65))};
 }
 function mobAttackRange(m){if(m.kind==='style')return Math.max(180,m.skillRange||m.reach||390);if(m.kind==='ranged')return Math.max(220,m.reach||320);if(m.kind==='charge')return Math.max(130,Math.min(210,m.reach||170));if(m.kind==='boss')return Math.max(180,Math.min(280,m.reach||220));return Math.max(75,m.reach||90);}
 function chooseBossAttack(m){const list=BOSS_ATTACKS[m.type];if(!list?.length)return 'melee';const t=list[m.pattern%list.length];m.pattern++;return t;}
@@ -411,7 +410,8 @@ function styleServerHitTest(m,target,data,k){
 }
 function broadcastStyleHit(m,target,data,k){
  styleServerMove(m,target,data,k);const hit=styleServerHitTest(m,target,data,k),mult=(data.cfg.mult?.[Math.min(k,(data.cfg.mult?.length||1)-1)]??(data.id==='gravityCut'?.72:data.hold?.44:1))*(data.damageScale||1),damage=hit?Math.max(1,Math.round(m.damage*mult*STYLE_ADEPT_DAMAGE_SCALE)):0,finalHit=k===m.styleHits.length-1;
- broadcast({type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage,x:m.x,y:m.y,tx:target.x,ty:target.y,anchorX:m.styleAnchorX,anchorY:m.styleAnchorY,facing:m.locked,kind:'style',attackType:'style',skillId:data.id,skillSlot:m.skillSlot,styleId:m.styleId,castId:m.styleCastId||0,hitIndex:k,finalHit,heavy:finalHit||['galeBlink','guardPierce','singularityRush'].includes(data.cfg.mode),serverTime:Date.now()},null,{volatile:false});
+ const packet={type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage,x:m.x,y:m.y,tx:target.x,ty:target.y,anchorX:m.styleAnchorX,anchorY:m.styleAnchorY,facing:m.locked,kind:'style',attackType:'style',skillId:data.id,skillSlot:m.skillSlot,styleId:m.styleId,castId:m.styleCastId||0,hitIndex:k,finalHit,heavy:finalHit||['galeBlink','guardPierce','singularityRush'].includes(data.cfg.mode),serverTime:Date.now()};
+ safeSend(target.ws,packet,{volatile:false});broadcast({...packet,damage:0},target.ws,{volatile:true});
 }
 function beginStyleCast(m,target,now){
  const data=STYLE_ADEPT_SKILL_DATA[m.skillId];if(!data)return false;m.styleHits=styleSyntheticHits(data);m.styleHitIndex=0;m.styleCastId=(m.styleCastId||0)+1;m.styleStartedAt=now;m.styleDuration=Math.max(data.cfg.duration||.5,(m.styleHits[m.styleHits.length-1]||0)+.18);m.styleAnchorX=target.x;m.styleAnchorY=target.y;m.state='styleSkill';markMobDirty(m);return true;
@@ -453,7 +453,7 @@ function simulateMob(m,dt,now,ambientSelections){
   if(Math.abs(m.knockVX)+Math.abs(m.knockVY)>2){if(moveServerMob(m,m.knockVX*dt,m.knockVY*dt))markMobDirty(m);const decay=Math.exp(-dt*9);m.knockVX*=decay;m.knockVY*=decay;}
   let target=null;
   if(m.kind==='style'){
-    target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1100)target=null;if(!target)target=nearestMobTarget(m,null);
+    target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1100||ambientSelections?.get(ambientAggroKey(m,target?.id))!==m.id)target=null;if(!target)target=nearestMobTarget(m,ambientSelections);
   }else if(m.kind==='boss'){
     target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150)target=null;if(!target)target=nearestMobTarget(m,null);
   }else if(m.provokedBy){

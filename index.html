@@ -135,7 +135,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <script type="module" src="./cloud-save.js?v=20260927-reset-1"></script>
 <script src="./multiplayer-config.js?v=20260926-2"></script>
 <script src="./multiplayer-server/combat-core.js?v=20260927-dawn-pull"></script>
-<script src="./multiplayer-client.js?v=20260927-style-combat-3"></script>
+<script src="./multiplayer-client.js?v=20260927-net-opt-aggro-1"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (() => {
@@ -540,7 +540,7 @@ function styleAdeptSkillSpec(e,advance=false){
  const style=STYLE_ADEPT_STYLES.find(v=>v.id===e?.styleId)||STYLE_ADEPT_STYLES[0],slots=Array.isArray(e?.styleSlots)&&e.styleSlots.length?e.styleSlots:[0];
  const step=(e?.stylePattern||0)%slots.length,slot=clamp(Number(slots[step])||0,0,4)|0;if(advance)e.stylePattern=(e.stylePattern||0)+1;
  const skillId=style.skills[slot],base=typeof swordSkillById==='function'?swordSkillById(skillId):null,sk=base&&typeof balancedSwordSkill==='function'?balancedSwordSkill(base,slot):base,cfg=sk?.cfg||null;
- return {style,slot,skillId,sk,cfg,range:styleAdeptCastRange(cfg,slot),wind:Math.max(.20,Math.min(.55,((cfg?.hits?.[0]??.18)*.70+.16)))};
+ const baseWind=Math.max(.20,Math.min(.55,((cfg?.hits?.[0]??.18)*.70+.16)));return {style,slot,skillId,sk,cfg,range:styleAdeptCastRange(cfg,slot),wind:Math.max(.34,Math.min(.95,baseWind*1.65))};
 }
 const ENEMY_TYPES={
  sprout:{name:'이끼 정령',hp:64,speed:77,damage:13,reach:66,wind:.8,color:'#8caf73',xp:18,gold:9,r:18,kind:'melee'},
@@ -2193,9 +2193,8 @@ function finishEnemyGuard(e,counter=true){
 }
 function localAggroGroupKey(e){const zone=String(e?.spawnZone||'');return !zone||zone==='lone'?'mob:'+e.id:'zone:'+zone;}
 function localAmbientAggroAvailable(e){
- if(!e||e.kind==='boss'||e.riftId||e.type==='styleAdept'||e.spawnZone==='lone'||!e.spawnZone)return true;
- const key=localAggroGroupKey(e);
- return !enemies.some(o=>o!==e&&!o.dead&&!o.riftSleeping&&o.kind!=='boss'&&!o.riftId&&!o.provoked&&o.alert&&o.state!=='return'&&localAggroGroupKey(o)===key);
+ if(!e||e.kind==='boss'||e.riftId||e.provoked)return true;
+ return !enemies.some(o=>o!==e&&!o.dead&&!o.riftSleeping&&o.kind!=='boss'&&!o.riftId&&!o.provoked&&o.alert&&o.state!=='return');
 }
 function wakeEnemy(e,provoked=false){if(provoked)e.provoked=true;e.alert=true;e.state='chase';e.timer=.25;if(isTacticalMob(e)&&!e.firstGuardDone)e.firstGuardPending=true;}
 const BOSS_PATTERNS={forestBoss:['roots','melee','branches','roots'],marshBoss:['ranged','tide','rain','tide'],plateauBoss:['charge','fissure','slam','charge'],frostBoss:['iceLance','shardRing','frostLine','iceLance'],abyssBoss:['bloodRain','gravityWell','voidVolley','bloodRain'],finalBoss:['constellation','starfall','cross','charge']};
@@ -3293,7 +3292,7 @@ function update(dt){if(multiplayerMode&&player?.skillPose>=0)multiSkillCaptureUn
   rp.rx=x;rp.ry=y;rp.ra=a;rp.attackAnim=Math.max(0,(Number(rp.attackAnim)||0)-dt);rp.dodge=Math.max(0,(Number(rp.dodge)||0)-dt);rp.parry=Math.max(0,(Number(rp.parry)||0)-dt);rp.stun=Math.max(0,(Number(rp.stun)||0)-dt);
  }
  if(window.EchoesMulti?.connected){
-  multiNetTimer+=dt;if(multiNetTimer>=.033){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-33))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;const packet={...worldCombatFields(),moveSpeed:Math.hypot(vx,vy),x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,weapon:player.weapon,attackAnim:Math.max(player.attackAnim,multiSkillPosePulseUntil>realTime?.42:0),attackDuration:Math.max(player.attackDuration,multiSkillPosePulseUntil>realTime?.55:0),strikePose:player.strikePose,skillPose:multiSkillPosePulseUntil>realTime?multiSkillFxState.slot:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,stun:player.stun||0,deathSeq:multiDeathSeq,skillFxSeq:multiSkillFxState.seq,skillFxSlot:multiSkillFxState.slot,skillFxId:multiSkillFxState.skillId,skillFxWeapon:multiSkillFxState.weapon,skillFxX:multiSkillFxState.x,skillFxY:multiSkillFxState.y,skillFxA:multiSkillFxState.a,vx,vy,seq:++multiNetSeq};if(now-multiProfileSendAt>=1000){multiProfileSendAt=now;packet.level=player.level;packet.swordStyle=player.swordStyle||'';packet.swordSkills=(player.weapon===4?player.adminSwordSkills:player.equippedSwordSkills)||[];packet.equippedHead=player.equippedHead;packet.equippedChest=player.equippedChest;packet.equippedShield=player.equippedShield;}window.EchoesMulti.sendState(packet);}
+  multiNetTimer+=dt;if(multiNetTimer>=.05){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-33))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;const packet={...worldCombatFields(),moveSpeed:Math.hypot(vx,vy),x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,weapon:player.weapon,attackAnim:Math.max(player.attackAnim,multiSkillPosePulseUntil>realTime?.42:0),attackDuration:Math.max(player.attackDuration,multiSkillPosePulseUntil>realTime?.55:0),strikePose:player.strikePose,skillPose:multiSkillPosePulseUntil>realTime?multiSkillFxState.slot:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,stun:player.stun||0,deathSeq:multiDeathSeq,skillFxSeq:multiSkillFxState.seq,skillFxSlot:multiSkillFxState.slot,skillFxId:multiSkillFxState.skillId,skillFxWeapon:multiSkillFxState.weapon,skillFxX:multiSkillFxState.x,skillFxY:multiSkillFxState.y,skillFxA:multiSkillFxState.a,vx,vy,seq:++multiNetSeq};if(now-multiProfileSendAt>=1000){multiProfileSendAt=now;packet.level=player.level;packet.swordStyle=player.swordStyle||'';packet.swordSkills=(player.weapon===4?player.adminSwordSkills:player.equippedSwordSkills)||[];packet.equippedHead=player.equippedHead;packet.equippedChest=player.equippedChest;packet.equippedShield=player.equippedShield;}window.EchoesMulti.sendState(packet);}
  }
 }updateCombat(dt);updateLootExpiry();rebuildBodyGrid();resolveBodyOverlaps();worldTime+=dt;player.playtime+=dt;saveTimer+=dt;if(void3State&&realTime>=void3State.until)endVoid3World();updateVoid3WorldExitDash(dt);damageFlash=Math.max(0,damageFlash-dt);activeBoss=null;for(const k of ['attackCd','attackAnim','dodgeCd','dodge','parry','parryCd','skillCd','potionCd','invuln','hurt','stamDelay','comboTimer','riposte','moveLock','basicMoveSlow','stun'])player[k]=Math.max(0,(player[k]||0)-dt);updateSwordSkill(dt);updateShield(dt);if(player.comboTimer<=0)player.combo=0;drainAction(dt);if(lockedTarget&&!validLock(lockedTarget))lockedTarget=null;
  let mx=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,my=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y,n=Math.hypot(mx,my);if(n>1){mx/=n;my/=n;}player.moving=n>.1;const oldX=player.x,oldY=player.y;
