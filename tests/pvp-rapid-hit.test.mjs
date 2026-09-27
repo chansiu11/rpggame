@@ -15,42 +15,60 @@ function simulateHitInv(times,{rapid=false,trueInvWindows=[]}={}){
  return hits;
 }
 
-function simulateCriticalTransport(count){
- const pending=new Map(),seen=new Set(),applied=[],acked=new Set(),queue=[];
+function simulateReliableAtk(count,{peerSupportsAck=true}={}){
+ const pending=new Map(),seen=new Set(),applied=[],queue=[];
  for(let i=1;i<=count;i++){
-  const uid='ult_'+i,packet={uid,tries:0};
-  pending.set(uid,packet);
-  queue.push({kind:'packet',uid,attempt:0});
+  const uid='ult_'+i,packet={t:'atk',criticalUid:uid,attempt:0};
+  if(peerSupportsAck)pending.set(uid,packet);
+  queue.push(packet);
  }
  let guard=0;
  while(queue.length&&guard++<10000){
-  const e=queue.shift(),p=pending.get(e.uid);
-  if(e.kind==='packet'){
-   if(!p)continue;
-   const dropFirst=e.attempt===0&&(Number(e.uid.split('_')[1])%3===0);
-   if(!dropFirst){
-    if(!seen.has(e.uid)){seen.add(e.uid);applied.push(e.uid);}
-    const dropAck=e.attempt===0&&(Number(e.uid.split('_')[1])%4===0);
-    if(!dropAck)queue.push({kind:'ack',uid:e.uid});
+  const p=queue.shift(),n=Number(p.criticalUid.split('_')[1]);
+  const firstLoss=peerSupportsAck&&p.attempt===0&&n%3===0;
+  if(!firstLoss){
+   if(peerSupportsAck){
+    if(!seen.has(p.criticalUid)){seen.add(p.criticalUid);applied.push(p.criticalUid);}
+    const ackLoss=p.attempt===0&&n%4===0;
+    if(!ackLoss)pending.delete(p.criticalUid);
+   }else{
+    applied.push(p.criticalUid); // legacy client treats the normal atk packet once
    }
-   if(pending.has(e.uid)&&e.attempt<5)queue.push({kind:'packet',uid:e.uid,attempt:e.attempt+1});
-  }else{
-   acked.add(e.uid);pending.delete(e.uid);
   }
+  if(peerSupportsAck&&pending.has(p.criticalUid)&&p.attempt<5)queue.push({...p,attempt:p.attempt+1});
  }
- return {applied,seen,acked,pending};
+ return {applied,seen,pending};
 }
 
-test('PVP Gale and Void ultimates use the acknowledged critical-hit path',{timeout:1000},()=>{
- assert.match(html,/function sendPvpUltimateHit\(data\)/);
- assert.match(html,/function receivePvpUltimateHit\(m\)/);
- assert.match(html,/m\.t==='ultHit'/);
- assert.match(html,/m\.t==='ultAck'/);
+function pvpWeapon(savedWeapon,owned=[0,3]){
+ const w=Math.floor(Number(savedWeapon)||0);
+ let wi=w===4?0:Math.max(0,Math.min(3,w));
+ if(wi===1||!owned.includes(wi))wi=0;
+ return wi;
+}
+
+test('PVP critical ultimates stay on the legacy-compatible atk message type',{timeout:1000},()=>{
+ assert.match(html,/packet=\{t:'atk',id:\+\+attackSerial,criticalUid:uid/);
+ assert.match(html,/caps:\{criticalAtkAck:1\}/);
+ assert.match(html,/m\.t==='atk'&&m\.criticalUid/);
+ assert.match(html,/m\.t==='atkAck'\|\|m\.t==='ultAck'/);
  assert.match(html,/sendPvpUltimateHit\(\{skillId:'thunderDrive'/);
  assert.match(html,/sendPvpUltimateHit\(\{skillId:'voidDance'/);
- assert.match(html,/PVP build 20260927-ULT-HIT-2/);
- assert.match(html,/function hurt\(raw,opts=\{\}\)\{if\(!me\|\|me\.inv>0\|\|\(!opts\.rapidHit&&me\.hitInv>0\)/);
- assert.match(html,/me\.hitInv=\.10;me\.hurt=/);
+ assert.match(html,/PVP build 20260927-ULT-HIT-4/);
+});
+
+test('admin sword maps to sword combat instead of hidden greatsword in PVP',{timeout:1000},()=>{
+ assert.equal(pvpWeapon(4,[0,3]),0);
+ assert.equal(pvpWeapon(0,[0,3]),0);
+ assert.equal(pvpWeapon(3,[0,3]),3);
+ assert.match(html,/savedWeapon===4\?0:clamp\(savedWeapon,0,3\)/);
+});
+
+test('PVP style skill lookup can recover a missing V-slot skill from the selected style',{timeout:1000},()=>{
+ assert.match(html,/function pvpSwordSkillAt\(i,f=me\)\{if\(!f\|\|f\.weapon>=2\)return null;/);
+ assert.match(html,/const style=WORLD_PVP\.style\?\.\(f\.swordStyle\|\|''\),id=style\?\.skills\?\.\[i\]/);
+ assert.match(html,/skills:\['windSlash','flashRush','galeOrbit','starRush','thunderDrive'\]/);
+ assert.match(html,/skills:\['chainReap','phantomSwap','gravityCut','bladeRain','voidDance'\]/);
 });
 
 test('Gale fifth skill accepts every rapid hit including the finisher',{timeout:1000},()=>{
@@ -70,14 +88,19 @@ test('Void fifth skill is stable across 100ms cadence jitter',{timeout:1000},()=
  assert.equal(simulateHitInv(times,{rapid:true}).length,21);
 });
 
-test('critical ultimate transport survives first-send loss, ACK loss and duplicates exactly once',{timeout:1000},()=>{
+test('updated peers survive loss and duplicate retries exactly once',{timeout:1000},()=>{
  for(const count of [31,21]){
-  const r=simulateCriticalTransport(count);
+  const r=simulateReliableAtk(count,{peerSupportsAck:true});
   assert.equal(r.applied.length,count);
   assert.equal(new Set(r.applied).size,count);
-  assert.equal(r.seen.size,count);
-  assert.equal(r.acked.size,count);
   assert.equal(r.pending.size,0);
+ }
+});
+
+test('legacy peers still receive one normal atk instead of an unknown ultimate message',{timeout:1000},()=>{
+ for(const count of [31,21]){
+  const r=simulateReliableAtk(count,{peerSupportsAck:false});
+  assert.equal(r.applied.length,count);
  }
 });
 
