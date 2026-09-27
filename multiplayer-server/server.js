@@ -18,10 +18,10 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v7-style-density';
-const SERVER_BUILD = '2026-09-27-style-exact-geometry-1';
+const SERVER_BUILD = '2026-09-27-style-bot-skill-reset-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
-const WORLD_RESET_EPOCH = '2026-09-27-world-reset-1';
+const WORLD_RESET_EPOCH = '2026-09-27-world-reset-2';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
   sentry:{speed:65,damage:16,reach:360,wind:1.05,kind:'ranged',r:18},golem:{speed:55,damage:27,reach:116,wind:1.2,kind:'slam',r:26},
@@ -332,7 +332,7 @@ function buildAmbientAggroSelections(){
   const selected=new Map(),best=new Map();
   // Natural aggro is exclusive per player: one normal mob at a time. Directly attacked mobs (provokedBy) are exempt.
   for(const m of authoritativeMobs.values()){
-    if(m.dead||m.kind==='boss'||m.provokedBy||!m.targetId)continue;
+    if(m.dead||m.kind==='boss'||m.kind==='style'||m.provokedBy||!m.targetId)continue;
     const p=players.get(m.targetId);if(!validMobTarget(m,p)||Math.hypot(p.x-m.x,p.y-m.y)>1150)continue;
     const key=ambientAggroKey(m,p.id),d=Math.hypot(p.x-m.x,p.y-m.y),prev=selected.get(key);
     if(!prev||d<prev.d)selected.set(key,{mobId:m.id,d});
@@ -341,8 +341,8 @@ function buildAmbientAggroSelections(){
     if(!p.ready||p.hp<=0)continue;
     const key=ambientAggroKey(null,p.id);if(selected.has(key))continue;
     for(const m of authoritativeMobs.values()){
-      if(m.dead||m.kind==='boss'||m.provokedBy||!validMobTarget(m,p))continue;
-      const d=Math.hypot(p.x-m.x,p.y-m.y),aggroRange=m.kind==='style'?900:720;if(d>=aggroRange)continue;
+      if(m.dead||m.kind==='boss'||m.kind==='style'||m.provokedBy||!validMobTarget(m,p))continue;
+      const d=Math.hypot(p.x-m.x,p.y-m.y),aggroRange=720;if(d>=aggroRange)continue;
       const prev=best.get(key);if(!prev||d<prev.d)best.set(key,{mobId:m.id,d});
     }
   }
@@ -497,8 +497,8 @@ function simulateMob(m,dt,now,ambientSelections){
   let target=null;
   if(m.kind==='style'){
     if(m.provokedBy){target=players.get(m.provokedBy);if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150){m.provokedBy=null;target=null;}}
-    if(!target){target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1100||ambientSelections?.get(ambientAggroKey(m,target?.id))!==m.id)target=null;}
-    if(!target)target=nearestMobTarget(m,ambientSelections);
+    if(!target){target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1100)target=null;}
+    if(!target)target=nearestMobTarget(m,null);
   }else if(m.kind==='boss'){
     target=m.targetId?players.get(m.targetId):null;if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150)target=null;if(!target)target=nearestMobTarget(m,null);
   }else if(m.provokedBy){
