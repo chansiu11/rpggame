@@ -1185,7 +1185,7 @@ function flushWorldCombat(){
 }
 function applyWorldCombatResult(msg){
  if(!multiplayerMode||!msg?.player)return;const p=msg.player,m=window.EchoesMulti;
- if(msg.targetId!==m.state.selfId){if(msg.attackerId===m.state.selfId&&msg.procId&&worldHitProcs.has(msg.procId)){const cb=worldHitProcs.get(msg.procId);worldHitProcs.delete(msg.procId);if(msg.damage>0)cb(msg);}if(msg.attackerId===m.state.selfId&&msg.damage>0){recordWorldCombo(msg.damage);window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);if(msg.skillId==='starRush'){const v=galeVortices.find(q=>q.t>0&&!q.caught.has(msg.targetId)&&Math.hypot(p.x-q.x,p.y-q.y)<GALE_VORTEX.radius+82);if(v){v.caught.set(msg.targetId,{angle:Math.atan2(p.y-v.y,p.x-v.x)});ring(p.x,p.y,35,'#eafffa',.18);}}}mergeRemotePlayerState(p);if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
+ if(msg.targetId!==m.state.selfId){if(msg.attackerId===m.state.selfId&&msg.damage>0&&activeSwordSkill?.skillId===msg.skillId)confirmSwordCarryHit(worldPlayerTargets.get(msg.targetId));if(msg.attackerId===m.state.selfId&&msg.procId&&worldHitProcs.has(msg.procId)){const cb=worldHitProcs.get(msg.procId);worldHitProcs.delete(msg.procId);if(msg.damage>0)cb(msg);}if(msg.attackerId===m.state.selfId&&msg.damage>0){recordWorldCombo(msg.damage);window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);if(msg.skillId==='starRush'){const v=galeVortices.find(q=>q.t>0&&!q.caught.has(msg.targetId)&&Math.hypot(p.x-q.x,p.y-q.y)<GALE_VORTEX.radius+82);if(v){v.caught.set(msg.targetId,{angle:Math.atan2(p.y-v.y,p.x-v.x)});ring(p.x,p.y,35,'#eafffa',.18);}}}mergeRemotePlayerState(p);if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
  if(worldCombatSession!==m.state.selfId){worldCombatSession=m.state.selfId;worldCombatRevision=0;worldForce=null;worldControlUntil=0;}
  if(p.combatRevision<=worldCombatRevision)return;worldCombatRevision=p.combatRevision;
  player.hp=clamp(p.hp,0,player.maxHp);player.shield=clamp(p.shield,0,player.maxShield);player.stam=clamp(p.stam,0,player.maxStam);if(player.shield<=0&&shieldHeld()){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
@@ -1991,13 +1991,17 @@ function startSwordSkill(slot){
 const SWORD_CARRY_MODES=new Set(['blinkThrust','chaseCombo','stationaryFlurry','orbitStrike','mirrorBackstab','phantomSwap','quakeLine','guardPierce','tempest','earthSlam','skyFall','holdVortex','holdShadow']);
 function swordCarryEligible(e){return !!e&&!e.dead&&!e.riftSleeping&&e.kind!=='boss'&&e.type!=='dummy'&&!(e.type==='finalBoss'&&!e.alert);}
 function ensureSwordCarrySet(seq){if(!seq.carryIds)seq.carryIds=new Set();return seq.carryIds;}
+function confirmSwordCarryHit(e,seq=activeSwordSkill){
+ if(!e||!seq||!seq.carryCandidates?.has(e.id)||!swordCarryEligible(e))return;
+ ensureSwordCarrySet(seq).add(e.id);
+}
 function captureSwordCarryTargets(seq,ang,reach,arc){
  if(!seq||!SWORD_CARRY_MODES.has(swordSkillById(seq.skillId)?.cfg?.mode))return;
- const ids=ensureSwordCarrySet(seq);
+ const candidates=seq.carryCandidates||(seq.carryCandidates=new Set());
  for(const e of combatTargets()){
   if(!swordCarryEligible(e))continue;
   const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,d=Math.hypot(dx,dy),ea=Math.atan2(dy,dx),er=combatRadius(e);
-  if(d<=reach+er+34&&Math.abs(angleDiff(ea,ang))<=arc/2+er/Math.max(35,d)){ids.add(e.id);e.stun=Math.max(e.stun||0,.18);e.state='stunned';}
+  if(d<=reach+er+34&&Math.abs(angleDiff(ea,ang))<=arc/2+er/Math.max(35,d))candidates.add(e.id);
  }
 }
 // Match the arena's swept teleport hit, then carry each caught target once per step.
@@ -2006,8 +2010,8 @@ function hitShadowCarryPath(seq,ox,oy){
  for(const e of combatTargets()){
   if(!swordCarryEligible(e))continue;const c=combatCenter(e);
   if(segmentDistance(c.x,c.y,[ox,oy],[player.x,player.y])>width+combatRadius(e))continue;
-  hitEnemy(e,seq.ultimate?void5Damage():damageValue(.52),false,player,{stun:.5,dx:0,dy:0,shape:'segment',x1:ox,y1:oy,x2:player.x,y2:player.y,r:width});
-  ids.add(e.id);
+  const outcome=hitEnemy(e,seq.ultimate?void5Damage():damageValue(.52),false,player,{stun:.5,dx:0,dy:0,shape:'segment',x1:ox,y1:oy,x2:player.x,y2:player.y,r:width,onHit:()=>{if(activeSwordSkill===seq)ids.add(e.id)}});
+  if(outcome===true)ids.add(e.id);
  }
 }
 function moveSwordCarryTargets(seq,dx,dy){
@@ -2396,13 +2400,13 @@ function hitEnemy(e,amount,heavy=false,source=player,controlOverride=null){
  if(!controlOverride?.prismCast||realTime-(e._prismImpactAt??-Infinity)>=.07){e._prismImpactAt=realTime; damageFloating(e.x+rnd(-10,10),e.kind==='boss'?hc.y-30:e.y-e.r-18,dmg,source?Math.atan2(hc.y-source.y,hc.x-source.x):0,heavy);burst(hc.x,hitY,heavy?'#f4d892':'#cbdac8',heavy?16:6,heavy?145:85);sound('hit');if(options.shake)shake=Math.max(shake,heavy?5:2);if(!controlOverride?.noHitstop)hitstop=Math.max(hitstop,heavy?.055:.025);}
  if(serverMob){
   const a=source?Math.atan2(e.y-source.y,e.x-source.x):e.facing,control={stun:heavy?.75:.22,knockbackX:heavy?Math.cos(a)*24:0,knockbackY:heavy?Math.sin(a)*24:0};if(controlOverride)Object.assign(control,{stun:controlOverride.stun,root:controlOverride.root||0,knockbackX:controlOverride.dx||0,knockbackY:controlOverride.dy||0,duration:controlOverride.duration,prismCast:controlOverride.prismCast});
-  if(e.kind==='boss'){recordWorldCombo(dmg);window.EchoesMulti.damageBoss(e.id,dmg,control);}else window.EchoesMulti.damageMob(e.id,dmg,control);return true;
+  if(e.kind==='boss'){recordWorldCombo(dmg);window.EchoesMulti.damageBoss(e.id,dmg,control);}else window.EchoesMulti.damageMob(e.id,dmg,control);confirmSwordCarryHit(e);return true;
  }
  e.hp-=dmg;recordWorldCombo(dmg);if(wasPassive)e.provoked=true;e.alert=true;e.poise+=heavy?55:14;if(e.type==='dummy'){e.hp=e.maxHp;player.training.attack=true;if(e.state==='idle'){e.timer=.8;e.alert=true;}return true;}
  if(e.kind==='boss'){if(e.poise>=130){applyEnemyStun(e,1.7);e.poise=0;floating(e.x,e.y-85,'자세 붕괴','#e7d395',true);sound('parry');}}
  else if(controlOverride){applyEnemyStun(e,controlOverride.stun||0);if(!enemyGuardBlocksControl(e)&&(controlOverride.dx||controlOverride.dy)){skill2Knocks=skill2Knocks.filter(k=>k.e!==e);const max=controlOverride.duration||.38;skill2Knocks.push({e,startX:e.x,startY:e.y,x:e.x+(controlOverride.dx||0),y:e.y+(controlOverride.dy||0),t:max,max,cubic:true});}}
  else{applyEnemyStun(e,heavy?.75:.22);if(heavy&&!enemyGuardBlocksControl(e)){const a=Math.atan2(e.y-source.y,e.x-source.x),max=window.EchoesCombat.forceDuration(24);skill2Knocks=skill2Knocks.filter(k=>k.e!==e);skill2Knocks.push({e,startX:e.x,startY:e.y,x:e.x+Math.cos(a)*24,y:e.y+Math.sin(a)*24,t:max,max,cubic:true});}}
- if(e.hp<=0)defeatEnemy(e);
+ confirmSwordCarryHit(e);if(e.hp<=0)defeatEnemy(e);
  return true;
 }
 function defeatEnemy(e,serverConfirmed=false){
