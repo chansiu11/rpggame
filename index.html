@@ -1800,7 +1800,7 @@ function stopHeldSwordSkill(slot,interrupted=false){
  const seq=activeSwordSkill;if(!seq?.held||seq.slot!==slot)return false;
  if(seq.ultimate&&!interrupted&&seq.elapsed<SWORD_ULT_HOLD_MIN){seq.releaseQueued=true;return true;}
  const sk=balancedSwordSkill(swordSkillById(seq.skillId),seq.slot);if(seq.ultimate&&!interrupted)ultimateFinishFx(seq,sk);
- finishSwordCarryTargets(seq,interrupted);activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;if(cfg.mode==='galeCrescendo'){player.cast=0;player.attackCd=0;player.attackAnim=0;player.moveLock=0;player.postSkillLockTimer=0;}player.cast=0;player.attackAnim=interrupted?0:.12;player.attackCd=interrupted?0:.12;player.moveLock=Math.max(player.moveLock||0,.06);
+ finishSwordCarryTargets(seq,interrupted);activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;player.cast=0;player.attackAnim=interrupted?0:.12;player.attackCd=interrupted?0:.12;player.moveLock=Math.max(player.moveLock||0,.06);
  if(standardSkillHold?.continuous&&standardSkillHold.index===slot)standardSkillHold=null;
  if(!interrupted&&sk){ring(player.x,player.y,34,swordStyleFxForSkill(sk.id).main,.18);sound('swing');}
  updateSkillTray();return true;
@@ -2248,7 +2248,7 @@ function updateSwordSkill(dt){
  while(seq.nextHit<cfg.hits.length&&seq.elapsed>=cfg.hits[seq.nextHit]){performSwordSkillHit(seq,seq.nextHit);seq.nextHit++;}
  if(seq.elapsed>=seq.duration){
   if(cfg.mode==='singularityRush'&&seq.singularityCaught){const caughtTarget=seq.singularityTargetId?combatTargets().find(e=>e.id===seq.singularityTargetId&&!e.dead&&!e.riftSleeping):null;if(caughtTarget){hitEnemy(caughtTarget,damageValue(1.45),true);applyEnemyStun(caughtTarget,caughtTarget.kind==='boss'?.3:.65);const c=combatCenter(caughtTarget),th=swordStyleFxForSkill(sk.id);effects.push({type:'riftCut',x:c.x,y:c.y,a:seq.facing+Math.PI/2,len:190,width:38,color:th.sub,t:.38,max:.38});burst(c.x,c.y,th.main,20,210);shake=Math.max(shake,8);}}
-  if(seq.ultimate&&!seq.galePursuitMiss)ultimateFinishFx(seq,sk);if(seq.ultimate&&sk.id==='prismLance'){seq.chasing=true;seq.chaseElapsed=0;return;}finishSwordCarryTargets(seq,false);if(Math.hypot(player.x-seq.originX,player.y-seq.originY)>28)syncInstantPlayerMove(520);activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;
+  if(seq.ultimate&&!seq.galePursuitMiss)ultimateFinishFx(seq,sk);if(seq.ultimate&&sk.id==='prismLance'){seq.chasing=true;seq.chaseElapsed=0;return;}finishSwordCarryTargets(seq,false);if(Math.hypot(player.x-seq.originX,player.y-seq.originY)>28)syncInstantPlayerMove(520);activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;if(cfg.mode==='galeCrescendo'){player.cast=0;player.attackCd=0;player.attackAnim=0;player.moveLock=0;player.postSkillLockTimer=0;}
  }
 }
 function prismPathClear(e){const c=combatCenter(e),d=Math.hypot(c.x-player.x,c.y-player.y),n=Math.max(1,Math.ceil(d/12));for(let i=1;i<=n;i++)if(solidAt(player.x+(c.x-player.x)*i/n,player.y+(c.y-player.y)*i/n,3))return false;return true;}
