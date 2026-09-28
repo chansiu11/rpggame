@@ -95,3 +95,24 @@ test('All standard, bow and hidden skill descriptions specify a 0.2s cooldown',(
  assert.ok(html.includes('me.cool[i]=.2;'),'Arena must have same cooldown');
  assert.ok(html.includes('Math.min(SKILL_COOLDOWN_SECONDS,player.hiddenSkillCds[i])'),'Old hidden cooldowns are clamped');
 });
+
+test('World skill window: 199ms allowed, 200–339ms blocked, attack end unlocked',()=>{
+ const s={now:1000,player:{attackCd:.32,attackAnim:.34,attackDuration:.34},busy:false};
+ const init="const performance={now:()=>state.now},player=state.player,skillActionBusy=()=>state.busy,mouse={down:true},keys=new Set(['KeyZ']);let touchAttackPointer=null,basicAttackLockUntil=1340,basicAttackStartedAt=1000,bufferedAction=null,pendingAttack=false;";
+ const make=()=>new Function('state',[init,section('function basicAttackHeld(){','function isSharedWorldItem('),'return {blocked:basicAttackSkillBlocked,cancel:cancelBasicAttackForSkill};'].join('\n'))(s);
+ const fn=make();s.now=1199;assert.equal(fn.blocked(),false);
+ s.now=1200;assert.equal(fn.blocked(),true);assert.equal(fn.cancel(),false);
+ s.now=1339;assert.equal(fn.blocked(),true);
+ s.now=1340;assert.equal(fn.blocked(),false);
+ const early=make();s.now=1199;assert.equal(early.cancel(),true);assert.equal(s.player.attackAnim,0);
+});
+test('PVP skill window: 199ms allowed, 200–339ms blocked, attack end unlocked',()=>{
+ const s={now:1000,me:{attackCd:.32,attackAnim:.34,basicAttackStartedAt:1000,basicAttackLockUntil:1340,skillPose:-1,skillHold:null,skillEvent:null,cool:[0,0,0,0,0],stun:0,exhaust:0}};
+ const init="const performance={now:()=>state.now},me=state.me,mouse={down:true},keys=new Set(['KeyZ']),pkey=x=>x,running=true,roundLocked=false;";
+ const make=()=>new Function('state',[init,section('function pvpBasicHeld(){','function pvpMouseAimActive(){'),'return {blocked:pvpBasicSkillBlocked,cancel:cancelPvpBasicForSkill,ready:skillReady};'].join('\n'))(s);
+ const fn=make();s.now=1199;assert.equal(fn.blocked(),false);assert.equal(fn.ready(0),true);
+ s.now=1200;assert.equal(fn.blocked(),true);assert.equal(fn.ready(0),false);fn.cancel();assert.equal(s.me.attackAnim,.34);
+ s.now=1339;assert.equal(fn.blocked(),true);
+ s.now=1340;assert.equal(fn.blocked(),false);
+ s.now=1199;fn.cancel();assert.equal(s.me.attackAnim,0);
+});
