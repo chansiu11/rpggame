@@ -4247,9 +4247,9 @@ function pvpWorldSwordMotion(ev,dt){const sk=ev.skill,cfg=ev.cfg,mode=cfg.mode,t
  else if(mode==='skyFall'){me.skillLift=Math.sin(t*Math.PI)*82}
  else if(mode==='galePulse'){
   me.skillLift=0;
-  // The caster stays anchored. The victim moves their own fighter and sends authoritative states back.
-  const cx=ev.originX,cy=ev.originY;
-  if(!me.forcedMove&&!me.forceTrack&&ev.elapsed<cfg.duration){me.x=cx;me.y=cy;}
+  // The caster stays at their actual position, including if another hit knocks them back.
+  // The victim alone owns gentle pull movement; we never overwrite the caster's coordinates.
+  const cx=me.x,cy=me.y;
   pvpShake=Math.max(pvpShake,7);
   if(ev.elapsed<.5&&enemy&&enemy.hp>0){
    const d=Math.hypot(cx-enemy.x,cy-enemy.y),now=performance.now();
