@@ -2301,7 +2301,20 @@ function updateSwordSkillMotion(seq,sk,dt){
   if(!seq.galePursuitResolved){
    const ox=player.x,oy=player.y;moveBody(player,Math.cos(seq.facing)*1500*dt,Math.sin(seq.facing)*1500*dt);player.invuln=Math.max(player.invuln,.08);
    effects.push({type:'line',x:ox,y:oy,x2:player.x,y2:player.y,color:th.main,t:.16,max:.16});
-   if(!seq.galePursuitTargetId){const hit=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)).filter(e=>{const cc=combatCenter(e);return segmentDistance(cc.x,cc.y,[ox,oy],[player.x,player.y])<=72+combatRadius(e);}).sort((a,b)=>combatDistance(a,{x:ox,y:oy})-combatDistance(b,{x:ox,y:oy}))[0];if(hit){seq.galePursuitHit=true;seq.galePursuitTargetId=hit.id;seq.targetId=hit.id;seq.galePursuitBaseA=seq.facing;const hc=combatCenter(hit),push=720,pdx=Math.cos(seq.facing)*push,pdy=Math.sin(seq.facing)*push,pdur=window.EchoesCombat.forceDuration(push);hitEnemy(hit,gale5Damage(false),true,player,{stun:.34,dx:pdx,dy:pdy,duration:pdur});effects.push({type:'nova',x:hc.x,y:hc.y,r:105,color:th.accent,t:.34,max:.34});ring(hc.x,hc.y,118,th.sub,.32);burst(hc.x,hc.y,th.main,20,205);shake=Math.max(shake,8);}}
+    if(!seq.galePursuitTargetId&&!seq.galePursuitInitialTried){
+     const hit=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)).filter(e=>{
+      const cc=combatCenter(e);return segmentDistance(cc.x,cc.y,[ox,oy],[player.x,player.y])<=72+combatRadius(e);
+     }).sort((a,b)=>combatDistance(a,{x:ox,y:oy})-combatDistance(b,{x:ox,y:oy}))[0];
+     if(hit){
+      seq.galePursuitInitialTried=true;seq.galePursuitPending=true;seq.galePursuitPendingAt=performance.now();seq.galePursuitBaseA=seq.facing;
+      const hc=combatCenter(hit),push=720,pdx=Math.cos(seq.facing)*push,pdy=Math.sin(seq.facing)*push,pdur=window.EchoesCombat.forceDuration(push);
+      const confirm=()=>{if(activeSwordSkill!==seq)return;seq.galePursuitHit=true;seq.galePursuitTargetId=hit.id;seq.targetId=hit.id;seq.galePursuitPending=false;};
+      const outcome=hitEnemy(hit,gale5Damage(false),true,player,{stun:.34,dx:pdx,dy:pdy,duration:pdur,onHit:confirm});
+      if(outcome===true)confirm();
+      effects.push({type:'nova',x:hc.x,y:hc.y,r:105,color:th.accent,t:.34,max:.34});ring(hc.x,hc.y,118,th.sub,.32);burst(hc.x,hc.y,th.main,20,205);shake=Math.max(shake,8);
+     }
+    }
+    if(seq.galePursuitPending&&!seq.galePursuitHit&&performance.now()-seq.galePursuitPendingAt<750)seq.elapsed=Math.min(seq.elapsed,dashEnd-.01);
    if(seq.elapsed>=dashEnd){
     if(!seq.galePursuitTargetId){seq.galePursuitResolved=true;seq.galePursuitMiss=true;seq.nextHit=cfg.hits.length;seq.elapsed=seq.duration;player.cast=0;player.attackCd=.10;player.attackAnim=.10;player.moveLock=0;player.postSkillLockTimer=.05;}
     else{const target=combatTargets().find(e=>e.id===seq.galePursuitTargetId&&!e.dead&&!e.riftSleeping);if(!target){seq.galePursuitResolved=true;seq.galePursuitMiss=true;seq.nextHit=cfg.hits.length;seq.elapsed=seq.duration;}else{seq.galePursuitResolved=true;const carry=player.r+combatRadius(target)+20,tx=player.x+Math.cos(seq.facing)*carry,ty=player.y+Math.sin(seq.facing)*carry;seq.galePursuitCarryX=tx;seq.galePursuitCarryY=ty;if(target.networkPlayer){/* 서버 권한형 플레이어는 첫 적중 넉백만 사용해 중복 장거리 이동을 막는다. */}else{moveBody(target,tx-target.x,ty-target.y);applyEnemyStun(target,.34);}syncInstantPlayerMove(1600);ring(tx,ty,110,th.accent,.32);}}
