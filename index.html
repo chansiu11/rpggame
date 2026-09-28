@@ -4444,12 +4444,13 @@ function pvpWorldSwordHit(ev,k){
  const color=sk.color||'#d7c181',sub=sk.sub||'#fff',target=pvpWorldSwordTarget(ev);
  const carryModes=['blinkThrust','chaseCombo','stationaryFlurry','orbitStrike','mirrorBackstab','phantomSwap','quakeLine','guardPierce','tempest','earthSlam','skyFall'];
  const explicitControl=carryModes.includes(mode)||['moonBurst','lunarPull','gravityWell','chainPull'].includes(mode),worldHeavyForce=explicitControl?0:24;
- const heavyArc=(r,damage,aa=arc,heavy=final,extra={})=>arcAttack(r,damage,aa,extra.meleeForce===false?0:(heavy?worldHeavyForce:0),heavy?.75:(extra.meleeForce===false?.22:.5),{color,...extra,fx:false});
- const heavyCircle=(x,y,r,damage,heavy=final,extra={})=>circleAttack(x,y,r,damage,heavy?.75:.22,{color,force:heavy?worldHeavyForce:0,forceA:a,...extra,fx:false});
+ const carryOnHit=()=>{if(me.skillEvent!==ev||!enemy)return;ev.carry=true;forceEnemyTo(enemy.x,enemy.y,.08,.18)};
+ const heavyArc=(r,damage,aa=arc,heavy=final,extra={})=>arcAttack(r,damage,aa,extra.meleeForce===false?0:(heavy?worldHeavyForce:0),heavy?.75:(extra.meleeForce===false?.22:.5),{color,...extra,onHit:extra.onHit||(carryModes.includes(mode)?carryOnHit:null),fx:false});
+ const heavyCircle=(x,y,r,damage,heavy=final,extra={})=>circleAttack(x,y,r,damage,heavy?.75:.22,{color,force:heavy?worldHeavyForce:0,forceA:a,...extra,onHit:extra.onHit||(carryModes.includes(mode)?carryOnHit:null),fx:false});
  const wave=(aa,speed,damage,pierce=1)=>sendProjectile(aa,speed,damage,{...window.EchoesCombat.waveControl,pierce});
- if(target&&carryModes.includes(mode)){const dx=target.x-me.x,dy=target.y-me.y,dist=Math.hypot(dx,dy),ea=Math.atan2(dy,dx);if(dist<=reach+target.r+34&&Math.abs(angleDiff(ea,a))<=arc/2+target.r/Math.max(35,dist)){ev.carry=true;forceEnemyTo(target.x,target.y,.08,.18)}}
+ 
  if(ev.ultimate&&sk.id==='lunarBind'){
-  const r=[190,245,315][Math.min(k,2)]||315;if(targetNear(r+enemy.r)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x),pull=Math.max(18,58-k*12);forceEnemyTo(enemy.x+Math.cos(aa)*pull,enemy.y+Math.sin(aa)*pull,.18,.45+k*.2)}heavyCircle(me.x,me.y,r,d,k===2);
+  const r=[190,245,315][Math.min(k,2)]||315;heavyCircle(me.x,me.y,r,d,k===2,{onHit:()=>{if(enemy){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x),pull=Math.max(18,58-k*12);forceEnemyTo(enemy.x+Math.cos(aa)*pull,enemy.y+Math.sin(aa)*pull,.18,.45+k*.2);}}});
  }else if(ev.ultimate&&sk.id==='prismLance'){
   if(k===0)for(let j=-2;j<=2;j++)wave(a+j*.12,720,pvpSkillAttack(me)*.82,3);
   else if(k===1)for(let j=-4;j<=4;j++)wave(a+j*.10,780,pvpSkillAttack(me)*.72,3);
@@ -4473,21 +4474,20 @@ function pvpWorldSwordHit(ev,k){
    me.x=clamp(target.x+Math.cos(hitA)*pass,25,ARENA_W-25);
    me.y=clamp(target.y+Math.sin(hitA)*pass,25,ARENA_H-25);
    net({t:'teleport',x:me.x,y:me.y,a:me.a});
-   ev.carry=true;
    heavyArc(reach,d,.58,true,{teleportHit:true});
   }else heavyArc(reach,d,.58,true);
 }
- else if(mode==='moonBurst'){if(targetNear(reach+90)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x);forceEnemyTo(enemy.x+Math.cos(aa)*26,enemy.y+Math.sin(aa)*26,.18,.18)}heavyArc(reach,d,TAU,true)}
+ else if(mode==='moonBurst'){heavyArc(reach,d,TAU,true,{onHit:()=>{if(enemy){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x);forceEnemyTo(enemy.x+Math.cos(aa)*26,enemy.y+Math.sin(aa)*26,.18,.18);}}})}
  else if(mode==='chaseCombo'){const lat=(k===0?-1:k===1?1:0)*(['windSlash','flashRush','starRush','galeOrbit','thunderDrive'].includes(sk.id)?62:42);me.x=clamp(me.x-Math.sin(a)*lat,25,ARENA_W-25);me.y=clamp(me.y+Math.cos(a)*lat,25,ARENA_H-25);heavyArc(reach,d,arc,final)}
  else if(mode==='stationaryFlurry'){if(target){const aa=a+(k%2?1:-1)*1.05,tx=target.x-Math.cos(aa)*58,ty=target.y-Math.sin(aa)*58;me.x=clamp(me.x+clamp(tx-me.x,-48,48),25,ARENA_W-25);me.y=clamp(me.y+clamp(ty-me.y,-48,48),25,ARENA_H-25);me.a=ev.a=Math.atan2(target.y-me.y,target.x-me.x)}heavyArc(reach,d,arc,final)}
  else if(mode==='doubleWave'||mode==='crescentRetreat'){heavyArc(reach,d*.38,arc,false);wave(a+(k===0?-.18:.18),510,pvpSkillAttack(me)*(k===0?1:1.3),3)}
- else if(mode==='guardPierce'){heavyArc(reach,d,.52,true);if(enemyInArc(a,reach,.52))forceEnemyTo(enemy.x,enemy.y,.08,1.15)}
+ else if(mode==='guardPierce'){heavyArc(reach,d,.52,true,{onHit:()=>{if(enemy)forceEnemyTo(enemy.x,enemy.y,.08,1.15)}})}
  else if(mode==='tempest'){heavyArc(reach,d,TAU,final)}
  else if(mode==='earthSlam'){const cx=me.x+Math.cos(a)*80,cy=me.y+Math.sin(a)*80;heavyCircle(cx,cy,145,d,true)}
  else if(mode==='dawnWave'){wave(a,720,pvpSkillAttack(me)*1.2825,7)}
  else if(mode==='orbitStrike'){heavyArc(reach,d,arc,final)}
  else if(mode==='mirrorBackstab'){const teleported=!!target;if(target){const aa=Math.atan2(me.y-target.y,me.x-target.x),tx=target.x+Math.cos(aa)*58,ty=target.y+Math.sin(aa)*58;me.x=clamp(tx,25,ARENA_W-25);me.y=clamp(ty,25,ARENA_H-25);me.a=ev.a=Math.atan2(target.y-me.y,target.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a})}heavyArc(reach,d,arc,true,{teleportHit:teleported})}
- else if(mode==='lunarPull'){const r=135,pull=28;if(targetNear(r+enemy.r)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x);forceEnemyTo(enemy.x+Math.cos(aa)*pull,enemy.y+Math.sin(aa)*pull,.24,.22)}heavyCircle(me.x,me.y,r,d,true)}
+ else if(mode==='lunarPull'){const r=135,pull=28;heavyCircle(me.x,me.y,r,d,true,{onHit:()=>{if(enemy){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x);forceEnemyTo(enemy.x+Math.cos(aa)*pull,enemy.y+Math.sin(aa)*pull,.24,.22);}}})}
  else if(mode==='quakeLine'){const cx=me.x+Math.cos(a)*(55+k*38),cy=me.y+Math.sin(a)*(55+k*38);heavyCircle(cx,cy,62,d,final)}
  else if(mode==='fracturePrison'){
   const cx=Number.isFinite(ev.anchorX)?ev.anchorX:me.x+Math.cos(a)*170,cy=Number.isFinite(ev.anchorY)?ev.anchorY:me.y+Math.sin(a)*170,
