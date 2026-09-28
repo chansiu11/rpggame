@@ -24,9 +24,9 @@ test('browser AI button flow connects through the real server, then exits cleanl
  const a=createArena();try{await wait(()=>logs.includes('listening'));
  Object.assign(a.c,{WebSocket,setTimeout,clearTimeout,queueMicrotask,ECHOES_MULTIPLAYER_CONFIG:{serverUrl:'ws://127.0.0.1:'+port}});
  vm.runInContext(readFileSync(new URL('../multiplayer-client.js',import.meta.url),'utf8'),a.c);
- a.c.document.getElementById('pvpAiDifficulty').value='5';
+ a.c.document.getElementById('pvpAiDifficulty').value='5';a.c.document.getElementById('pvpAiStyle').value='gale';
  await a.api.startAiMatch();await wait(()=>a.api.running&&a.api.enemy?.name.startsWith('AI'));
- assert.ok(['gale','void','dawn'].includes(a.api.enemy.swordStyle));assert.match(a.api.enemy.name,/5단계/);assert.ok(a.api.countdown&&a.api.locked);a.step(4);assert.ok(a.api.locked,'browser clock cannot unlock ahead of server');a.api.receive({t:'aiGo'});assert.equal(a.api.locked,false);a.api.stopNet();assert.equal(a.api.countdown,false);assert.equal(a.api.running,false);
+ assert.equal(a.api.enemy.swordStyle,'gale');assert.match(a.api.enemy.name,/5단계/);assert.ok(a.api.countdown&&a.api.locked);a.step(4);assert.ok(a.api.locked,'browser clock cannot unlock ahead of server');a.api.receive({t:'aiGo'});assert.equal(a.api.locked,false);a.api.stopNet();assert.equal(a.api.countdown,false);assert.equal(a.api.running,false);
  }finally{a.api.stopNet();a.c.EchoesMulti?.disconnect();a.dispose();server.kill();}
 });
 
