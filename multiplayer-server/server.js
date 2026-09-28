@@ -1,3 +1,4 @@
+import {createPvpRelay} from './pvp-relay.js';
 import {selectMobInterest} from './world-interest.js';
 import { skillVisuals } from './visual-protocol.js';
 import http from 'node:http';
@@ -18,7 +19,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v7-style-density';
-const SERVER_BUILD = '2026-09-28-world-projectile-collision-1';
+const SERVER_BUILD = '2026-09-28-pvp-relay-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const WORLD_RESET_EPOCH = '2026-09-27-world-reset-2';
@@ -117,6 +118,7 @@ const bosses = new Map(bossDefs.map(b => [b.id, {
 const players = new Map();
 const parties = new Map();
 const pvpMatchQueue=[];
+const pvpRelay=createPvpRelay(players,safeSend);
 let worldLeaderId=null;
 let worldRevision=0;
 let worldSnapshot={mobs:[],items:[],updatedAt:0,revision:0};
@@ -165,6 +167,8 @@ function removePvpMatchQueue(player,notify=false){
 function joinPvpMatchQueue(player){
   if(!player?.ready||player.ws?.readyState!==WebSocket.OPEN)return;
   removePvpMatchQueue(player,false);
+  pvpRelay.leave(player);
+  if(player.clientMode!=='pvp')return;
   if(!player.pvpRuleset){
     safeSend(player.ws,{type:'pvp:matchStatus',queued:false,count:pvpMatchQueue.length,error:'missing-ruleset'});
     safeSend(player.ws,{type:'notice',message:'PVP 전투 규칙 정보를 불러오지 못했습니다. 페이지를 새로고침해 주세요.'});
@@ -175,7 +179,7 @@ function joinPvpMatchQueue(player){
     const id=pvpMatchQueue.shift(),candidate=players.get(id);
     if(!candidate||candidate===player||!candidate.ready||!candidate.pvpQueued||candidate.ws.readyState!==WebSocket.OPEN)continue;
     if(candidate.accountId&&player.accountId&&candidate.accountId===player.accountId){candidate.pvpQueued=false;continue;}
-    if(candidate.pvpRuleset!==player.pvpRuleset){pvpMatchQueue.push(candidate.id);continue;}
+    if(candidate.pvpRuleset!==player.pvpRuleset||candidate.pvpRelayCapable!==player.pvpRelayCapable){pvpMatchQueue.push(candidate.id);continue;}
     rival=candidate;break;
   }
   if(!rival){
@@ -185,8 +189,10 @@ function joinPvpMatchQueue(player){
   }
   player.pvpQueued=false;rival.pvpQueued=false;
   const matchId=crypto.randomBytes(6).toString('hex'),peerId='echoes-pvp-auto-'+matchId;
-  safeSend(rival.ws,{type:'pvp:matchFound',matchId,peerId,role:'host',ruleset:player.pvpRuleset,opponent:{id:player.id,name:player.name,level:player.level}});
-  safeSend(player.ws,{type:'pvp:matchFound',matchId,peerId,role:'guest',ruleset:player.pvpRuleset,opponent:{id:rival.id,name:rival.name,level:rival.level}});
+  const transport=player.pvpRelayCapable&&rival.pvpRelayCapable?'websocket':'peerjs';
+  if(transport==='websocket')pvpRelay.create(matchId,rival,player);
+  safeSend(rival.ws,{type:'pvp:matchFound',matchId,peerId,transport,role:'host',ruleset:player.pvpRuleset,opponent:{id:player.id,name:player.name,level:player.level}});
+  safeSend(player.ws,{type:'pvp:matchFound',matchId,peerId,transport,role:'guest',ruleset:player.pvpRuleset,opponent:{id:rival.id,name:rival.name,level:rival.level}});
   console.log('[pvp-match]',rival.id,'vs',player.id,matchId,'ruleset',player.pvpRuleset);
 }
 function publicPlayer(p){
@@ -596,6 +602,7 @@ function handleMobDamage(player,msg){
   markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),damage,by:player.id,respawnAt:mob.respawnAt||0}});
 }
 function handleMessage(player,msg){
+  if(pvpRelay.handle(player,msg))return;
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='net:ping'){const now=Date.now();if(now-(player.lastPingAt||0)>500){player.lastPingAt=now;safeSend(player.ws,{type:'net:pong',nonce:msg.nonce,serverTime:now});}return;}
   if(msg.type==='pvp:matchJoin'){joinPvpMatchQueue(player);return;}
@@ -683,7 +690,7 @@ wss.on('connection',(ws)=>{
       player.name=cleanName(msg.name);
       player.accountId=cleanAccountId(msg.accountId,player.name);
       player.clientSessionId=cleanClientSessionId(msg.clientSessionId);
-      player.clientMode=msg.mode==='pvp'?'pvp':'world';player.pvpRuleset=String(msg.pvpRuleset||'').slice(0,80);
+      player.clientMode=msg.mode==='pvp'?'pvp':'world';player.pvpRelayCapable=msg.pvpRelay===1;player.pvpRuleset=String(msg.pvpRuleset||'').slice(0,80);
       const replaced=[...players.values()].filter(p=>p!==player&&p.ready&&p.accountId===player.accountId);
       for(const old of replaced){
         const sameClient=!!player.clientSessionId&&old.clientSessionId===player.clientSessionId;
@@ -723,6 +730,7 @@ wss.on('connection',(ws)=>{
   ws.on('close',(code)=>{
     if(player.ready)console.log('[ws-close]',player.id,'code',code,'players',players.size);
     clearTimeout(helloTimer);
+    pvpRelay.leave(player);
     removePvpMatchQueue(player,false);
     leaveParty(player);
     players.delete(player.id);

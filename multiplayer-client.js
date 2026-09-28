@@ -93,6 +93,7 @@ function handle(msg){
   if(msg.type==='party:update'){state.party=msg.party||null;emit('party',state.party);return;}
   if(msg.type==='party:invite'){state.pendingInvite=msg;emit('party:invite',msg);return;}
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
+  if(['pvp:relay','pvp:relayOpen','pvp:relayClosed'].includes(msg.type)){emit(msg.type,msg);return;}
   if(msg.type==='pvp:matchStatus'){emit('pvp:matchStatus',msg);return;}
   if(msg.type==='pvp:matchFound'){emit('pvp:matchFound',msg);return;}
   if(msg.type==='pvp:damage'){emit('pvp:damage',msg);return;}
@@ -137,7 +138,7 @@ function connect(profile={},reconnecting=false){
     ws.addEventListener('open',()=>{
       if(state.socket!==ws){try{ws.close();}catch{}return;}opened=true;
       try{ws.binaryType='arraybuffer';}catch{}
-      send({type:'hello',name:profile.name||'Player',accountId:profile.accountId||'',clientSessionId:state.clientSessionId,level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world',pvpRuleset:profile.mode==='pvp'?String(profile.pvpRuleset||window.EchoesWorldPvpData?.ruleset||''):''});
+      send({type:'hello',pvpRelay:1,name:profile.name||'Player',accountId:profile.accountId||'',clientSessionId:state.clientSessionId,level:profile.level||1,weapon:profile.weapon||0,mode:profile.mode==='pvp'?'pvp':'world',pvpRuleset:profile.mode==='pvp'?String(profile.pvpRuleset||window.EchoesWorldPvpData?.ruleset||''):''});
     });
     ws.addEventListener('message',e=>{
       if(state.socket!==ws||state.manualClose)return;
@@ -163,6 +164,7 @@ function connect(profile={},reconnecting=false){
     });
     ws.addEventListener('close',()=>{
       clearTimeout(timer);clearTimeout(waiting);if(state.socket!==ws){if(!settled){settled=true;reject(new Error('연결이 취소되었습니다.'));}return;}connectingPromise=null;const shouldReconnect=!state.manualClose&&!!state.profile&&(opened||reconnecting);
+      if(state.profile?.mode==='pvp')emit('pvp:relayClosed',{});
       state.connected=false;state.connecting=false;if(state.socket===ws)state.socket=null;
       if(shouldReconnect){
         state.recovering=true;
@@ -208,6 +210,9 @@ window.EchoesMulti={
   skillEffects(packet){if(state.connected&&packet)send({type:'skill:effects',seq:packet.seq||0,effects:Array.isArray(packet.effects)?packet.effects.slice(0,90):[],projectiles:Array.isArray(packet.projectiles)?packet.projectiles.slice(0,24):[]});},
   pvpDamage(targetId,damage,range=180,kind='melee',control={}){combatEvent({targetId,kind:'attack',damage,range,...control});},
   pvpControl(targetId,dx,dy,stun=0,kind='skill-control'){combatEvent({targetId,kind:'control',dx,dy,stun});},
+  pvpRelayReady(matchId){return send({type:'pvp:relayReady',matchId});},
+  pvpRelaySend(matchId,data){return send({type:'pvp:relay',matchId,data});},
+  pvpRelayLeave(matchId){return send({type:'pvp:relayLeave',matchId});},
   pvpMatchJoin(){return send({type:'pvp:matchJoin'});},
   pvpMatchCancel(){return send({type:'pvp:matchCancel'});},
   damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,knockbackX:control.knockbackX||0,prismCast:String(control.prismCast||'').slice(0,64),knockbackY:control.knockbackY||0});},
