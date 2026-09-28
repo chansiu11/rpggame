@@ -32,12 +32,16 @@ test('PVP: first 100ms permits cancelling a basic, second phase blocks until ani
  state.mouse.down=false;state.now=1339;assert.equal(fn.skillReady(0),false);
  state.now=1340;state.me.attackAnim=0;state.me.attackCd=.12;assert.equal(fn.skillReady(0),true);fn.cancelPvpBasicForSkill();assert.equal(state.me.attackCd,0);assert.equal(state.me.basicAttackLockUntil,0);assert.equal(state.me.basicAttackStartedAt,0);
 });
-test('PVP: button path and hidden followup refuse skills throughout locked interval',()=>{
- const state={now:1000,starts:0,me:{weapon:0,skillBasicGraceUntil:0,skillBasicGraceUsed:true,attackCd:.32,attackAnim:.34,basicAttackLockUntil:1340,basicAttackStartedAt:1000,skillPose:-1,skillHold:null,skillEvent:null,stun:0,exhaust:0,block:false,dash:0,cool:[0,0,0,0,0]},roundLocked:false};
- const code="const me=state.me,performance={now:()=>state.now},roundLocked=state.roundLocked,mouse={down:false},keys=new Set(),pkey=x=>x,running=true,combatAimAngle=()=>0,pvpSwordSkillAt=()=>({id:'windSlash',cfg:{mode:'windShot'}}),startSwordSequence=()=>{state.starts++;return true;},startBowSkill=()=>false,hiddenSkillCanStart=()=>true;";
- const fn=new Function('state',[code,section('function pvpBasicHeld(){','function pvpMouseAimActive(){'),section('function hiddenCanStart(i,follow=false){','function beginHidden(i){'),section('function grantPvpSkillBasicGrace(){','function skillUp(i){'),"return {skillDown,hiddenCanStart};"].join('\n'))(state);
- fn.skillDown(0);assert.equal(state.starts,1);state.me.weapon=3;assert.equal(fn.hiddenCanStart(0),true);
- state.me.weapon=0;state.now=1100;fn.skillDown(0);assert.equal(state.starts,1);
+test('PVP: button path and hidden followup respect basic lock and 0.2s wind-up',()=>{
+ const state={now:1000,starts:0,me:{weapon:0,a:0,moveLock:0,skillBasicGraceUntil:0,skillBasicGraceUsed:true,attackCd:.32,attackAnim:.34,basicAttackLockUntil:1340,basicAttackStartedAt:1000,skillPose:-1,skillHold:null,skillEvent:null,stun:0,exhaust:0,block:false,dash:0,cool:[0,0,0,0,0]},roundLocked:false};
+ const code="const window={EchoesSkillPrepare:{duration:.2,kind:()=> 'slash'}},me=state.me,performance={now:()=>state.now},roundLocked=state.roundLocked,mouse={down:false},keys=new Set(),pkey=x=>x,running=true,combatAimAngle=()=>0,pvpSwordSkillAt=()=>({id:'windSlash',cfg:{mode:'windShot'}}),startSwordSequence=()=>{state.starts++;return true;},startBowSkill=()=>false,hiddenSkillCanStart=()=>true;";
+ const fn=new Function('state',[code,section('function pvpBasicHeld(){','function pvpMouseAimActive(){'),section('function hiddenCanStart(i,follow=false){','function beginHidden(i){'),section('function grantPvpSkillBasicGrace(){','function switchWeapon(i){'),"return {skillDown,skillUp,hiddenCanStart};"].join('\n'))(state);
+ fn.skillDown(0);assert.equal(state.starts,0);assert.equal(state.me.skillHold.kind,'inputPrepare');
+ state.me.skillHold.elapsed=.2;fn.skillUp(0);assert.equal(state.starts,1);
+ state.me.weapon=3;assert.equal(fn.hiddenCanStart(0),true);
+ state.me.weapon=0;state.now=1200;Object.assign(state.me,{skillHold:null,skillEvent:null,skillPose:-1,basicAttackLockUntil:1340,basicAttackStartedAt:1000,attackAnim:.34,attackCd:.32});
+ fn.skillDown(0);assert.equal(state.me.skillHold,null);assert.equal(state.starts,1);
  state.me.weapon=3;assert.equal(fn.hiddenCanStart(0),false);assert.equal(fn.hiddenCanStart(1,true),false,'stigma followup is also blocked');
- state.now=1340;state.me.attackAnim=0;state.me.attackCd=0;state.me.weapon=0;fn.skillDown(0);assert.equal(state.starts,2);
+ state.now=1340;state.me.attackAnim=0;state.me.attackCd=0;state.me.weapon=0;fn.skillDown(0);assert.equal(state.me.skillHold.kind,'inputPrepare');assert.equal(state.starts,1);
+ state.me.skillHold.elapsed=.2;fn.skillUp(0);assert.equal(state.starts,2);
 });
