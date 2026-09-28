@@ -19,7 +19,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v8-player-balance';
-const SERVER_BUILD = '2026-09-28-shield-gale3-1';
+const SERVER_BUILD = '2026-09-28-gale-vortex-root-2';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const PLAYER_REFERENCE_BASE_HP = 100;
@@ -502,7 +502,8 @@ function advanceStyleCast(m,target,now){
  if(elapsed>=m.styleDuration){m.state='recover';m.recoverUntil=now+STYLE_ADEPT_RECAST_MS;m.styleHitIndex=0;m.styleHits=[];markMobDirty(m);return false;}return true;
 }
 
-function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.attackTargetX=undefined;m.attackTargetY=undefined;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;m.skillId='';m.skillSlot=0;m.skillRange=0;m.styleHits=[];m.styleHitIndex=0;m.styleCastId=0;m.styleStartedAt=0;m.styleDuration=0;m.styleOriginX=m.styleOriginY=0;m.styleSide=1;m.styleWindTotal=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
+function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.attackTargetX=undefined;m.attackTargetY=undefined;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.rootUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;m.skillId='';m.skillSlot=0;m.skillRange=0;m.styleHits=[];m.styleHitIndex=0;m.styleCastId=0;m.styleStartedAt=0;m.styleDuration=0;m.styleOriginX=m.styleOriginY=0;m.styleSide=1;m.styleWindTotal=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
+function aiMobStep(m,dx,dy,now){if(now<(m.rootUntil||0))return false;return moveServerMob(m,dx,dy);}
 function simulateStyleAdept(m,target,dt,now){
   if(!target||m.dead)return;
   const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);m.facing=a;m.alert=true;
@@ -518,18 +519,20 @@ function simulateStyleAdept(m,target,dt,now){
   }
   m.state='chase';
   const desired=d>Math.max(105,Math.min(range*.72,280))?1:d<72?-1:0;
-  if(desired&&moveServerMob(m,Math.cos(a)*m.speed*desired*dt,Math.sin(a)*m.speed*desired*dt))markMobDirty(m);
+  if(desired&&aiMobStep(m,Math.cos(a)*m.speed*desired*dt,Math.sin(a)*m.speed*desired*dt,now))markMobDirty(m);
 }
 function simulateMob(m,dt,now,ambientSelections){
   if(m.dead){if(m.respawnAt&&now>=m.respawnAt)respawnMob(m,now);return;}
-  if(advanceMobControl(m,now,moveServerMob)){m.state='stunned';markMobDirty(m);return;}
+  const rooted=now<(m.rootUntil||0),forced=advanceMobControl(m,now,moveServerMob);
+  if(forced&&!rooted){m.state='stunned';markMobDirty(m);return;}
+  if(forced)markMobDirty(m);
   if(now<m.stunUntil){if(m.state!=='stunned'){m.state='stunned';markMobDirty(m);}return;}
   if(m.kind!=='boss'){
     const cx=Number.isFinite(m.spawnZoneX)?m.spawnZoneX:m.sx,cy=Number.isFinite(m.spawnZoneY)?m.spawnZoneY:m.sy,baseR=m.spawnZoneRadius>0?m.spawnZoneRadius:430,leash=baseR+(m.spawnZone==='lone'?220:300),zoneDist=Math.hypot(m.x-cx,m.y-cy);
-    if(zoneDist>leash){m.targetId=null;m.provokedBy=null;m.alert=false;m.attackAt=0;m.chargeUntil=0;m.recoverUntil=0;m.state='return';const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>16){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;if(moveServerMob(m,Math.cos(a)*m.speed*1.55*dt,Math.sin(a)*m.speed*1.55*dt))markMobDirty(m);}else{m.state='idle';markMobDirty(m);}return;}
+    if(zoneDist>leash){m.targetId=null;m.provokedBy=null;m.alert=false;m.attackAt=0;m.chargeUntil=0;m.recoverUntil=0;m.state='return';const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>16){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;if(aiMobStep(m,Math.cos(a)*m.speed*1.55*dt,Math.sin(a)*m.speed*1.55*dt,now))markMobDirty(m);}else{m.state='idle';markMobDirty(m);}return;}
   }
   if(now<m.stunUntil){if(m.state!=='stunned'){m.state='stunned';markMobDirty(m);}return;}
-  if(Math.abs(m.knockVX)+Math.abs(m.knockVY)>2){if(moveServerMob(m,m.knockVX*dt,m.knockVY*dt))markMobDirty(m);const decay=Math.exp(-dt*9);m.knockVX*=decay;m.knockVY*=decay;}
+  if(Math.abs(m.knockVX)+Math.abs(m.knockVY)>2){if(aiMobStep(m,m.knockVX*dt,m.knockVY*dt,now))markMobDirty(m);const decay=Math.exp(-dt*9);m.knockVX*=decay;m.knockVY*=decay;}
   let target=null;
   if(m.kind==='style'){
     if(m.provokedBy){target=players.get(m.provokedBy);if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150){m.provokedBy=null;target=null;}}
@@ -544,15 +547,15 @@ function simulateMob(m,dt,now,ambientSelections){
     if(!validMobTarget(m,target)||Math.hypot(target.x-m.x,target.y-m.y)>1150||ambientSelections?.get(ambientAggroKey(m,target.id))!==m.id)target=null;
     if(!target)target=nearestMobTarget(m,ambientSelections);
   }
-  if(!target){m.targetId=null;m.alert=false;const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>18){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;m.state='return';if(moveServerMob(m,Math.cos(a)*m.speed*1.15*dt,Math.sin(a)*m.speed*1.15*dt))markMobDirty(m);}else if(m.state!=='idle'){m.state='idle';markMobDirty(m);}return;}
+  if(!target){m.targetId=null;m.alert=false;const hd=Math.hypot(m.sx-m.x,m.sy-m.y);if(hd>18){const a=Math.atan2(m.sy-m.y,m.sx-m.x);m.facing=a;m.state='return';if(aiMobStep(m,Math.cos(a)*m.speed*1.15*dt,Math.sin(a)*m.speed*1.15*dt,now))markMobDirty(m);}else if(m.state!=='idle'){m.state='idle';markMobDirty(m);}return;}
   if(m.targetId!==target.id){m.targetId=target.id;m.alert=true;markMobDirty(m);}const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);if(!['windup','charge'].includes(m.state))m.facing=a;else if(Number.isFinite(m.locked))m.facing=m.locked;m.alert=true;
   if(m.kind==='style'){simulateStyleAdept(m,target,dt,now);return;}
   if(m.state==='styleSkill'){advanceStyleCast(m,target,now);return;}
-  if(m.state==='charge'){if(now<m.chargeUntil){const speed=m.kind==='boss'?620:(m.type==='abyssHound'?560:m.type==='shardStalker'?520:470);if(moveServerMob(m,Math.cos(m.locked)*speed*dt,Math.sin(m.locked)*speed*dt))markMobDirty(m);if(!m.chargeHit&&Math.hypot(target.x-m.x,target.y-m.y)<m.r+34){sendMobAttack(m,target);m.chargeHit=true;}return;}m.state='recover';m.recoverUntil=now+650;markMobDirty(m);return;}
+  if(m.state==='charge'){if(now<m.chargeUntil){const speed=m.kind==='boss'?620:(m.type==='abyssHound'?560:m.type==='shardStalker'?520:470);if(aiMobStep(m,Math.cos(m.locked)*speed*dt,Math.sin(m.locked)*speed*dt,now))markMobDirty(m);if(!m.chargeHit&&Math.hypot(target.x-m.x,target.y-m.y)<m.r+34){sendMobAttack(m,target);m.chargeHit=true;}return;}m.state='recover';m.recoverUntil=now+650;markMobDirty(m);return;}
   if(m.state==='windup'){if(now>=m.attackAt){if(m.kind==='style'){beginStyleCast(m,target,now);}else if(m.kind==='charge'||m.attackType==='charge'){m.state='charge';m.chargeUntil=now+420;m.chargeHit=false;}else{sendMobAttack(m,target);m.state='recover';m.recoverUntil=now+(m.kind==='boss'?760:520);}markMobDirty(m);}return;}
   if(now<m.recoverUntil){if(m.state!=='recover'){m.state='recover';markMobDirty(m);}return;}
   const stylePreview=m.kind==='style'?styleAdeptSpec(m,false):null,range=stylePreview?.range||mobAttackRange(m);if(d<=range&&now-m.lastAttackAt>Math.max(450,m.wind*1000*.7)){m.state='windup';m.locked=a;m.facing=a;m.attackTargetX=target.x;m.attackTargetY=target.y;m.lastAttackAt=now;if(m.kind==='style'){const sk=styleAdeptSpec(m,true);m.attackType='style';m.skillId=sk.skillId;m.skillSlot=sk.slot;m.skillRange=sk.range;m.attackAt=now+Math.max(220,sk.wind*1000);}else{m.attackType=m.kind==='boss'?chooseBossAttack(m):m.kind;m.attackAt=now+Math.max(260,m.wind*1000);}markMobDirty(m);return;}
-  m.state='chase';let dir=1;if(m.kind==='ranged'&&d<range*.55)dir=-1;else if(m.kind==='ranged'&&d<range*.82)dir=0;if(dir&&moveServerMob(m,Math.cos(a)*m.speed*dir*dt,Math.sin(a)*m.speed*dir*dt))markMobDirty(m);
+  m.state='chase';let dir=1;if(m.kind==='ranged'&&d<range*.55)dir=-1;else if(m.kind==='ranged'&&d<range*.82)dir=0;if(dir&&aiMobStep(m,Math.cos(a)*m.speed*dir*dt,Math.sin(a)*m.speed*dir*dt,now))markMobDirty(m);
 }
 let ambientSelectionAt=-Infinity,ambientSelectionCache=new Map();
 function simulateWorld(now=Date.now()){if(!mobsBootstrapped)return;const dt=SIM_TICK_MS/1000;const observers=[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp');
@@ -575,9 +578,9 @@ function flushMobDeltas(now=Date.now()){
 }
 
 function handleBossDamage(player,msg){
-  const boss=bosses.get(String(msg.bossId||''));if(!boss||!boss.alive)return;const now=Date.now(),damage=clamp(msg.damage,0,1200),stun=clamp(msg.stun,0,2.5),kx=clamp(Number(msg.knockbackX)||0,-180,180),ky=clamp(Number(msg.knockbackY)||0,-180,180);
-  if(damage<=0&&stun<=0&&!kx&&!ky)return;if(damage>0){if(now-(player.lastBossHitAt||0)<25)return;player.lastBossHitAt=now;boss.hp=Math.max(0,boss.hp-damage);boss.lastHitAt=now;}
-  const m=authoritativeMobs.get(boss.id);if(m){if(stun>0)m.stunUntil=Math.max(m.stunUntil||0,now+stun*1000);if(kx||ky){moveServerMob(m,kx,ky);m.knockVX=clamp(kx*7,-900,900);m.knockVY=clamp(ky*7,-900,900);}}
+  const boss=bosses.get(String(msg.bossId||''));if(!boss||!boss.alive)return;const now=Date.now(),damage=clamp(msg.damage,0,1200),stun=clamp(msg.stun,0,2.5),root=clamp(msg.root,0,2.5),kx=clamp(Number(msg.knockbackX)||0,-180,180),ky=clamp(Number(msg.knockbackY)||0,-180,180);
+  if(damage<=0&&stun<=0&&root<=0&&!kx&&!ky)return;if(damage>0){if(now-(player.lastBossHitAt||0)<25)return;player.lastBossHitAt=now;boss.hp=Math.max(0,boss.hp-damage);boss.lastHitAt=now;}
+  const m=authoritativeMobs.get(boss.id);if(m){if(stun>0)m.stunUntil=Math.max(m.stunUntil||0,now+stun*1000);if(root>0)m.rootUntil=Math.max(m.rootUntil||0,now+root*1000);if(kx||ky){moveServerMob(m,kx,ky);if(root<=0){m.knockVX=clamp(kx*7,-900,900);m.knockVY=clamp(ky*7,-900,900);}}markMobDirty(m);}
   if(boss.hp<=0){boss.alive=false;boss.respawnAt=now+BOSS_RESPAWN_MS;broadcast({type:'boss:defeated',boss:{...boss,respawnInMs:BOSS_RESPAWN_MS},killerId:player.id,partyId:player.partyId||null});}
   if(damage>0&&msg.prismCast)safeSend(player.ws,{type:'world:projectileHit',cast:String(msg.prismCast).slice(0,64),targetId:boss.id});
   syncBossMob(boss);broadcast({type:'boss:update',boss:{id:boss.id,name:boss.name,x:boss.x,y:boss.y,hp:boss.hp,maxHp:boss.maxHp,alive:boss.alive,respawnInMs:boss.alive?0:Math.max(0,boss.respawnAt-now)}});
@@ -618,10 +621,10 @@ function handleItemSpawn(player,msg){
 }
 function handleMobDamage(player,msg){
   const mobId=String(msg.mobId||'').slice(0,50),mob=authoritativeMobs.get(mobId);if(!mob||mob.dead||mob.kind==='boss')return;if(Math.hypot(player.x-mob.x,player.y-mob.y)>1100)return;
-  const now=Date.now(),wasPassive=!mob.alert||!mob.targetId||mob.state==='idle'||mob.state==='return',damage=clamp(msg.damage,0,1800),stun=clamp(msg.stun,0,2.5),kx=clamp(Number(msg.knockbackX)||0,-720,720),ky=clamp(Number(msg.knockbackY)||0,-720,720);if(damage<=0&&stun<=0&&!kx&&!ky)return;
+  const now=Date.now(),wasPassive=!mob.alert||!mob.targetId||mob.state==='idle'||mob.state==='return',damage=clamp(msg.damage,0,1800),stun=clamp(msg.stun,0,2.5),root=clamp(msg.root,0,2.5),kx=clamp(Number(msg.knockbackX)||0,-720,720),ky=clamp(Number(msg.knockbackY)||0,-720,720);if(damage<=0&&stun<=0&&root<=0&&!kx&&!ky)return;
   if(damage>0){player.mobHitTimes??=new Map();if(now-(player.mobHitTimes.get(mobId)||0)<18)return;player.mobHitTimes.set(mobId,now);mob.hp=Math.max(0,mob.hp-damage);}if(stun>0)mob.stunUntil=Math.max(mob.stunUntil||0,now+stun*1000);
-  if(stun>0){mob.state='stunned';mob.attackAt=0;mob.chargeUntil=0;mob.recoverUntil=0;}
-  if(kx||ky)forceMob(mob,kx,ky,now,Number.isFinite(msg.duration)?msg.duration:undefined,moveServerMob,damage>0||msg.replaceForce===true);
+  if(root>0)mob.rootUntil=Math.max(mob.rootUntil||0,now+root*1000);if(stun>0){mob.state='stunned';mob.attackAt=0;mob.chargeUntil=0;mob.recoverUntil=0;}
+  if(kx||ky){if(root>0&&stun<=0){if(moveServerMob(mob,kx,ky))markMobDirty(mob);}else forceMob(mob,kx,ky,now,Number.isFinite(msg.duration)?msg.duration:undefined,moveServerMob,damage>0||msg.replaceForce===true);}
   if(mob.hp<=0){mob.dead=true;mob.hp=0;mob.forceMove=null;mob.state='dead';mob.targetId=null;mob.provokedBy=null;mob.alert=false;mob.respawnAt=now+NORMAL_MOB_RESPAWN_MS;}
   else if(wasPassive&&validMobTarget(mob,player)){mob.provokedBy=player.id;mob.targetId=player.id;mob.alert=true;if(now>=mob.stunUntil)mob.state='chase';}
   if(damage>0&&msg.prismCast)safeSend(player.ws,{type:'world:projectileHit',cast:String(msg.prismCast).slice(0,64),targetId:mob.id});
