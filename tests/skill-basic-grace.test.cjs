@@ -78,22 +78,25 @@ test('PVP permits skills during held basic while preventing interruption of acti
  s.me.skillEvent=null;s.now=1340;assert.equal(fn.pvpBasicCancelable(),false);
  s.now=1099;assert.equal(fn.pvpBasicCancelable(),true);fn.cancelPvpBasicForSkill();assert.equal(s.me.attackCd,0);assert.equal(s.me.attackAnim,0);assert.equal(s.me.basicAttackLockUntil,0);
 });
-test('PVP commits 0.2s skill while basic is held without cancelling a failed skill',()=>{
+test('PVP restores each skill cooldown while basic is held without cancelling a failed skill',()=>{
  const s={now:2000,mouse:{down:false},keys:new Set(),stam:100,me:{weapon:0,attackCd:.32,attackAnim:.34,attackDuration:.34,basicAttackLockUntil:2340,basicAttackStartedAt:2000,skillPose:-1,skillHold:null,skillEvent:null,cool:[0,0,0,0,0],combo:1,comboTimer:1,stun:0,exhaust:0}};
  const init="const performance={now:()=>state.now},mouse=state.mouse,keys=state.keys,me=state.me,pkey=k=>k,pvpSwordSkillAt=()=>({cost:20,cool:5}),SKILL_COST=[20],SKILL_CD=[5],useStam=n=>{if(state.stam<n)return false;state.stam-=n;return true},cdrScale=()=>1;";
  const fn=new Function('state',[init,section('function pvpBasicHeld(){','function pvpMouseAimActive(){'),section('function commitSkill(','function startWorldSwordHold('),'return {commitSkill};'].join('\n'))(s);
- s.keys.add('KeyZ');assert.equal(fn.commitSkill(0),true);assert.equal(s.me.attackCd,0);assert.equal(s.me.attackAnim,0);assert.equal(s.me.basicAttackLockUntil,0);assert.equal(s.me.cool[0],.2);
+ s.keys.add('KeyZ');assert.equal(fn.commitSkill(0),true);assert.equal(s.me.attackCd,0);assert.equal(s.me.attackAnim,0);assert.equal(s.me.basicAttackLockUntil,0);assert.equal(s.me.cool[0],5);
  s.me.cool[0]=0;s.me.skillPose=-1;s.me.attackCd=.32;s.me.attackAnim=.34;s.me.basicAttackLockUntil=2340;s.me.basicAttackStartedAt=2000;s.stam=0;assert.equal(fn.commitSkill(0),false);assert.equal(s.me.attackCd,.32);
- s.stam=100;assert.equal(fn.commitSkill(0),true);assert.equal(s.me.attackCd,0);assert.equal(s.me.attackAnim,0);assert.equal(s.me.basicAttackLockUntil,0);assert.equal(s.me.cool[0],.2);assert.equal(s.stam,80);
+ s.stam=100;assert.equal(fn.commitSkill(0),true);assert.equal(s.me.attackCd,0);assert.equal(s.me.attackAnim,0);assert.equal(s.me.basicAttackLockUntil,0);assert.equal(s.me.cool[0],5);assert.equal(s.stam,80);
 });
 
-test('All standard, bow and hidden skill descriptions specify a 0.2s cooldown',()=>{
- const init="const SKILL_COOLDOWN_SECONDS=.2;";
+test('World and PVP skill cooldowns restore their original per-skill balance and modifiers',()=>{
+ const init="const SKILL_COOLDOWN_BALANCE=1.5;";
  const fn=new Function(init+section('function balancedSkillCooldown(','function balancedSkillCost(')+'return balancedSkillCooldown;')();
- for(const raw of [0,.2,2,13.5,60,999])assert.equal(fn(raw),.2);
- assert.ok(html.includes('function balancedSkillCooldown(_v){return SKILL_COOLDOWN_SECONDS;}'));
- assert.ok(html.includes('me.cool[i]=.2;'),'Arena must have same cooldown');
- assert.ok(html.includes('Math.min(SKILL_COOLDOWN_SECONDS,player.hiddenSkillCds[i])'),'Old hidden cooldowns are clamped');
+ for(const [raw,expected] of [[0,0],[.2,.3],[2,3],[13.5,20.3],[60,90]])assert.equal(fn(raw),expected);
+ assert.ok(html.includes('const SKILL_COOLDOWN_BALANCE=1.5;'));
+ assert.ok(html.includes('player.hiddenSkillCds[index]=s.cool*(player.rune===\'dawn\'?.8:1)*skillCooldownScale()'));
+ assert.ok(html.includes('player.skillCds[slot]=sk.cool*(player.rune===\'dawn\'?.8:1)*skillCooldownScale()'));
+ assert.ok(html.includes('me.cool[i]=cd*cdrScale();'),'PVP must use each skill cooldown with modifiers');
+ assert.ok(html.includes('player.hiddenSkillCds[i]=Math.max(0,player.hiddenSkillCds[i]-dt)'),'No hidden cooldown truncation');
+ assert.ok(!html.includes('SKILL_COOLDOWN_SECONDS'),'Forced 0.2s cooldown must be gone');
 });
 
 test('World skill window: 199ms allowed, 200–339ms blocked, attack end unlocked',()=>{
