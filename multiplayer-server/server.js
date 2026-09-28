@@ -18,7 +18,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v7-style-density';
-const SERVER_BUILD = '2026-09-27-session-stability-opt-1';
+const SERVER_BUILD = '2026-09-28-world-projectile-collision-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const WORLD_RESET_EPOCH = '2026-09-27-world-reset-2';
@@ -413,7 +413,7 @@ function styleServerPose(m,data,k){
 }
 function styleServerShapes(m,data,k){
  const cfg=data.cfg,mode=cfg.mode,pose=styleServerPose(m,data,k),a=pose.a,ca=Math.cos(a),sa=Math.sin(a),reach=94+(Number(cfg.reach?.[Math.min(k,(cfg.reach?.length||1)-1)])||0),arc=Number(cfg.arc?.[Math.min(k,(cfg.arc?.length||1)-1)])||1.5,ox=Number.isFinite(m.styleOriginX)?m.styleOriginX:m.x,oy=Number.isFinite(m.styleOriginY)?m.styleOriginY:m.y,tx=Number.isFinite(m.styleAnchorX)?m.styleAnchorX:m.x,ty=Number.isFinite(m.styleAnchorY)?m.styleAnchorY:m.y;
- const circle=(x,y,r)=>({type:'circle',x,y,r}),sector=(x,y,a,r,arc)=>({type:'sector',x,y,a,r,arc}),seg=(x1,y1,x2,y2,w)=>({type:'segment',x1,y1,x2,y2,w}),proj=(x,y,aa,speed,life=1.7)=>{const len=Math.min(1000,speed*life);return seg(x,y,x+Math.cos(aa)*len,y+Math.sin(aa)*len,16);};
+ const circle=(x,y,r)=>({type:'circle',x,y,r}),sector=(x,y,a,r,arc)=>({type:'sector',x,y,a,r,arc}),seg=(x1,y1,x2,y2,w,projectile=null)=>({type:'segment',x1,y1,x2,y2,w,projectile}),proj=(x,y,aa,speed,life=1.7)=>{const len=Math.min(1000,speed*life);return seg(x,y,x+Math.cos(aa)*len,y+Math.sin(aa)*len,16,{x,y,a:aa,speed,life});};
  if(m.skillSlot===4&&data.id==='lunarBind')return [circle(tx,ty,[190,245,315][Math.min(k,2)]||315)];
  if(m.skillSlot===4&&data.id==='prismLance'){if(k===0)return [-2,-1,0,1,2].map(j=>proj(pose.x,pose.y,a+j*.12,720));if(k===1)return Array.from({length:9},(_,j)=>proj(pose.x,pose.y,a+(j-4)*.10,780));const f=cfg.finisher||{back:120,forward:640,width:46};return [seg(pose.x-ca*f.back,pose.y-sa*f.back,pose.x+ca*f.forward,pose.y+sa*f.forward,f.width),...[-2,-1,0,1,2].map(j=>proj(pose.x,pose.y,a+j*.065,920))];}
  if(mode==='windShot'){const nx=-Math.sin(a),ny=Math.cos(a);return [-58,0,58].map(off=>proj(pose.x+ca*38+nx*off,pose.y+sa*38+ny*off,a,470,.72));}
@@ -455,9 +455,11 @@ function styleServerHitTest(m,target,data,k){
  return styleServerShapes(m,data,k).some(s=>styleServerShapeContains(s,target));
 }
 function broadcastStyleHit(m,target,data,k){
- styleServerMove(m,target,data,k);const hit=styleServerHitTest(m,target,data,k),baseMult=data.id==='gravityCut'?(k===0?1.05:[.64,.70,.77,.86,.96][Math.min(4,k-1)]):(data.cfg.mult?.[Math.min(k,(data.cfg.mult?.length||1)-1)]??(data.hold?.44:1)),mult=baseMult*(data.damageScale||1),damage=hit?Math.max(1,Math.round(m.damage*mult*STYLE_ADEPT_DAMAGE_SCALE)):0,finalHit=k===m.styleHits.length-1;
- const packet={type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage,x:m.x,y:m.y,tx:target.x,ty:target.y,anchorX:m.styleAnchorX,anchorY:m.styleAnchorY,originX:m.styleOriginX,originY:m.styleOriginY,styleSide:m.styleSide||1,facing:m.locked,kind:'style',attackType:'style',skillId:data.id,skillSlot:m.skillSlot,styleId:m.styleId,castId:m.styleCastId||0,hitIndex:k,finalHit,heavy:finalHit||['galeBlink','guardPierce','singularityRush'].includes(data.cfg.mode),serverTime:Date.now()};
- safeSend(target.ws,packet,{volatile:false});broadcast({...packet,damage:0},target.ws,{volatile:true});
+ styleServerMove(m,target,data,k);
+ const shapes=styleServerShapes(m,data,k),directShapes=shapes.filter(s=>!s.projectile),projectiles=shapes.filter(s=>s.projectile).map(s=>s.projectile);
+ const directHit=directShapes.some(s=>styleServerShapeContains(s,target)),baseMult=data.id==='gravityCut'?(k===0?1.05:[.64,.70,.77,.86,.96][Math.min(4,k-1)]):(data.cfg.mult?.[Math.min(k,(data.cfg.mult?.length||1)-1)]??(data.hold?.44:1)),mult=baseMult*(data.damageScale||1),baseDamage=Math.max(1,Math.round(m.damage*mult*STYLE_ADEPT_DAMAGE_SCALE)),damage=directHit?baseDamage:0,projectileDamage=!directHit&&projectiles.length?baseDamage:0,finalHit=k===m.styleHits.length-1;
+ const packet={type:'world:mobAttack',mobId:m.id,mobType:m.type,targetId:target.id,damage,projectileDamage,projectiles,x:m.x,y:m.y,tx:target.x,ty:target.y,anchorX:m.styleAnchorX,anchorY:m.styleAnchorY,originX:m.styleOriginX,originY:m.styleOriginY,styleSide:m.styleSide||1,facing:m.locked,kind:'style',attackType:'style',skillId:data.id,skillSlot:m.skillSlot,styleId:m.styleId,castId:m.styleCastId||0,hitIndex:k,finalHit,heavy:finalHit||['galeBlink','guardPierce','singularityRush'].includes(data.cfg.mode),serverTime:Date.now()};
+ safeSend(target.ws,packet,{volatile:false});broadcast({...packet,damage:0,projectileDamage:0},target.ws,{volatile:true});
 }
 function beginStyleCast(m,target,now){
  const data=STYLE_ADEPT_SKILL_DATA[m.skillId];if(!data)return false;m.styleHits=styleSyntheticHits(data);m.styleHitIndex=0;m.styleCastId=(m.styleCastId||0)+1;m.styleStartedAt=now;m.styleDuration=data.id==='gravityCut'?7:Math.max(data.cfg.duration||.5,(m.styleHits[m.styleHits.length-1]||0)+.18);m.state='styleSkill';markMobDirty(m);return true;
