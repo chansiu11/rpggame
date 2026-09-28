@@ -55,3 +55,24 @@ test('brief websocket drops keep world session state during the reconnect grace 
  assert.match(client,/if\(state\.reconnectGraceTimer\)\{clearTimeout\(state\.reconnectGraceTimer\)/);
  assert.match(html,/multiplayer-client\.js\?v=20260928-style-transfer-reconnect-1/);
 });
+
+
+test('reconnects do not resend the full world bootstrap or leader snapshot',()=>{
+ assert.match(html,/m\.on\('reconnected',info=>/);
+ const start=html.indexOf("m.on('reconnected',info=>");
+ const end=html.indexOf("m.on('connection'",start);
+ const block=html.slice(start,end);
+ assert.doesNotMatch(block,/sendWorldSnapshot/);
+ assert.match(block,/if\(!ready\)setTimeout/);
+ assert.match(block,/m\.bootstrapWorld\(buildServerWorldBootstrap\(\)\)/);
+ assert.match(block,/if\(!info\?\.brief\)toast/);
+});
+
+test('initial world entry only bootstraps when the server snapshot is empty',()=>{
+ assert.match(html,/if\(!m\.state\.worldSnapshot\?\.ready\|\|!Array\.isArray\(m\.state\.worldSnapshot\?\.mobs\)\|\|!m\.state\.worldSnapshot\.mobs\.length\)m\.bootstrapWorld\(buildServerWorldBootstrap\(\)\);/);
+});
+
+test('server ignores duplicate bootstrap payloads once the authoritative world exists',()=>{
+ assert.match(server,/if\(mobsBootstrapped&&authoritativeMobs\.size\)return;/);
+ assert.doesNotMatch(server,/if\(mobsBootstrapped&&authoritativeMobs\.size\)\{safeSend\(player\.ws,\{type:'world:snapshot'/);
+});
