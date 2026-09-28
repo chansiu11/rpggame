@@ -1,3 +1,4 @@
+import {createAiService} from './ai/live-service.js';
 import {createPvpRelay} from './pvp-relay.js';
 import {selectMobInterest} from './world-interest.js';
 import { skillVisuals } from './visual-protocol.js';
@@ -630,11 +631,14 @@ function handleMobDamage(player,msg){
   if(damage>0&&msg.prismCast)safeSend(player.ws,{type:'world:projectileHit',cast:String(msg.prismCast).slice(0,64),targetId:mob.id});
   markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),damage,by:player.id,respawnAt:mob.respawnAt||0}});
 }
+const aiService=createAiService(safeSend);
 function handleMessage(player,msg,rawBytes){
+  if(msg?.type==='pvp:aiStart')removePvpMatchQueue(player,false);
+  if(aiService.handle(player,msg,rawBytes))return;
   if(pvpRelay.handle(player,msg,rawBytes))return;
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='net:ping'){const now=Date.now();if(now-(player.lastPingAt||0)>500){player.lastPingAt=now;safeSend(player.ws,{type:'net:pong',nonce:msg.nonce,serverTime:now});}return;}
-  if(msg.type==='pvp:matchJoin'){joinPvpMatchQueue(player);return;}
+  if(msg.type==='pvp:matchJoin'){aiService.leave(player);joinPvpMatchQueue(player);return;}
   if(msg.type==='pvp:matchCancel'){removePvpMatchQueue(player,true);return;}
   if(msg.type==='world:teleport')msg={...msg,type:'state',teleport:true};
   if(msg.type==='world:combat'){worldCombat.handle(player,msg);return;}
@@ -759,6 +763,7 @@ wss.on('connection',(ws)=>{
   ws.on('close',(code)=>{
     if(player.ready)console.log('[ws-close]',player.id,'code',code,'players',players.size);
     clearTimeout(helloTimer);
+    aiService.leave(player);
     pvpRelay.leave(player);
     removePvpMatchQueue(player,false);
     leaveParty(player);
@@ -785,4 +790,5 @@ setInterval(()=>{
 server.listen(PORT,()=>{
   console.log('Echoes shared world server listening on',PORT);
 });
+
 

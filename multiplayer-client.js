@@ -40,7 +40,7 @@ function url(){
 }
 function send(data){
   const ws=state.socket;if(ws?.readyState!==WebSocket.OPEN)return false;
-  if(data?.type==='pvp:relay'&&data.data?.t==='state'&&ws.bufferedAmount>8192)return false;
+  if(['pvp:relay','pvp:aiPacket'].includes(data?.type)&&data.data?.t==='state'&&ws.bufferedAmount>8192)return false;
   if(ws.bufferedAmount>48000&&(data?.type==='state'||data?.type==='world:mobsDelta'))return false;
   try{ws.send(JSON.stringify(data,data.type==='state'?((k,v)=>typeof v==='number'&&Number.isFinite(v)?Math.round(v*1000)/1000:v):undefined));return true;}catch{return false;}
 }
@@ -94,7 +94,7 @@ function handle(msg){
   if(msg.type==='party:update'){state.party=msg.party||null;emit('party',state.party);return;}
   if(msg.type==='party:invite'){state.pendingInvite=msg;emit('party:invite',msg);return;}
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
-  if(['pvp:relay','pvp:relayOpen','pvp:relayClosed'].includes(msg.type)){emit(msg.type,msg);return;}
+  if(['pvp:relay','pvp:relayOpen','pvp:relayClosed','pvp:aiReady','pvp:aiPacket','pvp:aiError'].includes(msg.type)){emit(msg.type,msg);return;}
   if(msg.type==='pvp:matchStatus'){emit('pvp:matchStatus',msg);return;}
   if(msg.type==='pvp:matchFound'){emit('pvp:matchFound',msg);return;}
   if(msg.type==='pvp:damage'){emit('pvp:damage',msg);return;}
@@ -214,6 +214,9 @@ window.EchoesMulti={
   pvpRelayReady(matchId){return send({type:'pvp:relayReady',matchId});},
   pvpRelaySend(matchId,data){if(data?.t==='state'){const packed={...data};for(const key of Object.keys(packed)){const v=packed[key];if(typeof v==='number'&&Number.isFinite(v))packed[key]=Math.round(v*1000)/1000;}data=packed;}return send({type:'pvp:relay',matchId,data});},
   pvpRelayLeave(matchId){return send({type:'pvp:relayLeave',matchId});},
+  aiStart(style){return send({type:'pvp:aiStart',style});},
+  aiPacket(matchId,data){return send({type:'pvp:aiPacket',matchId,data});},
+  aiLeave(){return send({type:'pvp:aiLeave'});},
   pvpMatchJoin(){return send({type:'pvp:matchJoin'});},
   pvpMatchCancel(){return send({type:'pvp:matchCancel'});},
   damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,root:control.root||0,knockbackX:control.knockbackX||0,prismCast:String(control.prismCast||'').slice(0,64),knockbackY:control.knockbackY||0,duration:control.duration,replaceForce:control.replaceForce===true});},
@@ -225,4 +228,5 @@ window.EchoesMulti={
   partyChat(message){send({type:'party:chat',message});}
 };
 })();
+
 

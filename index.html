@@ -145,7 +145,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
   <div class="pvp-hud hidden" id="pvpHud"><div class="pvp-side"><b id="pvpMeName">나</b><div class="pvp-health-summary"><span id="pvpMeHpText"></span><span id="pvpTotalDamage" class="combo-total-damage">총 피해 0</span></div><div id="pvpMeInfo"></div><div class="pvp-bar"><i id="pvpMeHp"></i></div><div class="pvp-bar shield"><i id="pvpMeShield"></i></div><div class="pvp-bar stam"><i id="pvpMeStam"></i></div></div><div class="pvp-side right hidden"><b id="pvpEnemyName">상대</b><div id="pvpEnemyInfo"></div><div class="pvp-bar"><i id="pvpEnemyHp"></i></div><div class="pvp-bar shield"><i id="pvpEnemyShield"></i></div><div class="pvp-bar stam"><i id="pvpEnemyStam"></i></div></div></div>
   <div class="pvp-center hidden" id="pvpScore"></div>
   <div class="pvp-cooldowns hidden" id="pvpCooldowns"></div>
-  <div id="pvpLobby"><div class="pvp-card"><div class="eyebrow">PVP ONLY AREA · ONLINE DUEL</div><h2>결투 아레나 · 1:1 PVP</h2><p class="lede">일반 월드와 분리된 PVP 전용 장소입니다. 현재 계정의 레벨·무기·강화·방어구·방패 능력치를 전투용 수치로만 사용하며, PVP 결과는 원본 세이브와 퀘스트 진행도를 변경하지 않습니다.</p><div class="pvp-loadout" id="pvpLoadout"></div><div class="pvp-actions"><button class="primary" id="pvpMatch">매칭 시작</button><button class="quiet" id="pvpCancelMatch" disabled>매칭 취소</button></div><p class="pvp-help">매칭 시작을 누르면 자동 대기열에 들어갑니다. 다른 플레이어가 매칭을 시작하면 자동으로 상대를 찾아 1:1 전투가 시작됩니다. 조작은 여정의 컴퓨터 키 설정을 그대로 사용하며, PVP 결과는 일반 진행 저장을 변경하지 않습니다.</p><div id="pvpRoomView" class="tip hidden"></div></div></div>
+  <div id="pvpLobby"><div class="pvp-card"><div class="eyebrow">PVP ONLY AREA · ONLINE DUEL</div><h2>결투 아레나 · 1:1 PVP</h2><p class="lede">일반 월드와 분리된 PVP 전용 장소입니다. 현재 계정의 레벨·무기·강화·방어구·방패 능력치를 전투용 수치로만 사용하며, PVP 결과는 원본 세이브와 퀘스트 진행도를 변경하지 않습니다.</p><div class="pvp-loadout" id="pvpLoadout"></div><div class="pvp-actions"><button class="primary" id="pvpMatch">매칭 시작</button><button id="pvpAiMatch">AI 매치</button><select id="pvpAiStyle" aria-label="AI 유파"><option value="random">무작위 유파</option value="gale">질풍</option><option value="void">이형</option><option value="dawn">여명</option></select><button class="quiet" id="pvpCancelMatch" disabled>매칭 취소</button></div><p class="pvp-help">매칭 시작을 누르면 자동 대기열에 들어갑니다. 다른 플레이어가 매칭을 시작하면 자동으로 상대를 찾아 1:1 전투가 시작됩니다. 조작은 여정의 컴퓨터 키 설정을 그대로 사용하며, PVP 결과는 일반 진행 저장을 변경하지 않습니다.</p><div id="pvpRoomView" class="tip hidden"></div></div></div>
   <div class="pvp-result hidden" id="pvpResult"><div class="pvp-card"><h2 id="pvpResultTitle">승리</h2><p id="pvpResultText"></p><div class="pvp-actions" style="justify-content:center"><button class="primary" id="pvpRematch">재대결</button><button id="pvpResultExit">나가기</button></div></div></div>
  </div>
 </div>
@@ -155,7 +155,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <script src="./multiplayer-config.js?v=20260926-2"></script>
 <script src="./multiplayer-server/combat-core.js?v=20260928-armor-mitigation-fix-1"></script>
 <script src="./pvp-transport.js?v=20260928-1"></script>
-<script src="./multiplayer-client.js?v=20260928-pvp-latency-1"></script>
+<script src="./multiplayer-client.js?v=20260928-ai-1"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (() => {
@@ -2937,7 +2937,7 @@ function showAdmin(){if(mode!=='play')return;admin.allSkillSets=false;if(player.
  <div class="card"><h3>진행·세계</h3><button data-admin="progress">임무·인장·균열·기록 완료</button><button data-admin="map">지도·야영지 모두 해금</button><button data-admin="save">현재 상태 저장</button><p>진행 완료와 지도 해금도 레벨/아이템 지급과 별개로 동작합니다.</p></div>
  <div class="card"><h3>몬스터·보스 생성</h3><select id="adminMonster">${Object.entries(ENEMY_TYPES).map(([id,v])=>`<option value="${id}">${v.name}</option>`).join('')}</select><button data-admin="spawn">앞쪽에 생성</button><p>현재 지형의 체력·공격력 배율이 적용됩니다.</p><h3>빠른 이동</h3><select id="adminPlace">${camps.map(c=>`<option value="camp:${c.id}">${c.name}</option>`).join('')}${arenas.map((a,i)=>`<option value="boss:${i}">보스 ${i+1} 전장</option>`).join('')}</select><button data-admin="travel">즉시 이동</button></div>
  <div class="card"><h3>세계·균열</h3><select id="adminRift">${RIFTS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}</select><button data-admin="rift">균열 시작</button><button data-admin="day">낮으로</button><button data-admin="night">밤으로</button><button data-admin="resetEnemies">몬스터 상태 초기화</button></div>
- <div class="card"><h3>검술 유파 변경</h3><p>개별 스킬을 섞지 않고 유파 전체를 바꿉니다. 선택한 유파의 Q/R/T/G/V 5개 스킬이 즉시 장착되고 저장되어 <b>PVP에도 동일하게 적용</b>됩니다.</p><div style="display:flex;flex-wrap:wrap;gap:6px">${SWORD_STYLE_GROUPS.map(g=>`<button class="${player.swordStyle===g.id?'primary':''}" data-admin="swordStyle" data-value="${g.id}">${g.name}</button>`).join('')}</div><p>현재 유파 · <b>${swordStyleById(player.swordStyle)?.name||'미선택'}</b></p></div><div class="card"><h3>게임 시스템 열기</h3><button data-action="inventory">가방·제작·특성</button><button data-action="quests">임무·보상</button><button data-action="skills">스킬</button><button data-action="keys">키 설정</button><button data-action="map">세계 지도</button></div></div>`+footer('백틱(`): 관리자 패널 · 유파 변경은 월드와 PVP에 함께 적용됩니다.','<button data-action="pause">게임 메뉴</button><button data-action="close">게임으로</button>'),true);}
+ <div class="card"><h3>검술 유파 변경</h3><p>개별 스킬을 섞지 않고 유파 전체를 바꿉니다. 선택한 유파의 Q/R/T/G/V 5개 스킬이 즉시 장착되고 저장되어 <b>PVP에도 동일하게 적용</b>됩니다.</p><div style="display:flex;flex-wrap:wrap;gap:6px">${SWORD_STYLE_GROUPS.map(g=>`<button class="${player.swordStyle===g.id?'primary':''}" data-admin="swordStyle" data-value="${g.id}">${g.name}</button>`).join('')}</div><p>현재 유파 · <b>${swordStyleById(player.swordStyle)?.name||'미선택'}</b></p></div><div class="card"><h3>게임 시스템 열기</h3><a href="./ai-admin.html" target="_blank" rel="noopener">AI 훈련 관리</a><button data-action="inventory">가방·제작·특성</button><button data-action="quests">임무·보상</button><button data-action="skills">스킬</button><button data-action="keys">키 설정</button><button data-action="map">세계 지도</button></div></div>`+footer('백틱(`): 관리자 패널 · 유파 변경은 월드와 PVP에 함께 적용됩니다.','<button data-action="pause">게임 메뉴</button><button data-action="close">게임으로</button>'),true);}
 function adminSetSwordStyle(id){
  const g=swordStyleById(id);if(!g)return false;
  admin.allSkillSets=false;
@@ -4012,9 +4012,27 @@ function close(){stopNet();layer.classList.add('hidden');document.querySelector(
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){running=false;pvpHitProcs.clear();void3Pvp=null;remoteCriticalAck=false;resetPvpCriticalHits();try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[];pvpVortices=[];resetPvpCombo();}
 function stopNet(){
+ aiRequestSeq++;$('pvpAiMatch').disabled=false;aiPendingCancel?.();aiPendingCancel=null;aiUnsub.forEach(f=>f());aiUnsub=[];window.EchoesMulti?.aiLeave?.();
  const m=window.EchoesMulti;if(matchWaiting)m?.pvpMatchCancel?.();matchWaiting=false;stopPeer();
  if(matchSocketOwned&&m?.connected){m.disconnect();matchSocketOwned=false;}
 }
+let aiUnsub=[],aiPendingCancel=null,aiRequestSeq=0;
+async function startAiMatch(){
+ const s=snapshot();if(!s){showLobby('로그인 후 진행도를 저장해 주세요.');return;}
+ stopNet();const requestSeq=aiRequestSeq;$('pvpAiMatch').disabled=true;$('pvpStatus').textContent='AI 서버 연결 중…';
+ try{const m=await ensureMatchServer(s);if(requestSeq!==aiRequestSeq)return;m.pvpMatchCancel();
+ const timeout=setTimeout(()=>{m.aiLeave();cleanup();showLobby('AI 연결 시간이 초과되었습니다. 다시 시도해 주세요.');},20000);
+ const cleanup=()=>{aiPendingCancel=null;clearTimeout(timeout);aiUnsub.forEach(f=>f());aiUnsub=[];$('pvpAiMatch').disabled=false;};
+ aiPendingCancel=cleanup;
+ aiUnsub.push(m.on('pvp:aiError',msg=>{cleanup();stopPeer();showLobby(msg.message||'AI 연결 실패');}));
+ aiUnsub.push(m.on('pvp:aiReady',msg=>{
+ clearTimeout(timeout);host=true;room=msg.matchId;pvpRoute='AI SERVER';const handlers=new Map();
+ const c={open:true,on(t,fn){handlers.set(t,fn)},send(data){m.aiPacket(room,data)},close(){m.aiLeave();cleanup();}};
+ bindConn(c);aiUnsub.push(m.on('pvp:aiPacket',packet=>{if(packet.matchId===room)onData(packet.data)}));handlers.get('open')?.();$('pvpAiMatch').disabled=false;
+ }));m.aiStart($('pvpAiStyle').value);
+ }catch(e){$('pvpAiMatch').disabled=false;showLobby(e.message);}
+}
+$('pvpAiMatch')?.addEventListener('click',startAiMatch);
 function makePeer(id){if(typeof Peer!=='function')throw Error('PVP 연결 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');return new Peer(id,{debug:0})}
 function pvpAccountId(){const u=(localStorage.getItem(SESSION)||'').trim().toLowerCase();return window.EchoesCloud?.currentUid?.()||('user:'+u)}
 async function ensureMatchServer(s){
@@ -4738,8 +4756,18 @@ function recoverPvpLoop(error){
  try{if(void3Pvp)endVoid3Pvp();if(me){me.skillHold=null;me.skillEvent=null;me.moveLock=0;me.postSkillLock=0;me.attackCd=Math.min(Math.max(0,me.attackCd||0),.12);}}catch(recoveryError){console.error('PVP recovery error',recoveryError);}
 }
 function loop(t){requestAnimationFrame(loop);const dt=Math.min(.033,(t-last)/1000||0);last=t;if(!layer.classList.contains('hidden')){try{if(running)update(dt);updatePvpComboHud();render()}catch(error){recoverPvpLoop(error)}}}
+// Server-only adapter: the headless runtime executes these SAME arena functions.
+if(window.__AI_SERVER__){window.__arena={
+ snapshot,validSnap,startAiMatch,stopNet,get me(){return me},get enemy(){return enemy},get running(){return running},get locked(){return roundLocked},
+ init(own,other,isHost,send){host=isHost;conn={open:true,send};remoteSnap=other;me=createFighter(own,isHost?1450:2150,1050,isHost?0:Math.PI);enemy=createFighter(other,isHost?2150:1450,1050,isHost?Math.PI:0);running=true;roundLocked=false;},
+ receive:onData,step:update,
+ control(c){keys.clear();for(const k of c.keys||[])keys.add(k);mouse.active=true;mouse.lastMove=performance.now();if(!me)return;me.a=c.aim;const rect=canvas.getBoundingClientRect();mouse.x=(me.x+Math.cos(c.aim)*300-pvpCamera.x+W/2)*rect.width/W;mouse.y=(me.y+Math.sin(c.aim)*300-pvpCamera.y+H/2)*rect.height/H;
+ if(c.block)beginBlock();else if(me.block){me.block=false;me.parryWindow=0;me.shieldNeedsRelease=false;me.shieldRearm=.5;}
+ if(c.dash)dash();if(c.basic)basic();if(Number.isInteger(c.skill))skillDown(c.skill);if(Number.isInteger(c.release))skillUp(c.release);},
+ dispose:stopPeer};}
 $('pvpBtn')?.addEventListener('click',open);$('pvpExit').addEventListener('click',close);$('pvpResultExit').addEventListener('click',close);$('pvpMatch').addEventListener('click',startMatchmaking);$('pvpCancelMatch').addEventListener('click',cancelMatchmaking);$('pvpRematch').addEventListener('click',rematch);const pvpMatchServer=window.EchoesMulti;pvpMatchServer?.on('pvp:matchStatus',msg=>{if(layer.classList.contains('hidden'))return;if(msg?.queued){matchWaiting=true;$('pvpMatch').disabled=true;$('pvpCancelMatch').disabled=false;$('pvpStatus').textContent='매칭 대기 중';$('pvpRoomView').textContent='상대를 찾는 중… 현재 대기열 '+Math.max(1,Number(msg.count)||1)+'명';$('pvpRoomView').classList.remove('hidden');return}if(msg?.error==='ruleset-mismatch'){const serverRuleset=String(msg.ruleset||pvpMatchServer?.state?.pvpRuleset||'');if(serverRuleset&&serverRuleset!==PVP_RULESET&&!pvpMatchServer?._pvpCompatRetry){pvpMatchServer._pvpCompatRetry=true;matchWaiting=false;(async()=>{try{if(pvpMatchServer.connected)pvpMatchServer.disconnect();matchSocketOwned=true;const ss=snapshot();await pvpMatchServer.connect({name:ss?.name||displayName(),accountId:pvpAccountId(),level:ss?.level||1,weapon:ss?.weapon||0,mode:'pvp',pvpRuleset:serverRuleset});matchWaiting=true;pvpMatchServer.pvpMatchJoin();$('pvpStatus').textContent='매칭 대기 중';$('pvpRoomView').textContent='매칭 서버 호환 모드로 상대를 찾는 중…';$('pvpRoomView').classList.remove('hidden')}catch(e){matchWaiting=false;showLobby('매칭 서버 호환 연결에 실패했습니다.')}})();return}matchWaiting=false;$('pvpStatus').textContent='전투 규칙 동기화 필요';showLobby('PVP 매칭 서버와 게임 버전이 다릅니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');return}if(matchWaiting){matchWaiting=false;$('pvpStatus').textContent='매칭 대기 종료';showLobby('매칭 대기열에서 나왔습니다.')}});pvpMatchServer?.on('reconnected',()=>{if(matchWaiting&&!layer.classList.contains('hidden'))pvpMatchServer.pvpMatchJoin();});pvpMatchServer?.on('pvp:matchFound',connectMatchedPeer);window.addEventListener('resize',resize);canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;mouse.active=true;mouse.lastMove=performance.now()});canvas.addEventListener('mouseleave',()=>{mouse.active=false;mouse.down=false});canvas.addEventListener('mousedown',e=>{mouse.lastMove=performance.now();if(e.button===0){mouse.down=true;if(running)basic()}});window.addEventListener('mouseup',e=>{if(e.button===0)mouse.down=false});window.addEventListener('keydown',e=>{if(layer.classList.contains('hidden'))return;if(['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))return;keys.add(e.code);if(!running)return;if(e.repeat)return;if(e.code===pkey('KeyZ')){e.preventDefault();basic()}if(e.code===pkey('Space')){e.preventDefault();dash()}if(e.code===pkey('KeyC')&&!pvpShieldKeyLatched){e.preventDefault();pvpShieldKeyLatched=true;beginBlock()}if(e.code===pkey('KeyF')){e.preventDefault();potion()}for(let i=0;i<4;i++)if(e.code===pkey('Digit'+(i+1))){e.preventDefault();switchWeapon(i)}const actions=['KeyQ','KeyR','KeyT','KeyG','KeyV'];const i=actions.findIndex(k=>e.code===pkey(k));if(i>=0){e.preventDefault();skillDown(i)}});window.addEventListener('keyup',e=>{keys.delete(e.code);if(!me)return;if(e.code===pkey('KeyC')){const wasRaised=me.block||me.shieldNeedsRelease||me.shield<me.maxShield;pvpShieldKeyLatched=false;me.block=false;me.parryWindow=0;me.shieldNeedsRelease=false;if(wasRaised)me.shieldRearm=Math.max(me.shieldRearm||0,.5)}const actions=['KeyQ','KeyR','KeyT','KeyG','KeyV'];const i=actions.findIndex(k=>e.code===pkey(k));if(i>=0)skillUp(i)});showLobby();requestAnimationFrame(loop);
 })();
 </script>
 </body>
 </html>
+

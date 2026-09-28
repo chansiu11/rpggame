@@ -1,0 +1,34 @@
+# AI 대전과 자율 훈련
+
+## 구현
+- PVP 매칭 옆 AI 매치. 질풍/이형/여명/무작위 선택. 기존 PVP·월드 저장과 별도 세션.
+- Render 게임 서버는 AI 1개 세션까지 기본 허용 (`AI_MAX_MATCHES`, 최대 4). 대기열 없이 빈 자리가 있으면 즉시 생성. 무료 서버가 잠들었으면 기동 시간이 필요.
+- AI는 별도 worker thread에서 index.html의 **원본 PVP 함수**를 실행한다. 테스트에서 사용하던 DOM 스텁을 사용하며 화면/애니메이션 프레임을 그리지 않는다. 스킬/물리/피격 코드는 복제하지 않는다.
+- `ai/brain.js`: 유파별 거리, 콤보, 공격 성향, 130–300ms 판단 주기, 9% 판단 실수, 반복 회피 방향 추정. 자원은 원본 PVP의 `stam`(화면의 마나), 체력, 쉴드, 쿨타임을 사용한다. 기존 게임에 없는 별도 자원을 추가하지 않는다.
+- `ai/self-play.js`: 동일한 전투로 AI 간 가상 시간 대전. 렌더링과 시각 전용 네트워크 메시지 생략. 90초 제한 이후 잔여 HP 비율 판정. 일반 PVP 승패 규칙은 변경하지 않음.
+- 학습은 신경망/LLM 재훈련이 아닌 **전술 가중치의 온라인 조정**이다. 공격/수비/접근 성향을 탐색하며 가중치는 0.2–5로 제한. 12% 무작위 전술 탐색.
+- 매 25전 후 이전 배치 정책과 18전(유파 조합 및 좌우 교환) 검증. 승수가 패수보다 작으면 새 가중치는 배포하지 않고 이전 가중치를 유지한다. 이는 작은 평가 표본이며 실력 상승을 보장하지 않는다.
+- 공격 메시지 적중/실패, 방어, 패링, 무적 판정, 콤보 중 적중, 자원 부족 프레임, 실제 총 피해량과 승패 기록. 무적 판정은 회피의 대용 지표이며 투사체 적중률은 현재 공격 메시지 적중률과 별도로 계산하지 않는다.
+
+## 저장과 운영
+1. 기존 Render 서비스는 `server.js` 그대로 실행. Firebase 설정 없이도 기본 정책으로 AI 대전 가능.
+2. 지속 학습은 **별도 Render 서비스**에서 `node multiplayer-server/ai/trainer-server.js` 실행. 예시는 `multiplayer-server/ai/render-trainer.yaml`. Git 저장소 전체가 필요하므로 rootDir을 multiplayer-server로 제한하지 않는다.
+3. 훈련 서비스에 `FIREBASE_SERVICE_ACCOUNT_JSON`(Firebase 프로젝트 서비스 계정 JSON), `AI_ADMIN_TOKEN`(24자 이상의 무작위 비밀), `AI_ADMIN_ORIGIN=https://chansiu11.github.io` 설정. 서비스 계정은 GitHub/HTML에 넣지 않는다.
+4. 게임 서버에도 같은 프로젝트의 서버 자격 증명 `FIREBASE_SERVICE_ACCOUNT_JSON` 설정하면 저장 정책을 시작 시 및 60초마다 로드.
+5. 게임 관리자 패널 → AI 훈련 관리에서 훈련 서버 HTTPS 주소와 토큰 입력. 시작/중지/현황/저장/불러오기/버전 복원 가능. 토큰은 브라우저 영구 저장하지 않는다. URL 입력 대상에만 토큰 전송.
+6. Firestore `aiLearning/current`, `aiLearning/v<generation>-<timestamp>`에 저장. 기존 rules의 기본 거부로 클라이언트 접근은 차단. 서버 서비스 계정은 IAM 권한으로 접근한다.
+7. 시작 상태도 저장한다. 서버 재시작 후 저장된 `autorun`과 정책을 읽어 재개. 25전마다 체크포인트. 갑작스러운 종료 시 마지막 저장 이후 최대 24전(저장 중 실패 시 한 배치)은 다시 훈련할 수 있다. SIGTERM 시 현재 배치/검증/저장 완료 후 종료.
+8. 저장 오류 시 자동 훈련 중지 및 오류 표시. 저장되지 않은 성과를 영구 저장된 것으로 표시하지 않도록 관리 화면의 저장 횟수는 마지막 성공 체크포인트 기준이어야 한다.
+9. 복원/불러오기/수동 저장은 훈련 배치가 종료된 상태에서만 허용한다. 버전 목록은 최근 100개. 버전은 자동 삭제하지 않으므로 장기 운영 시 보관 정책 필요.
+
+## Render 제약
+2026-09-28 확인: 기존 echoes-world-server는 Singapore의 free web service.
+무료 서비스는 15분간 인바운드 트래픽이 없으면 중지되고 월 750시간 제한이 있다. 재시작 시 로컬 변경 파일은 사라진다. 무인 연속 훈련을 무료 서버에서 보장할 수 없다.
+별도 유료 web service는 훈련 관리 HTTP API와 worker thread를 실행한다. PVP와 CPU/메모리 프로세스를 공유하지 않는다. 제시된 설정은 배포 예시이며 자동으로 유료 서비스를 만들지 않는다.
+https://render.com/docs/free
+https://render.com/docs/background-workers
+
+## 확인
+`cd multiplayer-server && npm ci`
+`node --test ../tests/ai.test.mjs ../tests/pvp-relay-runtime.test.cjs ../tests/world-combat.test.mjs`
+기존 테스트 중 오래된 빌드 문자열/입력 시간 가정에 따른 실패는 원본에서도 재현되며 AI 추가와 구분해야 한다.

@@ -1,0 +1,18 @@
+# Optional separate paid service. Do not merge into the existing free server.
+services:
+  - type: web
+    name: echoes-ai-trainer
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: cd multiplayer-server && npm ci
+    startCommand: node multiplayer-server/ai/trainer-server.js
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 300
+    envVars:
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: AI_ADMIN_TOKEN
+        generateValue: true
+      - key: AI_ADMIN_ORIGIN
+        value: https://chansiu11.github.io
