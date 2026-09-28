@@ -633,7 +633,7 @@ function handleMobDamage(player,msg){
   markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),damage,by:player.id,respawnAt:mob.respawnAt||0}});
 }
 const aiService=createAiService(safeSend);
-const deviceTraining=createDeviceTraining({send:safeSend,onPolicy:p=>aiService.setPolicy(p),isBusy:owner=>aiService.active>0||[...players.values()].some(p=>p!==owner&&p.ready&&!p.trainingAdmin)});
+const deviceTraining=createDeviceTraining({send:safeSend,onPolicy:p=>aiService.setPolicy(p),isBusy:owner=>aiService.active>0||[...players.values()].some(p=>p!==owner&&p.ready&&!p.trainingAdmin&&!p.trainingReplaced)});
 function handleMessage(player,msg,rawBytes){
   if(deviceTraining.handle(player,msg,rawBytes))return;
   if(player.trainingAdmin)return;
@@ -728,7 +728,10 @@ wss.on('connection',(ws)=>{
       player.accountId=cleanAccountId(msg.accountId,player.name);
       player.clientSessionId=cleanClientSessionId(msg.clientSessionId);
       player.clientMode=msg.mode==='pvp'?'pvp':'world';player.pvpRelayCapable=msg.pvpRelay===1;player.pvpRuleset=String(msg.pvpRuleset||'').slice(0,80);
-      const replaced=[...players.values()].filter(p=>p!==player&&p.ready&&p.accountId===player.accountId);
+      // Training admin ownership is transferred only after server-side password
+      // verification and checkpoint handoff, not by the generic hello handler.
+      player.trainingReplaced=player.accountId.startsWith('ai-training:')&&deviceTraining.isRevoked(player.clientSessionId);
+      const replaced=player.accountId.startsWith('ai-training:')?[]:[...players.values()].filter(p=>p!==player&&p.ready&&p.accountId===player.accountId);
       for(const old of replaced){
         const sameClient=!!player.clientSessionId&&old.clientSessionId===player.clientSessionId;
         if(sameClient){
