@@ -1847,7 +1847,7 @@ function finishStandardSkillPreparation(h){
  player.facing=h.facing;player.attackAngle=h.facing;
  const sk=skillInfo(h.index);if(!sk)return false;
  const started=h.weapon===3?beginHiddenSkillInput(h.index):sk.id==='gravityCut'?startVoid3World():sk.holdContinuous?startHeldSwordSkill(h.index):(triggerSkillShake(h.index),h.weapon===2?executeSkillNow(h.index):startSwordSkill(h.index));
- if(started&&h.released){if(h.weapon===3)releaseHiddenSkillInput(h.index);else if(sk.id==='gravityCut'&&void3State)releaseVoid3WorldInput();else if(sk.holdContinuous)stopHeldSwordSkill(h.index,false);}
+ if(started&&h.released){if(h.weapon===3)releaseHiddenSkillInput(h.index);else if(sk.id==='gravityCut'&&void3State)releaseVoid3WorldInput();else if(sk.holdContinuous&&activeSwordSkill){activeSwordSkill.tapReleaseAt=.02;}}
  return !!started;
 }
 function releaseStandardSkillInput(index){
@@ -2378,7 +2378,7 @@ function updateSwordSkill(dt){
  const seq=activeSwordSkill,sk=balancedSwordSkill(swordSkillById(seq.skillId),seq.slot),cfg=sk?.cfg;if(!cfg){cancelSwordSkill();return;}seq.elapsed+=dt;
  if(seq.chasing){updatePrismWorldChase(seq,dt);return;}
  if(cfg.mode==='galePulse'){if(seq.elapsed<.5)sendSharedSkillFxFrame(seq.slot,'galeCharge',player.weapon,seq.facing,.12);}else sendSharedSkillFxFrame(seq.slot,sk.id,player.weapon,seq.facing,sk.id==='prismLance'?.25:seq.ultimate?.085:.12);
- if(seq.held){updateHeldSwordSkill(seq,sk,dt);if(activeSwordSkill===seq&&seq.elapsed>=seq.duration)stopHeldSwordSkill(seq.slot,false);return;}
+ if(seq.held){updateHeldSwordSkill(seq,sk,dt);if(activeSwordSkill===seq&&(seq.elapsed>=seq.duration||(seq.tapReleaseAt&&seq.elapsed>=seq.tapReleaseAt)))stopHeldSwordSkill(seq.slot,false);return;}
  updateUltimateCinematic(seq,sk,dt);
  updateSwordSkillMotion(seq,sk,dt);
  while(seq.nextHit<cfg.hits.length&&seq.elapsed>=cfg.hits[seq.nextHit]){performSwordSkillHit(seq,seq.nextHit);seq.nextHit++;}
@@ -4361,7 +4361,7 @@ function beginPvpPreparedSkill(h){
  if(started&&h.released){
   if(h.weapon===3)releaseHidden(h.index);
   else if(sk?.id==='gravityCut'&&void3Pvp)releaseVoid3PvpInput();
-  else if(sk?.holdContinuous)stopWorldSwordHold(h.index,false);
+  else if(sk?.holdContinuous&&me.skillHold?.kind==='worldSwordHold'){me.skillHold.tapReleaseAt=.02;}
  }
  return !!started;
 }
@@ -4694,7 +4694,7 @@ function updateWorldSwordHold(h,dt){const sk=h.skill,mode=sk.cfg?.mode,color=sk.
   }
  } else if(mode==='holdShadow'){h.fx-=dt;if(h.fx<=0){h.fx=ult?.10:.16;if(enemy&&enemy.hp>0&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<(ult?520:250)){const aa=Math.atan2(me.y-enemy.y,me.x-enemy.x)+Math.PI/2*h.side,dist=ult?92:68,tx=enemy.x+Math.cos(aa)*dist,ty=enemy.y+Math.sin(aa)*dist,ox=me.x,oy=me.y;beamFx(ox,oy,tx,ty,accent,.18,true);riftCutFx((ox+tx)/2,(oy+ty)/2,Math.atan2(ty-oy,tx-ox),ult?210:120,ult?26:16,color,.16,true);me.x=clamp(tx,25,ARENA_W-25);me.y=clamp(ty,25,ARENA_H-25);me.a=h.a=Math.atan2(enemy.y-me.y,enemy.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a});segmentAttack(ox,oy,me.x,me.y,ult?78:62,ult?pvpVoid5Damage(me.level):pvpSkillAttack(me)*.52,.5,{color,force:0,forceA:me.a,fx:false,teleportHit:true,controlLease:'voidDance',controlLeaseMs:1100,rapidHit:ult,skillId:ult?'voidDance':'',onHit:()=>{if(me.skillHold===h)h.carry=true}});h.side*=-1}ring(me.x,me.y,ult?78:46,color,.15,true)}}
  if(h.carry&&enemy){const dx=me.x-px0,dy=me.y-py0;if(Math.abs(dx)+Math.abs(dy)>.001){if(h.authoritativeCarry)queueStigmaControl('voidDance',enemy.x+dx,enemy.y+dy,.12,.18,.35,false);else forceEnemyTo(enemy.x+dx,enemy.y+dy,.12,.18)}}
- if(h.releaseQueued&&h.elapsed>=1.25){stopWorldSwordHold(h.index,false);return}if(h.elapsed>=h.max)stopWorldSwordHold(h.index,false)}
+ if(h.releaseQueued&&h.elapsed>=1.25){stopWorldSwordHold(h.index,false);return}if(h.tapReleaseAt&&h.elapsed>=h.tapReleaseAt){stopWorldSwordHold(h.index,false);return}if(h.elapsed>=h.max)stopWorldSwordHold(h.index,false)}
 function animatePvpFighter(f,dt){if(!f.motion)f.motion={x:f.x,y:f.y,phase:0,walk:0,facing:f.a,lean:0};const m=f.motion,dx=f.x-m.x,dy=f.y-m.y,d=Math.hypot(dx,dy),speed=d/Math.max(dt,.001),targetWalk=clamp(speed/Math.max(f.speed||177,80),0,1);m.walk+=(targetWalk-m.walk)*(1-Math.exp(-dt*15));m.phase+=d*.115;const diff=angleDiff(f.a,m.facing);m.facing+=diff*(1-Math.exp(-dt*18));m.lean+=(((f.dash>0||f.skillKind==='hidden1'||f.skillKind==='hidden4')?1:0)-m.lean)*(1-Math.exp(-dt*18));m.x=f.x;m.y=f.y}
 function prismPvpUninterruptible(){return me?.hp>0&&me.skillEvent?.ultimate&&me.skillEvent?.skill?.id==='prismLance';}
 function updateSkillSystem(dt){if(!me)return;if(!me.skillHold&&!me.skillEvent){me.skillLift=0;if(me.skillPose>=0&&me.attackAnim<=0){me.skillPose=-1;me.skillKind='';}}if(me.followMarked&&performance.now()>me.followUntil){me.followMarked=false;me.followUntil=0}if(me.stun>0&&!prismPvpUninterruptible()&&!me.skillHold?.allowStun){me.skillLift=0;me.skillHold=null;me.skillEvent=null;me.skillPose=-1;me.skillKind='';return;}
