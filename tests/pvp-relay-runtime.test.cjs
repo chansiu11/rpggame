@@ -21,7 +21,7 @@ async function arena(port,id){
  Object.assign(c,{WebSocket,setTimeout,clearTimeout,queueMicrotask,ECHOES_MULTIPLAYER_CONFIG:{serverUrl:'ws://127.0.0.1:'+port}});
  vm.runInContext(fs.readFileSync(root+'/multiplayer-client.js','utf8'),c);
  vm.runInContext(fs.readFileSync(root+'/pvp-transport.js','utf8'),c);
- const script=html.split('<script>')[2].split('</script>')[0].replace('showLobby();requestAnimationFrame(loop);',"window.arenaTest={startMatchmaking,net,stopNet,onData,update,burst,pushFx,sendProjectile,get effects(){return fx;},get projectiles(){return projectiles;},get running(){return running;},get me(){return me;},get enemy(){return enemy;},get room(){return room;}};showLobby();requestAnimationFrame(loop);");
+ const script=html.split('<script>')[2].split('</script>')[0].replace('showLobby();requestAnimationFrame(loop);',"window.arenaTest={spawnPvpGaleVortex,updateSkillSystem,resetRound,startMatchmaking,net,stopNet,onData,update,burst,pushFx,sendProjectile,get effects(){return fx;},get projectiles(){return projectiles;},get running(){return running;},get me(){return me;},get enemy(){return enemy;},get room(){return room;}};showLobby();requestAnimationFrame(loop);");
  vm.runInContext(script,c,{filename:'pvp-inline.js'});return out;
 }
 test('two real clients enter arena without PeerJS, exchange packets, reject outsiders and close cleanly',{timeout:15000},async()=>{
@@ -32,6 +32,21 @@ test('two real clients enter arena without PeerJS, exchange packets, reject outs
   assert.equal(a.c.Peer,undefined);await a.c.arenaTest.startMatchmaking();await b.c.arenaTest.startMatchmaking();
   await waitFor(()=>a.c.arenaTest.running&&b.c.arenaTest.running);assert.ok(logs.includes('[pvp-relay-open]'));
   assert.equal(a.c.arenaTest.me.level,200);assert.equal(b.c.arenaTest.enemy.level,200);assert.equal(a.c.arenaTest.room,b.c.arenaTest.room);
+  // A hit by slot 3 must finish at the caster's current position.
+  const qa=a.c.arenaTest, fighter=qa.me, startX=fighter.x,startY=fighter.y;
+  fighter.skillEvent={kind:'swordSeq',index:2,elapsed:.77,next:1,cfg:{mode:'galePulse',duration:.78,hits:[.5]},skill:{id:'galeOrbit'},galePulseHit:true,a:0,fx:1};
+  qa.updateSkillSystem(.02);assert.equal(fighter.x,startX);assert.equal(fighter.y,startY);
+  // A previous force path cannot resume after vortex capture/release.
+  const vortex=qa.spawnPvpGaleVortex(startX,startY,0,true,'regression');vortex.caught={angle:0};
+  fighter.forceTrack={x:25,y:25,remaining:10,max:10,stun:0};
+  fighter.forcedMove={x:25,y:25,startX,startY,elapsed:0,max:10,t:10,priority:true};
+  qa.update(.016);assert.equal(fighter.forceTrack,null);assert.equal(fighter.forcedMove,null);
+  vortex.t=.001;qa.update(.016);assert.ok(fighter.forcedMove,'victim owns final launch');
+  const landing={x:fighter.forcedMove.x,y:fighter.forcedMove.y};
+  for(let n=0;n<50;n++)qa.update(.016);
+  assert.ok(Math.hypot(fighter.x-landing.x,fighter.y-landing.y)<.01,'release stays at landing');
+  qa.onData({t:'vortexLaunch',x:25,y:25,tx:100,ty:100,duration:.5});assert.equal(qa.enemy.remoteForce,null);
+  qa.resetRound();
   let states=0;const relaySend=a.c.EchoesMulti.pvpRelaySend;a.c.EchoesMulti.pvpRelaySend=(id,data)=>{if(data.t==='state')states++;return relaySend(id,data);};for(let i=0;i<60;i++)a.c.arenaTest.update(1/60);assert.ok(states>=49&&states<=51,'60 FPS must retain the 50Hz schedule: '+states);a.c.EchoesMulti.pvpRelaySend=relaySend;
   a.c.arenaTest.net({t:'state',x:800,y:900,hp:456,shield:10,stam:30});await waitFor(()=>b.c.arenaTest.enemy.hp===456);assert.equal(b.c.arenaTest.enemy.netX,800);
   // Generated random particles and geometric effects must be identical on both peers.
