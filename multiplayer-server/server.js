@@ -311,7 +311,7 @@ function markMobDirty(m){if(m?.id)dirtyMobIds.add(m.id);}
 function syncBossMob(boss){const m=authoritativeMobs.get(boss.id);if(!m)return;m.hp=boss.hp;m.maxHp=boss.maxHp;m.dead=!boss.alive;m.respawnAt=boss.respawnAt||0;if(m.dead){m.state='dead';m.targetId=null;m.alert=false;}else if(m.state==='dead'){m.state='idle';m.x=m.sx;m.y=m.sy;}markMobDirty(m);}
 function bootstrapAuthoritativeWorld(player,msg){
   if(String(msg.spawnLayoutVersion||'')!==SPAWN_LAYOUT_VERSION){safeSend(player.ws,{type:'notice',message:'몬스터 스폰 배치가 업데이트되었습니다. 게임 페이지를 새로고침해 주세요.'});return;}
-  if(mobsBootstrapped&&authoritativeMobs.size){safeSend(player.ws,{type:'world:snapshot',snapshot:serverWorldSnapshot()});return;}
+  if(mobsBootstrapped&&authoritativeMobs.size)return;
   const list=Array.isArray(msg.mobs)?msg.mobs.slice(0,900):[];if(!list.length)return;authoritativeMobs.clear();navGrid.clear();
   for(const raw of list){
     const id=String(raw.id||'').slice(0,50),type=String(raw.type||'').slice(0,40),def=MOB_TYPES[type];if(!id||!def||type==='dummy'||id.startsWith('rift_'))continue;
