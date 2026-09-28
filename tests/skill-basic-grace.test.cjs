@@ -38,10 +38,9 @@ test('World skill keydown begins 0.2s preparation without premature casting',()=
  const s={weapon:0,ready:true,starts:0,bowStarts:0};
  const init="const window={EchoesSkillPrepare:{duration:.2,kind:()=> 'slash'}},player={get weapon(){return state.weapon},facing:0,moveLock:0,skillPose:-1},hiddenFollowReady=()=>false,standardSkillCanPrepare=()=>state.ready,skillInfo=()=>({id:'windSlash',cfg:{mode:'windShot'},color:'#fff'}),aim=()=>{},cancelShieldForSkill=()=>{},triggerSkillShake=()=>{},startSwordSkill=()=>{state.starts++;return true;},executeSkillNow=()=>{state.bowStarts++;return true;},startVoid3World=()=>true,startHeldSwordSkill=()=>true;let standardSkillHold=null;";
  const run=new Function('state',[init,section('function beginStandardSkillInput(index){','function releaseStandardSkillInput(index){'),'return {down:beginStandardSkillInput,getHold:()=>standardSkillHold,reset:()=>standardSkillHold=null};'].join('\n'))(s);
- assert.equal(run.down(0),true);assert.equal(s.starts,0);assert.equal(run.getHold().elapsed,0);assert.equal(playerNotRequired(),true);
+ assert.equal(run.down(0),true);assert.equal(s.starts,0);assert.equal(run.getHold().elapsed,0);
  run.reset();s.weapon=2;assert.equal(run.down(1),true);assert.equal(s.bowStarts,0);assert.equal(run.getHold().weapon,2);
  run.reset();s.ready=false;assert.equal(run.down(2),false);assert.equal(s.starts,0);
- function playerNotRequired(){return true;}
 });
 test('World missed 100ms basic preserves running skill pose, duration and movement',()=>{
  const skill={kind:'skyFall',elapsed:.04},s={now:1000,hits:0,moves:0,player:{weapon:0,exhaust:0,dodge:0,attackCd:.82,cast:.82,parry:0,attackAnim:.82,attackDuration:.92,skillPose:2,skillKind:'skyFall',attackAngle:1.1,attackArc:1.3,strikePose:3,heavy:true,moveLock:.8,comboTimer:0,combo:0,rune:'',facing:.7}};
