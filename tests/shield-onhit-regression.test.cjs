@@ -58,3 +58,32 @@ test('attacker callbacks trigger only on confirmed HP damage',()=>{
   assert.equal(map.size,0);assert.equal(events.length,outcome==='hit'?1:0);
  }
 });
+
+
+test('world Void 3 does not start its follow-up until initial HP damage is confirmed',()=>{
+ const frag=section('function startVoid3World(){','function void3WorldBasic(');
+ const body=[
+ "const player={hp:100,weapon:0,level:100,skillCds:[0,0,0,0,0],exhaust:0,cast:0,dodge:0,attackCd:0,facing:0,r:15,rune:'none'},target={id:'target',x:150,y:100,r:18,kind:'regular',dead:false,riftSleeping:false};player.x=100;player.y=100;",
+ "let void3State=null,pending=null;const realTime=8,effects=[],WEAPONS=[{reach:80}];",
+ "const skillInfo=()=>({id:'gravityCut',cost:30,cool:8}),canAct=()=>true,useStam=()=>true,aim=()=>{},cancelShieldForSkill=()=>{},skillCooldownScale=()=>1,combatTargets=()=>[target],combatCenter=e=>e,combatRadius=e=>e.r,angleDiff=(a,b)=>a-b,damageValue=()=>20,applyEnemyStun=()=>{},burst=()=>{},ring=()=>{},sound=()=>{};",
+ "const hitEnemyConfirmed=(e,damage,heavy,owner,onHit)=>{pending=onHit;return null};",
+ frag,
+ "startVoid3World();return {state:()=>void3State,confirm:()=>pending()};"
+ ].join('\n');
+ const sim=new Function(body)();
+ assert.equal(sim.state(),null,'geometric contact must not activate follow-up');
+ sim.confirm();assert.equal(sim.state()?.targetId,'target');
+});
+test('arena Void 3 does not start tracking a shield-blocked first hit',()=>{
+ const frag=section('function startVoid3Pvp(){','function void3PvpBasic(');
+ const body=[
+ "const me={x:100,y:100,weapon:0,attackCd:0,stun:0},enemy={x:150,y:100,r:18,hp:1000},weaponData=[{range:94}];let void3Pvp=null,pending=null,roundLocked=false;",
+ "const pvpSwordSkillAt=()=>({id:'gravityCut',cost:20,cool:8,color:'#a76cff'}),skillReady=()=>true,commitSkill=()=>true,combatAimAngle=()=>0,enemyInArc=()=>true,pvpSkillAttack=()=>20;",
+ "const arcAttack=(reach,damage,arc,force,stun,extra)=>{pending=extra.onHit},riftCutFx=()=>{},burst=()=>{},ring=()=>{},queueVoid3PvpRandomMove=()=>{},performance={now:()=>1000};",
+ frag,
+ "startVoid3Pvp();return {state:()=>void3Pvp,confirm:()=>pending()};"
+ ].join('\n');
+ const sim=new Function(body)();
+ assert.equal(sim.state(),null,'first hit has not yet dealt HP damage');
+ sim.confirm();assert.equal(sim.state()?.until,8000);
+});
