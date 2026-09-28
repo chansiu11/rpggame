@@ -7,3 +7,5 @@ test('Dawn 5 keeps firing after damage/stun and each projectile matches Dawn 1',
  const one=run(0),five=run(4,true);try{assert.ok(five.a.api.me.hp<five.hp);const p1=one.packets.filter(m=>m.t==='proj'),p5=five.packets.filter(m=>m.t==='proj');assert.equal(p1.length,1);assert.equal(p5.length,19);for(const p of p5)assert.equal(p.d,p1[0].d);}finally{one.a.dispose();five.a.dispose();}
 });
 test('other skills still cancel on incoming stun',()=>{const r=run(0,true);try{assert.equal(r.packets.filter(m=>m.t==='proj').length,0);}finally{r.a.dispose();}});
+
+test('Dawn 5 emits first five projectiles on keydown without advancing a frame',()=>{const a=createArena({style:'dawn'}),packets=[];try{a.api.init(a.snapshot,a.snapshot,true,m=>packets.push(m));a.api.control({skill:4,aim:0,keys:[]});assert.equal(packets.filter(m=>m.t==='proj').length,5);a.step(1/60);assert.equal(packets.filter(m=>m.t==='proj').length,5);}finally{a.dispose();}});
