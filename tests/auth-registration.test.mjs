@@ -26,5 +26,6 @@ test('login survives profile read and last-login write delays',()=>{
 });
 
 test('browser cache is busted for the fixed cloud auth module',()=>{
- assert.match(html,/cloud-save\.js\?v=20260928-auth-ready-1/);
+ assert.match(html,/cloud-save\.js\?v=20260928-device-training-1/);
 });
+

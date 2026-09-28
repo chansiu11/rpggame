@@ -23,5 +23,5 @@ export function createAiService(send){
  const s=sessions.get(p.id);if(!s||s.id!==m.matchId||bytes>65536||!m.data||typeof m.data.t!=='string')return true;
  if(Date.now()-s.at>=1000){s.at=Date.now();s.count=0;}if(++s.count>240)return true;s.worker.postMessage(m.data);
  }return true;
- }return {handle,leave};
+ }return {handle,leave,setPolicy(value){policy=value;},get active(){return sessions.size;}};
 }

@@ -54,7 +54,7 @@ function handle(msg){
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='net:pong'){if(msg.nonce!==state.lastPingNonce)return;const rtt=Date.now()-msg.nonce;if(rtt>=0&&rtt<3000){state.rtt=rtt;state.serverOffset=msg.serverTime-(msg.nonce+rtt/2);}return;}
   if(msg.type==='hello:ok'){
-    state.lastPingAt=0;delete state.serverOffset;mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;combatQueue=[];state.serverBuild=String(msg.serverBuild||'');state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
+    state.lastPingAt=0;delete state.serverOffset;mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;combatQueue=[];state.serverBuild=String(msg.serverBuild||'');state.deviceTrainingProtocol=Number(msg.deviceTrainingProtocol)||0;state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
     state.worldRole=msg.worldRole||{leaderId:null,isLeader:false,serverAuthority:true};
@@ -94,6 +94,7 @@ function handle(msg){
   if(msg.type==='party:update'){state.party=msg.party||null;emit('party',state.party);return;}
   if(msg.type==='party:invite'){state.pendingInvite=msg;emit('party:invite',msg);return;}
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
+  if(['ai:trainAuth','ai:trainStatus','ai:trainCheckpoint','ai:trainError'].includes(msg.type)){emit(msg.type,msg);return;}
   if(['pvp:relay','pvp:relayOpen','pvp:relayClosed','pvp:aiReady','pvp:aiPacket','pvp:aiError'].includes(msg.type)){emit(msg.type,msg);return;}
   if(msg.type==='pvp:matchStatus'){emit('pvp:matchStatus',msg);return;}
   if(msg.type==='pvp:matchFound'){emit('pvp:matchFound',msg);return;}
@@ -214,6 +215,7 @@ window.EchoesMulti={
   pvpRelayReady(matchId){return send({type:'pvp:relayReady',matchId});},
   pvpRelaySend(matchId,data){if(data?.t==='state'){const packed={...data};for(const key of Object.keys(packed)){const v=packed[key];if(typeof v==='number'&&Number.isFinite(v))packed[key]=Math.round(v*1000)/1000;}data=packed;}return send({type:'pvp:relay',matchId,data});},
   pvpRelayLeave(matchId){return send({type:'pvp:relayLeave',matchId});},
+  training(type,data={}){return send({...data,type:'ai:train'+type});},
   aiStart(style){return send({type:'pvp:aiStart',style});},
   aiPacket(matchId,data){return send({type:'pvp:aiPacket',matchId,data});},
   aiLeave(){return send({type:'pvp:aiLeave'});},

@@ -1,3 +1,4 @@
+import {createDeviceTraining} from './ai/device-training.js';
 import {createAiService} from './ai/live-service.js';
 import {createPvpRelay} from './pvp-relay.js';
 import {selectMobInterest} from './world-interest.js';
@@ -632,7 +633,10 @@ function handleMobDamage(player,msg){
   markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),damage,by:player.id,respawnAt:mob.respawnAt||0}});
 }
 const aiService=createAiService(safeSend);
+const deviceTraining=createDeviceTraining({send:safeSend,onPolicy:p=>aiService.setPolicy(p),isBusy:owner=>aiService.active>0||[...players.values()].some(p=>p!==owner&&p.ready&&!p.trainingAdmin)});
 function handleMessage(player,msg,rawBytes){
+  if(deviceTraining.handle(player,msg,rawBytes))return;
+  if(player.trainingAdmin)return;
   if(msg?.type==='pvp:aiStart')removePvpMatchQueue(player,false);
   if(aiService.handle(player,msg,rawBytes))return;
   if(pvpRelay.handle(player,msg,rawBytes))return;
@@ -686,7 +690,7 @@ setInterval(()=>worldCombat.tick(),50);
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,serverBuild:SERVER_BUILD,worldResetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
+    res.end(JSON.stringify({ok:true,serverBuild:SERVER_BUILD,deviceTrainingProtocol:1,worldResetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
@@ -741,7 +745,7 @@ wss.on('connection',(ws)=>{
       if(player.clientMode!=='pvp'&&!worldLeaderId)worldLeaderId=player.id;
       safeSend(ws,{
         type:'hello:ok',
-        selfId:player.id,serverBuild:SERVER_BUILD,worldResetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,
+        selfId:player.id,serverBuild:SERVER_BUILD,deviceTrainingProtocol:1,worldResetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,
         world:{...WORLD,combatPolicy:WORLD_COMBAT_POLICY,biomes:BIOMES,landmarks:LANDMARKS,hiddenItems:HIDDEN_ITEMS},
         players:player.clientMode==='pvp'?[]:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').map(publicPlayer),
         bosses:bossSnapshot(),
@@ -763,6 +767,7 @@ wss.on('connection',(ws)=>{
   ws.on('close',(code)=>{
     if(player.ready)console.log('[ws-close]',player.id,'code',code,'players',players.size);
     clearTimeout(helloTimer);
+    deviceTraining.leave(player);
     aiService.leave(player);
     pvpRelay.leave(player);
     removePvpMatchQueue(player,false);

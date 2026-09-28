@@ -1,6 +1,6 @@
 import {createArena} from './arena-runtime.js';
 import {createBrain,rng} from './brain.js';
-export function duel(styleA,styleB,policyA,policyB,seed=1,seconds=90){
+export function duel(styleA,styleB,policyA,policyB,seed=1,seconds=90,permit=()=>{}){
  const a=createArena({style:styleA}),b=createArena({style:styleB});const arenas=[a,b],metrics=arenas.map(()=>({attempts:0,hits:0,misses:0,defenses:0,evades:0,parries:0,comboHits:0,lowResourceFrames:0,frames:0,damage:0})),queue=[];
  for(let i=0;i<2;i++)arenas[i].api.init(arenas[i].snapshot,arenas[1-i].snapshot,i===0,m=>{
  if(m.t==='atk')metrics[i].attempts++;
@@ -9,7 +9,7 @@ export function duel(styleA,styleB,policyA,policyB,seed=1,seconds=90){
  if(!['fxBatch','ping','pong','skillShake','galePulseShake'].includes(m.t))queue.push([1-i,structuredClone(m)]);
  });
  const brains=[createBrain(styleA,policyA,rng(seed)),createBrain(styleB,policyB,rng(seed+99))];
- let steps=0;try{for(;steps<seconds*60;steps++){
+ let steps=0;try{for(;steps<seconds*60;steps++){permit();
  for(let i=0;i<2;i++){const r=arenas[i];r.api.control(brains[i].step(1/60,r.api.me,r.api.enemy));r.step(1/60);metrics[i].frames++;if(r.api.me.stam<r.api.me.maxStam*.2)metrics[i].lowResourceFrames++;}
  let count=0;while(queue.length){if(++count>2000)throw Error('Combat message loop');const [i,m]=queue.shift();arenas[i].api.receive(m);}
  if(arenas.some(r=>r.api.locked||r.api.me.hp<=0))break;

@@ -67,6 +67,24 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
       ready:cloudReady,
       message:friendlyMessage,
       currentUid:()=>auth.currentUser?.uid||null,
+      async saveTraining(checkpoint){
+        const u=auth.currentUser;if(!u)throw new Error('게임 계정 로그인이 필요합니다.');
+        if(!checkpoint||checkpoint.schema!==1)throw new Error('학습 기록 형식 오류');
+        const batch=storeMod.writeBatch(db),value={checkpoint,updatedAt:storeMod.serverTimestamp()};batch.set(storeMod.doc(db,'users',u.uid,'aiTraining','main'),value);batch.set(storeMod.doc(db,'users',u.uid,'aiTrainingVersions','v-'+Date.now()+'-'+crypto.randomUUID()),value);await batch.commit();return true;
+      },
+      async trainingVersions(){
+        const u=auth.currentUser;if(!u)throw new Error('로그인이 필요합니다.');
+        const snaps=await storeMod.getDocs(storeMod.query(storeMod.collection(db,'users',u.uid,'aiTrainingVersions'),storeMod.orderBy('updatedAt','desc'),storeMod.limit(20)));
+        return snaps.docs.map(d=>({id:d.id,matches:d.data().checkpoint.policy.matches,generation:d.data().checkpoint.policy.generation}));
+      },
+      async loadTrainingVersion(id){
+        const u=auth.currentUser;if(!u||!/^v-[a-zA-Z0-9-]+$/.test(id))throw new Error('잘못된 기록입니다.');
+        const snap=await storeMod.getDoc(storeMod.doc(db,'users',u.uid,'aiTrainingVersions',id));if(!snap.exists())throw new Error('기록이 없습니다.');return snap.data().checkpoint;
+      },
+      async loadTraining(){
+        const u=auth.currentUser;if(!u)throw new Error('게임 계정 로그인이 필요합니다.');
+        const snap=await storeMod.getDoc(storeMod.doc(db,'users',u.uid,'aiTraining','main'));return snap.exists()?snap.data().checkpoint:null;
+      },
       async register(username,password){
         const displayName=String(username||'').trim();
         const userKey=normalizeUser(displayName);
@@ -134,3 +152,4 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
 }else{
   resolveCloudReady(false);
 }
+
