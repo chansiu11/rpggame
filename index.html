@@ -1220,9 +1220,9 @@ function sharedPvpEligible(rp){
 }
 function mouseAimActive(){return mouse.active&&performance.now()-(mouse.lastMove||0)<450}
 function aim(){if(shieldHeld()&&lockedTarget&&validLock(lockedTarget)){player.facing=Math.atan2(lockedTarget.y-player.y,lockedTarget.x-player.x);return;}if(touchAim.active){player.facing=touchAim.angle;return;}if(lockedTarget){if(validLock(lockedTarget)){player.facing=Math.atan2(lockedTarget.y-player.y,lockedTarget.x-player.x);return;}lockedTarget=null;}if(joy.active||!mouseAimActive()){const mobs=enemies.filter(e=>!e.dead&&!(e.type==='finalBoss'&&!e.alert)&&distance(e,player)<420&&!e.riftSleeping&&(e.type!=='dummy'||distance(e,player)<180));const remotes=[...multiRemotePlayers.values()].filter(sharedPvpEligible).map(r=>({...r,...sharedPvpPoint(r)})).filter(r=>distance(r,player)<420);const target=[...mobs,...remotes].sort((a,b)=>distance(a,player)-distance(b,player))[0];if(target)player.facing=Math.atan2(target.y-player.y,target.x-player.x);return;}player.facing=Math.atan2(camera.y+(mouse.y-H/2)/VIEW_SCALE-player.y,camera.x+(mouse.x-W/2)/VIEW_SCALE-player.x);}
-function meleeHit(reach,arc,damage,heavy=false){let hits=0;for(const e of combatTargets()){if(e.dead||e.riftSleeping||(e.type==='finalBoss'&&!e.alert))continue;const d=combatDistance(e,player),er=combatRadius(e),ea=combatAngleFrom(player,e);if(d<reach+er&&Math.abs(angleDiff(ea,player.attackAngle))<arc/2+er/Math.max(35,d)){
+function meleeHit(reach,arc,damage,heavy=false,onHit=null){let hits=0;for(const e of combatTargets()){if(e.dead||e.riftSleeping||(e.type==='finalBoss'&&!e.alert))continue;const d=combatDistance(e,player),er=combatRadius(e),ea=combatAngleFrom(player,e);if(d<reach+er&&Math.abs(angleDiff(ea,player.attackAngle))<arc/2+er/Math.max(35,d)){
  let mult=1;if(player.weapon===1&&Math.abs(angleDiff(player.attackAngle,e.facing))<1.1){mult=1.45;floating(e.x,e.y-47,'후방 적중','#afdbd0');}
- hitEnemy(e,damage*mult,heavy,player);hits++;
+ const outcome=hitEnemy(e,damage*mult,heavy,player,onHit?{onHit:()=>onHit(e)}:null);if(outcome===true){hits++;onHit?.(e);}
  }}return hits;}
 function basicMeleeHit(reach,arc,damage,finalHit=false){let hits=0;for(const e of combatTargets()){if(e.dead||e.riftSleeping||(e.type==='finalBoss'&&!e.alert))continue;const d=combatDistance(e,player),er=combatRadius(e),ea=combatAngleFrom(player,e);if(d>=reach+er||Math.abs(angleDiff(ea,player.attackAngle))>=arc/2+er/Math.max(35,d))continue;let mult=1;if(player.weapon===1&&Math.abs(angleDiff(player.attackAngle,e.facing))<1.1){mult=1.45;floating(e.x,e.y-47,'후방 적중','#afdbd0');}
  // 평타는 공용 hitEnemy의 짧은 경직/강공격 반응을 쓰지 않고, 아래에서 정확히 0.5초 기절로 통일한다.
@@ -2098,8 +2098,8 @@ function performSwordSkillHit(seq,hitIndex){
  else if(mode==='singularityRush'){
   const pullRange=145;
   for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,front=dx*Math.cos(ang)+dy*Math.sin(ang),lat=-dx*Math.sin(ang)+dy*Math.cos(ang);if(front>-45&&front<pullRange&&Math.abs(lat)<105+combatRadius(e)&&e.kind!=='boss'&&!e.networkPlayer){const shift=-lat*.38;moveBody(e,-Math.sin(ang)*shift,Math.cos(ang)*shift);}}
-  const caught=(hitIndex===0&&seq.singularityCaptureHit)?1:meleeHit(reach,cfg.arc[hitIndex],damage,finalHit);
-  if(caught>0){seq.singularityCaught=true;if(!seq.singularityTargetId){const t=swordSeqTarget(seq);if(t&&!t.dead)seq.singularityTargetId=t.id;}}
+  const confirm=e=>{if(activeSwordSkill!==seq)return;seq.singularityCaught=true;seq.singularityTargetId=e.id;};
+  if(!(hitIndex===0&&seq.singularityCaptureHit))meleeHit(reach,cfg.arc[hitIndex],damage,finalHit,confirm);
  }
  else if(mode==='eventHorizonShear'){
   const len=330,offset=hitIndex===0?92:hitIndex===1?48:0,hitDamage=hitIndex===2?damage:damage*.56,offs=offset?[offset,-offset]:[0];
@@ -2264,9 +2264,9 @@ function updateSwordSkillMotion(seq,sk,dt){
  else if(mode==='singularityRush'&&t<.78){
   if(target&&t<.18){const ta=Math.atan2(target.y-player.y,target.x-player.x);seq.facing=ta;player.facing=ta;player.attackAngle=ta;}
   const da=seq.facing,spd=760+520*t;moveBody(player,Math.cos(da)*spd*dt,Math.sin(da)*spd*dt);player.invuln=Math.max(player.invuln,.045);
-  if(!seq.singularityCaught){
+  if(!seq.singularityCaught&&!seq.singularityPending){
    const caught=combatTargets().filter(e=>!e.dead&&!e.riftSleeping).sort((a,b)=>combatDistance(a,player)-combatDistance(b,player)).find(e=>{const c=combatCenter(e);return segmentDistance(c.x,c.y,[px0,py0],[player.x,player.y])<=58+combatRadius(e)});
-   if(caught){seq.singularityCaught=true;seq.singularityTargetId=caught.id;seq.singularityCaptureHit=true;hitEnemy(caught,damageValue(.72),false);applyEnemyStun(caught,caught.kind==='boss'?.08:.16);}
+   if(caught){seq.singularityPending=true;seq.singularityPendingAt=performance.now();const confirm=()=>{if(activeSwordSkill!==seq)return;seq.singularityPending=false;seq.singularityCaught=true;seq.singularityTargetId=caught.id;seq.singularityCaptureHit=true;applyEnemyStun(caught,caught.kind==='boss'?.08:.16);};const outcome=hitEnemy(caught,damageValue(.72),false,player,{onHit:confirm});if(outcome===true)confirm();}
   }
   const caughtTarget=seq.singularityTargetId?combatTargets().find(e=>e.id===seq.singularityTargetId&&!e.dead&&!e.riftSleeping):null;
   if(seq.singularityCaught&&caughtTarget&&caughtTarget.kind!=='boss'){const front=player.r+combatRadius(caughtTarget)+28,rawX=clamp(player.x+Math.cos(da)*front,40,WORLD.w-40),rawY=clamp(player.y+Math.sin(da)*front,40,WORLD.h-40),spot=freeBodySpot(rawX,rawY,combatRadius(caughtTarget)+3),tx=spot.x,ty=spot.y;seq.singularityCarrySync=(seq.singularityCarrySync||0)-dt;if(caughtTarget.networkPlayer){worldTargetControl(caughtTarget.id,{x:tx,y:ty,stun:.14,duration:.12});}else if(multiplayerMode&&window.EchoesMulti?.connected&&caughtTarget.type!=='dummy'&&!caughtTarget.riftId){if(seq.singularityCarrySync<=0){window.EchoesMulti.damageMob(caughtTarget.id,0,{knockbackX:clamp(tx-caughtTarget.x,-180,180),knockbackY:clamp(ty-caughtTarget.y,-180,180),duration:.12,stun:.14,replaceForce:true});seq.singularityCarrySync=.06;}}else{moveBody(caughtTarget,clamp(tx-caughtTarget.x,-180,180),clamp(ty-caughtTarget.y,-180,180));applyEnemyStun(caughtTarget,.14);}}
