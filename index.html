@@ -4200,7 +4200,7 @@ function sendProjectile(a,speed,d,opts={}){
 function useStam(n){if(me.stam<n)return false;me.stam-=n;me.stamDelay=.5;return true}
 function cdrScale(){return (me.rune==='dawn'?.8:1)*(1-clamp(me.cdr||0,0,.25))}
 function pvpBasicHeld(){return mouse.down||keys.has(pkey('KeyZ'));}
-function pvpBasicCancelable(){return !!me&&performance.now()<(me.basicAttackLockUntil||0)&&!pvpBasicHeld();}
+function pvpBasicCancelable(){return !!me&&me.skillPose<0&&!me.skillHold&&!me.skillEvent&&performance.now()<(me.basicAttackLockUntil||0)&&!pvpBasicHeld();}
 function cancelPvpBasicForSkill(){if(!pvpBasicCancelable())return;me.attackCd=0;me.attackAnim=0;me.attackDuration=.26;me.basicAttackLockUntil=0;me.basicMoveSlow=0;}
 function skillReady(i){return me&&running&&!roundLocked&&me.cool[i]<=0&&me.stun<=0&&me.exhaust<=0&&!me.skillHold&&!me.skillEvent&&(me.attackCd<=0||pvpBasicCancelable())}
 function pvpMouseAimActive(){return mouse.active&&performance.now()-(mouse.lastMove||0)<450}
