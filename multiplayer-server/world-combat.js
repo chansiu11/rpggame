@@ -62,14 +62,14 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
   for(const e of events){
    if(++a.combatBudget>240)break;advance(a,t);
    if(e.kind==='stigmaFollowReady'){
-    if(a.weapon!==3||a.hp<=0||t<(a.stunUntil||0)||t<(a.stigmaReadyAfter||0))continue;
+    if(a.weapon!==3||a.hp<=0||t<(a.stunUntil||0))continue;
     const ids=(Array.isArray(e.targets)?e.targets:[]).slice(0,32).map(String).filter(id=>{const q=resolveTarget(id);return q&&q!==a&&q.hp>0&&!q.dead&&Math.hypot(q.x-a.x,q.y-a.y)<=550;});
-    const landed=ids.filter(id=>{const h=a.confirmedSkillHits?.get(id);return h&&h.skillId==='hidden:1'&&t-h.at<=3000;});if(landed.length){const prior=a.stigmaFollow&&t<a.stigmaFollow.until?[...a.stigmaFollow.ids]:[];a.stigmaFollow={until:t+3000,ids:new Set([...prior,...landed])};a.stigmaReadyAfter=t+3000;}continue;
+    const landed=ids.filter(id=>{const h=a.confirmedSkillHits?.get(id);return h&&h.skillId==='hidden:1'&&t-h.at<=3000&&t>=(a.stigmaConsumed?.get(id)||0);});if(landed.length){const prior=a.stigmaFollow&&t<a.stigmaFollow.until?[...a.stigmaFollow.ids]:[];a.stigmaFollow={until:t+3000,ids:new Set([...prior,...landed])};a.stigmaReadyAfter=t+3000;}continue;
    }
    if(e.kind==='stigmaFollow'){
     const f=a.stigmaFollow,id=String(e.targetId||''),q=resolveTarget(id);
     if(a.weapon!==3||a.hp<=0||!f||t>f.until||!f.ids.has(id)||!q||q.hp<=0||q.dead||!number(e.x)||!number(e.y)||Math.hypot(e.x-q.x,e.y-q.y)>180)continue;
-    f.ids.delete(id);a.stunUntil=0;a.stun=0;a.forceMove=null;a.controlUntil=0;a.controlBy=null;a.controlLeaseUntil=0;a.controlRevision=(a.controlRevision||0)+1;
+    f.ids.delete(id);a.stigmaConsumed??=new Map();a.stigmaConsumed.set(id,t+3000);a.stunUntil=0;a.stun=0;a.forceMove=null;a.controlUntil=0;a.controlBy=null;a.controlLeaseUntil=0;a.controlRevision=(a.controlRevision||0)+1;
     a.x=clamp(e.x,40,width-40);a.y=clamp(e.y,40,height-40);a.vx=a.vy=0;emit(a,{outcome:'stigmaCleanse',damage:0});continue;
    }
    const b=players.get(String(e.targetId||''));if(b)advance(b,t);
@@ -87,7 +87,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     if(b.block&&b.shield>0&&!e.bypassShield){
      b.shieldDelayUntil=t+1400;
      if(e.parryable!==false&&t<(b.parryWindowUntil||0)&&!e.breakShield){b.parryWindowUntil=0;b.shield=Math.max(0,b.shield-4);if(b.shield<=0)b.block=false;b.stam=Math.min(b.maxStam||0,(b.stam||0)+28);b.invulnUntil=t+250;lease(a,{stun:1.25},t);a.forceMove=null;a.controlBy=null;emit(a,{attackerId:b.id,outcome:'parried',damage:0});emit(b,{attackerId:a.id,outcome:'parry',damage:0,procId:String(e.procId||'').slice(0,40)});b.controlBy=null;continue;}
-     if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}else{const cost=C.shieldCost(raw),before=b.shield;b.shield=Math.max(0,b.shield-cost);if(b.shield>0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0,procId:String(e.procId||'').slice(0,40)});b.controlBy=null;continue;}b.shieldBrokenUntil=t;b.block=false;raw*=Math.max(0,1-before/cost);}
+     if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}else{const cost=C.shieldCost(raw),before=b.shield;b.shield=Math.max(0,b.shield-cost);if(b.shield>0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0,procId:String(e.procId||'').slice(0,40)});b.controlBy=null;continue;}b.shieldBrokenUntil=t;b.block=false;raw*=Math.max(0,1-before/cost);if(raw<=0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0,procId:String(e.procId||'').slice(0,40)});b.controlBy=null;continue;}}
     }
     damage=C.damageAfterArmor(raw,b.defenseReduction||0);b.hp=Math.max(0,b.hp-damage);b.invulnUntil=t+100;b.shieldDelayUntil=t+1400;outcome='hit';
     b.controlBy=a.id;b.controlLeaseUntil=t+1400;
