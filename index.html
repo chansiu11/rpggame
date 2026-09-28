@@ -1066,7 +1066,7 @@ function previewWorldControl(id,patch){
 }
 function worldTargetControl(id,patch){
  const old=worldTargetControls.get(id)||{targetId:id,kind:'control',dx:0,dy:0,stun:0};
- old.dx+=Number(patch.dx)||0;old.dy+=Number(patch.dy)||0;if(Number.isFinite(patch.x)){old.x=patch.x;old.dx=0;}if(Number.isFinite(patch.y)){old.y=patch.y;old.dy=0;}old.stun=Math.max(old.stun,Number(patch.stun)||0);
+ old.dx+=Number(patch.dx)||0;old.dy+=Number(patch.dy)||0;old.root=Math.max(old.root||0,Number(patch.root)||0);if(Number.isFinite(patch.x)){old.x=patch.x;old.dx=0;}if(Number.isFinite(patch.y)){old.y=patch.y;old.dy=0;}old.stun=Math.max(old.stun,Number(patch.stun)||0);
  for(const k of ['breakShield','mark','duration','kind','skillId','range'])if(patch[k]!==undefined)old[k]=patch[k];
  worldTargetControls.set(id,old);previewWorldControl(id,patch);
 }
@@ -1103,9 +1103,9 @@ function applyWorldCombatResult(msg){
  if(p.combatRevision<=worldCombatRevision)return;worldCombatRevision=p.combatRevision;
  player.hp=clamp(p.hp,0,player.maxHp);player.shield=clamp(p.shield,0,player.maxShield);player.stam=clamp(p.stam,0,player.maxStam);if(player.shield<=0&&shieldHeld()){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
  for(const [to,from] of [['invuln','invuln'],['shieldBroken','shieldBroken'],['shieldDelay','shieldDelay'],['perfectWindow','parryWindow']])player[to]=Number(p[from])||0;
- player.worldMark=Number(p.mark)||0;if(msg.outcome==='stigmaCleanse'){player.stun=0;player.moveLock=0;player.pvpKnock=null;worldForce=null;worldControlUntil=0;player.x=p.x;player.y=p.y;}
+ player.worldMark=Number(p.mark)||0;player.galeRoot=Math.max(0,(Number(p.root)||0)-(m.packetAge?.(p.serverTime)||0));if(msg.outcome==='stigmaCleanse'){player.stun=0;player.moveLock=0;player.pvpKnock=null;worldForce=null;worldControlUntil=0;player.x=p.x;player.y=p.y;}
  const age=m.packetAge?.(p.serverTime)||0,control=Math.max(0,(p.stun||0)-age,p.forceMove?p.forceMove.max-(p.forceMove.elapsed||0)-age:0);
- if(control>0){cancelSwordSkill(true);player.dodge=0;player.dx=player.dy=0;player.stun=Math.max(player.stun||0,p.stun||0);player.moveLock=Math.max(player.moveLock||0,control);bufferedAction=null;pendingAttack=false;worldControlUntil=performance.now()+control*1000;}
+ if(control>0){if((p.stun||0)>age+.025)cancelSwordSkill(true);player.dodge=0;player.dx=player.dy=0;player.stun=Math.max(player.stun||0,p.stun||0);player.moveLock=Math.max(player.moveLock||0,control);bufferedAction=null;pendingAttack=false;worldControlUntil=performance.now()+control*1000;}
  const f=p.forceMove;worldForce=f?{...f,elapsed:(f.elapsed||0)+age,receivedAt:performance.now()}:null;
  if(control>0||f||msg.outcome==='settled'){player.x=p.x;player.y=p.y;multiInstantMoveSeqFloor=0;multiInstantMoveProtectUntil=0;}
  if(msg.damage>0){if(void3State)endVoid3World();player.hurt=.24;damageFloating(player.x,player.y-35,msg.damage,player.facing,true);burst(player.x,player.y,'#f0aa9b',12,130);if(options.shake)shake=Math.max(shake,clamp(2+Math.sqrt(msg.damage)*.45,3,9));sound('hurt');}
@@ -1157,7 +1157,7 @@ const SWORD_SKILL_LIBRARY=[
  {id:'windSlash',name:'삼렬 풍도',level:1,price:0,cost:20,cool:3.3,color:'#61f0c7',desc:'길쭉한 검풍 세 개를 좌우로 나란히 발사합니다. 기존보다 약 50% 더 멀리 날아가며 세 검풍이 같은 방향으로 평행하게 전진합니다.',cfg:{duration:.44,hits:[.18],mult:[1.0],arc:[1.4],reach:[0],step:[0],mode:'windShot'}},
  {id:'flashRush',name:'질풍 점멸',level:4,price:180,cost:29,cool:5.2,color:'#61f0c7',desc:'조준 방향 또는 표적을 향해 한 번에 점멸 돌진합니다. 기존보다 약 50% 더 긴 거리를 돌진하며, 경로에 닿은 적을 진행 방향으로 밀어냅니다.',cfg:{duration:.48,hits:[.16],mult:[2.05],arc:[1.35],reach:[0],step:[0],mode:'galeBlink'}},
  {id:'moonSpin',name:'달빛 회전',level:7,price:260,cost:32,cool:3.6,color:'#b88cff',desc:'가까운 적의 옆을 반원으로 돌며 적들을 중심 쪽으로 끌어당긴 뒤 한 번에 베어냅니다.',cfg:{duration:.62,hits:[.26],mult:[1.75],arc:[TAU],reach:[46],step:[0],mode:'moonBurst'}},
- {id:'starRush',name:'풍압 연파',level:18,price:0,cost:49,cool:9.6,color:'#61f0c7',desc:'전방에 3단 풍압을 연속으로 펼칩니다. 첫 풍압에 맞은 대상은 뒤로 밀리며 다음 풍압 위치로 이어져 세 타를 연속으로 맞습니다.',cfg:{duration:1.20,hits:[.22,.58,.98],mult:[.78,1.05,1.95],arc:[TAU,TAU,TAU],reach:[0,0,0],step:[0,0,0],mode:'galeCrescendo'}},
+ {id:'starRush',name:'풍압 연파',level:18,price:0,cost:49,cool:9.6,color:'#61f0c7',desc:'두 번째 풍압 원을 앞으로 발사합니다. 소용돌이는 5초 동안 천천히 이동하며 적을 반시계방향으로 회전시키고 지속 피해를 줍니다. 사라질 때 바깥으로 날리며 발사 직후 시전자가 자유롭게 행동합니다.',cfg:{duration:.30,hits:[.12],mult:[1],arc:[TAU],reach:[0],step:[0],mode:'galeCrescendo'}},
  {id:'crossBloom',name:'연속 교차 베기',level:13,price:420,cost:40,cool:7.4,color:'#b88cff',desc:'표적의 좌우를 번갈아 밟으며 위치를 바꾸고 일곱 번의 교차 베기를 한 대상 주변에 집중합니다.',cfg:{duration:1.42,hits:[.10,.26,.42,.58,.76,.96,1.20],mult:[.43,.45,.48,.52,.56,.66,1.08],arc:[1.20,1.25,1.30,1.35,1.40,1.50,1.85],reach:[20,20,22,22,24,26,30],step:[0,0,0,0,0,0,4],mode:'stationaryFlurry'}},
  {id:'crescent',name:'초승달 이연참',level:16,price:520,cost:34,cool:9,color:'#b88cff',desc:'뒤로 크게 빠지면서 서로 다른 각도의 초승달 검압 두 개를 연속 발사합니다.',cfg:{duration:.80,hits:[.16,.52],mult:[.90,1.18],arc:[2.4,2.7],reach:[18,22],step:[2,4],mode:'crescentRetreat'}},
  {id:'guardBreak',name:'파갑 일섬',level:20,price:650,cost:42,cool:4,color:'#ff9f55',desc:'표적 옆으로 짧게 비켜선 뒤 원래 공격선으로 파고들어 한 번만 강하게 관통합니다.',cfg:{duration:.58,hits:[.28],mult:[3.05],arc:[.52],reach:[68],step:[18],mode:'guardPierce'}},
@@ -1184,7 +1184,7 @@ const SWORD_SKILL_IDENTITY={
  windSlash:{trait:'3열 · 짧은 사거리 · 평행 장검풍',fx:'나란한 3개의 긴 청록 검풍'},
  flashRush:{trait:'점멸 돌진 · 이동거리 동일 넉백',fx:'청록 점멸선/풍압 폭발'},
  moonSpin:{trait:'반원 궤도 · 흡인 단타',fx:'보랏빛 만월 궤도'},
- starRush:{trait:'3단 전방 파문 · 점증 범위/피해',fx:'전방으로 커지는 세 겹 풍압륜'},
+ starRush:{trait:'5초 이동형 소용돌이 · 반시계 회전과 지속 피해 · 종료 방출',fx:'청록 나선 풍압륜'},
  crossBloom:{trait:'좌우 위치전환 · 7연 집중',fx:'금빛 잔상 X자 검화'},
  crescent:{trait:'후퇴 사격형 · 쌍검압',fx:'하늘빛 역류 초승달'},
  guardBreak:{trait:'단일 강타 · 긴 경직',fx:'주황 관통 균열'},
@@ -1193,7 +1193,7 @@ const SWORD_SKILL_IDENTITY={
  dawnArc:{trait:'초장거리 단발 · 대검압',fx:'백금 수평 광파'},
  thunderDrive:{trait:'궁극기 · 장거리 돌진 적중 시 즉시 당김 + 30연타 추살',fx:'장거리 풍속 돌진/0.05초 간격 교차 추살/확정 피니시'},
  meteorBreaker:{trait:'누르는 동안 유지 · 이동형 흡인 검진',fx:'주홍 회전 검진/내부 별궤도'},
- galeOrbit:{trait:'0.5초 공기 집중 · 넓은 원형 단타',fx:'바깥 공기 흡입/중심 압축/원형 폭발'},
+ galeOrbit:{trait:'0.5초 부드러운 흡입 · 적중 후 이동만 봉쇄',fx:'바깥 공기 흡입/중심 압축/원형 폭발'},
  mirrorStep:{trait:'반대편 순간이동 · 후방 단타',fx:'보랏빛 거울 잔상'},
  lunarBind:{trait:'광역 흡인 · 축소 원참',fx:'달빛 수축 고리'},
  quakeRush:{trait:'전진 · 연속 지면 폭발',fx:'주황 파열 흔적'},
@@ -1962,7 +1962,7 @@ function performSwordSkillHit(seq,hitIndex){
   }
  }else if(mode==='windShot'){const nx=-Math.sin(ang),ny=Math.cos(ang);for(const off of [-58,0,58])fireProjectile(player.x+Math.cos(ang)*38+nx*off,player.y+Math.sin(ang)*38+ny*off,ang,470,damageValue(.72),'player','wave',3,.72,105);}
  else if(mode==='galeBlink'){const push=Math.max(0,seq.galeBlinkDistance||0),pa=seq.facing,dur=window.EchoesCombat.forceDuration(push);for(const id of seq.galeBlinkTargets||[]){const e=combatTargets().find(v=>v.id===id);if(e&&!e.dead&&!e.riftSleeping)hitEnemy(e,damage,true,player,{stun:.55,dx:Math.cos(pa)*push,dy:Math.sin(pa)*push,duration:dur});}}
- else if(mode==='galePulse'){player.skillPose=seq.slot;player.attackDuration=.18;player.attackAnim=.18;const r=240;for(const e of combatTargets()){if(e.dead||e.riftSleeping||combatDistance(e,player)>r+combatRadius(e))continue;hitEnemy(e,damage,true,player,{stun:.84,dx:0,dy:0});}}
+ else if(mode==='galePulse'){player.skillPose=seq.slot;player.attackDuration=.18;player.attackAnim=.18;const r=240;for(const e of combatTargets()){if(e.dead||e.riftSleeping||combatDistance(e,player)>r+combatRadius(e))continue;if(!e.networkPlayer)e.galeRoot=Math.max(e.galeRoot||0,.9);hitEnemy(e,damage,false,player,{stun:0,root:.9,dx:0,dy:0});}}
  else if(mode==='galeCrescendo'){const dist=[125,235,355][hitIndex]||355,r=[120,170,230][hitIndex]||230,cx=player.x+Math.cos(ang)*dist,cy=player.y+Math.sin(ang)*dist,push=[110,120,145][hitIndex]||145;seq.galeCrescendoTargets??=new Set();for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const inWave=combatDistance(e,{x:cx,y:cy})<=r+combatRadius(e),locked=seq.galeCrescendoTargets.has(e.id);if(!inWave&&!locked)continue;if(inWave)seq.galeCrescendoTargets.add(e.id);if(!seq.galeCrescendoTargets.has(e.id))continue;hitEnemy(e,damage,finalHit,player,{stun:finalHit?.62:.26,dx:Math.cos(ang)*push,dy:Math.sin(ang)*push,duration:window.EchoesCombat.forceDuration(push)});}}
  else if(mode==='galePursuit'){
   const target=seq.galePursuitTargetId?combatTargets().find(e=>e.id===seq.galePursuitTargetId&&!e.dead&&!e.riftSleeping):null;
@@ -2084,14 +2084,14 @@ function updateGalePulseChargePull(seq,dt){
  for(const e of combatTargets()){
   if(!e||e.dead||e.riftSleeping||(e.type==='finalBoss'&&!e.alert))continue;
   const cc=combatCenter(e),dx=player.x-cc.x,dy=player.y-cc.y,d=Math.hypot(dx,dy),er=combatRadius(e);if(d>radius+er||d<1)continue;
-  const stop=player.r+er+18,pull=Math.min(Math.max(0,d-stop),190*dt);if(pull<=0){if(!e.networkPlayer)applyEnemyStun(e,.12);continue;}
+  const stop=player.r+er+18,pull=Math.min(Math.max(0,d-stop),86*dt);if(pull<=0){if(!e.networkPlayer)e.galeRoot=Math.max(e.galeRoot||0,.18);continue;}
   const nx=dx/d,ny=dy/d;
   if(e.networkPlayer){
-   if(netTick){const step=Math.min(Math.max(0,d-stop),28);worldTargetControl(e.id,{kind:'special',skillId:'galeOrbit',range:300,x:cc.x+nx*step,y:cc.y+ny*step,stun:.16,duration:.12});}
+   if(netTick){const step=Math.min(Math.max(0,d-stop),10);worldTargetControl(e.id,{kind:'special',skillId:'galeOrbit',range:300,x:cc.x+nx*step,y:cc.y+ny*step,stun:0,root:.18,duration:.16});}
   }else if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
-   if(netTick){const step=Math.min(Math.max(0,d-stop),28),control={knockbackX:nx*step,knockbackY:ny*step,duration:.12,stun:.16};if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,0,control);else window.EchoesMulti.damageMob(e.id,0,control);}
+   if(netTick){const step=Math.min(Math.max(0,d-stop),10),control={knockbackX:nx*step,knockbackY:ny*step,duration:.16,stun:0,replaceForce:true};if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,0,control);else window.EchoesMulti.damageMob(e.id,0,control);}
   }else{
-   moveBody(e,nx*pull,ny*pull);applyEnemyStun(e,.14);
+   moveBody(e,nx*pull,ny*pull);e.galeRoot=Math.max(e.galeRoot||0,.18);
   }
  }
 }
@@ -2497,20 +2497,21 @@ function executeEnemyAttack(e){if(e.type==='styleAdept'&&e.attackType==='style')
  else if(e.attackType==='slam'){ring(e.x,e.y,e.range,'#e9a87f',.5);burst(e.x,e.y,'#dac99b',20,170);if(d<e.range+player.r)hitPlayer(e.damage,e,false);if(e.kind==='boss'&&e.phase===2){effects.push({type:'hazard',x:Number.isFinite(e.tx)?e.tx:player.x,y:Number.isFinite(e.ty)?e.ty:player.y,r:90,t:1.0,max:1,color:'#dc9c96',damage:e.damage});}}
  else{effects.push({type:'slash',x:e.x,y:e.y,a,arc:2,r:e.range,color:'#e4b590',t:.22,max:.22});if(d<e.range+player.r&&difference<1.1+player.r/Math.max(d,20))hitPlayer(e.damage,e,true);}
 }
+function galeMobStep(e,dx,dy){if((e.galeRoot||0)>0)return;moveBody(e,dx,dy);}
 function updateEnemy(e,dt){if(admin.freeze)return;if(e.riftSleeping)return;if(e.type!=='dummy'&&distance(e,player)<340&&!(e.type==='finalBoss'&&!e.alert)&&player.bestiary[e.type]===undefined)player.bestiary[e.type]=0;if(e.dead){if(e.riftId)return;if(e.kind!=='boss'&&e.type!=='dummy'){e.respawn-=dt;if(e.respawn<=0&&distance(e,player)>700){e.dead=false;e.hp=e.maxHp;e.x=e.sx;e.y=e.sy;e.state='idle';e.alert=false;e.provoked=false;e.timer=1;e.guardActive=false;e.firstGuardDone=false;e.firstGuardPending=false;e.styleSeq=null;e.aiDashCd=.5+rnd(0,.7);}}return;}
- e.flash=Math.max(0,e.flash-dt);let d=distance(e,player);if(isTacticalMob(e)){e.aiDashCd=Math.max(0,(e.aiDashCd||0)-dt);e.aiDecision=Math.max(0,(e.aiDecision||0)-dt);e.aiDashEvade=Math.max(0,(e.aiDashEvade||0)-dt);}if(e.type==='finalBoss'&&!e.alert)return;
+ e.galeRoot=Math.max(0,(e.galeRoot||0)-dt);e.flash=Math.max(0,e.flash-dt);let d=distance(e,player);if(isTacticalMob(e)){e.aiDashCd=Math.max(0,(e.aiDashCd||0)-dt);e.aiDecision=Math.max(0,(e.aiDecision||0)-dt);e.aiDashEvade=Math.max(0,(e.aiDashEvade||0)-dt);}if(e.type==='finalBoss'&&!e.alert)return;
  if(d>1050){if(e.alert&&e.type!=='finalBoss'){e.alert=false;e.provoked=false;e.state='idle';e.x=e.sx;e.y=e.sy;e.hp=e.maxHp;}return;}
  if(e.kind==='boss'&&d<550&&e.alert)activeBoss=e;
  if(e.stun>0){e.stun=Math.max(0,e.stun-dt);if(e.stun<=0){e.stun=0;e.guardActive=false;e.state='recover';e.timer=.45;}return;}
  if(e.type==='styleAdept'&&e.state==='styleSkill'){updateStyleAdeptCast(e,dt);return;}
- if(isTacticalMob(e)&&e.state==='aiDash'){e.aiDashTime-=dt;const dashSpeed=Math.max(430,e.speed*(e.aiDashBack?4.15:3.75));moveBody(e,Math.cos(e.aiDashAngle)*dashSpeed*dt,Math.sin(e.aiDashAngle)*dashSpeed*dt);e.facing=e.aiDashBack?Math.atan2(player.y-e.y,player.x-e.x):e.aiDashAngle;if(e.aiDashTime<=0){e.state='chase';e.timer=.12;e.aiDashBack=false;}return;}
+ if(isTacticalMob(e)&&e.state==='aiDash'){e.aiDashTime-=dt;const dashSpeed=Math.max(430,e.speed*(e.aiDashBack?4.15:3.75));galeMobStep(e,Math.cos(e.aiDashAngle)*dashSpeed*dt,Math.sin(e.aiDashAngle)*dashSpeed*dt);e.facing=e.aiDashBack?Math.atan2(player.y-e.y,player.x-e.x):e.aiDashAngle;if(e.aiDashTime<=0){e.state='chase';e.timer=.12;e.aiDashBack=false;}return;}
  if(isTacticalMob(e)&&e.state==='guard'){e.guardTime-=dt;e.facing=Math.atan2(player.y-e.y,player.x-e.x);const attacking=playerAttackThreat(e);if(attacking)e.guardSawAttack=true;if(e.guardSawAttack&&!attacking&&player.attackAnim<=.03&&player.cast<=.03){finishEnemyGuard(e,true);return;}if(e.guardTime<=0){finishEnemyGuard(e,true);return;}return;}
  if(e.type==='dummy'){if(d>145||!player.training.attack){e.state='idle';e.timer=1;return;}e.facing=Math.atan2(player.y-e.y,player.x-e.x);e.timer-=dt;if(e.state==='idle'||e.state==='recover'){if(e.timer<=0)prepareEnemyAttack(e);}else if(e.state==='windup'&&e.timer<=0){executeEnemyAttack(e);e.timer=2.0;}return;}
  if(inSafe(player.x,player.y)&&e.kind!=='boss'){e.state='return';e.alert=false;e.provoked=false;}
  const leashCx=Number.isFinite(e.spawnZoneX)?e.spawnZoneX:e.sx,leashCy=Number.isFinite(e.spawnZoneY)?e.spawnZoneY:e.sy,leashBase=Number.isFinite(e.spawnZoneRadius)&&e.spawnZoneRadius>0?e.spawnZoneRadius:430,leashLimit=leashBase+(e.spawnZone==='lone'?220:300);if(e.kind==='boss'?distance(e,{x:e.sx,y:e.sy})>510:Math.hypot(e.x-leashCx,e.y-leashCy)>leashLimit){e.state='return';e.alert=false;e.provoked=false;}
- if(e.state==='return'){if(distance(e,{x:e.sx,y:e.sy})<25){e.state='idle';e.provoked=false;e.hp=e.maxHp;e.timer=1;}else{const a=Math.atan2(e.sy-e.y,e.sx-e.x);moveBody(e,Math.cos(a)*e.speed*1.3*dt,Math.sin(a)*e.speed*1.3*dt);}return;}
+ if(e.state==='return'){if(distance(e,{x:e.sx,y:e.sy})<25){e.state='idle';e.provoked=false;e.hp=e.maxHp;e.timer=1;}else{const a=Math.atan2(e.sy-e.y,e.sx-e.x);galeMobStep(e,Math.cos(a)*e.speed*1.3*dt,Math.sin(a)*e.speed*1.3*dt);}return;}
  e.timer-=dt;e.poise=Math.max(0,e.poise-dt*6);
- if(e.state==='idle'){if(d<(e.kind==='boss'?380:300)&&!inSafe(player.x,player.y)&&(e.kind==='boss'||e.riftId||e.provoked||localAmbientAggroAvailable(e))){wakeEnemy(e);}else if(e.timer<=0){e.facing+=rnd(-1.6,1.6);e.timer=rnd(1,3);}if(e.kind!=='boss'&&distance(e,{x:e.sx,y:e.sy})<120){moveBody(e,Math.cos(e.facing)*e.speed*.12*dt,Math.sin(e.facing)*e.speed*.12*dt);}return;}
+ if(e.state==='idle'){if(d<(e.kind==='boss'?380:300)&&!inSafe(player.x,player.y)&&(e.kind==='boss'||e.riftId||e.provoked||localAmbientAggroAvailable(e))){wakeEnemy(e);}else if(e.timer<=0){e.facing+=rnd(-1.6,1.6);e.timer=rnd(1,3);}if(e.kind!=='boss'&&distance(e,{x:e.sx,y:e.sy})<120){galeMobStep(e,Math.cos(e.facing)*e.speed*.12*dt,Math.sin(e.facing)*e.speed*.12*dt);}return;}
  if(e.state==='chase'){
   const a=Math.atan2(player.y-e.y,player.x-e.x);e.facing=a;const range=e.type==='styleAdept'?styleAdeptSkillSpec(e,false).range:e.kind==='boss'?210:e.kind==='ranged'?340:e.kind==='charge'?190:e.reach-8;
   // 모든 일반 잡몹은 방패 장비 없이 에너지 쉴드와 전투 대쉬를 사용한다.
@@ -2538,9 +2539,9 @@ function updateEnemy(e,dt){if(admin.freeze)return;if(e.riftSleeping)return;if(e.
   const desired=e.firstGuardPending?1:(e.kind==='ranged'&&d<160?-1:1);const speed=e.speed*(e.phase===2?1.15:1)*desired;let vx=Math.cos(a)*speed,vy=Math.sin(a)*speed;
   for(const o of candidates(e.x,e.y,100)){if(!o.solid)continue;const od=distance(e,o),rad=(o.box?Math.max(o.w,o.h)/2:o.r)+e.r+36;if(od<rad){const push=(rad-od)/rad*e.speed*2.5;vx+=(e.x-o.x)/(od||1)*push;vy+=(e.y-o.y)/(od||1)*push;}}
   for(const b of nearbyBodies(e.x,e.y,120)){if(b===e||b===player)continue;const bd=distance(e,b),space=bodyRadius(e)+bodyRadius(b)+24;if(bd<space&&bd>.01){const push=(space-bd)/space*e.speed;vx+=(e.x-b.x)/bd*push;vy+=(e.y-b.y)/bd*push;}}
-  const ox=e.x,oy=e.y;moveBody(e,vx*dt,vy*dt);if(Math.hypot(e.x-ox,e.y-oy)<dt*e.speed*.15&&d>range){const side=(parseInt(e.id.replace(/\D/g,''),10)||0)%2?1:-1;moveBody(e,Math.cos(a+side*1.2)*e.speed*dt,Math.sin(a+side*1.2)*e.speed*dt);}
+  const ox=e.x,oy=e.y;galeMobStep(e,vx*dt,vy*dt);if(Math.hypot(e.x-ox,e.y-oy)<dt*e.speed*.15&&d>range){const side=(parseInt(e.id.replace(/\D/g,''),10)||0)%2?1:-1;galeMobStep(e,Math.cos(a+side*1.2)*e.speed*dt,Math.sin(a+side*1.2)*e.speed*dt);}
  }else if(e.state==='windup'){e.facing=e.locked;if(e.timer<=0){executeEnemyAttack(e);if(e.kind==='boss'&&e.state!=='charge')applyPendingBossStun(e);}}
- else if(e.state==='charge'){const speed=e.kind==='boss'?670:e.type==='abyssHound'?560:e.type==='shardStalker'?520:460;moveBody(e,Math.cos(e.locked)*speed*dt,Math.sin(e.locked)*speed*dt);const ec=bodyCenter(e),pc=bodyCenter(player),chargeContact=bodyRadius(e)+bodyRadius(player)+(e.kind==='boss'?10:4);if(Math.hypot(ec.x-pc.x,ec.y-pc.y)<=chargeContact&&!e.chargeHit){const result=hitPlayer(e.damage,e,true);e.chargeHit=result!=='dodged';if(result==='parried')return;}if(e.timer<=0){e.state='recover';e.timer=1.2/enemyAttackSpeed(e);if(e.kind==='boss')applyPendingBossStun(e);}}
+ else if(e.state==='charge'){const speed=e.kind==='boss'?670:e.type==='abyssHound'?560:e.type==='shardStalker'?520:460;galeMobStep(e,Math.cos(e.locked)*speed*dt,Math.sin(e.locked)*speed*dt);const ec=bodyCenter(e),pc=bodyCenter(player),chargeContact=bodyRadius(e)+bodyRadius(player)+(e.kind==='boss'?10:4);if(Math.hypot(ec.x-pc.x,ec.y-pc.y)<=chargeContact&&!e.chargeHit){const result=hitPlayer(e.damage,e,true);e.chargeHit=result!=='dodged';if(result==='parried')return;}if(e.timer<=0){e.state='recover';e.timer=1.2/enemyAttackSpeed(e);if(e.kind==='boss')applyPendingBossStun(e);}}
  else if(e.state==='recover'&&e.timer<=0){e.state='chase';e.timer=.2/enemyAttackSpeed(e);}
 }
 function updateProjectiles(dt){const targets=projectiles.some(p=>p.owner==='player')?combatTargets():[];for(const p of projectiles){p.t-=dt;const travelDt=window.EchoesCombat.projectileTime(p,dt);if(travelDt<=0){p.t=0;continue;}const reach=Math.hypot(p.vx,p.vy)*travelDt+240;const near=p.owner==='player'?targets.filter(e=>Math.abs(e.x-p.x)<=reach+combatRadius(e)&&Math.abs(e.y-p.y)<=reach+combatRadius(e)*2):[];p.age=(p.age||0)+dt;const count=Math.max(1,Math.ceil(Math.hypot(p.vx,p.vy)*travelDt/12));for(let step=0;step<count&&p.t>0;step++){p.px=p.x;p.py=p.y;p.x+=p.vx*travelDt/count;p.y+=p.vy*travelDt/count;if(solidAt(p.x,p.y,3)){p.t=0;burst(p.x,p.y,'#c4c9ab',3);break;}
@@ -3523,12 +3524,12 @@ function update(dt){if(multiplayerMode&&player?.skillPose>=0)multiSkillCaptureUn
  if(window.EchoesMulti?.connected){
   multiNetTimer+=dt;if(multiNetTimer>=.066){const elapsed=Math.max(.016,(now-(multiLastSendAt||now-33))/1000),vx=clamp((player.x-multiLastSendX)/elapsed,-3000,3000),vy=clamp((player.y-multiLastSendY)/elapsed,-3000,3000);multiNetTimer=0;multiLastSendAt=now;multiLastSendX=player.x;multiLastSendY=player.y;const packet={...worldCombatFields(),moveSpeed:Math.hypot(vx,vy),x:player.x,y:player.y,a:player.facing,hp:player.hp,maxHp:player.maxHp,weapon:player.weapon,attackAnim:Math.max(player.attackAnim,multiSkillPosePulseUntil>realTime?.42:0),attackDuration:Math.max(player.attackDuration,multiSkillPosePulseUntil>realTime?.55:0),strikePose:player.strikePose,skillPose:multiSkillPosePulseUntil>realTime?multiSkillFxState.slot:player.skillPose,combo:player.combo,parry:player.parry,dodge:player.dodge,dx:player.dx,dy:player.dy,walk:player.motion?.walk||0,phase:player.motion?.phase||0,stun:player.stun||0,deathSeq:multiDeathSeq,skillFxSeq:multiSkillFxState.seq,skillFxSlot:multiSkillFxState.slot,skillFxId:multiSkillFxState.skillId,skillFxWeapon:multiSkillFxState.weapon,skillFxX:multiSkillFxState.x,skillFxY:multiSkillFxState.y,skillFxA:multiSkillFxState.a,vx,vy,seq:++multiNetSeq};if(now-multiProfileSendAt>=1000){multiProfileSendAt=now;packet.level=player.level;packet.swordStyle=player.swordStyle||'';packet.swordSkills=(player.weapon===4?player.adminSwordSkills:player.equippedSwordSkills)||[];packet.equippedHead=player.equippedHead;packet.equippedChest=player.equippedChest;packet.equippedShield=player.equippedShield;}window.EchoesMulti.sendState(packet);}
  }
-}updateCombat(dt);updateLootExpiry();rebuildBodyGrid();resolveBodyOverlaps();worldTime+=dt;player.playtime+=dt;saveTimer+=dt;if(void3State&&realTime>=void3State.until)endVoid3World();updateVoid3WorldExitDash(dt);damageFlash=Math.max(0,damageFlash-dt);activeBoss=null;for(const k of ['attackCd','attackAnim','dodgeCd','dodge','parry','parryCd','skillCd','potionCd','invuln','hurt','stamDelay','comboTimer','riposte','moveLock','basicMoveSlow','stun'])player[k]=Math.max(0,(player[k]||0)-dt);updateVoid3WorldAuto();updateSwordSkill(dt);updateShield(dt);if(player.comboTimer<=0)player.combo=0;drainAction(dt);if(lockedTarget&&!validLock(lockedTarget))lockedTarget=null;
+}updateCombat(dt);updateLootExpiry();rebuildBodyGrid();resolveBodyOverlaps();worldTime+=dt;player.playtime+=dt;saveTimer+=dt;if(void3State&&realTime>=void3State.until)endVoid3World();updateVoid3WorldExitDash(dt);damageFlash=Math.max(0,damageFlash-dt);activeBoss=null;for(const k of ['attackCd','attackAnim','dodgeCd','dodge','parry','parryCd','skillCd','potionCd','invuln','hurt','stamDelay','comboTimer','riposte','moveLock','basicMoveSlow','stun'])player[k]=Math.max(0,(player[k]||0)-dt);player.galeRoot=Math.max(0,(player.galeRoot||0)-dt);updateVoid3WorldAuto();updateSwordSkill(dt);updateShield(dt);if(player.comboTimer<=0)player.combo=0;drainAction(dt);if(lockedTarget&&!validLock(lockedTarget))lockedTarget=null;
  let mx=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,my=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y,n=Math.hypot(mx,my);if(n>1){mx/=n;my/=n;}player.moving=n>.1;const oldX=player.x,oldY=player.y;
  if(worldForce||performance.now()<worldControlUntil){updateWorldForce();player.moving=false;}else if(player.pvpKnock?.t>0){
   const k=player.pvpKnock,step=Math.min(dt,k.t);k.t-=step;moveBody(player,k.vx*step,k.vy*step);player.moving=false;
   if(k.t<=0)player.pvpKnock=null;
- }else if(player.stun>0){player.moving=false;}else if(player.dodge>0){moveBody(player,player.dx*(720+player.perks.flow*40)*dt,player.dy*(720+player.perks.flow*40)*dt);}else if(!(standardSkillHold||activeSwordSkill||secondSkillDash||fourthSkillHold?.dashing||hiddenSkillHold?.kind==='dash4'||hiddenSkillHold?.kind==='prepare'||hiddenSkillHold?.kind==='holdPrepare'||hiddenSkillHold?.kind==='combo5'||secondSkillArmed||(fourthSkillHold&&!fourthSkillHold.dashing)||player.moveLock>0||void3State?.exitDash)){const sprint=!void3State&&(touchSprint||keys.has('ShiftLeft')||keys.has('ShiftRight'))&&player.moving&&player.stam>5&&hiddenSkillHold?.kind!=='channel3';const channelScale=hiddenSkillHold?.kind==='channel3'?.2:1;const combatMoveScale=(shieldHeld()||player.basicMoveSlow>0)?.2:1;const speed=(sprint?BASE_SPRINT_SPEED:177)*equipmentMoveScale()*combatMoveScale*channelScale*(void3State?.5:1);if(sprint){player.stam-=dt*15;player.stamDelay=.45;}moveBody(player,mx*speed*dt,my*speed*dt);}
+ }else if(player.stun>0||(player.galeRoot||0)>0){player.moving=false;}else if(player.dodge>0){moveBody(player,player.dx*(720+player.perks.flow*40)*dt,player.dy*(720+player.perks.flow*40)*dt);}else if(!(standardSkillHold||activeSwordSkill||secondSkillDash||fourthSkillHold?.dashing||hiddenSkillHold?.kind==='dash4'||hiddenSkillHold?.kind==='prepare'||hiddenSkillHold?.kind==='holdPrepare'||hiddenSkillHold?.kind==='combo5'||secondSkillArmed||(fourthSkillHold&&!fourthSkillHold.dashing)||player.moveLock>0||void3State?.exitDash)){const sprint=!void3State&&(touchSprint||keys.has('ShiftLeft')||keys.has('ShiftRight'))&&player.moving&&player.stam>5&&hiddenSkillHold?.kind!=='channel3';const channelScale=hiddenSkillHold?.kind==='channel3'?.2:1;const combatMoveScale=(shieldHeld()||player.basicMoveSlow>0)?.2:1;const speed=(sprint?BASE_SPRINT_SPEED:177)*equipmentMoveScale()*combatMoveScale*channelScale*(void3State?.5:1);if(sprint){player.stam-=dt*15;player.stamDelay=.45;}moveBody(player,mx*speed*dt,my*speed*dt);}
  if(['prepare','dash4','channel3','combo5'].includes(hiddenSkillHold?.kind)){player.facing=hiddenSkillHold.facing;}else if(lockedTarget||touchAim.active)aim();else if(mouseAimActive())aim();else {aim();if(!lockedTarget&&n>.1&&!enemies.some(e=>!e.dead&&distance(e,player)<420))player.facing=Math.atan2(my,mx);}player.training.move+=Math.hypot(player.x-oldX,player.y-oldY);
  if(player.stamDelay<=0&&player.dodge<=0)player.stam=Math.min(player.maxStam,player.stam+(2+player.perks.breath*.5)*4.5*dt);if((mouse.down||touchAttackPointer!==null||keys.has('KeyZ'))&&player.attackCd<=0)attack();
  flushExactSkillVisuals();
