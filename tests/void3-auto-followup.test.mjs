@@ -5,7 +5,9 @@ import fs from 'node:fs';
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 
 test('Void 3 drops its movement slow immediately when the tracked target is gone',()=>{
- assert.match(html,/if\(void3State&&\(realTime>=void3State\.until\|\|!void3WorldTarget\(\)\)\)endVoid3World\(\)/);
+ assert.match(html,/if\(realTime>=void3State\.until\)\{endVoid3World\(\);return;\}/);
+ assert.match(html,/void3State\.nextTargetCheckAt=realTime\+\.10/);
+ assert.match(html,/if\(!void3WorldTarget\(\)\)\{endVoid3World\(\);return;\}/);
  assert.match(html,/if\(void3Pvp&&\(performance\.now\(\)>=void3Pvp\.until\|\|enemy\.hp<=0\)\)endVoid3Pvp\(\)/);
 });
 
@@ -29,7 +31,8 @@ test('Void 3 allows five manual follow-ups at a minimum 100ms cadence',()=>{
 
 test('only the opener stuns; follow-ups bypass shields without moving the target',()=>{
  assert.match(html,/applyEnemyStun\(target,target\.kind==='boss'\?\.28:\.62\)/);
- assert.match(html,/hitEnemy\(target,damageValue\(mult,'gravityCut'\),false,player,\{stun:0,bypassShield:true\}\)/);
+ assert.match(html,/hitEnemy\(target,damageValue\(mult,'gravityCut'\),false,player,\{stun:0,bypassShield:true,noHitstop:true\}\)/);
+ assert.match(html,/if\(!controlOverride\?\.noHitstop\)hitstop=Math\.max/);
  assert.match(html,/arcAttack\(reach,pvpSkillAttack\(me,'gravityCut'\)\*mult,arc,0,0,\{color:'#a76cff',fx:false,teleportHit:hit,bypassShield:true\}\)/);
 });
 
@@ -49,4 +52,17 @@ test('Void 3 keeps the requested movement rules',()=>{
 
 test('per-level damage growth is 2.55',()=>{
  assert.match(html,/PLAYER_DAMAGE_PER_LEVEL=2\.55/);
+});
+
+
+test('tracked target lookup avoids rebuilding all combat targets every frame',()=>{
+ assert.match(html,/let target=enemies\.find\(e=>e\.id===id\)\|\|worldPlayerTargets\.get\(id\)\|\|null/);
+ assert.match(html,/if\(void3State&&realTime>=void3State\.until\)endVoid3World\(\);updateVoid3WorldExitDash\(dt\)/);
+});
+
+test('ending Void 3 does not clear unrelated stun or movement locks',()=>{
+ assert.match(html,/function endVoid3World\(\)\{void3State=null;\}/);
+ assert.match(html,/function endVoid3Pvp\(\)\{void3Pvp=null;\}/);
+ assert.doesNotMatch(html,/function endVoid3World\(\)[\s\S]{0,120}moveLock=0/);
+ assert.doesNotMatch(html,/function endVoid3Pvp\(\)[\s\S]{0,120}moveLock=0/);
 });
