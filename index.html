@@ -134,7 +134,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <script src="./firebase-config.js"></script>
 <script type="module" src="./cloud-save.js?v=20260928-auth-ready-1"></script>
 <script src="./multiplayer-config.js?v=20260926-2"></script>
-<script src="./multiplayer-server/combat-core.js?v=20260927-dawn-pull"></script>
+<script src="./multiplayer-server/combat-core.js?v=20260928-armor-mitigation-fix-1"></script>
 <script src="./pvp-transport.js?v=20260928-1"></script>
 <script src="./multiplayer-client.js?v=20260928-pvp-latency-1"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
@@ -425,7 +425,12 @@ function recalculateEquipment(fill=false){
  if(fill){player.hp=player.maxHp;player.stam=player.maxStam;player.shield=player.maxShield;}
  else{player.hp=clamp((player.hp||1)+(player.maxHp-oldHp),1,player.maxHp);player.stam=clamp((player.stam||0)+(player.maxStam-oldStam),0,player.maxStam);player.shield=clamp((player.shield||0)+(player.maxShield-oldShield),0,player.maxShield);}
 }
-function armorReduction(){const base=Math.min(.45,equipmentStats().defense*.018),chestBonus=armorUpgradeLevel(player?.equippedChest)*.04;return clamp(base+chestBonus,0,.75);}
+function armorReductionFrom(defense,chestLevel){
+ const base=Math.min(.45,Math.max(0,Number(defense)||0)*.018);
+ const lv=clamp(Math.floor(Number(chestLevel)||0),0,ARMOR_UPGRADE_MAX);
+ return clamp(base+lv*.04,0,.75);
+}
+function armorReduction(){return armorReductionFrom(equipmentStats().defense,armorUpgradeLevel(player?.equippedChest));}
 function skillCooldownScale(){return 1-equipmentStats().cdr;}
 function equipmentMoveScale(){return 1+equipmentStats().move;}
 const PERKS=[
@@ -2295,7 +2300,7 @@ function updateShield(dt){
 function hitPlayer(damage,source,parryable=true){if(mode!=='play'||(modal&&!source?.pvp)||player.hp<=0||admin.god)return 'ignored';const a=Math.atan2(source.y-player.y,source.x-player.x);
  if(player.invuln>0){if(player.dodge>0&&!source.perfectDodged){source.perfectDodged=true;player.stam=Math.min(player.maxStam,player.stam+6+(player.rune==='cycle'?14:0));floating(player.x,player.y-54,'완벽한 대쉬','#abe0cb',true);}return 'dodged';}
  if(shieldHeld()&&player.shield>0&&player.shieldBroken<=0&&parryable){const perfect=player.perfectWindow>0;player.perfectWindow=0;player.shieldDelay=1.4;if(perfect){player.shield=Math.max(0,player.shield-4);if(player.shield===0){player.parry=0;player.shieldBroken=0;player.shieldNeedsRelease=true;}player.stam=clamp(player.stam+28,0,player.maxStam);player.invuln=.28;player.parryCd=.22;player.stats.parries++;if(player.rune==='echo')player.riposte=4;player.training.parry=true;floating(player.x,player.y-64,'PERFECT PARRY','#b3e6e0',true);ring(player.x,player.y,100,'#b8f2e5',.5);burst(player.x,player.y,'#d6f5e7',24,190);sound('parry');hitstop=.11;if(options.shake)shake=6;if(source.kind){source.stun=source.kind==='boss'?1.5:2.0;source.state='stunned';source.poise=0;}return 'parried';}const cost=window.EchoesCombat.shieldCost(damage),before=player.shield;player.shield=Math.max(0,before-cost);ring(player.x,player.y,29,'#a4d8e1',.18);if(player.shield>0){sound('block');floating(player.x,player.y-48,'쉴드 −'+Math.ceil(cost),'#adc7ca');return 'blocked';}player.parry=0;player.shieldBroken=0;player.shieldDelay=0;player.shieldNeedsRelease=true;sound('break');floating(player.x,player.y-48,'쉴드 소진','#edc28a');damage*=Math.max(0,1-before/cost);if(damage<=0)return 'blocked';}
- damage=Math.round(damage*(1-armorReduction()));if(damage>0){if(void3State)endVoid3World();player.hp=Math.max(0,player.hp-damage);if(damage>=player.maxHp*.30)damageFlash=.24;player.hurt=.25;player.invuln=.65;player.comboTimer=0;player.stun=Math.max(player.stun||0,damage>=player.maxHp*.18?.55:.35);cancelSkillPreparationOnStun();player.dodge=0;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;desktopShield=false;bufferedAction=null;pendingAttack=false;touchSprint=false;damageFloating(player.x,player.y-35,damage,source?Math.atan2(player.y-source.y,player.x-source.x):player.facing,true);burst(player.x,player.y,'#ebbd8d',8,90);sound('hurt');if(options.shake)shake=4;}if(player.hp<=0)showDefeat();return 'hit';}
+ damage=window.EchoesCombat.damageAfterArmor(damage,armorReduction());if(damage>0){if(void3State)endVoid3World();player.hp=Math.max(0,player.hp-damage);if(damage>=player.maxHp*.30)damageFlash=.24;player.hurt=.25;player.invuln=.65;player.comboTimer=0;player.stun=Math.max(player.stun||0,damage>=player.maxHp*.18?.55:.35);cancelSkillPreparationOnStun();player.dodge=0;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;desktopShield=false;bufferedAction=null;pendingAttack=false;touchSprint=false;damageFloating(player.x,player.y-35,damage,source?Math.atan2(player.y-source.y,player.x-source.x):player.facing,true);burst(player.x,player.y,'#ebbd8d',8,90);sound('hurt');if(options.shake)shake=4;}if(player.hp<=0)showDefeat();return 'hit';}
 const shieldSlot=document.querySelector('[data-act="parry"]');
 shieldSlot.addEventListener('pointerdown',e=>{if(!canAct())return;e.preventDefault();desktopShield=true;captureTouch(shieldSlot,e);parry();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])shieldSlot.addEventListener(event,()=>{desktopShield=false;releaseShield();});
@@ -3076,7 +3081,7 @@ function upgradeArmor(slot,id){
  const lv=armorUpgradeLevel(id),cost=armorUpgradeCost(g,lv);if(lv>=ARMOR_UPGRADE_MAX||player.gold<cost.gold||player.ore<cost.ore)return;
  player.gold-=cost.gold;player.ore-=cost.ore;player.armorUpgrades??={};
  const success=Math.random()<upgradeSuccessRate(lv);
- if(success){player.armorUpgrades[id]=lv+1;recalculateEquipment(false);sound('reward');toast('<b>'+g.name+' 강화 성공</b> · +'+player.armorUpgrades[id]);}
+ if(success){player.armorUpgrades[id]=lv+1;recalculateEquipment(false);sound('reward');const reductionNote=slot==='chest'?' · 피해 감소 '+Math.round(armorReduction()*100)+'%':'';toast('<b>'+g.name+' 강화 성공</b> · +'+player.armorUpgrades[id]+reductionNote);}
  else{sound('break');toast('<b>'+g.name+' 강화 실패</b> · +'+lv+' 유지 · 성공률 '+Math.round(upgradeSuccessRate(lv)*100)+'%');}
  saveGame(false);showSmith(true);updateHUD();
 }
@@ -3685,6 +3690,7 @@ window.EchoesWorldPvpData={
   const th=swordStyleFxForSkill(sk.id),style=swordStyleForSkill(sk.id);
   return JSON.parse(JSON.stringify({id:sk.id,name:sk.name,cost:balancedSkillCost(sk.cost),cool:balancedSkillCooldown(sk.cool),color:th.main,sub:th.sub,accent:th.accent,style:style?.id||'',styleName:style?.name||'',holdContinuous:!!sk.holdContinuous,holdMax:Number(sk.holdMax)||0,ultimate:slot===4,cfg:sk.cfg}));
  },
+ armorReduction(defense,chestLevel){return armorReductionFrom(defense,chestLevel);},
  style(id){const g=swordStyleById(id);return g?{id:g.id,name:g.name,desc:g.desc,skills:[...g.skills]}:null;}
 };
 requestAnimationFrame(frame);
@@ -3750,7 +3756,7 @@ function snapshot(){
  const weaponUpgradeRate=Number(WORLD_COMBAT.weaponUpgradeRate)||.05,attacks=weaponData.map((w,i)=>Math.round((w.d+(lvl-1)*PVP_DAMAGE_PER_LEVEL)*Math.pow(1+weaponUpgradeRate,ups[i]))),
  baseHp=Number(WORLD_COMBAT.baseHp)||82,baseStam=Number(WORLD_COMBAT.baseStam)||160,stamPerLevel=Number(WORLD_COMBAT.staminaPerLevel)||3,stamScale=Number(WORLD_COMBAT.staminaScale)||4.5,
  maxHp=Math.round(baseHp+(lvl-1)*PVP_HP_PER_LEVEL+resolve*12+h.hp+cg.hp),
- maxShield=((Number(WORLD_COMBAT.baseShield)||100)+(lvl-1)*2+sh.shield)*10,maxStam=Math.round((baseStam+(lvl-1)*stamPerLevel+(h.stam||0)+(cg.stam||0))*stamScale),defense=h.def+cg.def+sh.def,chestUpgrade=armorLv(chestId),damageReduction=clamp(Math.min(.45,(h.def+cg.def+sh.def)*.018)+chestUpgrade*.04,0,Number(WORLD_COMBAT.maxDamageReduction)||.75),
+ maxShield=((Number(WORLD_COMBAT.baseShield)||100)+(lvl-1)*2+sh.shield)*10,maxStam=Math.round((baseStam+(lvl-1)*stamPerLevel+(h.stam||0)+(cg.stam||0))*stamScale),defense=h.def+cg.def+sh.def,chestUpgrade=armorLv(chestId),damageReduction=typeof WORLD_PVP.armorReduction==='function'?WORLD_PVP.armorReduction(h.def+cg.def+sh.def,chestUpgrade):clamp(Math.min(.45,(h.def+cg.def+sh.def)*.018)+chestUpgrade*.04,0,Number(WORLD_COMBAT.maxDamageReduction)||.75),
  speed=(Number(WORLD_COMBAT.baseMove)||177)*(1+h.move+cg.move),cdr=clamp((h.cdr||0)+(cg.cdr||0),0,.25),
  perks={flow:clamp(Number(p.perks?.flow)||0,0,2),focus:clamp(Number(p.perks?.focus)||0,0,2),breath:clamp(Number(p.perks?.breath)||0,0,2),herbal:clamp(Number(p.perks?.herbal)||0,0,2)};
  const savedWeapon=Math.floor(Number(p.weapon)||0);let wi=savedWeapon===4?0:clamp(savedWeapon,0,3);if(wi===1||!owned.includes(wi))wi=0;
