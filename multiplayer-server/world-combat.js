@@ -74,9 +74,9 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    }
    const b=players.get(String(e.targetId||''));if(b)advance(b,t);
    if(!allowed(a,b)||t<(a.stunUntil||0)||Math.hypot(a.x-b.x,a.y-b.y)>clamp(e.range||1100,40,1200)+80)continue;
-   const kind=String(e.kind||'attack'),damageEvent=kind==='attack',hasLease=b.controlBy===a.id&&t<(b.controlLeaseUntil||0);
+   const kind=String(e.kind||'attack'),damageEvent=kind==='attack',hasLease=b.controlBy===a.id&&t<(b.controlLeaseUntil||0),galePulseControl=!damageEvent&&kind==='special'&&String(e.skillId||'')==='galeOrbit'&&String(a.skillId||'')==='galeOrbit'&&Math.hypot(a.x-b.x,a.y-b.y)<=320;
    if(!damageEvent&&!['control','special'].includes(kind))continue;
-   if(!damageEvent&&!hasLease)continue;
+   if(!damageEvent&&!hasLease&&!galePulseControl)continue;
    if(damageEvent&&!contact(b,e,t))continue;
    if(t<(b.invulnUntil||0)&&damageEvent)continue;
    let damage=0,outcome='control';
@@ -85,12 +85,12 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     if(b.block&&b.shield>0&&!e.bypassShield){
      b.shieldDelayUntil=t+1400;
      if(e.parryable!==false&&t<(b.parryWindowUntil||0)&&!e.breakShield){b.parryWindowUntil=0;b.shield=Math.max(0,b.shield-4);b.stam=Math.min(b.maxStam||0,(b.stam||0)+28);b.invulnUntil=t+250;lease(a,{stun:1.25},t);a.forceMove=null;a.controlBy=null;emit(a,{attackerId:b.id,outcome:'parried',damage:0});emit(b,{attackerId:a.id,outcome:'parry',damage:0});b.controlBy=null;continue;}
-     if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t+1500;b.block=false;}else{const cost=C.shieldCost(raw),before=b.shield;b.shield=Math.max(0,b.shield-cost);if(b.shield>0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0});b.controlBy=null;continue;}b.shieldBrokenUntil=t+1500;b.block=false;raw*=Math.max(0,1-before/cost);}
+     if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}else{const cost=C.shieldCost(raw),before=b.shield;b.shield=Math.max(0,b.shield-cost);if(b.shield>0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0});b.controlBy=null;continue;}b.shieldBrokenUntil=t;b.block=false;raw*=Math.max(0,1-before/cost);}
     }
     damage=C.damageAfterArmor(raw,b.defenseReduction||0);b.hp=Math.max(0,b.hp-damage);b.invulnUntil=t+100;b.shieldDelayUntil=t+1400;outcome='hit';
     b.controlBy=a.id;b.controlLeaseUntil=t+1400;
    }
-   if(b.hp>0){lease(b,e,t);if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t+1500;b.block=false;}if(e.mark)b.markUntil=t+clamp(e.mark,0,5)*1000;if(e.stun>0||e.dx||e.dy||number(e.x)&&number(e.y)){b.block=false;b.dodgeUntil=0;}}
+   if(b.hp>0){lease(b,e,t);if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}if(e.mark)b.markUntil=t+clamp(e.mark,0,5)*1000;if(e.stun>0||e.dx||e.dy||number(e.x)&&number(e.y)){b.block=false;b.dodgeUntil=0;}}
    if(b.hp<=0){b.forceMove=null;b.controlBy=null;}
    emit(b,{attackerId:a.id,outcome,damage,prismCast:damage>0?String(e.prismCast||'').slice(0,64):'',skillId:String(e.skillId||a.skillId||'').slice(0,48)});
    if(b.hp<=0){b.forceMove=null;b.controlBy=null;broadcast({type:'pvp:defeated',targetId:b.id,targetName:b.name,killerId:a.id,killerName:a.name});}
