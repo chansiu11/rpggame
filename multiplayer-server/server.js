@@ -637,7 +637,7 @@ const deviceTraining=createDeviceTraining({send:safeSend,onPolicy:p=>aiService.s
 function handleMessage(player,msg,rawBytes){
   if(deviceTraining.handle(player,msg,rawBytes))return;
   if(player.trainingAdmin)return;
-  if(msg?.type==='pvp:aiStart')removePvpMatchQueue(player,false);
+  if(msg?.type==='pvp:aiStart'){removePvpMatchQueue(player,false);deviceTraining.tick();}
   if(aiService.handle(player,msg,rawBytes))return;
   if(pvpRelay.handle(player,msg,rawBytes))return;
   if(!msg||typeof msg!=='object')return;

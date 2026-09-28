@@ -17,8 +17,8 @@ return {c,g:c.__game,storage,advance(dt){clock+=dt*1000;for(const [id,t] of time
 }
 
 
-export function createArena({style='gale',level=100}={}){
- const runtime=boot(),{c,g}=runtime;g.beginNew('normal');g.player.level=level;g.player.swordStyle=style;
+export function createArena({style='gale',level=100,live=false}={}){
+ const runtime=boot(),{c,g}=runtime;c.__AI_LIVE__=live;g.beginNew('normal');g.player.level=level;g.player.swordStyle=style;
  const group=g.SWORD_STYLE_GROUPS.find(s=>s.id===style);if(!group)throw Error('Unknown style');
  g.player.equippedSwordSkills=[...group.skills];g.saveGame();
  vm.runInContext(html.split('<script>')[2].split('</script>')[0],c,{filename:'shared-pvp.js'});
