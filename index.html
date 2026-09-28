@@ -3885,17 +3885,24 @@ function finishHidden4(){const h=me.skillHold;if(!h||h.kind!=='hidden4')return;m
 function finishHidden5(cancelled=false){const h=me.skillHold;if(!h||h.kind!=='hidden5')return;me.skillHold=null;me.skillKind='';me.skillPose=-1;me.attackCd=.18;if(cancelled)ring(me.x,me.y,58,'#ff9ee8',.22,true)}
 
 function endVoid3Pvp(){void3Pvp=null;}
+function queueVoid3PvpRandomMove(step=-1){
+ if(!void3Pvp||!enemy||enemy.hp<=0)return false;
+ const ox=me.x,oy=me.y,a=Math.random()*TAU,dist=135+Math.random()*105,tx=clamp(enemy.x+Math.cos(a)*dist,25,ARENA_W-25),ty=clamp(enemy.y+Math.sin(a)*dist,25,ARENA_H-25),dir=Math.atan2(ty-oy,tx-ox),len=Math.max(110,Math.hypot(tx-ox,ty-oy)+110),styleStep=Math.max(0,step);
+ void3Pvp.exitDash={x:tx,y:ty,startX:ox,startY:oy,elapsed:0,max:.10,fx:0,step:styleStep};
+ beamFx(ox,oy,tx,ty,styleStep%2?'#ffffff':'#a76cff',.24,true);riftCutFx((ox+tx)/2,(oy+ty)/2,dir,len,24,styleStep%2?'#a76cff':'#d8b7ff',.24,true);burst(ox,oy,'#8f52c8',9,115);
+ return true;
+}
 function releaseVoid3PvpInput(){
  if(!void3Pvp)return false;
- void3Pvp.held=false;void3Pvp.ending=true;
- if(!void3Pvp.exitDash)endVoid3Pvp();
+ void3Pvp.held=false;void3Pvp.autoFinish=true;void3Pvp.ending=true;void3Pvp.nextBasicAt=Math.max(void3Pvp.nextBasicAt||0,performance.now());
  return true;
 }
 function updateVoid3PvpAuto(){
  if(!void3Pvp)return;
  const now=performance.now();
  if(now>=void3Pvp.until||!enemy||enemy.hp<=0){endVoid3Pvp();return;}
- if((!void3Pvp.held||void3Pvp.count>=5)&&!void3Pvp.exitDash)endVoid3Pvp();
+ if(void3Pvp.count>=5){if(!void3Pvp.exitDash)endVoid3Pvp();return;}
+ if(void3Pvp.autoFinish&&!void3Pvp.exitDash&&now>=(void3Pvp.nextBasicAt||0))void3PvpBasic(true);
 }
 function startVoid3Pvp(){
  const i=2,sk=pvpSwordSkillAt(i);if(!sk||sk.id!=='gravityCut'||!skillReady(i)||!commitSkill(i,sk.cost,sk.cool))return false;
@@ -3903,13 +3910,14 @@ function startVoid3Pvp(){
  me.a=a;me.attackDuration=me.attackAnim=.24;me.attackCd=.24;me.skillPose=-1;me.skillKind='';
  arcAttack(reach,pvpSkillAttack(me,'gravityCut')*1.05,arc,0,.62,{color:sk.color||'#a76cff',fx:false,teleportHit:hit});
  riftCutFx(me.x+Math.cos(a)*72,me.y+Math.sin(a)*72,a,190,28,hit?'#d8b7ff':'#a76cff',.28,true);
- if(hit){const now=performance.now();void3Pvp={until:now+7000,count:0,exitDash:null,nextBasicAt:now,held:true,ending:false};me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);}else endVoid3Pvp();
+ if(hit){const now=performance.now();void3Pvp={until:now+7000,count:0,exitDash:null,nextBasicAt:now,held:true,autoFinish:false,ending:false};me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);queueVoid3PvpRandomMove(-1);}else endVoid3Pvp();
  return true;
 }
-function void3PvpBasic(){
+function void3PvpBasic(auto=false){
  if(!void3Pvp)return false;
  const now=performance.now();
- if(now>=void3Pvp.until||!void3Pvp.held){if(!void3Pvp.exitDash)endVoid3Pvp();return true;}
+ if(now>=void3Pvp.until){if(!void3Pvp.exitDash)endVoid3Pvp();return true;}
+ if(!void3Pvp.held&&!void3Pvp.autoFinish&&!auto){if(!void3Pvp.exitDash)endVoid3Pvp();return true;}
  if(void3Pvp.count>=5){if(!void3Pvp.exitDash)endVoid3Pvp();return true;}
  if(void3Pvp.exitDash||now<(void3Pvp.nextBasicAt||0))return true;
  if(!enemy||enemy.hp<=0){endVoid3Pvp();return true;}
@@ -3927,11 +3935,7 @@ function void3PvpBasic(){
  else if(step===2){riftCutFx(fxX,fxY,fa,170,28,'#ffffff',.24,true);beamFx(ox,oy,strikeX,strikeY,'#a76cff',.18,true);}
  else if(step===3){slashFx(fxX,fxY,fa,2.2,142,'#d8b7ff',.26,true);burst(fxX,fxY,'#a76cff',10,120);}
  else riftCutFx(fxX,fxY,fa,260,36,'#ffffff',.34,true);
- const exitA=Math.random()*TAU,exitDist=135+Math.random()*105,exitX=clamp(strikeX+Math.cos(exitA)*exitDist,25,ARENA_W-25),exitY=clamp(strikeY+Math.sin(exitA)*exitDist,25,ARENA_H-25);
- void3Pvp.exitDash={x:exitX,y:exitY,startX:strikeX,startY:strikeY,elapsed:0,max:.10,fx:0,step};
- const exitDir=Math.atan2(exitY-strikeY,exitX-strikeX),exitLen=Math.max(110,Math.hypot(exitX-strikeX,exitY-strikeY)+110);
- beamFx(strikeX,strikeY,exitX,exitY,step%2?'#ffffff':'#a76cff',.24,true);riftCutFx((strikeX+exitX)/2,(strikeY+exitY)/2,exitDir,exitLen,24,step%2?'#a76cff':'#d8b7ff',.24,true);burst(strikeX,strikeY,'#8f52c8',9,115);
- void3Pvp.count++;void3Pvp.nextBasicAt=now+100;if(void3Pvp.count>=5)void3Pvp.ending=true;return true;
+ void3Pvp.count++;void3Pvp.nextBasicAt=now+100;queueVoid3PvpRandomMove(step);if(void3Pvp.count>=5)void3Pvp.ending=true;return true;
 }
 function skillDown(i){
  if(!me||roundLocked)return;
@@ -4217,7 +4221,7 @@ function input(dt){if(!me||roundLocked)return;let x=(keys.has(pkey('KeyD'))?1:0)
 function update(dt){if(!me||!enemy)return;if(void3Pvp&&(performance.now()>=void3Pvp.until||enemy.hp<=0))endVoid3Pvp();for(const k of ['attackCd','stun','inv','hitInv','dash','dashCd','exhaust','attackAnim','hurt','comboTimer','basicMoveSlow','moveLock','postSkillLock','parryWindow','parryCd','shieldDelay','shieldBroken','potionCd','riposte','stamDelay','forcePriority','knockCameraHold'])me[k]=Math.max(0,me[k]-dt);updateVoid3PvpAuto();for(let i=0;i<5;i++)me.cool[i]=Math.max(0,me.cool[i]-dt);if(me.comboTimer<=0)me.combo=0;const beforeX=me.x,beforeY=me.y;updateVoid3PvpExitDash(dt);if(void3Pvp?.exitDash){me.vx=me.vy=0}else if(me.forceTrack){const f=me.forceTrack;f.remaining=Math.max(0,f.remaining-dt);const dx=f.x-me.x,dy=f.y-me.y,rate=f.final?11:28,lerp=1-Math.exp(-dt*rate);me.x+=dx*lerp;me.y+=dy*lerp;me.vx=me.vy=0;me.stun=Math.max(me.stun,Math.min(f.stun||0,.14));if(f.remaining<=0||Math.hypot(f.x-me.x,f.y-me.y)<1){me.x=f.x;me.y=f.y;me.stun=Math.max(me.stun,f.stun||0);me.forceTrack=null}}else if(me.forcedMove){const f=me.forcedMove;if(!Number.isFinite(f.startX)){f.startX=me.x;f.startY=me.y;f.elapsed=0;f.max=Math.max(.08,Number(f.max)||Number(f.t)||.28)}f.elapsed+=dt;f.t=Math.max(0,f.max-f.elapsed);const point=window.EchoesCombat.forcePoint(f,f.elapsed);me.x=point.x;me.y=point.y;if(point.done){me.x=f.x;me.y=f.y;me.stun=Math.max(me.stun,f.stun||0);me.forcedMove=null}}else if(me.dash>0){me.x+=me.vx*dt;me.y+=me.vy*dt}else{me.vx=0;me.vy=0}me.x=clamp(me.x,25,ARENA_W-25);me.y=clamp(me.y,25,ARENA_H-25);if(pvpShieldKeyLatched&&keys.has(pkey('KeyC'))&&me.stun<=0&&me.dash<=0&&me.shield>0&&me.shieldBroken<=0&&!me.skillHold&&!me.skillEvent)me.block=true;if(!me.block&&me.shieldDelay<=0&&me.shieldBroken<=0&&me.shield<me.maxShield)me.shield=Math.min(me.maxShield,me.shield+(22+(me.shieldRegen||0))*dt);updateSkillSystem(dt);input(dt);if((keys.has(pkey('KeyZ'))||mouse.down)&&me.attackCd<=0&&!me.skillHold&&!me.skillEvent)basic();animatePvpFighter(me,dt);
  if(enemy.remoteForce){const f=enemy.remoteForce;f.elapsed+=dt;const u=clamp(f.elapsed/f.max,0,1),ease=1-Math.pow(1-u,3);enemy.x=f.startX+(f.x-f.startX)*ease;enemy.y=f.startY+(f.y-f.startY)*ease;enemy.stun=Math.max(enemy.stun||0,Math.min(f.stun||0,Math.max(0,f.max-f.elapsed)));if(u>=1){enemy.x=f.x;enemy.y=f.y;enemy.netX=f.x;enemy.netY=f.y;enemy.netVX=enemy.netVY=0;enemy.remoteForce=null;enemy.remoteForceLockUntil=performance.now()+140}}else{const predictX=clamp(enemy.netX+enemy.netVX*.020,25,ARENA_W-25),predictY=clamp(enemy.netY+enemy.netVY*.020,25,ARENA_H-25),lerp=1-Math.exp(-dt*25);enemy.x+=(predictX-enemy.x)*lerp;enemy.y+=(predictY-enemy.y)*lerp}enemy.attackAnim=Math.max(0,enemy.attackAnim-dt);enemy.hurt=Math.max(0,enemy.hurt-dt);enemy.dash=Math.max(0,enemy.dash-dt);enemy.stun=Math.max(0,(enemy.stun||0)-dt);animatePvpFighter(enemy,dt);
  for(const p of projectiles){p.life-=dt;const step=window.EchoesCombat.projectileTime(p,dt);if(!step){p.life=0;continue;}p.x+=p.vx*step;p.y+=p.vy*step;if(p.owner==='enemy'&&Math.hypot(p.x-me.x,p.y-me.y)<p.r+me.r&&p.life>0){const f=window.EchoesCombat.projectileForce(p,me,enemy,p.force);const res=hurt(p.d,{stun:p.stun,force:f.force,forceA:f.a,sx:p.x-p.vx*.02,sy:p.y-p.vy*.02,parryable:p.parryable});if(res==='hit'&&p.prismCast&&me.prismAckCast!==p.prismCast){me.prismAckCast=p.prismCast;net({t:'prismHit',cast:p.prismCast});}if(res==='parried'){p.pullToCaster=false;p.prismCast='';p.owner='me';p.vx*=-1.5;p.vy*=-1.5;p.d*=2;p.life=1.2}else if(res!=='ignored'){p.pierce--;if(p.pierce<=0)p.life=0}}if(p.distanceTravelled>=window.EchoesCombat.projectileRange)p.life=0;}projectiles=projectiles.filter(p=>p.life>0&&p.x>-50&&p.x<ARENA_W+50&&p.y>-50&&p.y<ARENA_H+50);
- for(const f of fx){f.t-=dt;if(f.vx){f.x+=f.vx*dt;f.y+=f.vy*dt;if(f.kind==='damage'){f.vx*=Math.pow(.12,dt);f.vy+=150*dt;f.rot=(f.rot||0)*Math.pow(.2,dt)}}}fx=fx.filter(f=>f.t>0);pvpShake=Math.max(0,pvpShake-dt*28);{const camRate=(me.forcedMove||me.forceTrack||me.knockCameraHold>0)?2.2:14,camLerp=1-Math.exp(-dt*camRate),tx=clamp(me.x,W*.5,ARENA_W-W*.5),ty=clamp(me.y,H*.5,ARENA_H-H*.5);pvpCamera.x+=(tx-pvpCamera.x)*camLerp;pvpCamera.y+=(ty-pvpCamera.y)*camLerp}sendAt-=dt;pingAt-=dt;if(sendAt<=0&&conn?.open){sendAt=.02;{const oc=me.outgoingControl&&performance.now()<(me.outgoingControl.until||0)?me.outgoingControl:null;if(me.outgoingControl&&!oc)me.outgoingControl=null;net({t:'state',x:me.x,y:me.y,vx:(me.x-beforeX)/Math.max(dt,.001),vy:(me.y-beforeY)/Math.max(dt,.001),a:me.a,hp:me.hp,shield:me.shield,stam:me.stam,block:me.block,dash:me.dash,stun:me.stun,attackAnim:me.attackAnim,attackDuration:me.attackDuration,combo:me.combo,weapon:me.weapon,skillPose:me.skillPose,skillKind:me.skillKind,skillId:me.weapon<2&&me.skillPose>=0?pvpSwordSkillId(me.skillPose,me):'',controlKey:oc?.key||'',controlX:oc?.x,controlY:oc?.y,controlTime:oc?.time,controlStun:oc?.stun,controlSeq:oc?.seq||0,controlFinal:!!oc?.final})}}if(pingAt<=0&&conn?.open){pingAt=1;net({t:'ping',n:performance.now()})}updateScore();$('pvpPing').textContent='PING '+(ping||'--')+'ms';const names=[0,1,2,3,4].map(i=>pvpSkillName(i,me));$('pvpCooldowns').innerHTML=me.cool.map((v,i)=>`<span title="${names[i]}"><b>${pvpKeyLabel(pkey(['KeyQ','KeyR','KeyT','KeyG','KeyV'][i]))}</b>${me.weapon===3&&i===1&&me.followMarked&&performance.now()<me.followUntil?'FOLLOW':v>0?v.toFixed(1):'READY'}</span>`).join('')}
+ for(const f of fx){f.t-=dt;if(f.vx){f.x+=f.vx*dt;f.y+=f.vy*dt;if(f.kind==='damage'){f.vx*=Math.pow(.12,dt);f.vy+=150*dt;f.rot=(f.rot||0)*Math.pow(.2,dt)}}}fx=fx.filter(f=>f.t>0);pvpShake=Math.max(0,pvpShake-dt*28);{const camRate=(me.forcedMove||me.forceTrack||me.knockCameraHold>0)?2.2:14,camLerp=1-Math.exp(-dt*camRate),enemyDx=enemy?enemy.x-me.x:0,enemyDy=enemy?enemy.y-me.y:0,tx=clamp(me.x+clamp(enemyDx*.18,-W*.12,W*.12),W*.5,ARENA_W-W*.5),ty=clamp(me.y+clamp(enemyDy*.14,-H*.10,H*.10),H*.5,ARENA_H-H*.5);pvpCamera.x+=(tx-pvpCamera.x)*camLerp;pvpCamera.y+=(ty-pvpCamera.y)*camLerp}sendAt-=dt;pingAt-=dt;if(sendAt<=0&&conn?.open){sendAt=.02;{const oc=me.outgoingControl&&performance.now()<(me.outgoingControl.until||0)?me.outgoingControl:null;if(me.outgoingControl&&!oc)me.outgoingControl=null;net({t:'state',x:me.x,y:me.y,vx:(me.x-beforeX)/Math.max(dt,.001),vy:(me.y-beforeY)/Math.max(dt,.001),a:me.a,hp:me.hp,shield:me.shield,stam:me.stam,block:me.block,dash:me.dash,stun:me.stun,attackAnim:me.attackAnim,attackDuration:me.attackDuration,combo:me.combo,weapon:me.weapon,skillPose:me.skillPose,skillKind:me.skillKind,skillId:me.weapon<2&&me.skillPose>=0?pvpSwordSkillId(me.skillPose,me):'',controlKey:oc?.key||'',controlX:oc?.x,controlY:oc?.y,controlTime:oc?.time,controlStun:oc?.stun,controlSeq:oc?.seq||0,controlFinal:!!oc?.final})}}if(pingAt<=0&&conn?.open){pingAt=1;net({t:'ping',n:performance.now()})}updateScore();$('pvpPing').textContent='PING '+(ping||'--')+'ms';const names=[0,1,2,3,4].map(i=>pvpSkillName(i,me));$('pvpCooldowns').innerHTML=me.cool.map((v,i)=>`<span title="${names[i]}"><b>${pvpKeyLabel(pkey(['KeyQ','KeyR','KeyT','KeyG','KeyV'][i]))}</b>${me.weapon===3&&i===1&&me.followMarked&&performance.now()<me.followUntil?'FOLLOW':v>0?v.toFixed(1):'READY'}</span>`).join('')}
 function pLine(x1,y1,x2,y2,c,w=2){ctx.strokeStyle=c;ctx.lineWidth=w;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
 function pCircle(x,y,r,c){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill()}
 function pEllipse(x,y,rx,ry,c){ctx.fillStyle=c;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,TAU);ctx.fill()}
