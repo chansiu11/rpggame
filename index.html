@@ -467,18 +467,22 @@ function tutorialJourneyStep(){
  return TUTORIAL_JOURNEY_STEPS.length;
 }
 function tutorialJourneyTarget(){const i=tutorialJourneyStep();return i<TUTORIAL_JOURNEY_STEPS.length?TUTORIAL_JOURNEY_STEPS[i].target():null;}
-function updateTutorialJourney(){
- if(!player||tutorialJourneyClaimed())return;
- const i=tutorialJourneyStep();
- if(i<TUTORIAL_JOURNEY_STEPS.length){
-  const step=TUTORIAL_JOURNEY_STEPS[i];if(!step.done())return;
-  const gold=Math.max(0,Number(step.gold)||0),xp=Math.max(0,Number(step.xp)||0);player.claimed.push(TUTORIAL_JOURNEY_ID+':'+i);player.gold+=gold;if(xp)addXp(xp);
-  toast('<b>초보자 여정 '+(i+1)+' / '+TUTORIAL_JOURNEY_STEPS.length+' 완료 · '+step.name+'</b><br>'+gold+' G · 경험치 '+xp);
-  sound('reward');saveGame(false);return;
+function updateTutorialJourney(deferSave=false){
+ if(!player||tutorialJourneyClaimed())return false;
+ let changed=false,guard=0;
+ while(!tutorialJourneyClaimed()&&guard++<TUTORIAL_JOURNEY_STEPS.length+2){
+  const i=tutorialJourneyStep();
+  if(i<TUTORIAL_JOURNEY_STEPS.length){
+   const step=TUTORIAL_JOURNEY_STEPS[i];if(!step.done())break;
+   const gold=Math.max(0,Number(step.gold)||0),xp=Math.max(0,Number(step.xp)||0);player.claimed.push(TUTORIAL_JOURNEY_ID+':'+i);player.gold+=gold;if(xp)addXp(xp);
+   toast('<b>초보자 여정 '+(i+1)+' / '+TUTORIAL_JOURNEY_STEPS.length+' 완료 · '+step.name+'</b><br>'+gold+' G · 경험치 '+xp);
+   sound('reward');changed=true;continue;
+  }
+  player.claimed.push(TUTORIAL_JOURNEY_ID);player.gold+=900;player.ore+=8;addXp(600);sound('reward');
+  toast('<b>대형 튜토리얼 퀘스트 완료 · 모험가의 첫 여정</b><br>900 G · 경험치 600 · 별철 광석 8');changed=true;break;
  }
- player.claimed.push(TUTORIAL_JOURNEY_ID);player.gold+=900;player.ore+=8;addXp(600);sound('reward');
- toast('<b>대형 튜토리얼 퀘스트 완료 · 모험가의 첫 여정</b><br>900 G · 경험치 600 · 별철 광석 8');
- saveGame(false);
+ if(changed&&!deferSave)saveGame(false);
+ return changed;
 }
 
 function mainQuestValue(){return 0;}
@@ -1202,6 +1206,13 @@ function normalizeSwordStyleState(){
  else player.skillCds=Array.from({length:5},(_,i)=>Math.max(0,Number(player.skillCds[i])||0));
  return true;
 }
+let styleTransferSavePending=false;
+function scheduleStyleTransferSave(){
+ if(styleTransferSavePending)return;
+ styleTransferSavePending=true;
+ const run=()=>{styleTransferSavePending=false;try{saveGame(false);}catch(e){console.error('[style-transfer] deferred save',e);}};
+ if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:500});else setTimeout(run,80);
+}
 function chooseSwordStyle(id){
  if(!player)return;
  if(player.swordStyle&&!admin.allSkillSets)return;
@@ -1210,8 +1221,8 @@ function chooseSwordStyle(id){
  normalizeSwordStyleState();
  player.swordStyle=g.id;player.learnedSwordSkills=[first];player.equippedSwordSkills=[first,null,null,null,null];player.skillCds=[0,0,0,0,0];
  try{closeModal();}catch(e){console.error('[style-transfer] close modal',e);}
- try{updateTutorialJourney();}catch(e){console.error('[style-transfer] tutorial',e);}
- try{saveGame(false);}catch(e){console.error('[style-transfer] save',e);}
+ try{updateTutorialJourney(true);}catch(e){console.error('[style-transfer] tutorial',e);}
+ try{scheduleStyleTransferSave();}catch(e){console.error('[style-transfer] save',e);}
  try{sound('reward');}catch(e){console.error('[style-transfer] sound',e);}
  toast('<b>'+g.name+' 전수 완료</b><br>세린에게서 유파와 첫 검술을 배웠습니다. 이후 레벨 조건을 충족하면 같은 사범에게 다음 검술을 배울 수 있습니다.');
  requestAnimationFrame(()=>{try{updateHUD();}catch(e){console.error('[style-transfer] HUD',e);}});
