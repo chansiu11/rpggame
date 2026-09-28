@@ -19,7 +19,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v8-player-balance';
-const SERVER_BUILD = '2026-09-28-mob-balance-style-fx-1';
+const SERVER_BUILD = '2026-09-28-shield-gale3-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const PLAYER_REFERENCE_BASE_HP = 100;
@@ -52,7 +52,7 @@ function balancedRegularMobStats(type,level){
   const referenceDamage=PLAYER_REFERENCE_BASE_DAMAGE+(level-1)*PLAYER_REFERENCE_DAMAGE_PER_LEVEL;
   const referenceHp=PLAYER_REFERENCE_BASE_HP+(level-1)*PLAYER_REFERENCE_HP_PER_LEVEL;
   const targetHits=Math.max(2.5,Math.min(9,baseHp/PLAYER_REFERENCE_BASE_DAMAGE));
-  const damageShare=type==='styleAdept'?.07:Math.max(.08,Math.min(.18,(Number(def.damage)||10)/100));
+  const damageShare=type==='styleAdept' ? .07 : Math.max(.08,Math.min(.18,(Number(def.damage)||10)/100));
   const rawHp=Math.max(1,Math.round(referenceDamage*targetHits));
   const rawDamage=Math.max(1,Math.round(referenceHp*damageShare));
   return {
