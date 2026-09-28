@@ -1185,7 +1185,7 @@ function flushWorldCombat(){
 }
 function applyWorldCombatResult(msg){
  if(!multiplayerMode||!msg?.player)return;const p=msg.player,m=window.EchoesMulti;
- if(msg.targetId!==m.state.selfId){if(msg.attackerId===m.state.selfId&&msg.damage>0&&activeSwordSkill?.skillId===msg.skillId)confirmSwordCarryHit(worldPlayerTargets.get(msg.targetId));if(msg.attackerId===m.state.selfId&&msg.procId&&worldHitProcs.has(msg.procId)){const cb=worldHitProcs.get(msg.procId);worldHitProcs.delete(msg.procId);if(msg.damage>0)cb(msg);}if(msg.attackerId===m.state.selfId&&msg.damage>0){recordWorldCombo(msg.damage);window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);if(msg.skillId==='starRush'){const v=galeVortices.find(q=>q.t>0&&!q.caught.has(msg.targetId)&&Math.hypot(p.x-q.x,p.y-q.y)<GALE_VORTEX.radius+82);if(v){v.caught.set(msg.targetId,{angle:Math.atan2(p.y-v.y,p.x-v.x)});ring(p.x,p.y,35,'#eafffa',.18);}}}mergeRemotePlayerState(p);if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
+ if(msg.targetId!==m.state.selfId){mergeRemotePlayerState(p);if(msg.attackerId===m.state.selfId&&msg.damage>0&&activeSwordSkill?.skillId===msg.skillId)confirmSwordCarryHit(worldPlayerTargets.get(msg.targetId));if(msg.attackerId===m.state.selfId&&msg.procId&&worldHitProcs.has(msg.procId)){const cb=worldHitProcs.get(msg.procId);worldHitProcs.delete(msg.procId);if(msg.damage>0)cb(msg);}if(msg.attackerId===m.state.selfId&&msg.damage>0){recordWorldCombo(msg.damage);window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);if(msg.skillId==='starRush'){const v=galeVortices.find(q=>q.t>0&&!q.caught.has(msg.targetId)&&Math.hypot(p.x-q.x,p.y-q.y)<GALE_VORTEX.radius+82);if(v){v.caught.set(msg.targetId,{angle:Math.atan2(p.y-v.y,p.x-v.x)});ring(p.x,p.y,35,'#eafffa',.18);}}}if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
  if(worldCombatSession!==m.state.selfId){worldCombatSession=m.state.selfId;worldCombatRevision=0;worldForce=null;worldControlUntil=0;}
  if(p.combatRevision<=worldCombatRevision)return;worldCombatRevision=p.combatRevision;
  player.hp=clamp(p.hp,0,player.maxHp);player.shield=clamp(p.shield,0,player.maxShield);player.stam=clamp(p.stam,0,player.maxStam);if(player.shield<=0&&shieldHeld()){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
@@ -1747,9 +1747,14 @@ function startVoid3World(){
  const reach=(WEAPONS[player.weapon]?.reach||80)+70,a=player.facing;
  const target=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)).map(e=>{const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,d=Math.hypot(dx,dy),ea=Math.atan2(dy,dx);return {e,d,ea};}).filter(v=>v.d<=reach+combatRadius(v.e)&&Math.abs(angleDiff(v.ea,a))<=.675+combatRadius(v.e)/Math.max(35,v.d)).sort((x,y)=>x.d-y.d)[0]?.e||null;
  if(!target){effects.push({type:'riftCut',x:player.x+Math.cos(a)*72,y:player.y+Math.sin(a)*72,a,len:190,width:24,color:'#a76cff',t:.28,max:.28});void3State=null;sound('swing');return true;}
- hitEnemy(target,damageValue(1.05,'gravityCut'),false);applyEnemyStun(target,target.kind==='boss'?.28:.62);
- const tc=combatCenter(target);effects.push({type:'riftCut',x:(player.x+tc.x)/2,y:(player.y+tc.y)/2,a,len:210,width:30,color:'#d8b7ff',t:.32,max:.32});burst(tc.x,tc.y,'#a76cff',14,150);ring(tc.x,tc.y,62,'#d8b7ff',.28);
- void3State={targetId:target.id,until:realTime+7,count:0,exitDash:null,nextBasicAt:realTime,nextTargetCheckAt:realTime+.10,held:true,ending:false};player.attackCd=0;player.cast=0;player.moveLock=0;player.shieldNeedsRelease=false;sound('hit');return true;
+ const enableVoid3=()=>{
+  if(target.dead||target.riftSleeping||player.hp<=0)return;
+  applyEnemyStun(target,target.kind==='boss'?.28:.62);
+  const tc=combatCenter(target);effects.push({type:'riftCut',x:(player.x+tc.x)/2,y:(player.y+tc.y)/2,a,len:210,width:30,color:'#d8b7ff',t:.32,max:.32});burst(tc.x,tc.y,'#a76cff',14,150);ring(tc.x,tc.y,62,'#d8b7ff',.28);
+  void3State={targetId:target.id,until:realTime+7,count:0,exitDash:null,nextBasicAt:realTime,nextTargetCheckAt:realTime+.10,held:true,ending:false};player.attackCd=0;player.cast=0;player.moveLock=0;player.shieldNeedsRelease=false;sound('hit');
+ };
+ hitEnemyConfirmed(target,damageValue(1.05,'gravityCut'),false,player,enableVoid3,{skillId:'gravityCut'});
+ return true;
 }
 function void3WorldBasic(){
  if(!void3State)return false;
@@ -4224,9 +4229,12 @@ function startVoid3Pvp(){
  const i=2,sk=pvpSwordSkillAt(i);if(!sk||sk.id!=='gravityCut'||!skillReady(i)||!commitSkill(i,sk.cost,sk.cool))return false;
  const a=combatAimAngle(),reach=(weaponData[me.weapon]?.range||94)+70,arc=1.35,hit=!!enemy&&enemy.hp>0&&enemyInArc(a,reach,arc);
  me.a=a;me.attackDuration=me.attackAnim=.24;me.attackCd=.24;me.skillPose=-1;me.skillKind='';
- arcAttack(reach,pvpSkillAttack(me,'gravityCut')*1.05,arc,0,.62,{color:sk.color||'#a76cff',fx:false,teleportHit:hit});
+ arcAttack(reach,pvpSkillAttack(me,'gravityCut')*1.05,arc,0,.62,{color:sk.color||'#a76cff',fx:false,teleportHit:hit,onHit:()=>{
+  if(!me||!enemy||enemy.hp<=0||roundLocked)return;
+  const now=performance.now();void3Pvp={until:now+7000,count:0,exitDash:null,nextBasicAt:now,held:true,autoFinish:false,ending:false};me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);queueVoid3PvpRandomMove(-1);
+ }});
  riftCutFx(me.x+Math.cos(a)*72,me.y+Math.sin(a)*72,a,190,28,hit?'#d8b7ff':'#a76cff',.28,true);
- if(hit){const now=performance.now();void3Pvp={until:now+7000,count:0,exitDash:null,nextBasicAt:now,held:true,autoFinish:false,ending:false};me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);queueVoid3PvpRandomMove(-1);}else endVoid3Pvp();
+ if(!hit)endVoid3Pvp();
  return true;
 }
 function void3PvpBasic(auto=false){
