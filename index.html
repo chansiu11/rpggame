@@ -164,7 +164,7 @@ const angleDiff=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 // One deterministic vortex model is used by both clients and the spectator view.
 const GALE_VORTEX=Object.freeze({
  duration:5,speed:140,radius:116,orbit:76,turnRate:2.55,
- step(v,dt){const t=Math.max(0,Math.min(dt,v.t));v.x+=Math.cos(v.a)*this.speed*t;v.y+=Math.sin(v.a)*this.speed*t;v.t=Math.max(0,v.t-t);v.age=(v.age||0)+t;return t;},
+ step(v,dt){const t=Math.max(0,Math.min(dt,v.t));v.x+=Math.cos(v.a)*this.speed*t;v.y+=Math.sin(v.a)*this.speed*t;v.t=v.t-t<.000001?0:Math.max(0,v.t-t);v.age=(v.age||0)+t;return t;},
  point(v,a){return {x:v.x+Math.cos(a)*this.orbit,y:v.y+Math.sin(a)*this.orbit};},
  draw(ctx,v){if(!v||v.t<=0)return;const alpha=Math.min(1,(v.age||0)/.24,v.t/.34),spin=-(v.age||0)*5.6,r=this.radius;
  ctx.save();ctx.translate(v.x,v.y);ctx.globalCompositeOperation='lighter';ctx.globalAlpha=alpha;
@@ -1114,7 +1114,7 @@ function flushWorldCombat(){
 }
 function applyWorldCombatResult(msg){
  if(!multiplayerMode||!msg?.player)return;const p=msg.player,m=window.EchoesMulti;
- if(msg.targetId!==m.state.selfId){if(msg.attackerId===m.state.selfId&&msg.damage>0)window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);mergeRemotePlayerState(p);if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
+ if(msg.targetId!==m.state.selfId){if(msg.attackerId===m.state.selfId&&msg.damage>0){window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);if(msg.skillId==='starRush'){const v=galeVortices.find(q=>q.t>0&&!q.caught.has(msg.targetId)&&Math.hypot(p.x-q.x,p.y-q.y)<GALE_VORTEX.radius+82);if(v){v.caught.set(msg.targetId,{angle:Math.atan2(p.y-v.y,p.x-v.x)});ring(p.x,p.y,35,'#eafffa',.18);}}}mergeRemotePlayerState(p);if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
  if(worldCombatSession!==m.state.selfId){worldCombatSession=m.state.selfId;worldCombatRevision=0;worldForce=null;worldControlUntil=0;}
  if(p.combatRevision<=worldCombatRevision)return;worldCombatRevision=p.combatRevision;
  player.hp=clamp(p.hp,0,player.maxHp);player.shield=clamp(p.shield,0,player.maxShield);player.stam=clamp(p.stam,0,player.maxStam);if(player.shield<=0&&shieldHeld()){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
@@ -2122,16 +2122,17 @@ function updateGaleVortices(dt){
    if(!e||e.dead||e.riftSleeping||(e.type==='finalBoss'&&!e.alert))continue;
    const cc=combatCenter(e),er=combatRadius(e),d=Math.hypot(cc.x-v.x,cc.y-v.y),id=e.id,held=v.caught.get(id);
    if(!held&&d>GALE_VORTEX.radius+er)continue;
+   if(!held&&e.networkPlayer){if(realTime-(v.hitAt.get(id)??-Infinity)>=.34){v.hitAt.set(id,realTime);hitEnemy(e,damageValue(.23,'starRush'),false,player,{stun:0,root:.23,dx:0,dy:0,noHitstop:true,skillId:'starRush'});}continue;}
    if(!held){if(v.caught.size>=12)continue;v.caught.set(id,{angle:Math.atan2(cc.y-v.y,cc.x-v.x)});ring(cc.x,cc.y,35,'#eafffa',.18);}
    const h=v.caught.get(id);h.angle-=GALE_VORTEX.turnRate*dt;const target=GALE_VORTEX.point(v,h.angle);
    if(e.networkPlayer){
     if(control)worldTargetControl(id,{kind:'control',range:550,x:target.x,y:target.y,stun:0,duration:.13});
    }else if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
-    if(control){const ctl={knockbackX:clamp(target.x-cc.x,-40,40),knockbackY:clamp(target.y-cc.y,-40,40),duration:.13,stun:0,replaceForce:true};
+    if(control){const ctl={knockbackX:clamp(target.x-cc.x,-40,40),knockbackY:clamp(target.y-cc.y,-40,40),duration:.13,stun:0,root:.16,replaceForce:true};
      if(e.kind==='boss')window.EchoesMulti.damageBoss(id,0,ctl);else window.EchoesMulti.damageMob(id,0,ctl);}
    }else{moveBody(e,clamp(target.x-cc.x,-26,26),clamp(target.y-cc.y,-26,26));e.galeRoot=Math.max(e.galeRoot||0,.20);}
    if(realTime-(v.hitAt.get(id)??-Infinity)>=.34){
-    v.hitAt.set(id,realTime);hitEnemy(e,damageValue(.23,'starRush'),false,player,{stun:0,root:.23,dx:0,dy:0,noHitstop:true});
+    v.hitAt.set(id,realTime);hitEnemy(e,damageValue(.23,'starRush'),false,player,{stun:0,root:.23,dx:0,dy:0,noHitstop:true,skillId:'starRush'});
    }
   }
  }
@@ -2149,7 +2150,7 @@ function updateGalePulseChargePull(seq,dt){
   if(e.networkPlayer){
    if(netTick){const step=Math.min(Math.max(0,d-stop),10);worldTargetControl(e.id,{kind:'special',skillId:'galeOrbit',range:300,x:cc.x+nx*step,y:cc.y+ny*step,stun:0,root:.18,duration:.16});}
   }else if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
-   if(netTick){const step=Math.min(Math.max(0,d-stop),10),control={knockbackX:nx*step,knockbackY:ny*step,duration:.16,stun:0,replaceForce:true};if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,0,control);else window.EchoesMulti.damageMob(e.id,0,control);}
+   if(netTick){const step=Math.min(Math.max(0,d-stop),10),control={knockbackX:nx*step,knockbackY:ny*step,duration:.16,stun:0,root:.18,replaceForce:true};if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,0,control);else window.EchoesMulti.damageMob(e.id,0,control);}
   }else{
    moveBody(e,nx*pull,ny*pull);e.galeRoot=Math.max(e.galeRoot||0,.18);
   }
@@ -2318,7 +2319,7 @@ function hitEnemy(e,amount,heavy=false,source=player,controlOverride=null){
  const wasPassive=!serverMob&&e.kind!=='boss'&&e.type!=='dummy'&&!e.riftId&&(!e.alert||e.state==='idle'||e.state==='return'),dmg=Math.max(1,Math.round(amount*(e.stun>.4?1.2:1))),hc=combatCenter(e),hitY=e.kind==='boss'?hc.y:e.y-e.r*.4;e.flash=.15;
  if(!controlOverride?.prismCast||realTime-(e._prismImpactAt??-Infinity)>=.07){e._prismImpactAt=realTime; damageFloating(e.x+rnd(-10,10),e.kind==='boss'?hc.y-30:e.y-e.r-18,dmg,source?Math.atan2(hc.y-source.y,hc.x-source.x):0,heavy);burst(hc.x,hitY,heavy?'#f4d892':'#cbdac8',heavy?16:6,heavy?145:85);sound('hit');if(options.shake)shake=Math.max(shake,heavy?5:2);if(!controlOverride?.noHitstop)hitstop=Math.max(hitstop,heavy?.055:.025);}
  if(serverMob){
-  const a=source?Math.atan2(e.y-source.y,e.x-source.x):e.facing,control={stun:heavy?.75:.22,knockbackX:heavy?Math.cos(a)*24:0,knockbackY:heavy?Math.sin(a)*24:0};if(controlOverride)Object.assign(control,{stun:controlOverride.stun,knockbackX:controlOverride.dx||0,knockbackY:controlOverride.dy||0,duration:controlOverride.duration,prismCast:controlOverride.prismCast});
+  const a=source?Math.atan2(e.y-source.y,e.x-source.x):e.facing,control={stun:heavy?.75:.22,knockbackX:heavy?Math.cos(a)*24:0,knockbackY:heavy?Math.sin(a)*24:0};if(controlOverride)Object.assign(control,{stun:controlOverride.stun,root:controlOverride.root||0,knockbackX:controlOverride.dx||0,knockbackY:controlOverride.dy||0,duration:controlOverride.duration,prismCast:controlOverride.prismCast});
   if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,dmg,control);else window.EchoesMulti.damageMob(e.id,dmg,control);return;
  }
  e.hp-=dmg;if(wasPassive)e.provoked=true;e.alert=true;e.poise+=heavy?55:14;if(e.type==='dummy'){e.hp=e.maxHp;player.training.attack=true;if(e.state==='idle'){e.timer=.8;e.alert=true;}return;}
