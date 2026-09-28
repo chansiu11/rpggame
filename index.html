@@ -321,7 +321,7 @@ function spawnTypesForRegion(reg){return [
  [],
  ['abyssHound','styleAdept','bloodWisp','styleAdept','voidKnight','styleAdept','abyssHound','styleAdept','styleAdept']
  ][reg]||['sprout'];}
-const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v7-style-density';
+const MOB_SPAWN_LAYOUT_VERSION='regional-clusters-v8-player-balance';
 const MOB_SPAWN_ZONES=[
  {id:'moss_gate',name:'이끼빛 외곽',region:4,x:1700,y:3100,r:300,count:6},
  {id:'moss_south',name:'이끼 남쪽 들판',region:4,x:1100,y:4700,r:340,count:6},
@@ -1012,7 +1012,7 @@ function applyServerMobState(m,now=performance.now(),lookup=null){
  if(Number.isFinite(Number(m.facing)))e.facing=Number(m.facing);if(typeof m.state==='string')e.state=m.state;if(m.alert!==undefined)e.alert=!!m.alert;
  if(m.targetId!==undefined)e.serverTargetId=m.targetId||null;if(m.attackType!==undefined)e.attackType=m.attackType||e.attackType;if(typeof m.styleId==='string'&&m.styleId)e.styleId=m.styleId;if(Array.isArray(m.styleSlots)&&m.styleSlots.length)e.styleSlots=m.styleSlots.map(v=>clamp(Number(v)||0,0,4)|0);if(typeof m.skillId==='string')e.styleSkillId=m.skillId;if(Number.isFinite(Number(m.skillSlot)))e.styleSkillSlot=clamp(Number(m.skillSlot),0,4)|0;if(Number.isFinite(Number(m.styleCastId)))e.styleCastId=Math.max(0,Number(m.styleCastId)||0);if(Number.isFinite(Number(m.styleHitIndex)))e.styleHitIndex=Math.max(0,Number(m.styleHitIndex)||0);if(Number.isFinite(Number(m.styleAnchorX)))e.styleAnchorX=Number(m.styleAnchorX);if(Number.isFinite(Number(m.styleAnchorY)))e.styleAnchorY=Number(m.styleAnchorY);if(Number.isFinite(Number(m.styleOriginX)))e.styleOriginX=Number(m.styleOriginX);if(Number.isFinite(Number(m.styleOriginY)))e.styleOriginY=Number(m.styleOriginY);if(Number.isFinite(Number(m.styleSide)))e.styleSide=Number(m.styleSide)>=0?1:-1;if(Number.isFinite(Number(m.timer)))e.timer=Math.max(0,Number(m.timer));if(Number.isFinite(Number(m.windTotal))&&Number(m.windTotal)>0)e.windTotal=Number(m.windTotal);
  if(Number.isFinite(Number(m.windTotal))&&Number(m.windTotal)>0)e.windTotal=Number(m.windTotal);if(Number.isFinite(Number(m.locked)))e.locked=Number(m.locked);if(Number.isFinite(Number(m.range))&&Number(m.range)>0)e.range=Number(m.range);
- if(Number.isFinite(Number(m.maxHp)))e.maxHp=Math.max(1,Number(m.maxHp));if(Number.isFinite(Number(m.hp)))e.hp=clamp(Number(m.hp),0,e.maxHp);if(m.dead!==undefined)e.dead=!!m.dead;if(e.dead)e.state='dead';if(e.type==='styleAdept'&&e.state==='styleSkill')recoverStyleAdeptNetworkFx(e);return e;
+ if(Number.isFinite(Number(m.mobLevel)))e.mobLevel=clamp(Number(m.mobLevel),1,MAX_LEVEL)|0;if(Number.isFinite(Number(m.maxHp)))e.maxHp=Math.max(1,Number(m.maxHp));if(Number.isFinite(Number(m.hp)))e.hp=clamp(Number(m.hp),0,e.maxHp);if(m.dead!==undefined)e.dead=!!m.dead;if(e.dead)e.state='dead';if(e.type==='styleAdept'&&e.state==='styleSkill')recoverStyleAdeptNetworkFx(e);return e;
 }
 
 function applySharedWorldSnapshot(snapshot){
