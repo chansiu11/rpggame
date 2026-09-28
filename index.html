@@ -1148,7 +1148,7 @@ function previewWorldControl(id,patch){
  rp.previewForce={startX:sx,startY:sy,x,y,max,receivedAt:now};rp.previewUntil=now+Math.min(900,Math.max(350,max*1000+(window.EchoesMulti.state.rtt||100)));
 }
 function worldTargetControl(id,patch){
- const defender=multiRemotePlayers.get(id);if(defender?.block&&Number(defender.shield)>0&&!patch.bypassShield)return false;
+ const defender=multiRemotePlayers.get(id);if(defender?.block&&Number(defender.shield)>0&&!patch.bypassShield&&!patch.breakShield)return false;
  const old=worldTargetControls.get(id)||{targetId:id,kind:'control',dx:0,dy:0,stun:0};
  old.dx+=Number(patch.dx)||0;old.dy+=Number(patch.dy)||0;old.root=Math.max(old.root||0,Number(patch.root)||0);if(Number.isFinite(patch.x)){old.x=patch.x;old.dx=0;}if(Number.isFinite(patch.y)){old.y=patch.y;old.dy=0;}old.stun=Math.max(old.stun,Number(patch.stun)||0);
  for(const k of ['breakShield','mark','duration','kind','skillId','range'])if(patch[k]!==undefined)old[k]=patch[k];
