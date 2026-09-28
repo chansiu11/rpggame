@@ -2168,7 +2168,7 @@ function releaseGaleVortex(v){
  const targets=combatTargets();
  for(const [id] of v.caught){
   const e=targets.find(q=>q.id===id&&!q.dead&&!q.riftSleeping);if(!e)continue;
-  const cc=combatCenter(e),aa=Math.atan2(cc.y-v.y,cc.x-v.x),dx=Math.cos(aa)*370,dy=Math.sin(aa)*370;
+  const cc=combatCenter(e),aa=Math.atan2(cc.y-v.y,cc.x-v.x),dx=Math.cos(aa)*185,dy=Math.sin(aa)*185;
   if(e.networkPlayer)worldTargetControl(id,{kind:'control',x:cc.x+dx,y:cc.y+dy,duration:.48,stun:0,range:550});
   else if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
    const ctl={knockbackX:dx,knockbackY:dy,duration:.48,stun:0,replaceForce:true};
@@ -2207,7 +2207,7 @@ function updateGaleVortices(dt){
  for(const v of remoteGaleVortices)GALE_VORTEX.step(v,dt);
  galeVortices=galeVortices.filter(v=>v.t>0);remoteGaleVortices=remoteGaleVortices.filter(v=>v.t>0);
 }
-const GALE_PULSE_RADIUS=292,GALE_PULSE_SPIN=16.8,GALE_PULSE_PULL_SPEED=180,GALE_PULSE_NET_STEP=18;
+const GALE_PULSE_RADIUS=292,GALE_PULSE_SPIN=16.8,GALE_PULSE_PULL_SPEED=270,GALE_PULSE_NET_STEP=27;
 window.EchoesGalePulse=Object.freeze({radius:GALE_PULSE_RADIUS,pullSpeed:GALE_PULSE_PULL_SPEED,netStep:GALE_PULSE_NET_STEP});
 function updateGalePulseChargePull(seq,dt){
  if(!seq||seq.skillId!=='galeOrbit'||seq.elapsed>=.5)return;
@@ -4342,7 +4342,7 @@ function updatePvpGaleVortices(dt){
     // The victim owns their actual position and the final launch. The attacker
     // only previews the launch, so repeated forceDelta packets cannot freeze them.
     const a=Math.atan2(me.y-v.y,me.x-v.x),sx=me.x,sy=me.y,
-          tx=clamp(sx+Math.cos(a)*390,25,ARENA_W-25),ty=clamp(sy+Math.sin(a)*390,25,ARENA_H-25),duration=.50;
+          tx=clamp(sx+Math.cos(a)*195,25,ARENA_W-25),ty=clamp(sy+Math.sin(a)*195,25,ARENA_H-25),duration=.50;
     me.forceTrack=null;me.forcedMove={x:tx,y:ty,t:duration,max:duration,elapsed:0,startX:sx,startY:sy,stun:0,priority:true};
     me.forcePriority=Math.max(me.forcePriority||0,duration+.12);me.knockCameraHold=Math.max(me.knockCameraHold||0,duration+.15);
     net({t:'vortexLaunch',id:v.id,x:sx,y:sy,tx,ty,duration});
