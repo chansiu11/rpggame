@@ -7,15 +7,25 @@ function permit(){if(!gate)return;while(Atomics.load(gate,0)===0)Atomics.wait(ga
 function checkpoint(completed,evaluation){if(workerData.device)parentPort.postMessage({checkpoint:{schema:1,batch,completed,policy:structuredClone(policy),baseline,evaluation}});}
 const nap=new Int32Array(new SharedArrayBuffer(4));
 function cool(start){if(workerData.device){const delay=Math.max(500,(performance.now()-start)*3);Atomics.wait(nap,0,0,Math.min(10000,delay));}}
+const watch=workerData.watch?new Int32Array(workerData.watch):null;
+function spectator(phase,match,styles){
+ let last=-Infinity;
+ return frame=>{
+  if(!workerData.device||!watch||Atomics.load(watch,0)!==1)return;
+  const at=performance.now();
+  if(!frame.final&&at-last<70)return;last=at;
+  parentPort.postMessage({preview:{phase,match,styles,...frame}});
+ };
+}
 for(let i=saved?.completed||0;i<batch;i++){
- permit();const start=performance.now(),n=policy.matches,a=ids[n%3],b=ids[Math.floor(n/3)%3],r=duel(a,b,policy,i%4===0?baseline:policy,n+7,90,permit);
+ permit();const start=performance.now(),n=policy.matches,a=ids[n%3],b=ids[Math.floor(n/3)%3],r=duel(a,b,policy,i%4===0?baseline:policy,n+7,90,permit,spectator('train',n+1,[a,b]));
  learn(policy,a,r.results[0].tactic,r.results[0]);if(i%4!==0)learn(policy,b,r.results[1].tactic,r.results[1]);policy.matches++;
  parentPort.postMessage({progress:policy.matches});checkpoint(i+1,null);cool(start);
 }
 let {wins=0,losses=0,draws=0,completed=0}=saved?.evaluation||{};const rounds=18;
 for(let i=completed;i<rounds;i++){
  permit();const start=performance.now(),a=ids[i%3],b=ids[Math.floor(i/3)%3],swap=i>=9;
- const r=swap?duel(b,a,baseline,policy,10000+i%9,90,permit):duel(a,b,policy,baseline,10000+i%9,90,permit);
+ const r=swap?duel(b,a,baseline,policy,10000+i%9,90,permit,spectator('evaluation',i+1,[b,a])):duel(a,b,policy,baseline,10000+i%9,90,permit,spectator('evaluation',i+1,[a,b]));
  if(r.winner<0)draws++;else if(r.winner===(swap?1:0))wins++;else losses++;
  checkpoint(batch,{wins,losses,draws,completed:i+1});cool(start);
 }
