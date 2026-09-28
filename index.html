@@ -205,6 +205,18 @@ const GALE_VORTEX=Object.freeze({
  ctx.restore();}
 });
 window.EchoesGaleVortex=GALE_VORTEX;
+// Limb-only anticipation, shared by local and remote world/arena renderers.
+window.EchoesSkillPrepare={
+ kind(weapon,mode='',slot=0){if(weapon===2)return 'bow';if(/Slam|Fall|Breaker|Rain|fracture/i.test(mode))return 'overhead';if(/blink|thrust|rush|pierce|dash|Shot|Wave/i.test(mode))return 'thrust';if(/pulse|orbit|tempest|Crescendo|spin|Field/i.test(mode))return 'spin';return slot===4?'overhead':'slash';},
+ pose(kind,a,t,sign,side,shoulderY,headY){const u=Math.min(1,Math.max(0,t)),q=u*u*(3-2*u),dx=Math.cos(a),dy=Math.sin(a);let hand;
+ if(kind==='bow')hand=sign===side?{x:dx*27+side*6,y:shoulderY+10+dy*10}:{x:-dx*13-side*4,y:shoulderY+9-dy*6};
+ else if(kind==='overhead')hand={x:side*5+sign*4,y:headY-12};
+ else if(kind==='thrust')hand=sign===side?{x:-dx*19+side*7,y:shoulderY+13-dy*8}:{x:dx*17-sign*5,y:shoulderY+10};
+ else if(kind==='spin')hand={x:sign*25,y:shoulderY+7+sign*side*8};
+ else hand=sign===side?{x:Math.cos(a-1.8*side)*29,y:shoulderY+8+Math.sin(a-1.8*side)*13}:{x:sign*16,y:shoulderY+17};
+ return {q,hand,footX:sign*(kind==='spin'?13:10)+dx*sign*side*6,footY:dy*sign*side*8+(sign===side?3:-3)};
+ }};
+
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const ACCOUNTS_KEY='echoes_accounts_v1',SESSION_KEY='echoes_account_session_v1';
@@ -1007,7 +1019,7 @@ function triggerSkillShake(index,scale=1){if(!options.shake)return;shake=Math.ma
 function burst(x,y,color,n=12,speed=100){const count=options.quality==='low'?Math.ceil(n*.55):n;for(let i=0;i<count;i++){const a=rnd(0,TAU),s=rnd(.2,1)*speed;effects.push({type:'particle',x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,color,t:rnd(.2,.6),max:.6,size:rnd(2,4)});}if(effects.length>300)effects.splice(0,effects.length-300);}
 function ring(x,y,r,color,t=.5){effects.push({type:'ring',x,y,r,color,t,max:t});}
 let prismCastSerial=0;
-function cancelSwordSkill(preserveFollow=false){activeSwordSkill=null;fourthSkillHold=null;fourthSkillField=null;secondSkillDash=null;secondSkillArmed=false;skillTrayPress=null;standardSkillHold=null;skill2Knocks=[];hiddenSkillEvents=[];hiddenSkillHold=null;if(!preserveFollow)hiddenSkillFollowup=null;void3State=null;if(player){player.skillPose=-1;player.skillLift=0;player.pendingSlam=null;player.cast=0;player.pvpKnock=null;}}
+function cancelSwordSkill(preserveFollow=false){activeSwordSkill=null;fourthSkillHold=null;fourthSkillField=null;secondSkillDash=null;secondSkillArmed=false;skillTrayPress=null;standardSkillHold=null;skill2Knocks=[];hiddenSkillEvents=[];hiddenSkillHold=null;if(!preserveFollow)hiddenSkillFollowup=null;void3State=null;if(player){player.skillKind='';player.skillPose=-1;player.skillLift=0;player.pendingSlam=null;player.cast=0;player.pvpKnock=null;}}
 function resetInputs(){heldPhysical.clear();if($('skillTray'))$('skillTray').classList.add('hidden');desktopShield=false;shieldKeyLatched=false;if(player){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=false;}resetTouchInputs();bufferedAction=null;cancelSwordSkill();keys.clear();mouse.down=false;mouse.right=false;joy.x=joy.y=0;joy.active=false;pendingAttack=false;$('stickKnob').style.transform='';}
 function xpNeed(){const lv=Math.max(1,player.level);return Math.round(70+lv*42+lv*lv*1.8);}
 function addXp(n){if(player.level>=MAX_LEVEL){player.level=MAX_LEVEL;player.xp=0;return;}player.xp+=n;while(player.xp>=xpNeed()&&player.level<MAX_LEVEL){player.xp-=xpNeed();player.level++;player.perkPoints++;recalculateEquipment(false);const unlocked=SWORD_SKILL_LIBRARY.find(sk=>sk.level===player.level);if(unlocked)toast('새 검술 습득 가능 · '+unlocked.name+' · 검술 사범 세린에게 말을 걸어 배울 수 있습니다.');player.hp=Math.min(player.maxHp,player.hp+30);player.stam=player.maxStam;ring(player.x,player.y,115,'#eed390',.9);burst(player.x,player.y,'#e9cf8d',30);toast('<b>LEVEL '+player.level+'</b> · 특성 포인트 +1 <kbd>I</kbd>');sound('reward');}if(player.level>=MAX_LEVEL){player.level=MAX_LEVEL;player.xp=0;}}
@@ -1137,7 +1149,7 @@ const worldPlayerTargets=new Map(),worldTargetControls=new Map(),worldHitProcs=n
 let worldHitProcSeq=0;
 let worldCombatRevision=0,worldCombatSession='',worldForce=null,worldControlUntil=0;
 function worldCurrentSkillId(){return activeSwordSkill?.skillId||(void3State?'gravityCut':(player.skillPose>=0||hiddenSkillEvents.length||hiddenSkillHold)?multiSkillFxState.skillId:'')||'';}
-function worldCombatFields(){return {defenseReduction:armorReduction(),shield:player.shield,maxShield:player.maxShield,stam:player.stam,maxStam:player.maxStam,block:shieldHeld()&&player.shield>0&&player.shieldBroken<=0&&(player.shieldRearm||0)<=0&&!player.shieldNeedsRelease,parryWindow:player.perfectWindow,shieldBroken:player.shieldBroken,shieldDelay:player.shieldDelay,invuln:player.invuln,stun:player.stun,skillId:worldCurrentSkillId(),skillKind:hiddenSkillHold?.kind||activeSwordSkill?.skillId||'',moveSpeed:Math.hypot(player.dx||0,player.dy||0)*177,special:{void3:void3State?Math.max(0,void3State.until-realTime):0,hold:!!(hiddenSkillHold||standardSkillHold||fourthSkillHold),moveScale:void3State?.5:1}};}
+function worldCombatFields(){return {defenseReduction:armorReduction(),shield:player.shield,maxShield:player.maxShield,stam:player.stam,maxStam:player.maxStam,block:shieldHeld()&&player.shield>0&&player.shieldBroken<=0&&(player.shieldRearm||0)<=0&&!player.shieldNeedsRelease,parryWindow:player.perfectWindow,shieldBroken:player.shieldBroken,shieldDelay:player.shieldDelay,invuln:player.invuln,stun:player.stun,skillId:worldCurrentSkillId(),skillKind:standardSkillHold&&!standardSkillHold.continuous?player.skillKind:hiddenSkillHold?.kind||activeSwordSkill?.skillId||'',moveSpeed:Math.hypot(player.dx||0,player.dy||0)*177,special:{void3:void3State?Math.max(0,void3State.until-realTime):0,hold:!!(hiddenSkillHold||standardSkillHold||fourthSkillHold),moveScale:void3State?.5:1}};}
 function previewWorldControl(id,patch){
  const rp=multiRemotePlayers.get(id);if(!rp||Number(rp.hp)<=0)return;
  const dx=Number(patch.dx)||0,dy=Number(patch.dy)||0,absolute=Number.isFinite(patch.x)&&Number.isFinite(patch.y);
@@ -1710,7 +1722,7 @@ function skillActionActive(){
 function cancelSkillPreparationOnStun(){
  let cancelled=false;
  if(activeSwordSkill?.held){stopHeldSwordSkill(activeSwordSkill.slot,true);cancelled=true;}
- if(standardSkillHold?.continuous){standardSkillHold=null;cancelled=true;}
+ if(standardSkillHold){standardSkillHold=null;player.skillKind='';cancelled=true;}
  if(hiddenSkillHold&&hiddenSkillHold.kind==='holdPrepare'){hiddenSkillHold=null;cancelled=true;}
  if(cancelled){skillTrayPress=null;player.skillPose=-1;player.cast=0;player.attackAnim=0;player.attackCd=0;floating(player.x,player.y-58,'유지 스킬 중단','#f0bd9d',true);}
 }
@@ -1721,7 +1733,7 @@ function standardSkillCanPrepare(index){
  const sk=skillInfo(index);if(!sk||sk.locked||!canAct())return false;
  if(player.weapon!==4&&player.level<sk.level)return false;
  if(!cancelBasicAttackForSkill())return false;
- return !(standardSkillHold||activeSwordSkill||player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[index]>0);
+ return !(standardSkillHold||activeSwordSkill||player.exhaust>0||player.cast>0||player.attackCd>0||player.dodge>0||player.skillCds[index]>0);
 }
 
 function endVoid3World(){void3State=null;}
@@ -1820,30 +1832,35 @@ function beginStandardSkillInput(index){
   return true;
  }
  standardSkillHold={index,weapon:player.weapon,facing:player.facing,elapsed:0,fx:0,color:sk.color||'#d7c181'};
- player.skillPose=index;player.attackAngle=player.facing;player.attackAnim=Math.max(player.attackAnim,.12);ring(player.x,player.y,34,standardSkillHold.color,.22);sound('swing');return true;
+ player.skillKind='prepare:'+window.EchoesSkillPrepare.kind(player.weapon,sk.cfg?.mode,index);player.skillPose=index;player.attackAngle=player.facing;player.attackDuration=.15;player.attackAnim=.15;return true;
 }
 function releaseStandardSkillInput(index){
  if(index===2&&void3State)return releaseVoid3WorldInput();
  const h=standardSkillHold;if(!h||h.index!==index)return false;
  if(h.continuous){standardSkillHold=null;return stopHeldSwordSkill(index,false);}
- standardSkillHold=null;player.skillPose=-1;if(player.weapon!==h.weapon)return false;
+ if(player.stun>0){standardSkillHold=null;player.skillKind='';player.skillPose=-1;player.attackAnim=0;return false;}
+ if(h.elapsed<.15){h.released=true;return true;}
+ standardSkillHold=null;player.skillKind='';player.skillPose=-1;player.attackAnim=0;if(player.weapon!==h.weapon)return false;
  player.facing=h.facing;player.attackAngle=h.facing;
  triggerSkillShake(index);
  return player.weapon===2?executeSkillNow(index):startSwordSkill(index);
 }
 function updateStandardSkillPrepare(dt){
- const h=standardSkillHold;if(!h||h.continuous)return;h.elapsed+=dt;player.skillPose=h.index;player.facing=h.facing;player.attackAngle=h.facing;player.parry=0;player.perfectWindow=0;
- h.fx-=dt;if(h.fx<=0){h.fx=.18;ring(player.x,player.y,38+(Math.sin(realTime*7)+1)*5,h.color,.16);effects.push({type:'starSeal',x:player.x,y:player.y,r:66,color:h.color,t:.18,max:.18});}
+ const h=standardSkillHold;if(!h||h.continuous)return;
+ if(player.stun>0){cancelSkillPreparationOnStun();return;}
+ h.elapsed+=dt;player.skillPose=h.index;player.facing=h.facing;player.attackAngle=h.facing;player.parry=0;player.perfectWindow=0;player.attackDuration=.15;player.attackAnim=Math.max(.001,.15-h.elapsed);
+ if(h.released&&h.elapsed>=.15)releaseStandardSkillInput(h.index);
 }
+
 function skill(index=0){
  if(typeof index!=='number')index=0;const sk=skillInfo(index);if(!sk||(!canAct()&&!hiddenFollowReady(index)))return;
  if(sk.locked){toast('이 슬롯에는 검술이 장착되어 있지 않습니다. 스킬 메뉴에서 장착하세요.');return;}
  if(player.weapon!==4&&player.level<sk.level){toast('레벨 '+sk.level+'에 '+sk.name+' 사용 가능');return;}
  if(player.weapon===3){if(beginHiddenSkillInput(index))releaseHiddenSkillInput(index);return;}
- if(player.weapon===2){triggerSkillShake(index);executeSkillNow(index);return;}
+ if(player.weapon===2){if(beginStandardSkillInput(index))releaseStandardSkillInput(index);return;}
  if(sk.id==='gravityCut'){startVoid3World();return;}
  if(sk.holdContinuous){beginStandardSkillInput(index);return;}
- triggerSkillShake(index);startSwordSkill(index);
+ if(beginStandardSkillInput(index))releaseStandardSkillInput(index);
 }
 function heldSwordInputAngle(fallback){
  let x=(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0),y=(keys.has('KeyS')?1:0)-(keys.has('KeyW')?1:0);
@@ -2453,7 +2470,7 @@ function defeatEnemy(e,serverConfirmed=false){
   syncStoryProgress(true);player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;ring(e.x,e.y,250,'#e6cd8c',1.8);sound('reward');saveGame(false);
  }else if(!e.riftId&&player.stats.kills%4===0)dropMonsterLoot(e.x,e.y+20,'ore',1,serverConfirmed);checkQuestNotices();
 }
-function dash(){if(void3State?.exitDash)void3State.exitDash=null;if(!canAct()||(!void3State&&player.cast>0))return;if(player.dodgeCd>0||player.dodge>0){if(Math.max(player.dodgeCd,player.dodge)<.17)queueAction('dash');return;}if(!useStam(20-4*player.perks.flow))return;let x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y;const n=Math.hypot(x,y);if(n){x/=n;y/=n;}else{x=Math.cos(player.facing);y=Math.sin(player.facing);}player.dx=x;player.dy=y;player.dodge=.2;player.dodgeCd=.55;player.invuln=Math.max(player.invuln,.16);player.attackAnim=0;player.parry=0;player.perfectWindow=0;player.training.dodge=true;player.stats.dodges++;ring(player.x,player.y,33,'#b7dec9',.3);sound('dodge');}
+function dash(){if(standardSkillHold&&!standardSkillHold.continuous)return;if(void3State?.exitDash)void3State.exitDash=null;if(!canAct()||(!void3State&&player.cast>0))return;if(player.dodgeCd>0||player.dodge>0){if(Math.max(player.dodgeCd,player.dodge)<.17)queueAction('dash');return;}if(!useStam(20-4*player.perks.flow))return;let x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y;const n=Math.hypot(x,y);if(n){x/=n;y/=n;}else{x=Math.cos(player.facing);y=Math.sin(player.facing);}player.dx=x;player.dy=y;player.dodge=.2;player.dodgeCd=.55;player.invuln=Math.max(player.invuln,.16);player.attackAnim=0;player.parry=0;player.perfectWindow=0;player.training.dodge=true;player.stats.dodges++;ring(player.x,player.y,33,'#b7dec9',.3);sound('dodge');}
 let desktopShield=false,shieldKeyLatched=false;
 function shieldHeld(){return desktopShield||keys.has('KeyC')||[...touchPointers.values()].some(v=>v.action==='parry');}
 function releaseShield(){if(!shieldHeld()){const wasRaised=player.parry>0||player.perfectWindow>0||player.shieldNeedsRelease||player.shield<player.maxShield;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=false;if(wasRaised)player.shieldRearm=Math.max(player.shieldRearm||0,.5);}}
@@ -3018,7 +3035,7 @@ function remoteSwordSkillId(rp,slot){
  if(swordSkillById(direct))return direct;
  const style=swordStyleById(String(rp?.swordStyle||''));return style?.skills?.[slot]||'';
 }
-function fallbackRemoteSkillFx(rp,p){
+function fallbackRemoteSkillFx(rp,p){if(String(p?.skillKind||rp?.skillKind||'').startsWith('prepare:'))return;
  const slot=Math.floor(clamp(Number(p?.skillPose),0,4)),weapon=Math.floor(clamp(Number(p?.weapon),0,4));
  let id='';
  if(weapon===2)id='bow:'+slot;
@@ -3043,7 +3060,7 @@ function mergeRemotePlayerState(p){
  let exactFx=false;
  if(fxSeq>(Number(old.lastSkillFxSeq)||0)){old.lastSkillFxSeq=fxSeq;exactFx=true;old.remoteSkillVisualUntil=realTime+.78;old.remoteSkillSlot=Math.floor(clamp(Number(p.skillFxSlot),0,4));old.remoteSkillId=String(p.skillFxId||'');applyRemoteSkillFx({playerId:p.id,fxSeq,slot:p.skillFxSlot,skillId:p.skillFxId,weapon:p.skillFxWeapon,x:p.skillFxX,y:p.skillFxY,a:p.skillFxA});}
  const pose=Number(p.skillPose),oldPose=Number(old.skillPose),incomingAnim=Number(p.attackAnim)||0,oldAnim=Number(old.attackAnim)||0;
- const poseActive=Number.isFinite(pose)&&pose>=0,skillStarted=poseActive&&(!old.fallbackSkillActive||oldPose!==pose||incomingAnim>oldAnim+.12);
+ const poseActive=!String(p.skillKind||'').startsWith('prepare:')&&Number.isFinite(pose)&&pose>=0,skillStarted=poseActive&&(!old.fallbackSkillActive||oldPose!==pose||incomingAnim>oldAnim+.12);
  if(poseActive){old.remoteSkillVisualUntil=Math.max(old.remoteSkillVisualUntil||0,realTime+.34);old.remoteSkillSlot=Math.floor(clamp(pose,0,4));const inferred=remoteSwordSkillId(p,old.remoteSkillSlot)||remoteSwordSkillId(old,old.remoteSkillSlot);if(inferred)old.remoteSkillId=inferred;}
  if(skillStarted&&!exactFx&&realTime-(old.lastFallbackSkillAt||0)>.16){old.lastFallbackSkillAt=realTime;old.remoteSkillVisualUntil=realTime+.75;old.remoteSkillSlot=Math.floor(clamp(pose,0,4));fallbackRemoteSkillFx(old,p);}
  old.fallbackSkillActive=poseActive;
@@ -3470,19 +3487,21 @@ function drawPlayer(){
  ctx.save();ctx.translate(player.x,player.y);ctx.scale(.76,.76);ctx.translate(-player.x,-player.y);
  if(deathP>0){ctx.translate(p.x,p.y);ctx.rotate((p.deathSide||1)*deathP*1.22);ctx.translate(-p.x,-p.y);ctx.globalAlpha=1-clamp((deathP-.72)/.28,0,1);}
  const m=p.motion||{phase:0,walk:0,facing:p.facing,lean:0},a=m.facing,fx=Math.cos(a),fy=Math.sin(a),back=fy<-.35,side=fx<-.2?-1:1;
- const walk=m.walk,bounce=Math.abs(Math.sin(m.phase))*walk*1.3,attackT=clamp(1-p.attackAnim/(p.attackDuration||.26),0,1),swing=p.attackAnim>0?Math.sin(attackT*Math.PI):0;
+ const prep=String(p.skillKind||'').startsWith('prepare:')?String(p.skillKind).slice(8):'',prepT=1-(p.attackAnim||0)/.15;
+ const walk=prep?0:m.walk,bounce=Math.abs(Math.sin(m.phase))*walk*1.3,attackT=clamp(1-p.attackAnim/(p.attackDuration||.26),0,1),swing=p.attackAnim>0?Math.sin(attackT*Math.PI):0;
  const breath=Math.sin(realTime*2.2)*.35,hipY=-21-bounce,shoulderY=-42-bounce+breath+m.lean*2,headY=shoulderY-14,bodyWidth=10+Math.abs(fy)*2,armor=p.equippedChest==='abyssPlate'?['#553c59','#8f6b91']:p.equippedChest==='frostMail'?['#5e8893','#b8d9df']:p.equippedChest==='knightPlate'?['#596b70','#aeb9b6']:['#709d91','#a2bbae'],helm=p.equippedHead==='voidVisor'?'#5c4770':p.equippedHead==='frostCrown'?'#8fb9bf':p.equippedHead==='ironHelm'?'#79888a':'#8ca99d',shieldCol=p.equippedShield==='astralShield'?'#d4c8ff':p.equippedShield==='frostShield'?'#9bd8e4':p.equippedShield==='ironShield'?'#9aa5a6':'#82bab0';
  ellipse(ctx,p.x,p.y+3,19,7,'#07171c77');
  ctx.save();ctx.translate(0,-(p.skillLift||0));
  if(p.dodge>0){for(let i=1;i<=4;i++){ctx.globalAlpha=(5-i)*.09;line(ctx,p.x-p.dx*i*13-8,p.y-p.dy*i*13-5,p.x-p.dx*(i+1)*13-8,p.y-p.dy*(i+1)*13-5,'#b9eadb',4);line(ctx,p.x-p.dx*i*13+8,p.y-p.dy*i*13-9,p.x-p.dx*(i+1)*13+8,p.y-p.dy*(i+1)*13-9,'#dcebbd',3);}ctx.globalAlpha=1;}
  ctx.save();ctx.translate(p.x,p.y);if(p.invuln>0&&p.dodge<=0&&Math.sin(realTime*35)>0)ctx.globalAlpha=.72;
- const pose=p.skillPose>=0&&p.attackAnim>0?p.skillPose:-1,hitPose=p.strikePose||0;ctx.translate(p.attackAnim>0&&pose===1?fx*8:0,pose===3?-Math.sin(attackT*Math.PI)*15:0);
+ const pose=p.skillPose>=0&&p.attackAnim>0?p.skillPose:-1,hitPose=p.strikePose||0;ctx.translate(!prep&&p.attackAnim>0&&pose===1?fx*8:0,!prep&&pose===3?-Math.sin(attackT*Math.PI)*15:0);
  const recoil=p.hurt>0?Math.sin(p.hurt/.25*Math.PI)*2:0;ctx.translate(-fx*recoil,-fy*recoil*.4);
  const capeSway=Math.sin(m.phase-.6)*walk*3-fx*m.lean*7;
  polygon(ctx,[[-bodyWidth,shoulderY+2],[bodyWidth,shoulderY+2],[15+capeSway,hipY+12],[4+capeSway,hipY+17],[-15+capeSway,hipY+12]],'#245b58','#173d43',1.5);
  line(ctx,-12+capeSway,hipY+10,3+capeSway,hipY+15,'#b7b889',1.6);
  // Alternating heel plant, knee bend and toe lift, measured from actual travel.
  const legs=[-1,1].map(sign=>{const phase=m.phase+(sign===1?Math.PI:0),step=Math.sin(phase)*walk,lift=Math.max(0,Math.cos(phase))*walk*3.5;return {sign,step,lift,footX:sign*5+step*fx*5,footY:step*fy*4-lift};}).sort((l,r)=>l.footY-r.footY);
+ if(prep)for(const leg of legs){const v=window.EchoesSkillPrepare.pose(prep,a,prepT,leg.sign,side,shoulderY,headY);leg.footX+=(v.footX-leg.footX)*v.q;leg.footY+=(v.footY-leg.footY)*v.q;leg.lift=3*v.q;}
  for(const leg of legs){const {sign,step,footX,footY}=leg,kneeX=sign*6+step*fx*2,kneeY=-10+step*fy*2-leg.lift*.45;line(ctx,sign*5,hipY+1,kneeX,kneeY,'#263c43',7);circle(ctx,kneeX,kneeY,3.2,'#82948b');line(ctx,kneeX,kneeY,footX,footY-2,'#354d50',6);ellipse(ctx,footX+fx*1.5,footY+1,4.8,2.7,'#c7c6a6');line(ctx,footX-3,footY+2,footX+3,footY+2,'#283e40',1.4);}
  const armPose=sign=>{const shoulder={x:sign*(bodyWidth+1),y:shoulderY+4};let hand={x:sign*(15+Math.abs(fx)*2),y:hipY+4-sign*Math.sin(m.phase)*walk*4};
   if(sign===side&&p.attackAnim>0){const sweep=a+(attackT-.5)*(p.weapon===1?2.6:2.0)*(p.combo%2?-1:1);hand={x:Math.cos(sweep)*(19+swing*9),y:shoulderY+13+Math.sin(sweep)*12};}
@@ -3490,7 +3509,7 @@ function drawPlayer(){
   if(p.weapon===2){hand=sign===side?{x:fx*22+side*6,y:shoulderY+13+fy*11}:{x:fx*(12-swing*8)-side*3,y:shoulderY+14+fy*7};}
   if(p.attackAnim>0&&p.weapon!==2&&pose<0){if(hitPose===1)hand.y-=10*swing;if(hitPose===2)hand={x:fx*(18+17*swing),y:shoulderY+13+fy*12};if(hitPose===3)hand={x:sign*23*Math.cos(attackT*TAU),y:shoulderY+12+Math.sin(attackT*TAU)*10};if(hitPose===4)hand={x:side*9,y:headY-12+45*attackT};}if(p.attackAnim>0&&pose>=0&&p.weapon!==2){if(pose===0&&sign===side)hand={x:Math.cos(a+(attackT-.5)*2.5)*28,y:shoulderY+12+Math.sin(a+(attackT-.5)*2.5)*12};if(pose===1)hand={x:fx*30+sign*4,y:shoulderY+15};if(pose===2)hand={x:sign*27*Math.cos(attackT*TAU),y:shoulderY+12+Math.sin(attackT*TAU)*13};if(pose===3)hand={x:sign*6,y:headY-14+55*attackT};if(pose===4)hand={x:sign*24*Math.cos(attackT*TAU*1.5),y:shoulderY+12+Math.sin(attackT*TAU*1.5)*12};}
   if(p.dodge>0)hand={x:sign*14-fx*9,y:hipY+1-fy*5};
-  return {shoulder,hand,elbow:{x:(shoulder.x+hand.x)*.5+sign*4,y:(shoulder.y+hand.y)*.5+4}};
+  if(prep){const v=window.EchoesSkillPrepare.pose(prep,a,prepT,sign,side,shoulderY,headY);hand={x:shoulder.x+(v.hand.x-shoulder.x)*v.q,y:shoulder.y+14+(v.hand.y-shoulder.y-14)*v.q};}return {shoulder,hand,elbow:{x:(shoulder.x+hand.x)*.5+sign*4,y:(shoulder.y+hand.y)*.5+4}};
  };
  const arm=sign=>{const v=armPose(sign);line(ctx,v.shoulder.x,v.shoulder.y,v.elbow.x,v.elbow.y,'#6e9590',6);circle(ctx,v.elbow.x,v.elbow.y,3,'#b5c9b4');line(ctx,v.elbow.x,v.elbow.y,v.hand.x,v.hand.y,'#4b7470',5);circle(ctx,v.hand.x,v.hand.y,3.1,'#d2c4a2');};
  arm(-side);
@@ -3580,6 +3599,7 @@ function drawEffects(ground=false){for(const e of effects){const progress=1-e.t/
  if(e.type==='nova'){ctx.save();ctx.translate(e.x,e.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*.9);ctx.strokeStyle=e.color;for(let k=0;k<4;k++){ctx.lineWidth=5-k;ctx.beginPath();ctx.arc(0,0,e.r*(.15+progress*.85)*(1-k*.08),0,TAU);ctx.stroke();}for(let k=0;k<16;k++){const a=k*TAU/16+progress*.5,r=e.r*(.25+.72*progress);line(ctx,Math.cos(a)*e.r*.08,Math.sin(a)*e.r*.08,Math.cos(a)*r,Math.sin(a)*r,k%2?'#ffffff':e.color,3*(1-progress)+1);}glow(ctx,0,0,e.r*.55,e.color+'44');ctx.restore();}
  if(e.type==='slash'){ctx.strokeStyle=e.color;ctx.lineWidth=7;ctx.beginPath();ctx.arc(e.x,e.y,e.r,e.a-e.arc/2,e.a+e.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,e.r-7,e.a-e.arc/2+.1,e.a+e.arc/2-.1);ctx.stroke();}ctx.restore();}}
 function drawRemoteSkillOverlay(rp,x,y,a){
+ if(String(rp.skillKind||'').startsWith('prepare:'))return;
  const livePose=Number(rp.skillPose),poseActive=Number.isFinite(livePose)&&livePose>=0,ttl=(Number(rp.remoteSkillVisualUntil)||0)>realTime;
  if((Number(rp.remoteExactFxUntil)||0)>realTime)return;
  if(!poseActive&&!ttl)return;
@@ -4275,11 +4295,11 @@ function void3PvpBasic(auto=false){
  void3Pvp.count++;void3Pvp.nextBasicAt=now+100;queueVoid3PvpRandomMove(step);if(void3Pvp.count>=5)void3Pvp.ending=true;return true;
 }
 function skillDown(i){
- if(!me||roundLocked)return;
+ if(!me||roundLocked||me.dash>0)return;
  if(me.weapon===3){beginHidden(i);return}
- if(me.weapon===2){if(!skillReady(i))return;const a=combatAimAngle();me.a=a;me.skillPose=i;me.skillKind='prepare';me.skillHold={kind:'bowPrepare',index:i,a,elapsed:0,fx:0};ring(me.x,me.y,34,bowSkillData[i]?.color||'#a5f1d8',.22,true);return}
+ if(me.weapon===2){if(!skillReady(i))return;const a=combatAimAngle();me.a=a;me.skillPose=i;me.skillKind='prepare:bow';me.skillHold={kind:'bowPrepare',index:i,a,elapsed:0};me.block=false;me.parryWindow=0;me.attackDuration=.15;me.attackAnim=.15;return}
  const sk=pvpSwordSkillAt(i);if(!sk||!skillReady(i))return;if(sk.id==='gravityCut'){startVoid3Pvp();return}if(sk.holdContinuous){startWorldSwordHold(i,sk);return}
- const a=combatAimAngle();me.a=a;me.skillPose=i;me.skillKind='prepare';me.skillHold={kind:'swordPrepare',index:i,a,elapsed:0,fx:0};ring(me.x,me.y,34,sk.color||'#d7c181',.22,true);
+ const a=combatAimAngle();me.a=a;me.skillPose=i;me.skillKind='prepare:'+window.EchoesSkillPrepare.kind(me.weapon,sk.cfg?.mode,i);me.skillHold={kind:'swordPrepare',index:i,a,elapsed:0};me.block=false;me.parryWindow=0;me.attackDuration=.15;me.attackAnim=.15;
 }
 function skillUp(i){
  if(!me)return;
@@ -4287,6 +4307,7 @@ function skillUp(i){
  if(i===2&&void3Pvp){releaseVoid3PvpInput();return}
  const h=me.skillHold;if(!h||h.index!==i)return;
  if(h.kind==='worldSwordHold'){stopWorldSwordHold(i,false);return}
+ if(['bowPrepare','swordPrepare'].includes(h.kind)){if(me.stun>0){me.skillHold=null;me.skillPose=-1;me.skillKind='';me.attackAnim=0;return;}if(h.elapsed<.15){h.released=true;return;}me.attackAnim=0;}
  if(h.kind==='bowPrepare'){const a=h.a;me.skillHold=null;me.skillPose=-1;me.skillKind='';startBowSkill(i,a);return}
  if(h.kind==='swordPrepare'){const a=h.a;me.skillHold=null;me.skillPose=-1;me.skillKind='';startSwordSequence(i,a);}
 }
@@ -4593,7 +4614,7 @@ function updateWorldSwordHold(h,dt){const sk=h.skill,mode=sk.cfg?.mode,color=sk.
  if(h.releaseQueued&&h.elapsed>=1.25){stopWorldSwordHold(h.index,false);return}if(h.elapsed>=h.max)stopWorldSwordHold(h.index,false)}
 function animatePvpFighter(f,dt){if(!f.motion)f.motion={x:f.x,y:f.y,phase:0,walk:0,facing:f.a,lean:0};const m=f.motion,dx=f.x-m.x,dy=f.y-m.y,d=Math.hypot(dx,dy),speed=d/Math.max(dt,.001),targetWalk=clamp(speed/Math.max(f.speed||177,80),0,1);m.walk+=(targetWalk-m.walk)*(1-Math.exp(-dt*15));m.phase+=d*.115;const diff=angleDiff(f.a,m.facing);m.facing+=diff*(1-Math.exp(-dt*18));m.lean+=(((f.dash>0||f.skillKind==='hidden1'||f.skillKind==='hidden4')?1:0)-m.lean)*(1-Math.exp(-dt*18));m.x=f.x;m.y=f.y}
 function updateSkillSystem(dt){if(!me)return;if(me.followMarked&&performance.now()>me.followUntil){me.followMarked=false;me.followUntil=0}if(me.stun>0){me.skillHold=null;me.skillEvent=null;me.skillPose=-1;me.skillKind='';return;}
- const h=me.skillHold;if(h){if(h.kind==='worldSwordHold'){updateWorldSwordHold(h,dt);return;}if(h.kind==='swordPrepare'||h.kind==='bowPrepare'){h.elapsed=(h.elapsed||0)+dt;if(!mouse.active)h.a=combatAimAngle(h.a);me.skillPose=h.index;me.skillKind='prepare';me.a=h.a;h.fx=(h.fx||0)-dt;if(h.fx<=0){h.fx=.18;ring(me.x,me.y,38+(Math.sin(performance.now()*.007)+1)*5,h.kind==='swordPrepare'?(h.skill?.color||pvpSwordColor(h.index,me)):(bowSkillData[h.index]?.color||'#a5f1d8'),.16,true)}return;}h.elapsed=(h.elapsed||0)+dt;me.skillPose=h.index;if(h.kind==='swordGPrepare'){me.moveLock=.08;if(h.elapsed>=.3)startSwordGDash(h)}
+ const h=me.skillHold;if(h){if(h.kind==='worldSwordHold'){updateWorldSwordHold(h,dt);return;}if(h.kind==='swordPrepare'||h.kind==='bowPrepare'){h.elapsed=(h.elapsed||0)+dt;me.skillPose=h.index;me.a=h.a;me.block=false;me.parryWindow=0;me.attackDuration=.15;me.attackAnim=Math.max(.001,.15-h.elapsed);if(h.released&&h.elapsed>=.15)skillUp(h.index);return;}h.elapsed=(h.elapsed||0)+dt;me.skillPose=h.index;if(h.kind==='swordGPrepare'){me.moveLock=.08;if(h.elapsed>=.3)startSwordGDash(h)}
  else if(h.kind==='swordGDash'){let a=combatAimAngle(h.a);h.a+=angleDiff(a,h.a)*(1-Math.exp(-dt*6));me.a=h.a;const ox=me.x,oy=me.y;me.x=clamp(me.x+Math.cos(h.a)*306*dt,25,ARENA_W-25);me.y=clamp(me.y+Math.sin(h.a)*306*dt,25,ARENA_H-25);h.tick-=dt;if(h.tick<=0&&pointSegmentDistance(enemy.x,enemy.y,ox,oy,me.x,me.y)<82+enemy.r){h.tick=.14;segmentAttack(ox,oy,me.x,me.y,78,pvpSkillAttack(me)*.24,.14,{color:'#ffd18b',onHit:()=>{if(enemy)forceEnemyTo(me.x+Math.cos(h.a)*70,me.y+Math.sin(h.a)*70,.18,.14)}})}rift((ox+me.x)/2,(oy+me.y)/2,h.a,110,30,'#ffd18b',.12,false);if(h.elapsed>=1)finishSwordG()}
  else if(h.kind==='swordGField'){h.tick-=dt;if(h.tick<=0){h.tick=.25;circleAttack(me.x,me.y,90,pvpSkillAttack(me)*.32,.12,{color:'#ffd18b'})}ring(me.x,me.y,90,'#ffd18b',.16,true);if(h.elapsed>=2){me.skillHold=null;me.skillPose=-1;me.skillKind='';me.postSkillLock=.05}}
  else if(h.kind==='hiddenPrepare'){me.moveLock=.08;h.fx-=dt;if(h.fx<=0){h.fx=.11;starFx(me.x,me.y,92,HIDDEN_SKILLS[h.index].color,.24,true);for(let j=0;j<4;j++){const a=h.a+(j-1.5)*.28;beamFx(me.x+Math.cos(a)*14,me.y+Math.sin(a)*14,me.x+Math.cos(a)*78,me.y+Math.sin(a)*78,j%2?'#ffffff':HIDDEN_SKILLS[h.index].color,.18,true)}}}
@@ -4648,7 +4669,8 @@ function pCircle(x,y,r,c){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r,0,TAU);c
 function pEllipse(x,y,rx,ry,c){ctx.fillStyle=c;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,TAU);ctx.fill()}
 function pPoly(points,fill,stroke=null,w=1){ctx.fillStyle=fill;ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);ctx.closePath();ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=w;ctx.stroke()}}
 function drawJourneyFighter(f,isMe){
- const m=f.motion||{phase:0,walk:0,facing:f.a,lean:0},a=m.facing,fxd=Math.cos(a),fyd=Math.sin(a),back=fyd<-.35,side=fxd<-.2?-1:1,walk=m.walk;
+ const prep=String(f.skillKind||'').startsWith('prepare:')?String(f.skillKind).slice(8):'',prepT=1-(f.attackAnim||0)/.15;
+ const m=f.motion||{phase:0,walk:0,facing:f.a,lean:0},a=m.facing,fxd=Math.cos(a),fyd=Math.sin(a),back=fyd<-.35,side=fxd<-.2?-1:1,walk=prep?0:m.walk;
  const bounce=Math.abs(Math.sin(m.phase))*walk*1.3,attackT=clamp(1-f.attackAnim/(f.attackDuration||.26),0,1),swing=f.attackAnim>0?Math.sin(attackT*Math.PI):0;
  const breath=Math.sin(performance.now()*.0022)*.35,hipY=-21-bounce,shoulderY=-42-bounce+breath+m.lean*2,headY=shoulderY-14,bodyWidth=10+Math.abs(fyd)*2;
  const armor=f.chestId==='abyssPlate'?['#553c59','#8f6b91']:f.chestId==='frostMail'?['#5e8893','#b8d9df']:f.chestId==='knightPlate'?['#596b70','#aeb9b6']:['#709d91','#a2bbae'];
@@ -4656,17 +4678,18 @@ function drawJourneyFighter(f,isMe){
  const pose=f.skillPose>=0&&f.attackAnim>0?f.skillPose:-1;
  ctx.save();ctx.translate(f.x,f.y);ctx.scale(.76,.76);pEllipse(0,3,19,7,'#07171c77');ctx.translate(0,-(f.skillLift||0));
  if(f.dash>0||f.skillKind==='hidden1'||f.skillKind==='hidden4'){for(let i=1;i<=4;i++){ctx.globalAlpha=(5-i)*.09;pLine(-fxd*i*15-8,-fyd*i*15-5,-fxd*(i+1)*15-8,-fyd*(i+1)*15-5,'#b9eadb',4);pLine(-fxd*i*15+8,-fyd*i*15-9,-fxd*(i+1)*15+8,-fyd*(i+1)*15-9,'#dcebbd',3)}ctx.globalAlpha=1}
- if(f.skillPose>=0){const c=f.weapon===3?HIDDEN_SKILLS[f.skillPose]?.color:(pvpSwordSkillAt(f.skillPose,f)?.color||'#e8d399');ctx.globalAlpha=.24;pCircle(0,-24,25+(f.skillPose||0)*2,c||'#fff');ctx.globalAlpha=1}
+ if(f.skillPose>=0&&!prep){const c=f.weapon===3?HIDDEN_SKILLS[f.skillPose]?.color:(pvpSwordSkillAt(f.skillPose,f)?.color||'#e8d399');ctx.globalAlpha=.24;pCircle(0,-24,25+(f.skillPose||0)*2,c||'#fff');ctx.globalAlpha=1}
  const recoil=f.hurt>0?Math.sin(f.hurt/.24*Math.PI)*2:0;ctx.translate(-fxd*recoil,-fyd*recoil*.4);const capeSway=Math.sin(m.phase-.6)*walk*3-fxd*m.lean*7;
  pPoly([[-bodyWidth,shoulderY+2],[bodyWidth,shoulderY+2],[15+capeSway,hipY+12],[4+capeSway,hipY+17],[-15+capeSway,hipY+12]],'#245b58','#173d43',1.5);pLine(-12+capeSway,hipY+10,3+capeSway,hipY+15,'#b7b889',1.6);
  const legs=[-1,1].map(sign=>{const ph=m.phase+(sign===1?Math.PI:0),step=Math.sin(ph)*walk,lift=Math.max(0,Math.cos(ph))*walk*3.5;return {sign,step,lift,footX:sign*5+step*fxd*5,footY:step*fyd*4-lift}}).sort((l,r)=>l.footY-r.footY);
+ if(prep)for(const leg of legs){const v=window.EchoesSkillPrepare.pose(prep,a,prepT,leg.sign,side,shoulderY,headY);leg.footX+=(v.footX-leg.footX)*v.q;leg.footY+=(v.footY-leg.footY)*v.q;leg.lift=3*v.q;}
  for(const leg of legs){const {sign,step,footX,footY}=leg,kneeX=sign*6+step*fxd*2,kneeY=-10+step*fyd*2-leg.lift*.45;pLine(sign*5,hipY+1,kneeX,kneeY,'#263c43',7);pCircle(kneeX,kneeY,3.2,'#82948b');pLine(kneeX,kneeY,footX,footY-2,'#354d50',6);pEllipse(footX+fxd*1.5,footY+1,4.8,2.7,'#c7c6a6');pLine(footX-3,footY+2,footX+3,footY+2,'#283e40',1.4)}
  const armPose=sign=>{const shoulder={x:sign*(bodyWidth+1),y:shoulderY+4};let hand={x:sign*(15+Math.abs(fxd)*2),y:hipY+4-sign*Math.sin(m.phase)*walk*4};
   if(sign===side&&f.attackAnim>0){const sweep=a+(attackT-.5)*(f.weapon===1?2.6:2.0)*(f.combo%2?-1:1);hand={x:Math.cos(sweep)*(19+swing*9),y:shoulderY+13+Math.sin(sweep)*12}}
   if(f.block&&sign===-side)hand={x:fxd*20-sign*5,y:shoulderY+5+fyd*8};
   if(f.weapon===2)hand=sign===side?{x:fxd*22+side*6,y:shoulderY+13+fyd*11}:{x:fxd*(12-swing*8)-side*3,y:shoulderY+14+fyd*7};
   if(f.attackAnim>0&&pose>=0&&f.weapon!==2){if(pose===0&&sign===side)hand={x:Math.cos(a+(attackT-.5)*2.5)*28,y:shoulderY+12+Math.sin(a+(attackT-.5)*2.5)*12};if(pose===1)hand={x:fxd*30+sign*4,y:shoulderY+15};if(pose===2)hand={x:sign*27*Math.cos(attackT*TAU),y:shoulderY+12+Math.sin(attackT*TAU)*13};if(pose===3)hand={x:sign*6,y:headY-14+55*attackT};if(pose===4)hand={x:sign*24*Math.cos(attackT*TAU*1.5),y:shoulderY+12+Math.sin(attackT*TAU*1.5)*12}}
-  if(f.dash>0)hand={x:sign*14-fxd*9,y:hipY+1-fyd*5};return {shoulder,hand,elbow:{x:(shoulder.x+hand.x)*.5+sign*4,y:(shoulder.y+hand.y)*.5+4}};
+  if(f.dash>0)hand={x:sign*14-fxd*9,y:hipY+1-fyd*5};if(prep){const v=window.EchoesSkillPrepare.pose(prep,a,prepT,sign,side,shoulderY,headY);hand={x:shoulder.x+(v.hand.x-shoulder.x)*v.q,y:shoulder.y+14+(v.hand.y-shoulder.y-14)*v.q};}return {shoulder,hand,elbow:{x:(shoulder.x+hand.x)*.5+sign*4,y:(shoulder.y+hand.y)*.5+4}};
  };
  const arm=sign=>{const v=armPose(sign);pLine(v.shoulder.x,v.shoulder.y,v.elbow.x,v.elbow.y,'#6e9590',6);pCircle(v.elbow.x,v.elbow.y,3,'#b5c9b4');pLine(v.elbow.x,v.elbow.y,v.hand.x,v.hand.y,'#4b7470',5);pCircle(v.hand.x,v.hand.y,3.1,'#d2c4a2')};
  arm(-side);
