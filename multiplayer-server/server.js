@@ -18,10 +18,21 @@ const MOB_NET_TICK_MS = 100;
 const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
-const SPAWN_LAYOUT_VERSION = 'regional-clusters-v7-style-density';
-const SERVER_BUILD = '2026-09-28-pvp-latency-1';
+const SPAWN_LAYOUT_VERSION = 'regional-clusters-v8-player-balance';
+const SERVER_BUILD = '2026-09-28-mob-balance-style-fx-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
+const PLAYER_REFERENCE_BASE_HP = 100;
+const PLAYER_REFERENCE_HP_PER_LEVEL = 49900 / 199;
+const PLAYER_REFERENCE_BASE_DAMAGE = 24;
+const PLAYER_REFERENCE_DAMAGE_PER_LEVEL = 2.55;
+const NORMAL_WORLD_HP_SCALE = 1.35 * 2.5;
+const NORMAL_WORLD_DAMAGE_SCALE = 1.30;
+const MOB_BASE_HP = Object.freeze({
+  sprout:64,wolf:78,sentry:88,golem:160,wisp:77,shade:108,frostling:112,shardStalker:138,
+  crystalMage:125,abyssHound:154,bloodWisp:140,voidKnight:205,styleAdept:132
+});
+
 const WORLD_RESET_EPOCH = '2026-09-27-world-reset-2';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
@@ -35,6 +46,20 @@ const MOB_TYPES = {
   plateauBoss:{speed:70,damage:34,reach:230,wind:1.1,kind:'boss',r:41},frostBoss:{speed:84,damage:39,reach:250,wind:.95,kind:'boss',r:43},
   abyssBoss:{speed:98,damage:45,reach:260,wind:.88,kind:'boss',r:45},finalBoss:{speed:90,damage:50,reach:275,wind:.86,kind:'boss',r:48}
 };
+function balancedRegularMobStats(type,level){
+  const def=MOB_TYPES[type],baseHp=MOB_BASE_HP[type];if(!def||!baseHp||def.kind==='boss')return null;
+  level=Math.max(1,Math.min(200,Math.floor(Number(level)||1)));
+  const referenceDamage=PLAYER_REFERENCE_BASE_DAMAGE+(level-1)*PLAYER_REFERENCE_DAMAGE_PER_LEVEL;
+  const referenceHp=PLAYER_REFERENCE_BASE_HP+(level-1)*PLAYER_REFERENCE_HP_PER_LEVEL;
+  const targetHits=Math.max(2.5,Math.min(9,baseHp/PLAYER_REFERENCE_BASE_DAMAGE));
+  const damageShare=type==='styleAdept'?.07:Math.max(.08,Math.min(.18,(Number(def.damage)||10)/100));
+  const rawHp=Math.max(1,Math.round(referenceDamage*targetHits));
+  const rawDamage=Math.max(1,Math.round(referenceHp*damageShare));
+  return {
+    maxHp:Math.max(1,Math.round(rawHp*NORMAL_WORLD_HP_SCALE)),
+    damage:Math.max(1,Math.round(rawDamage*NORMAL_WORLD_DAMAGE_SCALE))
+  };
+}
 const STYLE_ADEPT_SKILLS={
   gale:['windSlash','flashRush','galeOrbit','starRush','thunderDrive'],
   moon:['moonSpin','mirrorStep','crossBloom','crescent','lunarBind'],
@@ -307,7 +332,7 @@ function moveServerMob(m,dx,dy){
 }
 function mobPublic(m){
  const now=Date.now(),timer=m.state==='windup'?Math.max(0,(m.attackAt-now)/1000):m.state==='recover'?Math.max(0,(m.recoverUntil-now)/1000):m.state==='charge'?Math.max(0,(m.chargeUntil-now)/1000):0;
- const out={stun:Math.max(0,((m.stunUntil||0)-now)/1000),forceMove:m.forceMove?{...m.forceMove,elapsed:(now-m.forceMove.startedAt)/1000}:null,id:m.id,type:m.type,x:Math.round(m.x*10)/10,y:Math.round(m.y*10)/10,hp:Math.max(0,Math.round(m.hp)),maxHp:Math.max(1,Math.round(m.maxHp)),dead:!!m.dead,state:m.state||'idle',facing:Math.round((m.facing||0)*100)/100,alert:!!m.alert,targetId:m.targetId||null,attackType:m.attackType||m.kind||'melee',timer,windTotal:m.state==='windup'?Math.max(timer,m.styleWindTotal||m.wind||.5):0,locked:Number.isFinite(m.locked)?m.locked:(m.facing||0),range:mobAttackRange(m)};
+ const out={stun:Math.max(0,((m.stunUntil||0)-now)/1000),forceMove:m.forceMove?{...m.forceMove,elapsed:(now-m.forceMove.startedAt)/1000}:null,id:m.id,type:m.type,mobLevel:m.mobLevel||1,x:Math.round(m.x*10)/10,y:Math.round(m.y*10)/10,hp:Math.max(0,Math.round(m.hp)),maxHp:Math.max(1,Math.round(m.maxHp)),dead:!!m.dead,state:m.state||'idle',facing:Math.round((m.facing||0)*100)/100,alert:!!m.alert,targetId:m.targetId||null,attackType:m.attackType||m.kind||'melee',timer,windTotal:m.state==='windup'?Math.max(timer,m.styleWindTotal||m.wind||.5):0,locked:Number.isFinite(m.locked)?m.locked:(m.facing||0),range:mobAttackRange(m)};
  if(m.type==='styleAdept'){out.styleId=m.styleId||'gale';out.styleSlots=Array.isArray(m.styleSlots)?m.styleSlots:[];out.skillId=m.skillId||'';out.skillSlot=Number.isFinite(m.skillSlot)?m.skillSlot:0;out.styleCastId=m.styleCastId||0;out.styleHitIndex=m.styleHitIndex||0;out.styleAnchorX=Number.isFinite(m.styleAnchorX)?m.styleAnchorX:m.x;out.styleAnchorY=Number.isFinite(m.styleAnchorY)?m.styleAnchorY:m.y;out.styleOriginX=Number.isFinite(m.styleOriginX)?m.styleOriginX:m.x;out.styleOriginY=Number.isFinite(m.styleOriginY)?m.styleOriginY:m.y;out.styleSide=m.styleSide||1;}
  return out;
 }
@@ -321,9 +346,9 @@ function bootstrapAuthoritativeWorld(player,msg){
   const list=Array.isArray(msg.mobs)?msg.mobs.slice(0,900):[];if(!list.length)return;authoritativeMobs.clear();navGrid.clear();
   for(const raw of list){
     const id=String(raw.id||'').slice(0,50),type=String(raw.type||'').slice(0,40),def=MOB_TYPES[type];if(!id||!def||type==='dummy'||id.startsWith('rift_'))continue;
-    const boss=bosses.get(id),maxHp=boss?boss.maxHp:clamp(raw.maxHp,1,9999999),hp=boss?boss.hp:clamp(raw.hp,0,maxHp),x=clamp(raw.x,50,WORLD.width-50),y=clamp(raw.y,50,WORLD.height-50);
-    const m={id,type,x,y,sx:x,sy:y,hp,maxHp,dead:boss?!boss.alive:!!raw.dead,state:raw.dead?'dead':'idle',facing:clamp(raw.facing,-20,20),alert:false,targetId:null,provokedBy:null,attackType:def.kind,
-      speed:clamp(raw.speed,10,900)||def.speed,damage:clamp(raw.damage,0,5000)||def.damage,reach:clamp(raw.reach,40,900)||def.reach,wind:clamp(raw.wind,.1,4)||def.wind,kind:def.kind,r:clamp(raw.r,8,80)||def.r,
+    const boss=bosses.get(id),mobLevel=Math.floor(clamp(raw.mobLevel,1,200))||1,balanced=!boss&&def.kind!=='boss'?balancedRegularMobStats(type,mobLevel):null,rawMaxHp=clamp(raw.maxHp,1,9999999),maxHp=boss?boss.maxHp:(balanced?.maxHp||rawMaxHp),rawHpRatio=clamp((Number(raw.hp)||0)/Math.max(1,rawMaxHp),0,1),hp=boss?boss.hp:(balanced?Math.round(maxHp*rawHpRatio):clamp(raw.hp,0,maxHp)),x=clamp(raw.x,50,WORLD.width-50),y=clamp(raw.y,50,WORLD.height-50);
+    const m={id,type,mobLevel,x,y,sx:x,sy:y,hp,maxHp,dead:boss?!boss.alive:!!raw.dead,state:raw.dead?'dead':'idle',facing:clamp(raw.facing,-20,20),alert:false,targetId:null,provokedBy:null,attackType:def.kind,
+      speed:clamp(raw.speed,10,900)||def.speed,damage:balanced?.damage||(clamp(raw.damage,0,5000)||def.damage),reach:clamp(raw.reach,40,900)||def.reach,wind:clamp(raw.wind,.1,4)||def.wind,kind:def.kind,r:clamp(raw.r,8,80)||def.r,
       attackAt:0,recoverUntil:0,chargeUntil:0,chargeHit:false,locked:0,stunUntil:0,respawnAt:0,pattern:0,knockVX:0,knockVY:0,lastAttackAt:0,spawnZone:String(raw.spawnZone||'').slice(0,40),spawnZoneX:Number.isFinite(Number(raw.spawnZoneX))?clamp(raw.spawnZoneX,50,WORLD.width-50):x,spawnZoneY:Number.isFinite(Number(raw.spawnZoneY))?clamp(raw.spawnZoneY,50,WORLD.height-50):y,spawnZoneRadius:clamp(raw.spawnZoneRadius,0,1200),styleId:'',styleSlots:[],stylePattern:0,skillId:'',skillSlot:0,skillRange:0,styleHits:[],styleHitIndex:0,styleCastId:0,styleStartedAt:0,styleDuration:0,styleAnchorX:0,styleAnchorY:0,styleOriginX:0,styleOriginY:0,styleSide:1,styleWindTotal:0};
     if(type==='styleAdept'){const ids=Object.keys(STYLE_ADEPT_SKILLS),requested=String(raw.styleId||'');m.styleId=STYLE_ADEPT_SKILLS[requested]?requested:ids[(String(id).length+Math.round(x+y))%ids.length];m.styleSlots=Array.isArray(raw.styleSlots)?raw.styleSlots.slice(0,5).map(v=>clamp(v,0,4)|0):[0];if(!m.styleSlots.length)m.styleSlots=[0];}
     if(m.dead)m.respawnAt=Date.now()+(boss?Math.max(0,boss.respawnAt-Date.now()):NORMAL_MOB_RESPAWN_MS);authoritativeMobs.set(id,m);markMobDirty(m);
