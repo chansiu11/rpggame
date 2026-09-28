@@ -60,3 +60,24 @@ test('panel is reachable only by the title-screen hotkey and controls remain loc
  titleHidden=false;listeners.keydown({code:'F9',ctrlKey:true,shiftKey:true,preventDefault(){}});assert.equal(panel.open,true);assert.equal(node('aiDeviceControls').hidden,true);
  await events['ai:trainAuth']({ok:false,message:'Denied'});assert.equal(node('aiDeviceControls').hidden,true);assert.equal(node('aiDeviceMessage').textContent,'Denied');
 });
+
+test('new admin login triggers previous browser checkpoint save, sign-out and disables automatic re-login',async()=>{
+ const vm=await import('node:vm'),{readFileSync}=await import('node:fs');
+ const nodes=new Map(),events={},listeners={},sent=[],saved=[];let loggedOut=0,disconnected=0;
+ function node(id){if(nodes.has(id))return nodes.get(id);const n={id,hidden:false,value:'',textContent:'',classList:{contains:()=>false},appendChild(){},replaceChildren(){},addEventListener(t,fn){listeners[id+':'+t]=fn},focus(){},showModal(){this.open=true},close(){this.open=false}};nodes.set(id,n);return n;}
+ const panel=node('panel'),cloud={ready:Promise.resolve(),currentTrainingUid:()=> 'admin-test',loginTraining:async()=>{},logoutTraining:async()=>{loggedOut++},saveTraining:async p=>saved.push(p)};
+ const multi={state:{deviceTrainingProtocol:1},connected:false,on:(t,f)=>events[t]=f,training:(t,p)=>sent.push({type:t,...p}),connect:async function(){this.connected=true},disconnect(){this.connected=false;disconnected++}};
+ const c={console,Promise,Map,Object,JSON,String,structuredClone,setInterval:()=>1,clearInterval(){},localStorage:{getItem:()=>null,setItem(){}},document:{createElement:t=>t==='dialog'?panel:node(t),head:node('head'),body:node('body'),getElementById:node},EchoesMulti:multi,EchoesCloud:cloud,EchoesTrainingAccount:{clearGameSession(){}},addEventListener:(t,f)=>listeners[t]=f};
+ c.window=c;vm.createContext(c);vm.runInContext(readFileSync(new URL('../ai-device-panel.js',import.meta.url),'utf8'),c);
+ listeners.keydown({code:'F9',ctrlKey:true,shiftKey:true,preventDefault(){}});node('aiDevicePassword').value='test-secret';
+ await node('aiDeviceLogin').onsubmit({preventDefault(){}});
+ assert.equal(sent.find(m=>m.type==='Auth').manualLogin,true);
+ await events['ai:trainAuth']({ok:true,session:'test-session',loaded:true});
+ const checkpoint={schema:1,policy:{matches:42,styles:{gale:{games:42,wins:21,weights:[1,1,1]}}}};
+ events['ai:trainCheckpoint']({checkpoint,session:'test-session',revision:3,save:false});
+ await events['ai:trainReplaced']({session:'test-session',revision:3,checkpoint});
+ assert.equal(saved.at(-1).policy.matches,42);
+ assert.equal(sent.find(m=>m.type==='HandoffSaved').revision,3);
+ assert.equal(loggedOut,1);assert.equal(disconnected,1);assert.equal(node('aiDeviceControls').hidden,true);
+ const before=sent.length;events['reconnected']();assert.equal(sent.length,before,'Old computer must not silently authenticate again');
+});
