@@ -1,30 +1,54 @@
 (()=>{
 'use strict';
-let opened=false,authenticated=false,password='',session='',latest=null,saveQueue=Promise.resolve(),savedMatches=0,autoResume=false,reconnectAuth=false,wantedRunning=false,cloud=null,heartbeat=null;
-const panel=document.createElement('dialog');panel.id='aiDevicePanel';panel.innerHTML=`<form id="aiDeviceLogin"><h2>AI 훈련 관리자</h2><p>관리자 암호를 입력하세요. 저장에는 게임 계정 로그인이 필요합니다.</p><input id="aiDevicePassword" type="password" autocomplete="off" required aria-label="관리자 암호"><button>접속</button><button type="button" id="aiDeviceClose">닫기</button></form><section id="aiDeviceControls" hidden><h2>기기 연결 훈련</h2><p>이 화면을 열어 두세요. 다른 플레이어가 접속하면 훈련을 쉽니다.<br>25전 또는 5분마다 Firebase 저장 · 기기 절전/브라우저 종료 시 중지</p><div><button data-ai="Start">훈련 시작</button><button data-ai="Stop">중지·저장</button><button data-ai="Save">지금 저장</button><button data-ai="Versions">이전 기록</button><button data-ai="Close">종료</button></div><p id="aiDeviceStats"></p><pre id="aiDeviceStyles"></pre><div id="aiDeviceVersions"></div></section><p id="aiDeviceMessage" role="status"></p>`;
+let opened=false,authenticated=false,password='',session='',latest=null,saveQueue=Promise.resolve(),savedMatches=0,autoResume=false,reconnectAuth=false,wantedRunning=false,cloud=null,heartbeat=null,connecting=false,closing=false,stopAck=null;
+const panel=document.createElement('dialog');panel.id='aiDevicePanel';panel.innerHTML=`<form id="aiDeviceLogin"><h2>AI 훈련 관리자</h2><p>관리자 암호를 입력하면 훈련 전용 계정으로 전환합니다. 종료 시 자동 로그아웃됩니다.</p><input id="aiDevicePassword" type="password" autocomplete="off" required aria-label="관리자 암호"><button>접속</button><button type="button" id="aiDeviceClose">닫기</button></form><section id="aiDeviceControls" hidden><h2>기기 연결 훈련</h2><p>이 화면을 열어 두세요. 다른 플레이어가 접속하면 훈련을 쉽니다.<br>25전 또는 5분마다 Firebase 저장 · 기기 절전/브라우저 종료 시 중지</p><div><button data-ai="Start">훈련 시작</button><button data-ai="Stop">중지·저장</button><button data-ai="Save">지금 저장</button><button data-ai="Versions">이전 기록</button><button data-ai="Close">종료</button></div><p id="aiDeviceStats"></p><pre id="aiDeviceStyles"></pre><div id="aiDeviceVersions"></div></section><p id="aiDeviceMessage" role="status"></p>`;
 const style=document.createElement('style');style.textContent='#aiDevicePanel{max-width:700px;width:90vw;max-height:85vh;overflow:auto;background:#13272f;color:#e1eadc;border:1px solid #a5b784;border-radius:12px;padding:24px;z-index:200}#aiDevicePanel::backdrop{background:#000b}#aiDevicePanel input{padding:12px;color:#fff;background:#0b1c24;border:1px solid #789;border-radius:5px}#aiDevicePanel button{margin:5px}#aiDevicePanel pre{white-space:pre-wrap;font:14px/1.9 system-ui}#aiDeviceMessage{color:#e5c98d;line-height:1.7}';document.head.appendChild(style);document.body.appendChild(panel);
 const $=id=>document.getElementById(id),m=window.EchoesMulti;
 const tell=text=>$('aiDeviceMessage').textContent=text;
-const key=()=> 'echoes-ai-checkpoint-v1:'+cloud.currentUid();
+const key=()=> 'echoes-ai-checkpoint-v1:'+cloud.currentTrainingUid();
 function localRead(){try{return JSON.parse(localStorage.getItem(key())||'null')}catch{return null}}
 function localWrite(c){try{localStorage.setItem(key(),JSON.stringify(c))}catch{}}
 function send(type,data={}){return m.training(type,data)}
 function show(){if(opened||document.getElementById('title')?.classList.contains('hidden'))return;opened=true;panel.showModal();$('aiDevicePassword').focus();tell('');}
-async function close(){autoResume=false;wantedRunning=false;send('Stop');if(latest&&cloud){try{await saveQueue;await cloud.saveTraining(latest)}catch{localWrite(latest)}}send('Leave');m?.disconnect();clearInterval(heartbeat);heartbeat=null;opened=false;authenticated=false;password='';$('aiDevicePassword').value='';$('aiDeviceControls').hidden=true;$('aiDeviceLogin').hidden=false;panel.close();}
+async function close(){
+ if(closing||connecting)return;closing=true;autoResume=false;wantedRunning=false;
+ try{
+ if(authenticated){
+ tell('훈련을 중지하고 저장한 뒤 로그아웃합니다…');
+ await new Promise(resolve=>{const timer=setTimeout(()=>{stopAck=null;resolve();},3000);stopAck=()=>{clearTimeout(timer);stopAck=null;resolve();};send('Stop');});
+ await saveQueue;if(latest){try{await cloud.saveTraining(latest);}catch(e){localWrite(latest);tell('Firebase 저장 실패 · 기기에 복구 기록을 남겼습니다. 다시 종료하면 저장을 재시도합니다.');return;}}
+ }
+ send('Leave');m?.disconnect();clearInterval(heartbeat);heartbeat=null;
+ await cloud?.logoutTraining?.();opened=false;authenticated=false;password='';latest=null;session='';savedMatches=0;reconnectAuth=false;
+ $('aiDevicePassword').value='';$('aiDeviceControls').hidden=true;$('aiDeviceLogin').hidden=false;panel.close();
+ }finally{closing=false;}
+}
 window.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&e.code==='F9'){e.preventDefault();show();}},true);
 panel.addEventListener('cancel',e=>{e.preventDefault();close()});$('aiDeviceClose').onclick=close;
-$('aiDeviceLogin').onsubmit=async e=>{e.preventDefault();try{cloud=window.EchoesCloud;await cloud?.ready;cloud=window.EchoesCloud;if(!cloud?.currentUid?.()||!cloud.saveTraining)throw Error('먼저 게임 계정에 로그인한 뒤 다시 열어 주세요.');password=$('aiDevicePassword').value;if(!password)throw Error('관리자 암호를 입력하세요.');tell('서버에 연결하고 있습니다…');if(m.connected)m.disconnect();await m.connect({name:'AI Training',accountId:'ai-training:'+cloud.currentUid(),level:1,weapon:0,mode:'pvp'});if(!opened)return;if(m.state.deviceTrainingProtocol!==1)throw Error('서버에 새 훈련 기능이 아직 배포되지 않았습니다.');send('Auth',{password});}catch(e){tell(e.message)}};
-m?.on('ai:trainAuth',async msg=>{if(!opened)return;if(!msg.ok){tell(msg.message);return;}authenticated=true;session=msg.session;$('aiDevicePassword').value='';$('aiDeviceLogin').hidden=true;$('aiDeviceControls').hidden=false;clearInterval(heartbeat);heartbeat=setInterval(()=>{if(opened&&authenticated)send('Beat')},10000);send('Beat');tell('관리자 인증 완료 · 저장 기록 확인 중…');
+$('aiDeviceLogin').onsubmit=async e=>{
+ e.preventDefault();if(connecting||closing)return;connecting=true;
+ try{
+ if(typeof window.waitForCloudAuth==='function')await window.waitForCloudAuth();
+ cloud=window.EchoesCloud;await cloud?.ready;cloud=window.EchoesCloud;
+ if(!cloud?.loginTraining)throw Error('훈련 로그인 모듈을 불러오지 못했습니다. 새로고침해 주세요.');
+ password=$('aiDevicePassword').value;if(!password)throw Error('관리자 암호를 입력하세요.');
+ tell('훈련 전용 계정에 로그인하고 있습니다…');
+ await cloud.loginTraining(password);window.EchoesTrainingAccount?.clearGameSession();
+ if(m.connected)m.disconnect();await m.connect({name:'AI Training',accountId:'ai-training:'+cloud.currentTrainingUid(),level:1,weapon:0,mode:'pvp'});
+ if(m.state.deviceTrainingProtocol!==1)throw Error('서버에 새 훈련 기능이 아직 배포되지 않았습니다.');send('Auth',{password});
+ }catch(e){await cloud?.logoutTraining?.();password='';m?.disconnect();tell(cloud?.message?.(e)||e.message);}finally{connecting=false;}
+};
+m?.on('ai:trainAuth',async msg=>{if(!opened)return;if(!msg.ok){password='';await cloud?.logoutTraining?.();m?.disconnect();tell(msg.message);return;}authenticated=true;session=msg.session;$('aiDevicePassword').value='';$('aiDeviceLogin').hidden=true;$('aiDeviceControls').hidden=false;clearInterval(heartbeat);heartbeat=setInterval(()=>{if(opened&&authenticated)send('Beat')},10000);send('Beat');tell('관리자 인증 완료 · 저장 기록 확인 중…');
  if(!msg.loaded){try{const remote=await cloud.loadTraining(),local=localRead();const chosen=local&&(!remote||local.policy.matches>remote.policy.matches||local.policy.matches===remote.policy.matches&&local.policy.generation>remote.policy.generation)?local:remote;send('Load',{checkpoint:chosen||null});}catch(e){tell('Firebase 불러오기 실패: '+e.message);autoResume=false;}}
 });
 m?.on('ai:trainCheckpoint',msg=>{if(!authenticated||msg.session!==session)return;latest=msg.checkpoint;localWrite(latest);$('aiDeviceStyles').textContent=Object.entries(latest.policy.styles).map(([id,s])=>`${{gale:'질풍',void:'이형',dawn:'여명'}[id]} · ${s.games}전 · ${s.wins}승 · 전술 ${s.weights.map(n=>n.toFixed(2)).join(' / ')}`).join('\n');if(!msg.save)return;
  const c=structuredClone(msg.checkpoint),rev=msg.revision,sid=msg.session;
  saveQueue=saveQueue.then(async()=>{try{await cloud.saveTraining(c);savedMatches=c.policy.matches;if(authenticated&&session===sid){send('Saved',{session:sid,revision:rev,matches:savedMatches});tell('Firebase 저장 완료 · '+savedMatches+'전');if(autoResume){autoResume=false;send('Start');}}}catch(e){autoResume=false;send('SaveFailed');tell('저장 실패 · 훈련을 멈췄습니다: '+e.message);}});
 });
-m?.on('ai:trainStatus',s=>{if(!authenticated)return;$('aiDeviceStats').textContent=`${s.running?s.paused==='players'?'플레이어 접속 중 · 훈련 휴식':s.paused==='save-error'?'저장 오류 · 훈련 휴식':'자동 훈련 중':'훈련 중지'} · 누적 ${s.matches}전 · Firebase 저장 ${savedMatches}전`;if(s.error)tell(s.error);});
+m?.on('ai:trainStatus',s=>{if(!authenticated)return;if(!s.running)stopAck?.();$('aiDeviceStats').textContent=`${s.running?s.paused==='players'?'플레이어 접속 중 · 훈련 휴식':s.paused==='save-error'?'저장 오류 · 훈련 휴식':'자동 훈련 중':'훈련 중지'} · 누적 ${s.matches}전 · Firebase 저장 ${savedMatches}전`;if(s.error)tell(s.error);});
 m?.on('ai:trainError',s=>tell(s.message));
-m?.on('connection',s=>{if(opened&&authenticated&&!s.connected){reconnectAuth=true;authenticated=false;autoResume=wantedRunning;tell('연결 끊김 · 서버 훈련이 중지되며 재연결 후 저장 기록으로 재개합니다.');}});
-m?.on('reconnected',()=>{if(opened&&(reconnectAuth||password)){autoResume=wantedRunning;reconnectAuth=false;send('Auth',{password})}});
-panel.onclick=async e=>{const action=e.target.dataset.ai;if(!action)return;if(action==='Close'){close();return;}try{if(action==='Versions'){const versions=await cloud.trainingVersions();$('aiDeviceVersions').replaceChildren();for(const v of versions){const button=document.createElement('button');button.textContent=`${v.matches}전 · ${v.generation}세대 복원`;button.onclick=async()=>{try{send('Stop');const c=await cloud.loadTrainingVersion(v.id);send('Load',{checkpoint:c});}catch(e){tell(e.message)}};$('aiDeviceVersions').appendChild(button)}return;}if(action==='Start')wantedRunning=true;if(action==='Stop'){wantedRunning=false;autoResume=false;}send(action);}catch(e){tell(e.message)}};
-window.addEventListener('beforeunload',()=>{if(authenticated){send('Stop');send('Leave')}});
+m?.on('connection',s=>{if(opened&&authenticated&&!closing&&!s.connected){reconnectAuth=true;authenticated=false;autoResume=wantedRunning;tell('연결 끊김 · 서버 훈련이 중지되며 재연결 후 저장 기록으로 재개합니다.');}});
+m?.on('reconnected',()=>{if(opened&&!closing&&(reconnectAuth||password)){autoResume=wantedRunning;reconnectAuth=false;send('Auth',{password})}});
+panel.onclick=async e=>{const action=e.target.dataset.ai;if(!action)return;if(action==='Close'){close();return;}if(closing||connecting)return;try{if(action==='Versions'){const versions=await cloud.trainingVersions();$('aiDeviceVersions').replaceChildren();for(const v of versions){const button=document.createElement('button');button.textContent=`${v.matches}전 · ${v.generation}세대 복원`;button.onclick=async()=>{try{send('Stop');const c=await cloud.loadTrainingVersion(v.id);send('Load',{checkpoint:c});}catch(e){tell(e.message)}};$('aiDeviceVersions').appendChild(button)}return;}if(action==='Start')wantedRunning=true;if(action==='Stop'){wantedRunning=false;autoResume=false;}send(action);}catch(e){tell(e.message)}};
+window.addEventListener('beforeunload',()=>{if(authenticated){send('Stop');send('Leave')}cloud?.logoutTraining?.();});
 })();

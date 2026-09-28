@@ -1,4 +1,5 @@
 const config = window.ECHOES_FIREBASE_CONFIG;
+const TRAINING_ACCOUNT='gkrtmqrhksflwk';
 
 function normalizeUser(v){
   return String(v || '').trim().toLowerCase();
@@ -57,6 +58,13 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
       setTimeout(finish,2500);
     });
 
+    // Training credentials and session stay in memory in a separate Auth instance.
+    const trainingApp=appMod.initializeApp(config,'ai-training');
+    const trainingAuth=authMod.getAuth(trainingApp);
+    const trainingDb=storeMod.getFirestore(trainingApp);
+    await authMod.setPersistence(trainingAuth,authMod.inMemoryPersistence);
+    if(auth.currentUser?.email===authEmail(TRAINING_ACCOUNT))await authMod.signOut(auth);
+
     async function profile(uid){
       const snap=await storeMod.getDoc(storeMod.doc(db,'users',uid));
       return snap.exists()?snap.data():null;
@@ -67,27 +75,35 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
       ready:cloudReady,
       message:friendlyMessage,
       currentUid:()=>auth.currentUser?.uid||null,
+      currentTrainingUid:()=>trainingAuth.currentUser?.uid||null,
+      async loginTraining(password){
+        const cred=await authMod.signInWithEmailAndPassword(trainingAuth,authEmail(TRAINING_ACCOUNT),password);
+        try{await authMod.signOut(auth);}catch(e){await authMod.signOut(trainingAuth);throw e;}
+        return {uid:cred.user.uid,username:TRAINING_ACCOUNT};
+      },
+      async logoutTraining(){await authMod.signOut(trainingAuth);},
       async saveTraining(checkpoint){
-        const u=auth.currentUser;if(!u)throw new Error('게임 계정 로그인이 필요합니다.');
+        const u=trainingAuth.currentUser;if(!u)throw new Error('게임 계정 로그인이 필요합니다.');
         if(!checkpoint||checkpoint.schema!==1)throw new Error('학습 기록 형식 오류');
-        const batch=storeMod.writeBatch(db),value={checkpoint,updatedAt:storeMod.serverTimestamp()};batch.set(storeMod.doc(db,'users',u.uid,'aiTraining','main'),value);batch.set(storeMod.doc(db,'users',u.uid,'aiTrainingVersions','v-'+Date.now()+'-'+crypto.randomUUID()),value);await batch.commit();return true;
+        const batch=storeMod.writeBatch(trainingDb),value={checkpoint,updatedAt:storeMod.serverTimestamp()};batch.set(storeMod.doc(trainingDb,'users',u.uid,'aiTraining','main'),value);batch.set(storeMod.doc(trainingDb,'users',u.uid,'aiTrainingVersions','v-'+Date.now()+'-'+crypto.randomUUID()),value);await batch.commit();return true;
       },
       async trainingVersions(){
-        const u=auth.currentUser;if(!u)throw new Error('로그인이 필요합니다.');
-        const snaps=await storeMod.getDocs(storeMod.query(storeMod.collection(db,'users',u.uid,'aiTrainingVersions'),storeMod.orderBy('updatedAt','desc'),storeMod.limit(20)));
+        const u=trainingAuth.currentUser;if(!u)throw new Error('로그인이 필요합니다.');
+        const snaps=await storeMod.getDocs(storeMod.query(storeMod.collection(trainingDb,'users',u.uid,'aiTrainingVersions'),storeMod.orderBy('updatedAt','desc'),storeMod.limit(20)));
         return snaps.docs.map(d=>({id:d.id,matches:d.data().checkpoint.policy.matches,generation:d.data().checkpoint.policy.generation}));
       },
       async loadTrainingVersion(id){
-        const u=auth.currentUser;if(!u||!/^v-[a-zA-Z0-9-]+$/.test(id))throw new Error('잘못된 기록입니다.');
-        const snap=await storeMod.getDoc(storeMod.doc(db,'users',u.uid,'aiTrainingVersions',id));if(!snap.exists())throw new Error('기록이 없습니다.');return snap.data().checkpoint;
+        const u=trainingAuth.currentUser;if(!u||!/^v-[a-zA-Z0-9-]+$/.test(id))throw new Error('잘못된 기록입니다.');
+        const snap=await storeMod.getDoc(storeMod.doc(trainingDb,'users',u.uid,'aiTrainingVersions',id));if(!snap.exists())throw new Error('기록이 없습니다.');return snap.data().checkpoint;
       },
       async loadTraining(){
-        const u=auth.currentUser;if(!u)throw new Error('게임 계정 로그인이 필요합니다.');
-        const snap=await storeMod.getDoc(storeMod.doc(db,'users',u.uid,'aiTraining','main'));return snap.exists()?snap.data().checkpoint:null;
+        const u=trainingAuth.currentUser;if(!u)throw new Error('게임 계정 로그인이 필요합니다.');
+        const snap=await storeMod.getDoc(storeMod.doc(trainingDb,'users',u.uid,'aiTraining','main'));return snap.exists()?snap.data().checkpoint:null;
       },
       async register(username,password){
         const displayName=String(username||'').trim();
         const userKey=normalizeUser(displayName);
+        if(userKey===TRAINING_ACCOUNT)throw new Error('훈련 전용 계정입니다. 첫 화면에서 Ctrl + Shift + F9로 접속하세요.');
         const cred=await authMod.createUserWithEmailAndPassword(auth,authEmail(userKey),password);
         let profileSynced=true;
         try{
@@ -104,6 +120,7 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
       },
       async login(username,password){
         const userKey=normalizeUser(username);
+        if(userKey===TRAINING_ACCOUNT)throw new Error('훈련 전용 계정입니다. 첫 화면에서 Ctrl + Shift + F9로 접속하세요.');
         const cred=await authMod.signInWithEmailAndPassword(auth,authEmail(userKey),password);
         let p=null;
         try{p=await profile(cred.user.uid);}catch(err){console.warn('프로필 불러오기 지연:',err);}
