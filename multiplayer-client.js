@@ -24,7 +24,7 @@ const state={
   socket:null,connected:false,connecting:false,selfId:null,
   players:new Map(),bosses:new Map(),party:null,pendingInvite:null,
   world:null,worldRole:{leaderId:null,isLeader:false},worldSnapshot:{mobs:[],items:[],updatedAt:0},worldRevision:0,takenItems:new Set(),
-  profile:null,lastError:'',partyMax:4,pvpRuleset:'',serverBuild:'',clientSessionId:getClientSessionId(),reconnectTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
+  profile:null,lastError:'',partyMax:4,pvpRuleset:'',serverBuild:'',clientSessionId:getClientSessionId(),reconnectTimer:null,reconnectGraceTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
 };
 function emit(type,payload){
   const set=listeners.get(type);if(!set)return;
@@ -116,8 +116,8 @@ function handle(msg){
 function scheduleReconnect(){
   if(state.manualClose||!state.profile||state.reconnectTimer)return;
   state.reconnectAttempts++;
-  const delay=Math.min(8000,800*Math.pow(1.65,Math.min(6,state.reconnectAttempts-1)));
-  emit('reconnecting',{attempt:state.reconnectAttempts,delay});
+  const delay=state.reconnectAttempts===1?180:Math.min(8000,650*Math.pow(1.65,Math.min(6,state.reconnectAttempts-2)));
+  if(state.reconnectAttempts>1)emit('reconnecting',{attempt:state.reconnectAttempts,delay});
   state.reconnectTimer=setTimeout(()=>{
     state.reconnectTimer=null;
     connect(state.profile,true).catch(()=>scheduleReconnect());
@@ -151,16 +151,20 @@ function connect(profile={},reconnecting=false){
           if(!settled){settled=true;clearTimeout(timer);clearTimeout(waiting);connectingPromise=null;reject(new Error('멀티플레이 서버 통신 규격이 현재 게임과 맞지 않습니다.'));}
           return;
         }
+        const wasRecovering=reconnecting||state.reconnectAttempts>0;
         state.connected=true;state.connecting=false;state.reconnectAttempts=0;
-        emit('connection',{connected:true,reconnected:reconnecting});
-        if(reconnecting)emit('reconnected',{});
+        if(state.reconnectGraceTimer){clearTimeout(state.reconnectGraceTimer);state.reconnectGraceTimer=null;}
+        emit('connection',{connected:true,reconnected:wasRecovering});
+        if(wasRecovering)emit('reconnected',{brief:true});
         if(!settled){settled=true;clearTimeout(timer);clearTimeout(waiting);connectingPromise=null;resolve(true);}
       }
     });
     ws.addEventListener('close',()=>{
       clearTimeout(timer);clearTimeout(waiting);if(state.socket!==ws){if(!settled){settled=true;reject(new Error('연결이 취소되었습니다.'));}return;}connectingPromise=null;const shouldReconnect=!state.manualClose&&!!state.profile&&(opened||reconnecting);
-      state.connected=false;state.connecting=false;if(state.socket===ws)state.socket=null;state.selfId=null;state.party=null;
-      emit('connection',{connected:false,reconnecting:shouldReconnect});
+      state.connected=false;state.connecting=false;if(state.socket===ws)state.socket=null;
+      if(shouldReconnect){
+        if(!state.reconnectGraceTimer)state.reconnectGraceTimer=setTimeout(()=>{state.reconnectGraceTimer=null;if(!state.connected&&!state.manualClose){state.selfId=null;state.party=null;emit('connection',{connected:false,reconnecting:true});emit('reconnecting',{attempt:Math.max(1,state.reconnectAttempts),delay:0});}},2200);
+      }else{state.selfId=null;state.party=null;emit('connection',{connected:false,reconnecting:false});}
       if(!settled){settled=true;reject(new Error('멀티플레이 서버에 연결하지 못했습니다.'));}
       if(shouldReconnect)scheduleReconnect();
     });
@@ -170,6 +174,7 @@ function connect(profile={},reconnecting=false){
 function disconnect(){
   connectingPromise=null;state.manualClose=true;state.profile=null;state.reconnectAttempts=0;
   if(state.reconnectTimer){clearTimeout(state.reconnectTimer);state.reconnectTimer=null;}
+  if(state.reconnectGraceTimer){clearTimeout(state.reconnectGraceTimer);state.reconnectGraceTimer=null;}
   try{state.socket?.close();}catch{}
   state.connected=false;state.connecting=false;state.socket=null;state.players.clear();state.party=null;state.selfId=null;
 }
