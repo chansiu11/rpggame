@@ -1036,8 +1036,9 @@ function canAct(){const forceBlock=multiplayerMode&&(worldForce||performance.now
 function skillActionBusy(){
  return !!(activeSwordSkill||standardSkillHold||hiddenSkillHold||hiddenSkillEvents.length||secondSkillDash||secondSkillArmed||fourthSkillHold||fourthSkillField||(player?.cast>0&&player?.skillPose>=0));
 }
+function basicAttackHeld(){return mouse.down||touchAttackPointer!==null||keys.has('KeyZ');}
 function cancelBasicAttackForSkill(){
- if(!player||skillActionBusy())return false;
+ if(!player||skillActionBusy()||basicAttackHeld())return false;
  if(player.attackCd>0||player.attackAnim>0){
   player.attackCd=0;player.attackAnim=0;player.attackDuration=0;player.heavy=false;player.strikePose=0;basicAttackLockUntil=0;bufferedAction=null;pendingAttack=false;
  }
@@ -1564,6 +1565,7 @@ function hiddenSkillCanStart(index,allowFollow=false){const s=HIDDEN_SKILLS[inde
 function hiddenCommit(index){const s=skillInfo(index);if(!s||player.weapon!==3||!useStam(s.cost))return false;if(!Array.isArray(player.hiddenSkillCds))player.hiddenSkillCds=[0,0,0,0,0];player.hiddenSkillCds[index]=s.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.hiddenSkillCds[0];player.skillPose=index;player.combo=0;player.comboTimer=0;player.heavy=true;updateSkillTray();return true;}
 function hiddenPrepareFx(h,dt){h.fx-=dt;if(h.fx>0)return;h.fx=.11;const c=HIDDEN_SKILLS[h.index].color,r=38;ring(player.x,player.y,r,c,.22);effects.push({type:'starSeal',x:player.x,y:player.y,r:92,color:c,t:.24,max:.24});for(let j=0;j<4;j++){const a=h.facing+(j-1.5)*.28,d=78;effects.push({type:'line',x:player.x+Math.cos(a)*14,y:player.y+Math.sin(a)*14,x2:player.x+Math.cos(a)*d,y2:player.y+Math.sin(a)*d,color:j%2?'#ffffff':c,t:.18,max:.18});}}
 function beginHiddenSkillInput(index){
+ if(basicAttackHeld())return false;
  const s=HIDDEN_SKILLS[index];if(!s||player.weapon!==3||(!canAct()&&!hiddenFollowReady(index)))return false;
  if(!hiddenFollowReady(index)&&!cancelBasicAttackForSkill())return false;
  const follow=index===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires&&hiddenSkillFollowup.targets.some(e=>e&&!e.dead&&!e.riftSleeping);
@@ -1735,8 +1737,8 @@ function cancelShieldForSkill(){
 function standardSkillCanPrepare(index){
  const sk=skillInfo(index);if(!sk||sk.locked||!canAct())return false;
  if(player.weapon!==4&&player.level<sk.level)return false;
- if(!cancelBasicAttackForSkill())return false;
- return !(standardSkillHold||activeSwordSkill||player.exhaust>0||player.cast>0||player.attackCd>0||player.dodge>0||player.skillCds[index]>0);
+ if(standardSkillHold||activeSwordSkill||player.exhaust>0||player.cast>0||player.dodge>0||player.skillCds[index]>0)return false;
+ return cancelBasicAttackForSkill();
 }
 
 function endVoid3World(){void3State=null;}
@@ -1857,6 +1859,7 @@ function updateStandardSkillPrepare(dt){
 }
 
 function skill(index=0){
+ if(basicAttackHeld())return;
  if(typeof index!=='number')index=0;const sk=skillInfo(index);if(!sk||(!canAct()&&!hiddenFollowReady(index)))return;
  if(sk.locked){toast('이 슬롯에는 검술이 장착되어 있지 않습니다. 스킬 메뉴에서 장착하세요.');return;}
  if(player.weapon!==4&&player.level<sk.level){toast('레벨 '+sk.level+'에 '+sk.name+' 사용 가능');return;}
@@ -3318,7 +3321,7 @@ $('accountLogin').addEventListener('click',()=>showAuth('login'));
 $('accountRegister').addEventListener('click',()=>showAuth('register'));
 $('accountLogout').addEventListener('click',logoutAccount);
 const actions={attack,dash,parry,skill:toggleSkillTray,potion,manaPotion,interact};
-function pressSkillWithBasicGrace(index){const ok=player.weapon===3?beginHiddenSkillInput(index):beginStandardSkillInput(index);if(ok){skillBasicGraceUntil=performance.now()+100;skillBasicGraceUsed=false;}return ok;}
+function pressSkillWithBasicGrace(index){if(basicAttackHeld())return false;const ok=player.weapon===3?beginHiddenSkillInput(index):beginStandardSkillInput(index);if(ok){skillBasicGraceUntil=performance.now()+100;skillBasicGraceUsed=false;}return ok;}
 $('skillTray').addEventListener('pointerdown',e=>{const b=e.target.closest('[data-skill]');if(!b||b.disabled)return;e.preventDefault();const index=+b.dataset.skill,hidden=player.weapon===3;const ok=pressSkillWithBasicGrace(index);if(ok){skillTrayPress={pointerId:e.pointerId,index,hidden};b.setPointerCapture?.(e.pointerId);}});
 function releaseSkillTrayPress(e){if(!skillTrayPress||skillTrayPress.pointerId!==e.pointerId)return;const p=skillTrayPress;skillTrayPress=null;if(p.hidden)releaseHiddenSkillInput(p.index);else releaseStandardSkillInput(p.index);}
 $('skillTray').addEventListener('pointerup',releaseSkillTrayPress);$('skillTray').addEventListener('pointercancel',releaseSkillTrayPress);$('skillTray').addEventListener('lostpointercapture',releaseSkillTrayPress);
@@ -4196,7 +4199,10 @@ function sendProjectile(a,speed,d,opts={}){
 }
 function useStam(n){if(me.stam<n)return false;me.stam-=n;me.stamDelay=.5;return true}
 function cdrScale(){return (me.rune==='dawn'?.8:1)*(1-clamp(me.cdr||0,0,.25))}
-function skillReady(i){return me&&running&&!roundLocked&&me.cool[i]<=0&&me.stun<=0&&me.exhaust<=0&&!me.skillHold&&!me.skillEvent&&me.attackCd<=0}
+function pvpBasicHeld(){return mouse.down||keys.has(pkey('KeyZ'));}
+function pvpBasicCancelable(){return !!me&&performance.now()<(me.basicAttackLockUntil||0)&&!pvpBasicHeld();}
+function cancelPvpBasicForSkill(){if(!pvpBasicCancelable())return;me.attackCd=0;me.attackAnim=0;me.attackDuration=.26;me.basicAttackLockUntil=0;me.basicMoveSlow=0;}
+function skillReady(i){return me&&running&&!roundLocked&&me.cool[i]<=0&&me.stun<=0&&me.exhaust<=0&&!me.skillHold&&!me.skillEvent&&(me.attackCd<=0||pvpBasicCancelable())}
 function pvpMouseAimActive(){return mouse.active&&performance.now()-(mouse.lastMove||0)<450}
 function aimAngle(){if(pvpMouseAimActive()){const r=canvas.getBoundingClientRect(),sx=mouse.x*(W/r.width),sy=mouse.y*(H/r.height),wx=pvpCamera.x+(sx-W*.5),wy=pvpCamera.y+(sy-H*.5);return Math.atan2(wy-me.y,wx-me.x)}if(enemy&&enemy.hp>0)return Math.atan2(enemy.y-me.y,enemy.x-me.x);return me.a}
 function combatAimAngle(fallback=me.a){if(pvpMouseAimActive())return aimAngle();if(enemy&&enemy.hp>0)return Math.atan2(enemy.y-me.y,enemy.x-me.x);return fallback}
@@ -4206,7 +4212,7 @@ function targetNear(range){return enemy&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=
 function enemyInRect(a,forward,half,back=0){if(!enemy)return false;const dx=enemy.x-me.x,dy=enemy.y-me.y,front=dx*Math.cos(a)+dy*Math.sin(a),side=-dx*Math.sin(a)+dy*Math.cos(a);return front>=-back-enemy.r&&front<=forward+enemy.r&&Math.abs(side)<=half+enemy.r}
 function enemyInArc(a,range,arc){if(!enemy)return false;const dx=enemy.x-me.x,dy=enemy.y-me.y,d=Math.hypot(dx,dy);return d<=range+enemy.r&&Math.abs(angleDiff(Math.atan2(dy,dx),a))<=arc/2+enemy.r/Math.max(30,d)}
 function queuePostSkillLock(duration){me.postSkillLock=Math.max(me.postSkillLock,duration)}
-function commitSkill(i,cost=null,cd=null){const sk=me?.weapon<2?pvpSwordSkillAt(i):null;if(cost==null)cost=sk?.cost??SKILL_COST[i];if(cd==null)cd=sk?.cool??SKILL_CD[i];if(me.cool[i]>0||!useStam(cost))return false;me.cool[i]=cd*cdrScale();me.skillPose=i;me.combo=0;me.comboTimer=0;return true}
+function commitSkill(i,cost=null,cd=null){const sk=me?.weapon<2?pvpSwordSkillAt(i):null;if(cost==null)cost=sk?.cost??SKILL_COST[i];if(cd==null)cd=sk?.cool??SKILL_CD[i];if(me.cool[i]>0||!useStam(cost))return false;cancelPvpBasicForSkill();me.cool[i]=cd*cdrScale();me.skillPose=i;me.combo=0;me.comboTimer=0;return true}
 function startWorldSwordHold(i,sk){if(!skillReady(i)||!sk?.holdContinuous||!commitSkill(i,sk.cost,sk.cool))return false;const max=Math.max(.25,Number(sk.holdMax)||Number(sk.cfg?.duration)||2),a=combatAimAngle();me.a=a;me.skillPose=i;me.skillKind=sk.cfg?.mode||'worldSwordHold';me.skillHold={kind:'worldSwordHold',index:i,elapsed:0,max,a,skill:sk,tick:0,nextBlink:0,fx:0,side:1,ultimate:i===4,releaseQueued:false,carry:false,ultPhase:0,ultFx:0,authoritativeCarry:sk.id==='voidDance',blinkStep:0};me.attackDuration=max;me.attackAnim=max;me.attackCd=max;me.combo=0;me.comboTimer=0;if(sk.cfg?.mode!=='holdGravityBlink')me.moveLock=Math.max(me.moveLock||0,.05);if(i===4&&sk.id==='thunderDrive'){
   ring(me.x,me.y,115,sk.accent||sk.sub||'#2ec9ff',.38,true);
   ring(me.x,me.y,64,sk.color||'#61f0c7',.38,true);
@@ -4226,11 +4232,11 @@ function startSwordGDash(h){if(h.committed)return; if(!commitSkill(3)){me.skillH
 function startSwordGField(){if(!targetNear(100)){me.skillHold=null;me.skillPose=-1;me.skillKind='';return}if(!commitSkill(3)){me.skillHold=null;return}me.skillHold={kind:'swordGField',index:3,elapsed:0,max:2,tick:0};me.skillKind='swordGField';triggerPvpShake(3,.9,true);nova(me.x,me.y,90,'#ffd18b',.38,true)}
 function finishSwordG(){const h=me.skillHold;if(!h)return;if(h.kind==='swordGPrepare'){startSwordGField();return}if(h.kind==='swordGDash'){h.kind='swordGField';h.elapsed=0;h.max=2;h.tick=0;me.skillKind='swordGField';nova(me.x,me.y,90,'#ffd18b',.4,true);return}}
 function startBowSkill(i,preparedA=null){if(!skillReady(i)||!commitSkill(i))return false;const durations=[.5,.38,.65,.75,.8],a=Number.isFinite(preparedA)?preparedA:combatAimAngle(),sk=bowSkillData[i]||{},color=sk.color||['#a5f1d8','#9ddfff','#d2b4ff','#ffd18b','#ffcaeb'][i];me.a=a;me.attackDuration=me.attackAnim=durations[i];me.attackCd=durations[i];me.moveLock=durations[i];queuePostSkillLock(durations[i]);triggerPvpShake(i,.9,true);const fire=(aa,sp,mul,pierce=1)=>sendProjectile(aa,sp,pvpSkillAttack(me)*mul,{pierce,stun:.22,force:0});if(i===0)for(let j=-1;j<=1;j++)fire(a+j*.15,680,1.35);if(i===1)fire(a,950,3.7,5);if(i===2){me.x=clamp(me.x-Math.cos(a)*100,25,ARENA_W-25);me.y=clamp(me.y-Math.sin(a)*100,25,ARENA_H-25);me.inv=.22;net({t:'teleport',x:me.x,y:me.y,a:me.a});for(let j=-2;j<=2;j++)fire(a+j*.12,680,1.3)}if(i===3)for(let j=-3;j<=3;j++)fire(a+j*.09,600+j*25,1.5,2);if(i===4)for(let j=-4;j<=4;j++)fire(a+j*.08,850,1.8,3);if(i===0){for(let j=-1;j<=1;j++)beamFx(me.x,me.y,me.x+Math.cos(a+j*.15)*135,me.y+Math.sin(a+j*.15)*135,color,.22,true)}if(i===1)riftCutFx(me.x+Math.cos(a)*70,me.y+Math.sin(a)*70,a,190,14,color,.26,true);if(i===2){nova(me.x,me.y,72,color,.32,true);beamFx(me.x,me.y,me.x-Math.cos(a)*120,me.y-Math.sin(a)*120,'#ffffff',.26,true)}if(i===3)for(let j=0;j<3;j++)ring(me.x+Math.cos(a)*(45+j*24),me.y+Math.sin(a)*(45+j*24),32+j*11,color,.2+j*.04,true);if(i===4){sealFx(me.x,me.y,96,color,.42,true);nova(me.x+Math.cos(a)*80,me.y+Math.sin(a)*80,120,'#ffffff',.36,true)}ring(me.x,me.y,25,color,.25,true);return true}
-function hiddenCanStart(i,follow=false){if(!me||me.weapon!==3||(!follow&&me.stun>0)||me.exhaust>0||me.block||me.dash>0||me.skillHold||me.skillEvent)return false;if(follow)return true;return me.attackCd<=0&&me.cool[i]<=0}
+function hiddenCanStart(i,follow=false){if(!me||me.weapon!==3||(!follow&&me.stun>0)||me.exhaust>0||me.block||me.dash>0||me.skillHold||me.skillEvent)return false;if(follow)return true;return (me.attackCd<=0||pvpBasicCancelable())&&me.cool[i]<=0}
 function beginHidden(i){
  const follow=i===1&&me.followMarked&&performance.now()<me.followUntil&&enemy&&enemy.hp>0;if(!hiddenCanStart(i,follow))return false;const skill=HIDDEN_SKILLS[i],a=aimAngle();me.a=a;me.skillPose=i;triggerPvpShake(i,i===4?1.12:1,true);
  if(i===0)return triggerHiddenPrepared(0,moveAngle(a));
- if(i===1){if(follow){hiddenFollow();return true}return triggerHiddenPrepared(1,a);}
+ if(i===1){if(follow){if(!hiddenFollow())return false;cancelPvpBasicForSkill();return true}return triggerHiddenPrepared(1,a);}
  if(!commitSkill(i,skill.cost,skill.cool)){me.skillPose=-1;return false;}
  if(i===2){me.skillHold={kind:'hidden3',index:i,elapsed:0,max:5,a,tick:0,fx:0};me.skillKind='hidden3';me.attackCd=.1;ring(me.x,me.y,78,skill.color,.35,true);return true}
  if(i===3){me.skillHold={kind:'hidden4',index:i,elapsed:0,max:4,a,tick:0,fx:0,caught:false,carryAt:0};me.skillKind='hidden4';me.attackCd=.1;me.inv=Math.max(me.inv,.12);ring(me.x,me.y,82,skill.color,.35,true);return true}
@@ -4301,7 +4307,7 @@ function void3PvpBasic(auto=false){
 }
 function grantPvpSkillBasicGrace(){me.skillBasicGraceUntil=performance.now()+100;me.skillBasicGraceUsed=false;}
 function skillDown(i){
- if(!me||roundLocked||me.dash>0)return;
+ if(!me||roundLocked||me.dash>0||pvpBasicHeld())return;
  if(me.weapon===3){if(beginHidden(i))grantPvpSkillBasicGrace();return}
  if(me.weapon===2){if(startBowSkill(i,combatAimAngle()))grantPvpSkillBasicGrace();return}
  const sk=pvpSwordSkillAt(i);if(!sk||!skillReady(i))return;
