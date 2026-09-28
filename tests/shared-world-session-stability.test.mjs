@@ -45,3 +45,13 @@ test('target scans avoid square roots in the ambient selection hot path',()=>{
  assert.match(hot,/d2=dx\*dx\+dy\*dy/);
  assert.doesNotMatch(hot,/Math\.hypot/);
 });
+
+
+test('brief websocket drops keep world session state during the reconnect grace period',()=>{
+ const client=fs.readFileSync(new URL('../multiplayer-client.js',import.meta.url),'utf8');
+ assert.match(client,/reconnectGraceTimer:null/);
+ assert.match(client,/state\.reconnectAttempts===1\?180/);
+ assert.match(client,/\},2200\)/);
+ assert.match(client,/if\(state\.reconnectGraceTimer\)\{clearTimeout\(state\.reconnectGraceTimer\)/);
+ assert.match(html,/multiplayer-client\.js\?v=20260928-style-transfer-reconnect-1/);
+});
