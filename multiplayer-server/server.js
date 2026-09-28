@@ -19,7 +19,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v7-style-density';
-const SERVER_BUILD = '2026-09-28-pvp-relay-1';
+const SERVER_BUILD = '2026-09-28-pvp-latency-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const WORLD_RESET_EPOCH = '2026-09-27-world-reset-2';
@@ -601,8 +601,8 @@ function handleMobDamage(player,msg){
   if(damage>0&&msg.prismCast)safeSend(player.ws,{type:'world:projectileHit',cast:String(msg.prismCast).slice(0,64),targetId:mob.id});
   markMobDirty(mob);broadcast({type:'world:mobPatch',mob:{...mobPublic(mob),damage,by:player.id,respawnAt:mob.respawnAt||0}});
 }
-function handleMessage(player,msg){
-  if(pvpRelay.handle(player,msg))return;
+function handleMessage(player,msg,rawBytes){
+  if(pvpRelay.handle(player,msg,rawBytes))return;
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='net:ping'){const now=Date.now();if(now-(player.lastPingAt||0)>500){player.lastPingAt=now;safeSend(player.ws,{type:'net:pong',nonce:msg.nonce,serverTime:now});}return;}
   if(msg.type==='pvp:matchJoin'){joinPvpMatchQueue(player);return;}
@@ -724,7 +724,7 @@ wss.on('connection',(ws)=>{
       if(player.clientMode!=='pvp')electWorldLeader();
       return;
     }
-    handleMessage(player,msg);
+    handleMessage(player,msg,raw.length);
   });
 
   ws.on('close',(code)=>{

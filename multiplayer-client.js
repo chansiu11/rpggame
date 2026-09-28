@@ -40,6 +40,7 @@ function url(){
 }
 function send(data){
   const ws=state.socket;if(ws?.readyState!==WebSocket.OPEN)return false;
+  if(data?.type==='pvp:relay'&&data.data?.t==='state'&&ws.bufferedAmount>8192)return false;
   if(ws.bufferedAmount>48000&&(data?.type==='state'||data?.type==='world:mobsDelta'))return false;
   try{ws.send(JSON.stringify(data,data.type==='state'?((k,v)=>typeof v==='number'&&Number.isFinite(v)?Math.round(v*1000)/1000:v):undefined));return true;}catch{return false;}
 }
@@ -211,7 +212,7 @@ window.EchoesMulti={
   pvpDamage(targetId,damage,range=180,kind='melee',control={}){combatEvent({targetId,kind:'attack',damage,range,...control});},
   pvpControl(targetId,dx,dy,stun=0,kind='skill-control'){combatEvent({targetId,kind:'control',dx,dy,stun});},
   pvpRelayReady(matchId){return send({type:'pvp:relayReady',matchId});},
-  pvpRelaySend(matchId,data){return send({type:'pvp:relay',matchId,data});},
+  pvpRelaySend(matchId,data){if(data?.t==='state'){const packed={...data};for(const key of Object.keys(packed)){const v=packed[key];if(typeof v==='number'&&Number.isFinite(v))packed[key]=Math.round(v*1000)/1000;}data=packed;}return send({type:'pvp:relay',matchId,data});},
   pvpRelayLeave(matchId){return send({type:'pvp:relayLeave',matchId});},
   pvpMatchJoin(){return send({type:'pvp:matchJoin'});},
   pvpMatchCancel(){return send({type:'pvp:matchCancel'});},

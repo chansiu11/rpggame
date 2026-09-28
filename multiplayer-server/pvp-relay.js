@@ -12,7 +12,7 @@ export function createPvpRelay(players,send){
   matches.set(id,match);a.pvpRelayMatch=b.pvpRelayMatch=id;
   match.timer=setTimeout(()=>leave(a),15000);match.timer.unref?.();
  }
- function handle(player,msg){
+ function handle(player,msg,rawBytes){
   if(!['pvp:relayReady','pvp:relay','pvp:relayLeave'].includes(msg.type))return false;
   const match=matches.get(player.pvpRelayMatch);
   if(player.clientMode!=='pvp'||!match||msg.matchId!==match.id||!match.ids.includes(player.id))return true;
@@ -22,8 +22,9 @@ export function createPvpRelay(players,send){
    if(!match.open&&match.ready.size===2){match.open=true;clearTimeout(match.timer);for(const id of match.ids)send(players.get(id).ws,{type:'pvp:relayOpen',matchId:match.id});console.log('[pvp-relay-open]',match.id);}
    return true;
   }
-  if(!match.open||!msg.data||typeof msg.data!=='object'||Array.isArray(msg.data)||typeof msg.data.t!=='string'||JSON.stringify(msg.data).length>65536)return true;
+  if(!match.open||!msg.data||typeof msg.data!=='object'||Array.isArray(msg.data)||typeof msg.data.t!=='string'||(rawBytes??JSON.stringify(msg.data).length)>65536)return true;
   const opponent=players.get(match.ids.find(id=>id!==player.id));
+  if(msg.data.t==='state'&&Number(opponent?.ws?.bufferedAmount||0)>8192)return true;
   if(opponent?.pvpRelayMatch===match.id)send(opponent.ws,{type:'pvp:relay',matchId:match.id,data:msg.data},{volatile:msg.data.t==='state'});
   return true;
  }
