@@ -35,8 +35,8 @@ test('Gale 3 pulls much farther in solo world and online player/mob control',()=
  const solo=run({id:'solo',x:340,y:100,r:18,type:'sprout'},false);
  const online=run({id:'remote',x:340,y:100,r:18,type:'player',networkPlayer:true},true);
  const mob=run({id:'mob',x:340,y:100,r:18,type:'sprout',kind:'regular'},true);
- assert.equal(solo.pullSpeed,180);assert.equal(solo.distance,45);
- assert.equal(online.actions[0].x,322);assert.equal(mob.actions[0].knockbackX,-18);
+ assert.equal(solo.pullSpeed,270);assert.equal(solo.distance,67.5);
+ assert.equal(online.actions[0].x,313);assert.equal(mob.actions[0].knockbackX,-27);
  assert.ok(html.includes('Math.min(d-stop,PVP_GALE_PULSE_PULL_SPEED*dt)'),'PVP must use the shared stronger pull speed');
 });
 test('Gale 4 PVP sends entry stun and maintains victim stun during orbit',()=>{
@@ -53,4 +53,26 @@ test('Gale 4 PVP sends entry stun and maintains victim stun during orbit',()=>{
  assert.equal(sim.packets.find(p=>p.skillId==='starRush')?.stun,.95);
  const captured=sim.spawn(110,100,0,true,'victim');captured.caught={angle:0};sim.step(.016);
  assert.ok(sim.me.stun>=.18);assert.ok(sim.me.galeVortexAnchor);
+ sim.me.x=800;sim.me.y=900;captured.t=.001;sim.step(.016);
+ assert.ok(sim.me.forcedMove,'victim must launch itself on release');
+ assert.ok(Math.abs(Math.hypot(sim.me.forcedMove.x-800,sim.me.forcedMove.y-900)-195)<1e-7,'PVP release distance must be halved to 195');
+});
+
+test('Gale 4 world releases targets at half the former distance',()=>{
+ const source=section('function releaseGaleVortex(v){','function updateGaleVortices(dt){');
+ const release=new Function('mob','online',`
+ let multiplayerMode=online,skill2Knocks=[],actions=[];
+ const window={EchoesMulti:{connected:online,damageMob:(id,d,ctrl)=>actions.push(ctrl),damageBoss:(id,d,ctrl)=>actions.push(ctrl)}};
+ const combatTargets=()=>[mob],combatCenter=e=>({x:e.x,y:e.y}),ring=()=>{};
+ const worldTargetControl=(id,ctrl)=>actions.push(ctrl);
+ ${source}
+ releaseGaleVortex({x:100,y:100,caught:new Map([[mob.id,{}]])});
+ return {knocks:skill2Knocks,actions};
+ `);
+ const local=release({id:'solo',x:150,y:100,r:18,type:'sprout'},false);
+ assert.equal(local.knocks.length,1);assert.equal(local.knocks[0].x-local.knocks[0].startX,185);
+ const onlinePlayer=release({id:'remote',x:150,y:100,r:18,type:'player',networkPlayer:true},true);
+ assert.equal(onlinePlayer.actions.length,1);assert.equal(onlinePlayer.actions[0].x,335);
+ const onlineMob=release({id:'mob',x:150,y:100,r:18,type:'sprout',kind:'regular'},true);
+ assert.equal(onlineMob.actions.length,1);assert.equal(onlineMob.actions[0].knockbackX,185);
 });
