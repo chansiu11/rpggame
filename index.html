@@ -2169,7 +2169,7 @@ function updateGaleVortices(dt){
  for(const v of remoteGaleVortices)GALE_VORTEX.step(v,dt);
  galeVortices=galeVortices.filter(v=>v.t>0);remoteGaleVortices=remoteGaleVortices.filter(v=>v.t>0);
 }
-const GALE_PULSE_RADIUS=270,GALE_PULSE_SPIN=16.8;
+const GALE_PULSE_RADIUS=292,GALE_PULSE_SPIN=16.8;
 function updateGalePulseChargePull(seq,dt){
  if(!seq||seq.skillId!=='galeOrbit'||seq.elapsed>=.5)return;
  const radius=GALE_PULSE_RADIUS,netTick=realTime>=(seq.galePullAt||0);if(netTick)seq.galePullAt=realTime+.09;
@@ -2242,7 +2242,7 @@ function updateSwordSkillMotion(seq,sk,dt){
   player.skillLift=0;updateGalePulseChargePull(seq,dt);if(options.shake)shake=Math.max(shake,7);
   if(seq.elapsed<.5){seq.fx-=dt;if(seq.fx<=0){seq.fx=.045;const th=swordStyleFxForSkill(sk.id),p=clamp(seq.elapsed/.5,0,1),spin=realTime*GALE_PULSE_SPIN;
    for(let j=0;j<6;j++){const aa=spin+j*TAU/6+(j%2?.18:-.18),outer=GALE_PULSE_RADIUS+18-p*42+rnd(-8,8),inner=Math.max(32,outer-100),x1=player.x+Math.cos(aa)*outer,y1=player.y+Math.sin(aa)*outer,x2=player.x+Math.cos(aa)*inner,y2=player.y+Math.sin(aa)*inner;effects.push({type:'line',x:x1,y:y1,x2,y2,color:j%2?th.sub:th.main,t:.16,max:.16});const spd=340+p*160,tang=aa+Math.PI/2;effects.push({type:'particle',x:x1,y:y1,vx:-Math.cos(aa)*spd+Math.cos(tang)*170,vy:-Math.sin(aa)*spd+Math.sin(tang)*170,color:j%2?th.accent:th.main,t:.32,max:.32,size:2.4+rnd(0,1.8)});}
-   for(let j=0;j<8;j++){const aa=spin+j*TAU/8,rx=player.x+Math.cos(aa)*GALE_PULSE_RADIUS,ry=player.y+Math.sin(aa)*GALE_PULSE_RADIUS;effects.push({type:'particle',x:rx,y:ry,vx:Math.cos(aa)*rnd(85,180)-Math.sin(aa)*110,vy:Math.sin(aa)*rnd(85,180)+Math.cos(aa)*110,color:j%2?th.sub:th.accent,t:.24,max:.24,size:rnd(2,3.8)});}
+   for(let j=0;j<14;j++){const aa=spin+j*TAU/14,rx=player.x+Math.cos(aa)*GALE_PULSE_RADIUS,ry=player.y+Math.sin(aa)*GALE_PULSE_RADIUS;effects.push({type:'particle',x:rx,y:ry,vx:Math.cos(aa)*rnd(170,265)-Math.sin(aa)*(150+(j%3)*28),vy:Math.sin(aa)*rnd(170,265)+Math.cos(aa)*(150+(j%3)*28),color:j%2?th.sub:th.accent,t:.26,max:.26,size:rnd(2.3,4.4)});}
    ring(player.x,player.y,GALE_PULSE_RADIUS,p>.55?th.sub:th.main,.13);
   }}
  }
