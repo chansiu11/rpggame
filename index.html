@@ -2101,7 +2101,7 @@ function performSwordSkillHit(seq,hitIndex){
  }
  else if(mode==='singularityRush'){
   const pullRange=145;
-  for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,front=dx*Math.cos(ang)+dy*Math.sin(ang),lat=-dx*Math.sin(ang)+dy*Math.cos(ang);if(front>-45&&front<pullRange&&Math.abs(lat)<105+combatRadius(e)&&e.kind!=='boss'&&!e.networkPlayer){const shift=-lat*.38;moveBody(e,-Math.sin(ang)*shift,Math.cos(ang)*shift);}}
+  // Initial singularity capture is authorized by a damaging strike, not by proximity alone.
   const confirm=e=>{if(activeSwordSkill!==seq)return;seq.singularityCaught=true;seq.singularityTargetId=e.id;};
   if(!(hitIndex===0&&seq.singularityCaptureHit))meleeHit(reach,cfg.arc[hitIndex],damage,finalHit,confirm);
  }
@@ -2131,8 +2131,7 @@ function performSwordSkillHit(seq,hitIndex){
   
   for(const e of combatTargets()){
    if(e.dead||e.riftSleeping)continue;const c=combatCenter(e),dist=Math.hypot(c.x-cx,c.y-cy);
-   if(hitIndex===1&&dist<270+combatRadius(e)&&e.kind!=='boss'){const aa=Math.atan2(cy-c.y,cx-c.x),mv=Math.min(125,Math.max(0,dist-24));moveBody(e,Math.cos(aa)*mv,Math.sin(aa)*mv);}
-   if(dist<=r+combatRadius(e)){hitEnemy(e,damage,hitIndex===1);if(!e.dead)applyEnemyStun(e,e.kind==='boss'?.18:(hitIndex===0?.28:.62));}
+   if(dist<=r+combatRadius(e))hitEnemyConfirmed(e,damage,hitIndex===1,player,()=>{if(hitIndex===1&&e.kind!=='boss'){const cc=combatCenter(e),dd=Math.hypot(cc.x-cx,cc.y-cy),aa=Math.atan2(cy-cc.y,cx-cc.x),mv=Math.min(125,Math.max(0,dd-24));moveBody(e,Math.cos(aa)*mv,Math.sin(aa)*mv);}applyEnemyStun(e,e.kind==='boss'?.18:(hitIndex===0?.28:.62));});
   }
   
  }
@@ -2148,11 +2147,7 @@ function performSwordSkillHit(seq,hitIndex){
   const cx=Number.isFinite(seq.anchorX)?seq.anchorX:player.x+Math.cos(ang)*205,cy=Number.isFinite(seq.anchorY)?seq.anchorY:player.y+Math.sin(ang)*205,r=hitIndex===2?178:158;
   for(const e of combatTargets()){
    if(e.dead||e.riftSleeping)continue;const c=combatCenter(e),dist=Math.hypot(c.x-cx,c.y-cy);if(dist>r+combatRadius(e))continue;
-   if(e.kind!=='boss'){
-    if(hitIndex<2){const aa=Math.atan2(cy-c.y,cx-c.x),pull=hitIndex===0?82:42;moveBody(e,Math.cos(aa)*Math.min(pull,dist),Math.sin(aa)*Math.min(pull,dist));}
-    else{const aa=Math.atan2(c.y-cy,c.x-cx);moveBody(e,Math.cos(aa)*135,Math.sin(aa)*135);}
-   }
-   hitEnemy(e,damage,hitIndex===2);if(!e.dead)applyEnemyStun(e,e.kind==='boss'?.2:(hitIndex===2?.72:.36));
+   hitEnemyConfirmed(e,damage,hitIndex===2,player,()=>{const cc=combatCenter(e),dd=Math.hypot(cc.x-cx,cc.y-cy);if(e.kind!=='boss'){if(hitIndex<2){const aa=Math.atan2(cy-cc.y,cx-cc.x),pull=hitIndex===0?82:42;moveBody(e,Math.cos(aa)*Math.min(pull,dd),Math.sin(aa)*Math.min(pull,dd));}else{const aa=Math.atan2(cc.y-cy,cc.x-cx);moveBody(e,Math.cos(aa)*135,Math.sin(aa)*135);}}applyEnemyStun(e,e.kind==='boss'?.2:(hitIndex===2?.72:.36));});
   }
   
   
