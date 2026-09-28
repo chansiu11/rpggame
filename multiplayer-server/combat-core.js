@@ -24,6 +24,6 @@ function nextPrismTarget(seq,targets,origin){return targets.filter(e=>seq.prismT
 const basicControl=final=>({stun:final?.75:.5,force:final?180:0});
 function forceDuration(distance,requested){return clamp(Number.isFinite(requested)?requested:(.18+distance/900),.16,.8);}
 const shieldCost=raw=>Math.max(12,raw*1.4);
-const damageAfterArmor=(raw,reduction)=>Math.max(1,Math.round(raw*(1-clamp(reduction,0,.45))));
+const damageAfterArmor=(raw,reduction)=>Math.max(1,Math.round(raw*(1-clamp(reduction,0,.75))));
 root.EchoesCombat=Object.freeze({version:2,projectileForce,projectileRange,projectileTime,prismChase,markPrismTarget,nextPrismTarget,waveControl,basicControl,forceDuration,contains,segment,forcePoint,angle,shieldCost,damageAfterArmor});
 })(globalThis);
