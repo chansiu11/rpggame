@@ -182,24 +182,25 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const angleDiff=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 // One deterministic vortex model is used by both clients and the spectator view.
 const GALE_VORTEX=Object.freeze({
- duration:5,speed:140,radius:132,orbit:76,turnRate:2.55,entryStun:.95,holdStun:.18,
+ duration:5,speed:140,radius:132,orbit:76,turnRate:2.55,visualSpin:151.2,entryStun:.95,holdStun:.18,
  step(v,dt){const t=Math.max(0,Math.min(dt,v.t));v.x+=Math.cos(v.a)*this.speed*t;v.y+=Math.sin(v.a)*this.speed*t;v.t=v.t-t<.000001?0:Math.max(0,v.t-t);v.age=(v.age||0)+t;return t;},
  point(v,a){return {x:v.x+Math.cos(a)*this.orbit,y:v.y+Math.sin(a)*this.orbit};},
- draw(ctx,v){if(!v||v.t<=0)return;const alpha=Math.min(1,(v.age||0)/.24,v.t/.34),spin=-(v.age||0)*50.4,r=this.radius;
+ draw(ctx,v){if(!v||v.t<=0)return;const alpha=Math.min(1,(v.age||0)/.24,v.t/.34),spin=-(v.age||0)*this.visualSpin,r=this.radius;
  ctx.save();ctx.translate(v.x,v.y);ctx.globalCompositeOperation='lighter';ctx.globalAlpha=alpha;
  const glow=ctx.createRadialGradient(0,0,12,0,0,r*1.04);glow.addColorStop(0,'#b7fff526');glow.addColorStop(.6,'#61f0c71c');glow.addColorStop(1,'#2ec9ff00');
  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,r*1.04,0,Math.PI*2);ctx.fill();
  for(let j=0;j<3;j++){const a=spin+j*Math.PI*2/3;ctx.strokeStyle=['#61f0c7','#eafffa','#2ec9ff'][j];ctx.lineWidth=6-j;ctx.beginPath();for(let k=0;k<=30;k++){const u=k/30,aa=a-u*Math.PI*2.3,rr=r*(1-u*.81),x=Math.cos(aa)*rr,y=Math.sin(aa)*rr;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}
  ctx.strokeStyle='#61f0c7';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,r,spin,spin+Math.PI*1.62);ctx.stroke();ctx.strokeStyle='#eafffa';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(0,0,this.orbit,spin+Math.PI,spin+Math.PI*2.5);ctx.stroke();
  for(let i=0;i<6;i++){const a=spin*1.3+i*Math.PI/3,rr=44+(i%3)*27;ctx.fillStyle=i%2?'#eafffa':'#2ec9ff';ctx.beginPath();ctx.arc(Math.cos(a)*rr,Math.sin(a)*rr,2.7,0,Math.PI*2);ctx.fill();}
- // Shared deterministic outward wind streaks: rendered identically by both clients,
- // without sending particles across the network every frame.
- for(let i=0;i<18;i++){
-  const a=spin*.66+i*Math.PI/9,wiggle=Math.sin((v.age||0)*21+i*2.2),inner=r-7+wiggle*5,outer=r+34+(wiggle+1)*28;
-  const ix=Math.cos(a)*inner,iy=Math.sin(a)*inner,ox=Math.cos(a+.11)*outer,oy=Math.sin(a+.11)*outer;
-  ctx.lineWidth=i%3===0?2.7:1.5;ctx.strokeStyle=i%2?'#d7fff4':'#41e6e2';ctx.globalAlpha=alpha*(.43+.28*Math.abs(wiggle));
-  ctx.beginPath();ctx.moveTo(ix,iy);ctx.quadraticCurveTo(Math.cos(a+.16)*(r+18),Math.sin(a+.16)*(r+18),ox,oy);ctx.stroke();
-  ctx.fillStyle=i%3===0?'#ffffff':'#74ffe7';ctx.beginPath();ctx.arc(ox,oy,i%3===0?2.8:1.8,0,Math.PI*2);ctx.fill();
+ // Small oval wind particles are flung tangentially from the rim by rotation.
+ // Deterministic per vortex age: world and PVP clients render the same motion without network particles.
+ for(let i=0;i<24;i++){
+  const u=((v.age||0)*2.8+i*.61803398875)%1,launchA=spin*.66+i*Math.PI/12;
+  const flightA=launchA-u*.45,rr=r-5+Math.pow(u,1.35)*72,px=Math.cos(flightA)*rr,py=Math.sin(flightA)*rr;
+  const opacity=Math.min(1,u*12)*Math.pow(1-u,1.2);
+  ctx.globalAlpha=alpha*(i%3===0?.85:.65)*opacity;
+  ctx.fillStyle=i%4===0?'#ffffff':i%2?'#61f0c7':'#bdfff3';
+  ctx.beginPath();ctx.ellipse(px,py,5-u*1.5,1.9-u*.35,flightA-Math.PI/2-.22,0,Math.PI*2);ctx.fill();
  }
  ctx.restore();}
 });
