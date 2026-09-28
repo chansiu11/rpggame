@@ -25,21 +25,23 @@ test('PVP first 100ms permits one basic without cancelling current skill',()=>{
  run();s.now=2100;run();assert.equal(s.hits,1,'No duplicate or late basic');
 });
 
-test('PVP keydown starts tap sword skill and grace immediately, rejects unavailable skills',()=>{
- const s={now:5000,ready:true,held:false,starts:0,me:{weapon:0,skillBasicGraceUntil:0,skillBasicGraceUsed:true},roundLocked:false};
- const init="const performance={now:()=>state.now},me=state.me,roundLocked=state.roundLocked,skillReady=()=>state.ready,pvpSwordSkillAt=()=>({id:'windSlash',cfg:{mode:'windShot'}}),combatAimAngle=()=>0,startSwordSequence=()=>{state.starts++;me.skillEvent={kind:'swordSeq'};return true;},startBowSkill=()=>false,pvpBasicHeld=()=>state.held,pvpBasicSkillBlocked=()=>false;";
- const run=new Function('state',[init,section('function grantPvpSkillBasicGrace(){','function skillUp(i){'),'return skillDown;'].join('\n'))(s);
- s.held=true;run(0);assert.equal(s.starts,1);assert.equal(s.me.skillEvent.kind,'swordSeq');assert.equal(s.me.skillBasicGraceUntil,5100);assert.equal(s.me.skillBasicGraceUsed,false);
- s.held=false;s.now=5200;run(0);assert.equal(s.starts,2);assert.equal(s.me.skillBasicGraceUntil,5300);
- s.now=6000;s.ready=false;run(0);assert.equal(s.starts,2);assert.equal(s.me.skillBasicGraceUntil,5300);
+test('PVP keydown begins 0.2s preparation and grace immediately, casts on release',()=>{
+ const s={now:5000,ready:true,starts:0,me:{weapon:0,a:0,dash:0,moveLock:0,stun:0,skillPose:-1,attackAnim:0,skillHold:null,skillEvent:null,skillBasicGraceUntil:0,skillBasicGraceUsed:true},roundLocked:false};
+ const init="const window={EchoesSkillPrepare:{duration:.2,kind:()=> 'slash'}},performance={now:()=>state.now},me=state.me,roundLocked=state.roundLocked,skillReady=()=>state.ready,pvpSwordSkillAt=()=>({id:'windSlash',cfg:{mode:'windShot'}}),combatAimAngle=()=>0,startSwordSequence=()=>{state.starts++;me.skillEvent={kind:'swordSeq'};return true;},startBowSkill=()=>false,pvpBasicSkillBlocked=()=>false,cancelPvpBasicForSkill=()=>{};";
+ const run=new Function('state',[init,section('function grantPvpSkillBasicGrace(){','function switchWeapon(i){'),'return {down:skillDown,up:skillUp};'].join('\n'))(s);
+ run.down(0);assert.equal(s.starts,0);assert.equal(s.me.skillHold.kind,'inputPrepare');assert.equal(s.me.skillBasicGraceUntil,5100);assert.equal(s.me.skillBasicGraceUsed,false);
+ run.up(0);s.me.skillHold.elapsed=.199;assert.equal(s.starts,0);s.me.skillHold.elapsed=.2;run.up(0);assert.equal(s.starts,1);
+ s.now=5200;s.me.skillEvent=null;run.down(0);assert.equal(s.starts,1);s.me.skillHold.elapsed=.2;run.up(0);assert.equal(s.starts,2);assert.equal(s.me.skillBasicGraceUntil,5300);
+ s.now=6000;s.ready=false;s.me.skillEvent=null;run.down(0);assert.equal(s.starts,2);assert.equal(s.me.skillBasicGraceUntil,5300);
 });
-test('World standard skills start on keydown instead of waiting for release',()=>{
- const s={weapon:0,ready:true,starts:0,bowStarts:0,holdStarts:0};
- const init="const player={get weapon(){return state.weapon},facing:0,skillPose:-1},standardSkillCanPrepare=()=>state.ready,skillInfo=()=>({id:'windSlash',cfg:{mode:'windShot'},color:'#fff'}),aim=()=>{},cancelShieldForSkill=()=>{},triggerSkillShake=()=>{},startSwordSkill=()=>{state.starts++;player.skillPose=0;return true;},executeSkillNow=()=>{state.bowStarts++;player.skillPose=1;return true;},startVoid3World=()=>true,startHeldSwordSkill=()=>{state.holdStarts++;return true;};let standardSkillHold=null;";
- const run=new Function('state',[init,section('function beginStandardSkillInput(index){','function releaseStandardSkillInput(index){'),'return {beginStandardSkillInput,getHold:()=>standardSkillHold};'].join('\n'))(s);
- assert.equal(run.beginStandardSkillInput(0),true);assert.equal(s.starts,1);assert.equal(run.getHold(),null);
- s.weapon=2;assert.equal(run.beginStandardSkillInput(1),true);assert.equal(s.bowStarts,1);assert.equal(run.getHold(),null);
- s.ready=false;assert.equal(run.beginStandardSkillInput(2),false);assert.equal(s.starts,1);
+test('World skill keydown begins 0.2s preparation without premature casting',()=>{
+ const s={weapon:0,ready:true,starts:0,bowStarts:0};
+ const init="const window={EchoesSkillPrepare:{duration:.2,kind:()=> 'slash'}},player={get weapon(){return state.weapon},facing:0,moveLock:0,skillPose:-1},hiddenFollowReady=()=>false,standardSkillCanPrepare=()=>state.ready,skillInfo=()=>({id:'windSlash',cfg:{mode:'windShot'},color:'#fff'}),aim=()=>{},cancelShieldForSkill=()=>{},triggerSkillShake=()=>{},startSwordSkill=()=>{state.starts++;return true;},executeSkillNow=()=>{state.bowStarts++;return true;},startVoid3World=()=>true,startHeldSwordSkill=()=>true;let standardSkillHold=null;";
+ const run=new Function('state',[init,section('function beginStandardSkillInput(index){','function releaseStandardSkillInput(index){'),'return {down:beginStandardSkillInput,getHold:()=>standardSkillHold,reset:()=>standardSkillHold=null};'].join('\n'))(s);
+ assert.equal(run.down(0),true);assert.equal(s.starts,0);assert.equal(run.getHold().elapsed,0);assert.equal(playerNotRequired(),true);
+ run.reset();s.weapon=2;assert.equal(run.down(1),true);assert.equal(s.bowStarts,0);assert.equal(run.getHold().weapon,2);
+ run.reset();s.ready=false;assert.equal(run.down(2),false);assert.equal(s.starts,0);
+ function playerNotRequired(){return true;}
 });
 test('World missed 100ms basic preserves running skill pose, duration and movement',()=>{
  const skill={kind:'skyFall',elapsed:.04},s={now:1000,hits:0,moves:0,player:{weapon:0,exhaust:0,dodge:0,attackCd:.82,cast:.82,parry:0,attackAnim:.82,attackDuration:.92,skillPose:2,skillKind:'skyFall',attackAngle:1.1,attackArc:1.3,strikePose:3,heavy:true,moveLock:.8,comboTimer:0,combo:0,rune:'',facing:.7}};
