@@ -1556,10 +1556,23 @@ function void3WorldTarget(){
  const target=combatTargets().find(e=>e.id===void3State.targetId&&!e.dead&&!e.riftSleeping&&Number(e.hp)!==0);
  return target||null;
 }
+function releaseVoid3WorldInput(){
+ if(!void3State)return false;
+ void3State.held=false;
+ if(realTime-(void3State.pressedAt||realTime)>=.22)void3State.longHold=true;
+ return true;
+}
 function updateVoid3WorldAuto(){
  if(!void3State)return;
  if(realTime>=void3State.until){endVoid3World();return;}
  const target=void3WorldTarget();if(!target){endVoid3World();return;}
+ if(void3State.held&&realTime-(void3State.pressedAt||realTime)>=.22)void3State.longHold=true;
+ const maxHits=void3State.longHold?3:1;
+ if(void3State.count>=maxHits){
+  if(void3State.held&&!void3State.longHold)return;
+  if(!void3State.exitDash)endVoid3World();
+  return;
+ }
  if(void3State.exitDash||realTime<(void3State.nextAutoAt||0))return;
  if(!canAct()||player.attackCd>0||player.dodge>0){void3State.nextAutoAt=Math.max(void3State.nextAutoAt||0,realTime+.02);return;}
  if(void3WorldBasic()&&void3State)void3State.nextAutoAt=realTime+.10;
@@ -1574,13 +1587,13 @@ function startVoid3World(){
  if(!target){effects.push({type:'riftCut',x:player.x+Math.cos(a)*72,y:player.y+Math.sin(a)*72,a,len:190,width:24,color:'#a76cff',t:.28,max:.28});void3State=null;sound('swing');return true;}
  hitEnemy(target,damageValue(1.05,'gravityCut'),false);applyEnemyStun(target,target.kind==='boss'?.28:.62);
  const tc=combatCenter(target);effects.push({type:'riftCut',x:(player.x+tc.x)/2,y:(player.y+tc.y)/2,a,len:210,width:30,color:'#d8b7ff',t:.32,max:.32});burst(tc.x,tc.y,'#a76cff',14,150);ring(tc.x,tc.y,62,'#d8b7ff',.28);
- void3State={targetId:target.id,until:realTime+7,count:0,exitDash:null,nextAutoAt:realTime+.10};player.attackCd=0;player.cast=0;player.moveLock=0;sound('hit');return true;
+ void3State={targetId:target.id,until:realTime+7,count:0,exitDash:null,nextAutoAt:realTime+.10,pressedAt:realTime,held:true,longHold:false};player.attackCd=0;player.cast=0;player.moveLock=0;sound('hit');return true;
 }
 function void3WorldBasic(){
  if(!void3State)return false;if(realTime>=void3State.until){endVoid3World();return false;}if(void3State.exitDash)return true;
  const target=void3WorldTarget();if(!target){endVoid3World();return true;}
  if(!canAct()||player.attackCd>0||player.dodge>0)return true;
- const step=void3State.count%5,tf=Number.isFinite(target.facing)?target.facing:Math.atan2(target.y-player.y,target.x-player.x),behind=tf+Math.PI,dist=player.r+combatRadius(target)+42;
+ const step=void3State.count%3,tf=Number.isFinite(target.facing)?target.facing:Math.atan2(target.y-player.y,target.x-player.x),behind=tf+Math.PI,dist=player.r+combatRadius(target)+42;
  const spot=freeBodySpot(target.x+Math.cos(behind)*dist,target.y+Math.sin(behind)*dist,player.r+4),ox=player.x,oy=player.y;
  moveBody(player,clamp(spot.x-player.x,-520,520),clamp(spot.y-player.y,-520,520));player.facing=player.attackAngle=Math.atan2(target.y-player.y,target.x-player.x);syncInstantPlayerMove(620);
  const strikeX=player.x,strikeY=player.y,teleA=Math.atan2(strikeY-oy,strikeX-ox),teleLen=Math.max(80,Math.hypot(strikeX-ox,strikeY-oy)+85);
@@ -1627,6 +1640,7 @@ function beginStandardSkillInput(index){
  player.skillPose=index;player.attackAngle=player.facing;player.attackAnim=Math.max(player.attackAnim,.12);ring(player.x,player.y,34,standardSkillHold.color,.22);sound('swing');return true;
 }
 function releaseStandardSkillInput(index){
+ if(index===2&&void3State)return releaseVoid3WorldInput();
  const h=standardSkillHold;if(!h||h.index!==index)return false;
  if(h.continuous){standardSkillHold=null;return stopHeldSwordSkill(index,false);}
  standardSkillHold=null;player.skillPose=-1;if(player.weapon!==h.weapon)return false;
@@ -3825,9 +3839,22 @@ function finishHidden4(){const h=me.skillHold;if(!h||h.kind!=='hidden4')return;m
 function finishHidden5(cancelled=false){const h=me.skillHold;if(!h||h.kind!=='hidden5')return;me.skillHold=null;me.skillKind='';me.skillPose=-1;me.attackCd=.18;if(cancelled)ring(me.x,me.y,58,'#ff9ee8',.22,true)}
 
 function endVoid3Pvp(){void3Pvp=null;}
+function releaseVoid3PvpInput(){
+ if(!void3Pvp)return false;
+ const now=performance.now();void3Pvp.held=false;
+ if(now-(void3Pvp.pressedAt||now)>=220)void3Pvp.longHold=true;
+ return true;
+}
 function updateVoid3PvpAuto(){
  if(!void3Pvp)return;
  const now=performance.now();if(now>=void3Pvp.until||!enemy||enemy.hp<=0){endVoid3Pvp();return;}
+ if(void3Pvp.held&&now-(void3Pvp.pressedAt||now)>=220)void3Pvp.longHold=true;
+ const maxHits=void3Pvp.longHold?3:1;
+ if(void3Pvp.count>=maxHits){
+  if(void3Pvp.held&&!void3Pvp.longHold)return;
+  if(!void3Pvp.exitDash)endVoid3Pvp();
+  return;
+ }
  if(void3Pvp.exitDash||now<(void3Pvp.nextAutoAt||0))return;
  if(me.stun>0||me.attackCd>0||me.dash>0||me.skillHold||me.skillEvent||roundLocked){void3Pvp.nextAutoAt=Math.max(void3Pvp.nextAutoAt||0,now+20);return;}
  if(void3PvpBasic()&&void3Pvp)void3Pvp.nextAutoAt=now+100;
@@ -3838,13 +3865,13 @@ function startVoid3Pvp(){
  me.a=a;me.attackDuration=me.attackAnim=.24;me.attackCd=.24;me.skillPose=-1;me.skillKind='';
  arcAttack(reach,pvpSkillAttack(me,'gravityCut')*1.05,arc,0,.62,{color:sk.color||'#a76cff',fx:false,teleportHit:hit});
  riftCutFx(me.x+Math.cos(a)*72,me.y+Math.sin(a)*72,a,190,28,hit?'#d8b7ff':'#a76cff',.28,true);
- if(hit){void3Pvp={until:performance.now()+7000,count:0,exitDash:null,nextAutoAt:performance.now()+100};me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);}else endVoid3Pvp();
+ if(hit){const now=performance.now();void3Pvp={until:now+7000,count:0,exitDash:null,nextAutoAt:now+100,pressedAt:now,held:true,longHold:false};me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);}else endVoid3Pvp();
  return true;
 }
 function void3PvpBasic(){
  if(!void3Pvp)return false;if(performance.now()>=void3Pvp.until){endVoid3Pvp();return false;}if(void3Pvp.exitDash)return true;
  if(!enemy||enemy.hp<=0){endVoid3Pvp();return true;}if(me.stun>0||me.attackCd>0||me.dash>0||me.skillHold||me.skillEvent||roundLocked)return true;
- const step=void3Pvp.count%5,behind=(Number(enemy.a)||0)+Math.PI,dist=me.r+enemy.r+44,ox=me.x,oy=me.y;
+ const step=void3Pvp.count%3,behind=(Number(enemy.a)||0)+Math.PI,dist=me.r+enemy.r+44,ox=me.x,oy=me.y;
  me.x=clamp(enemy.x+Math.cos(behind)*dist,25,ARENA_W-25);me.y=clamp(enemy.y+Math.sin(behind)*dist,25,ARENA_H-25);me.a=Math.atan2(enemy.y-me.y,enemy.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a});
  const strikeX=me.x,strikeY=me.y,teleA=Math.atan2(strikeY-oy,strikeX-ox),teleLen=Math.max(80,Math.hypot(strikeX-ox,strikeY-oy)+85);
  beamFx(ox,oy,strikeX,strikeY,step%2?'#d8b7ff':'#a76cff',.18,true);riftCutFx((ox+strikeX)/2,(oy+strikeY)/2,teleA,teleLen,18,'#ffffff',.16,true);burst(ox,oy,'#7a45b5',6,90);burst(strikeX,strikeY,'#d8b7ff',8,105);
@@ -3873,6 +3900,7 @@ function skillDown(i){
 function skillUp(i){
  if(!me)return;
  if(me.weapon===3){releaseHidden(i);return}
+ if(i===2&&void3Pvp){releaseVoid3PvpInput();return}
  const h=me.skillHold;if(!h||h.index!==i)return;
  if(h.kind==='worldSwordHold'){stopWorldSwordHold(i,false);return}
  if(h.kind==='bowPrepare'){const a=h.a;me.skillHold=null;me.skillPose=-1;me.skillKind='';startBowSkill(i,a);return}
