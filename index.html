@@ -1037,7 +1037,7 @@ function skillActionBusy(){
  return !!(activeSwordSkill||standardSkillHold||hiddenSkillHold||hiddenSkillEvents.length||secondSkillDash||secondSkillArmed||fourthSkillHold||fourthSkillField||(player?.cast>0&&player?.skillPose>=0));
 }
 function basicAttackHeld(){return mouse.down||touchAttackPointer!==null||keys.has('KeyZ');}
-function basicAttackSkillBlocked(){const now=performance.now();return !!player&&basicAttackLockUntil>now&&player.attackAnim>0&&now-basicAttackStartedAt>=100;}
+function basicAttackSkillBlocked(){const now=performance.now();return !!player&&basicAttackLockUntil>now&&player.attackAnim>0&&now-basicAttackStartedAt>=200;}
 function cancelBasicAttackForSkill(){
  if(!player||skillActionBusy()||basicAttackSkillBlocked())return false;
  if(player.attackCd>0||player.attackAnim>0){
@@ -4198,7 +4198,7 @@ function sendProjectile(a,speed,d,opts={}){
 function useStam(n){if(me.stam<n)return false;me.stam-=n;me.stamDelay=.5;return true}
 function cdrScale(){return (me.rune==='dawn'?.8:1)*(1-clamp(me.cdr||0,0,.25))}
 function pvpBasicHeld(){return mouse.down||keys.has(pkey('KeyZ'));}
-function pvpBasicSkillBlocked(){const now=performance.now();return !!me&&!me.skillHold&&!me.skillEvent&&me.skillPose<0&&me.attackAnim>0&&(me.basicAttackLockUntil||0)>now&&now-(me.basicAttackStartedAt||0)>=100;}
+function pvpBasicSkillBlocked(){const now=performance.now();return !!me&&!me.skillHold&&!me.skillEvent&&me.skillPose<0&&me.attackAnim>0&&(me.basicAttackLockUntil||0)>now&&now-(me.basicAttackStartedAt||0)>=200;}
 function pvpBasicCancelable(){return !!me&&me.skillPose<0&&!me.skillHold&&!me.skillEvent&&(me.basicAttackLockUntil||0)>0&&!pvpBasicSkillBlocked()&&((me.basicAttackLockUntil||0)>performance.now()||me.attackAnim<=0);}
 function cancelPvpBasicForSkill(accepted=false){if(!(pvpBasicCancelable()||(accepted&&me&&!me.skillHold&&!me.skillEvent&&!pvpBasicSkillBlocked()&&(me.basicAttackLockUntil||0)>0)))return;me.attackCd=0;me.attackAnim=0;me.attackDuration=.26;me.basicAttackLockUntil=0;me.basicAttackStartedAt=0;me.basicMoveSlow=0;}
 function skillReady(i){return me&&running&&!roundLocked&&!pvpBasicSkillBlocked()&&me.cool[i]<=0&&me.stun<=0&&me.exhaust<=0&&!me.skillHold&&!me.skillEvent&&(me.attackCd<=0||pvpBasicCancelable())}
