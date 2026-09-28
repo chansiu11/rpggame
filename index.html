@@ -1567,9 +1567,8 @@ function hiddenPrepareFx(h,dt){h.fx-=dt;if(h.fx>0)return;h.fx=.11;const c=HIDDEN
 function beginHiddenSkillInput(index){
  if(basicAttackHeld())return false;
  const s=HIDDEN_SKILLS[index];if(!s||player.weapon!==3||(!canAct()&&!hiddenFollowReady(index)))return false;
- if(!hiddenFollowReady(index)&&!cancelBasicAttackForSkill())return false;
  const follow=index===1&&hiddenSkillFollowup&&realTime<=hiddenSkillFollowup.expires&&hiddenSkillFollowup.targets.some(e=>e&&!e.dead&&!e.riftSleeping);
- if(!hiddenSkillCanStart(index,follow))return false;
+ if(!hiddenSkillCanStart(index,follow)||!cancelBasicAttackForSkill())return false;
  triggerSkillShake(index,index===4?1.12:1);
  const a=hiddenSkillFacing();player.cast=0;player.attackCd=0;player.facing=a;player.skillPose=index;player.attackAngle=a;cancelShieldForSkill();
  if(index===0)return triggerHiddenPrepared(0,hiddenMoveFacing(a));
