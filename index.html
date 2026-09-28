@@ -82,13 +82,27 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
  .touch-mode #location strong{font-size:9px}
  .touch-mode .panel{padding:14px;max-width:96vw}.touch-mode .panel h2{font-size:20px}.touch-mode .panel .lede{font-size:10px;line-height:1.55}.touch-mode .card{padding:9px}
 }
+
+/* Confirmed-hit combo indicator: text only; transparent and never captures input. */
+.combat-combo{position:absolute;left:7.5%;bottom:27%;z-index:12;pointer-events:none;text-align:center;color:#ff4545;font:800 clamp(30px,4vw,56px)/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;text-shadow:0 1px 5px #3008}
+.combat-combo.hidden{display:none!important}
+.combo-count{min-width:65px}
+.combo-time-line{width:72px;height:3px;margin:6px auto 0;background:transparent;overflow:hidden}
+.combo-time-line i{display:block;height:100%;width:100%;background:#ff4545;transform-origin:left center;transform:scaleX(1);will-change:transform}
+.hp-combo-readout{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}
+.combo-total-damage{font:700 10px/1.2 system-ui,sans-serif;color:#ff5959;letter-spacing:0;font-variant-numeric:tabular-nums}
+.pvp-health-summary{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;justify-content:space-between}
+#pvpCombo{left:7.5%;bottom:27%}
+@media(max-width:600px){.combat-combo{left:5%;bottom:30%;font-size:32px}.combo-time-line{width:56px}.pvp-health-summary{gap:4px}.combo-total-damage{font-size:9px}}
+
 </style>
 </head>
 <body>
 <canvas id="game" aria-label="잔광의 숲 게임 화면"></canvas>
 <div id="hud" class="hidden">
  <div id="brand">ECHOES OF THE WILD</div>
- <div class="vitals"><div class="level"><span id="level">1</span></div><div class="meters"><div class="meter-title"><span id="playerName">방랑 기사</span><span id="hpText">100 / 100</span></div><div class="bar hp"><i id="hpBar"></i></div><div class="bar stam"><i id="stamBar"></i></div><div class="bar xp"><i id="xpBar"></i></div><div class="shield-readout"><span id="shieldText">쉴드 100 / 100</span><div class="bar"><i id="shieldBar"></i></div></div></div></div>
+ <div class="vitals"><div class="level"><span id="level">1</span></div><div class="meters"><div class="meter-title"><span id="playerName">방랑 기사</span><span class="hp-combo-readout"><span id="hpText">100 / 100</span><span id="worldTotalDamage" class="combo-total-damage">총 피해 0</span></span></div><div class="bar hp"><i id="hpBar"></i></div><div class="bar stam"><i id="stamBar"></i></div><div class="bar xp"><i id="xpBar"></i></div><div class="shield-readout"><span id="shieldText">쉴드 100 / 100</span><div class="bar"><i id="shieldBar"></i></div></div></div></div>
+ <div id="worldCombo" class="combat-combo hidden" aria-live="off"><div id="worldComboNumber" class="combo-count">0</div><div class="combo-time-line"><i id="worldComboTimer"></i></div></div>
  <div id="questHud"></div>
  <div class="top-nav"><span class="nav-line"></span><span>N</span><span>◇</span><span id="dayTime">DAY 01 · 새벽</span><span>◇</span><span class="nav-line"></span></div>
  <div id="minimapBox"><canvas id="minimap" width="312" height="260"></canvas><div class="map-caption"><span id="miniRegion">이끼빛 마을</span><span>M · 지도 ↗</span></div><button id="mapBtn" title="전체 지도 (M)" aria-label="전체 지도 열기"></button></div>
@@ -123,7 +137,8 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
  <div id="pvpTop"><button id="pvpExit" class="quiet">← 제목 화면</button><b>PVP 전용장소 · 결투 아레나</b><span id="pvpStatus">연결 대기</span><span class="pvp-ping" id="pvpPing">PING --</span></div>
  <div id="pvpStage">
   <canvas id="pvpCanvas" width="1200" height="700" aria-label="온라인 PVP 아레나"></canvas>
-  <div class="pvp-hud hidden" id="pvpHud"><div class="pvp-side"><b id="pvpMeName">나</b><div id="pvpMeInfo"></div><div class="pvp-bar"><i id="pvpMeHp"></i></div><div class="pvp-bar shield"><i id="pvpMeShield"></i></div><div class="pvp-bar stam"><i id="pvpMeStam"></i></div></div><div class="pvp-side right hidden"><b id="pvpEnemyName">상대</b><div id="pvpEnemyInfo"></div><div class="pvp-bar"><i id="pvpEnemyHp"></i></div><div class="pvp-bar shield"><i id="pvpEnemyShield"></i></div><div class="pvp-bar stam"><i id="pvpEnemyStam"></i></div></div></div>
+  <div id="pvpCombo" class="combat-combo hidden" aria-live="off"><div id="pvpComboNumber" class="combo-count">0</div><div class="combo-time-line"><i id="pvpComboTimer"></i></div></div>
+  <div class="pvp-hud hidden" id="pvpHud"><div class="pvp-side"><b id="pvpMeName">나</b><div class="pvp-health-summary"><span id="pvpMeHpText"></span><span id="pvpTotalDamage" class="combo-total-damage">총 피해 0</span></div><div id="pvpMeInfo"></div><div class="pvp-bar"><i id="pvpMeHp"></i></div><div class="pvp-bar shield"><i id="pvpMeShield"></i></div><div class="pvp-bar stam"><i id="pvpMeStam"></i></div></div><div class="pvp-side right hidden"><b id="pvpEnemyName">상대</b><div id="pvpEnemyInfo"></div><div class="pvp-bar"><i id="pvpEnemyHp"></i></div><div class="pvp-bar shield"><i id="pvpEnemyShield"></i></div><div class="pvp-bar stam"><i id="pvpEnemyStam"></i></div></div></div>
   <div class="pvp-center hidden" id="pvpScore"></div>
   <div class="pvp-cooldowns hidden" id="pvpCooldowns"></div>
   <div id="pvpLobby"><div class="pvp-card"><div class="eyebrow">PVP ONLY AREA · ONLINE DUEL</div><h2>결투 아레나 · 1:1 PVP</h2><p class="lede">일반 월드와 분리된 PVP 전용 장소입니다. 현재 계정의 레벨·무기·강화·방어구·방패 능력치를 전투용 수치로만 사용하며, PVP 결과는 원본 세이브와 퀘스트 진행도를 변경하지 않습니다.</p><div class="pvp-loadout" id="pvpLoadout"></div><div class="pvp-actions"><button class="primary" id="pvpMatch">매칭 시작</button><button class="quiet" id="pvpCancelMatch" disabled>매칭 취소</button></div><p class="pvp-help">매칭 시작을 누르면 자동 대기열에 들어갑니다. 다른 플레이어가 매칭을 시작하면 자동으로 상대를 찾아 1:1 전투가 시작됩니다. 조작은 여정의 컴퓨터 키 설정을 그대로 사용하며, PVP 결과는 일반 진행 저장을 변경하지 않습니다.</p><div id="pvpRoomView" class="tip hidden"></div></div></div>
@@ -935,6 +950,20 @@ function updateAudio(){
  if(mode==='play'&&!modal&&player.motion?.walk>.4&&now>footstepNext){sound('step');footstepNext=now+.3;}
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.innerHTML=message;$('toasts').appendChild(el);while($('toasts').children.length>4)$('toasts').firstChild.remove();setTimeout(()=>el.remove(),4300);}
+const worldCombo={hits:0,total:0,last:0};
+function updateWorldComboHud(){
+ const now=performance.now(),active=mode==='play'&&worldCombo.hits>0&&now-worldCombo.last<1000;
+ const node=$('worldCombo');if(!node)return;node.classList.toggle('hidden',!active);
+ if(!active){if(worldCombo.hits){worldCombo.hits=0;worldCombo.total=0;} $('worldTotalDamage').textContent='총 피해 0';return;}
+ $('worldComboNumber').textContent=String(worldCombo.hits);
+ $('worldComboTimer').style.transform='scaleX('+Math.max(0,1-(now-worldCombo.last)/1000).toFixed(3)+')';
+ $('worldTotalDamage').textContent='총 피해 '+Math.round(worldCombo.total).toLocaleString();
+}
+function recordWorldCombo(amount){
+ const damage=Math.max(0,Math.round(Number(amount)||0));if(!damage)return;
+ const now=performance.now();if(now-worldCombo.last>=1000){worldCombo.hits=0;worldCombo.total=0;}
+ worldCombo.hits++;worldCombo.total+=damage;worldCombo.last=now;updateWorldComboHud();
+}
 function floating(x,y,text,color='#e8dcae',big=false){if(!options.damageNumbers&&!big)return;floaters.push({x,y,text,color,t:1.1,max:1.1,big,damage:false});if(floaters.length>80)floaters.shift();}
 function damageFloating(x,y,amount,angle=0,big=false){if(!options.damageNumbers)return;const dmg=Math.max(1,Math.round(Number(amount)||1)),power=clamp(48+Math.sqrt(dmg)*7,54,165),spread=(rand()-.5)*1.05,a=angle+Math.PI+spread;floaters.push({x,y,text:String(dmg),color:big?'#ffbd9f':'#ff8f7d',t:1.0,max:1.0,big:big||dmg>=120,damage:true,vx:Math.cos(a)*power,vy:-72-Math.min(85,Math.sqrt(dmg)*6),rot:(rand()-.5)*.35});if(floaters.length>80)floaters.shift();}
 function skillShakePower(index,weapon=player?.weapon){const base=[4.5,6.5,8.5,11,15][clamp(index|0,0,4)];return base*(weapon===3?1.18:weapon===2?.9:1);}
@@ -1061,6 +1090,7 @@ function applySharedWorldSnapshot(snapshot){
 }
 function applySharedMobPatch(m){
  if(!m?.id)return;const prev=enemies.find(v=>v.id===m.id),wasDead=prev?.dead??true,e=applyServerMobState(m);if(!e||e.kind==='boss')return;
+ if(m.damage>0&&m.by===window.EchoesMulti?.state?.selfId)recordWorldCombo(m.damage);
  if(m.damage>0&&m.by!==window.EchoesMulti?.state?.selfId){e.flash=.15;damageFloating(e.x,e.y-e.r-18,m.damage,0,false);burst(e.x,e.y-e.r*.4,'#ffbd9f',6,85);}
  if(m.dead&&!wasDead){if(m.by===window.EchoesMulti?.state?.selfId)defeatEnemy(e,true);else{e.dead=true;e.hp=0;e.state='dead';e.respawn=30;burst(e.x,e.y,e.color,12,80);}}
  else if(!m.dead){e.dead=false;if(e.state==='dead')e.state='idle';}
@@ -1114,7 +1144,7 @@ function flushWorldCombat(){
 }
 function applyWorldCombatResult(msg){
  if(!multiplayerMode||!msg?.player)return;const p=msg.player,m=window.EchoesMulti;
- if(msg.targetId!==m.state.selfId){if(msg.attackerId===m.state.selfId&&msg.damage>0){window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);if(msg.skillId==='starRush'){const v=galeVortices.find(q=>q.t>0&&!q.caught.has(msg.targetId)&&Math.hypot(p.x-q.x,p.y-q.y)<GALE_VORTEX.radius+82);if(v){v.caught.set(msg.targetId,{angle:Math.atan2(p.y-v.y,p.x-v.x)});ring(p.x,p.y,35,'#eafffa',.18);}}}mergeRemotePlayerState(p);if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
+ if(msg.targetId!==m.state.selfId){if(msg.attackerId===m.state.selfId&&msg.damage>0){recordWorldCombo(msg.damage);window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);if(msg.skillId==='starRush'){const v=galeVortices.find(q=>q.t>0&&!q.caught.has(msg.targetId)&&Math.hypot(p.x-q.x,p.y-q.y)<GALE_VORTEX.radius+82);if(v){v.caught.set(msg.targetId,{angle:Math.atan2(p.y-v.y,p.x-v.x)});ring(p.x,p.y,35,'#eafffa',.18);}}}mergeRemotePlayerState(p);if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
  if(worldCombatSession!==m.state.selfId){worldCombatSession=m.state.selfId;worldCombatRevision=0;worldForce=null;worldControlUntil=0;}
  if(p.combatRevision<=worldCombatRevision)return;worldCombatRevision=p.combatRevision;
  player.hp=clamp(p.hp,0,player.maxHp);player.shield=clamp(p.shield,0,player.maxShield);player.stam=clamp(p.stam,0,player.maxStam);if(player.shield<=0&&shieldHeld()){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
@@ -2320,9 +2350,9 @@ function hitEnemy(e,amount,heavy=false,source=player,controlOverride=null){
  if(!controlOverride?.prismCast||realTime-(e._prismImpactAt??-Infinity)>=.07){e._prismImpactAt=realTime; damageFloating(e.x+rnd(-10,10),e.kind==='boss'?hc.y-30:e.y-e.r-18,dmg,source?Math.atan2(hc.y-source.y,hc.x-source.x):0,heavy);burst(hc.x,hitY,heavy?'#f4d892':'#cbdac8',heavy?16:6,heavy?145:85);sound('hit');if(options.shake)shake=Math.max(shake,heavy?5:2);if(!controlOverride?.noHitstop)hitstop=Math.max(hitstop,heavy?.055:.025);}
  if(serverMob){
   const a=source?Math.atan2(e.y-source.y,e.x-source.x):e.facing,control={stun:heavy?.75:.22,knockbackX:heavy?Math.cos(a)*24:0,knockbackY:heavy?Math.sin(a)*24:0};if(controlOverride)Object.assign(control,{stun:controlOverride.stun,root:controlOverride.root||0,knockbackX:controlOverride.dx||0,knockbackY:controlOverride.dy||0,duration:controlOverride.duration,prismCast:controlOverride.prismCast});
-  if(e.kind==='boss')window.EchoesMulti.damageBoss(e.id,dmg,control);else window.EchoesMulti.damageMob(e.id,dmg,control);return;
+  if(e.kind==='boss'){recordWorldCombo(dmg);window.EchoesMulti.damageBoss(e.id,dmg,control);}else window.EchoesMulti.damageMob(e.id,dmg,control);return;
  }
- e.hp-=dmg;if(wasPassive)e.provoked=true;e.alert=true;e.poise+=heavy?55:14;if(e.type==='dummy'){e.hp=e.maxHp;player.training.attack=true;if(e.state==='idle'){e.timer=.8;e.alert=true;}return;}
+ e.hp-=dmg;recordWorldCombo(dmg);if(wasPassive)e.provoked=true;e.alert=true;e.poise+=heavy?55:14;if(e.type==='dummy'){e.hp=e.maxHp;player.training.attack=true;if(e.state==='idle'){e.timer=.8;e.alert=true;}return;}
  if(e.kind==='boss'){if(e.poise>=130){applyEnemyStun(e,1.7);e.poise=0;floating(e.x,e.y-85,'자세 붕괴','#e7d395',true);sound('parry');}}
  else if(controlOverride){applyEnemyStun(e,controlOverride.stun||0);if(!enemyGuardBlocksControl(e)&&(controlOverride.dx||controlOverride.dy)){skill2Knocks=skill2Knocks.filter(k=>k.e!==e);const max=controlOverride.duration||.38;skill2Knocks.push({e,startX:e.x,startY:e.y,x:e.x+(controlOverride.dx||0),y:e.y+(controlOverride.dy||0),t:max,max,cubic:true});}}
  else{applyEnemyStun(e,heavy?.75:.22);if(heavy&&!enemyGuardBlocksControl(e)){const a=Math.atan2(e.y-source.y,e.x-source.x),max=window.EchoesCombat.forceDuration(24);skill2Knocks=skill2Knocks.filter(k=>k.e!==e);skill2Knocks.push({e,startX:e.x,startY:e.y,x:e.x+Math.cos(a)*24,y:e.y+Math.sin(a)*24,t:max,max,cubic:true});}}
@@ -3748,7 +3778,7 @@ function recoverGameLoop(error){
  }catch(recoveryError){console.error('Game loop recovery error',recoveryError);}
  if(gameLoopErrorCount===1||now-(player?.lastLoopRecoveryToastAt||0)>2500){if(player)player.lastLoopRecoveryToastAt=now;toast('일시적인 전투 오류를 자동 복구했습니다.');}
 }
-function frame(stamp){requestAnimationFrame(frame);const elapsed=Math.max(0,(stamp-lastStamp)/1000);let dt=Math.min(.1,elapsed);lastStamp=stamp;realTime+=dt;frameMs=frameMs*.96+elapsed*1000*.04;if(mode==='title'&&!$('pvpLayer').classList.contains('hidden'))return;
+function frame(stamp){requestAnimationFrame(frame);const elapsed=Math.max(0,(stamp-lastStamp)/1000);let dt=Math.min(.1,elapsed);lastStamp=stamp;realTime+=dt;updateWorldComboHud();frameMs=frameMs*.96+elapsed*1000*.04;if(mode==='title'&&!$('pvpLayer').classList.contains('hidden'))return;
  try{if(multiplayerMode){updateWorldForce();flushWorldCombat();}updateAudio();if(mode==='title'){camera.x=860+Math.sin(realTime*.045)*70;camera.y=2960+Math.cos(realTime*.04)*45;player.facing=-.7;}if(mode==='play'&&!modal){if(hitstop>0&&!multiplayerMode)hitstop=Math.max(0,hitstop-dt);else{hitstop=0;const steps=Math.max(1,Math.ceil(dt/.033));for(let i=0;i<steps&&mode==='play'&&!modal;i++)update(dt/steps);}}if(!touchMode||options.quality!=='low'||stamp-lastDrawStamp>=32){lastDrawStamp=stamp;render();}}
  catch(error){recoverGameLoop(error);}
 }
@@ -3863,7 +3893,7 @@ function showLobby(msg=''){
 function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260927-DAMAGE-SCOPE-7';resize()}
 function close(){stopNet();layer.classList.add('hidden');document.querySelector('#title')?.classList.remove('hidden')}
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
-function stopPeer(){running=false;void3Pvp=null;remoteCriticalAck=false;resetPvpCriticalHits();try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[];pvpVortices=[]}
+function stopPeer(){running=false;void3Pvp=null;remoteCriticalAck=false;resetPvpCriticalHits();try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[];pvpVortices=[];resetPvpCombo();}
 function stopNet(){
  const m=window.EchoesMulti;if(matchWaiting)m?.pvpMatchCancel?.();matchWaiting=false;stopPeer();
  if(matchSocketOwned&&m?.connected){m.disconnect();matchSocketOwned=false;}
@@ -3947,6 +3977,21 @@ function pumpPvpCriticalHits(){if(!remoteCriticalAck||!conn?.open||!pvpCriticalP
 function pvpShakePower(i){return [5,7,9,12,16][clamp(i|0,0,4)]}
 function pvpImpactShake(damage){const d=Math.max(1,Number(damage)||1);pvpShake=Math.max(pvpShake,clamp(2+Math.sqrt(d)*.45,3,9))}
 function triggerPvpShake(i,scale=1,send=false){pvpShake=Math.max(pvpShake,pvpShakePower(i)*scale);if(send)net({t:'skillShake',i:clamp(i|0,0,4),s:scale})}
+const pvpCombo={hits:0,total:0,last:0};
+function updatePvpComboHud(){
+ const now=performance.now(),active=running&&pvpCombo.hits>0&&now-pvpCombo.last<1000;
+ $('pvpCombo').classList.toggle('hidden',!active);
+ if(!active){if(pvpCombo.hits){pvpCombo.hits=0;pvpCombo.total=0;}$('pvpTotalDamage').textContent='총 피해 0';return;}
+ $('pvpComboNumber').textContent=String(pvpCombo.hits);
+ $('pvpComboTimer').style.transform='scaleX('+Math.max(0,1-(now-pvpCombo.last)/1000).toFixed(3)+')';
+ $('pvpTotalDamage').textContent='총 피해 '+Math.round(pvpCombo.total).toLocaleString();
+}
+function recordPvpCombo(amount){
+ const damage=Math.max(0,Math.round(Number(amount)||0));if(!damage)return;
+ const now=performance.now();if(now-pvpCombo.last>=1000){pvpCombo.hits=0;pvpCombo.total=0;}
+ pvpCombo.hits++;pvpCombo.total+=damage;pvpCombo.last=now;updatePvpComboHud();
+}
+function resetPvpCombo(){pvpCombo.hits=pvpCombo.total=pvpCombo.last=0;updatePvpComboHud();}
 function pvpDamagePop(x,y,d,isMine=false){const amount=Math.max(1,Math.round(Number(d)||1)),a=(Math.random()-.5)*1.5-Math.PI/2,speed=55+Math.min(130,Math.sqrt(amount)*8);fx.push({kind:'damage',text:String(amount),x,y:y-42,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed-35,t:1,max:1,c:isMine?'#ff9b87':'#ff7d70',big:amount>=120,rot:(Math.random()-.5)*.35});trimFx()}
 function trimFx(){if(fx.length>520)fx.splice(0,fx.length-520)}
 function pushFx(f,send=true){fx.push({...f,max:f.max??f.t});trimFx();if(send&&!receivingPvpVisual)queuePvpVisual(f)}
@@ -3983,7 +4028,7 @@ function processPvpData(m){if(!m||typeof m!=='object')return;
  else if(m.t==='parried'&&me){me.stun=Math.max(me.stun,1.25);me.skillHold=null;me.skillEvent=null;me.cast=0;me.attackCd=Math.max(me.attackCd,.35);ring(me.x,me.y,95,'#b8f2e5',.45);burst(me.x,me.y,'#d6f5e7',20,190);pvpShake=Math.max(pvpShake,8)}
  else if(m.t==='galeVortex'){if(Number.isFinite(+m.x)&&Number.isFinite(+m.y)&&Number.isFinite(+m.a)&&!pvpVortices.some(v=>v.remote&&v.id===String(m.id))){spawnPvpGaleVortex(+m.x,+m.y,+m.a,true,String(m.id));}}
  else if(m.t==='skillShake'){triggerPvpShake(clamp(+m.i||0,0,4),clamp(Number.isFinite(+m.s)?+m.s:1,.5,1.5),false)}
- else if(m.t==='damagePop'&&enemy){const d=clamp(+m.d||1,1,9999);pvpDamagePop(enemy.x,enemy.y,d,false);burst(enemy.x,enemy.y,'#b83d3d',12,135);pvpImpactShake(d);const v=pvpVortices.find(q=>!q.remote&&q.id===m.vortexId&&q.t>0);if(v&&!v.caught){v.caught={angle:Math.atan2(enemy.y-v.y,enemy.x-v.x)};v.hitAt=v.age;ring(enemy.x,enemy.y,55,'#eafffa',.28,true);}}
+ else if(m.t==='damagePop'&&enemy){const d=clamp(+m.d||1,1,9999);pvpDamagePop(enemy.x,enemy.y,d,false);burst(enemy.x,enemy.y,'#b83d3d',12,135);pvpImpactShake(d);recordPvpCombo(d);const v=pvpVortices.find(q=>!q.remote&&q.id===m.vortexId&&q.t>0);if(v&&!v.caught){v.caught={angle:Math.atan2(enemy.y-v.y,enemy.x-v.x)};v.hitAt=v.age;ring(enemy.x,enemy.y,55,'#eafffa',.28,true);}}
  else if(m.t==='stigmaMarkClear'&&me){me.stigmaMarkUntil=0}
  else if(m.t==='fx')sanitizeRemoteFx(m.f)
  else if(m.t==='fxBatch'){for(const f of (Array.isArray(m.effects)?m.effects:[]).slice(0,64))sanitizeRemoteFx(f)}
@@ -3991,12 +4036,12 @@ function processPvpData(m){if(!m||typeof m!=='object')return;
  else if(m.t==='pong')ping=Math.round(performance.now()-m.n)
  else if(m.t==='round'){const mine=clamp(+m.mine||0,0,3),theirs=clamp(+m.theirs||0,0,3);theirWins=mine;myWins=theirs;roundLocked=true;updateScore();if(myWins>=3||theirWins>=3){setTimeout(()=>finish(myWins>=3,myWins>=3?'3선승 승리':'3선승 패배'),550)}else setTimeout(resetRound,1200)}
  else if(m.t==='rematch'){rematchTheirs=true;checkRematch()}}
-function startMatchIfReady(){if(running)return;if(!remoteSnap||!conn?.open)return;const snap=snapshot();if(!snap)return;resetPvpCriticalHits();const left=ARENA_W*.5-350,right=ARENA_W*.5+350,midY=ARENA_H*.5;me=createFighter(snap,host?left:right,midY,host?0:Math.PI);enemy=createFighter(remoteSnap,host?right:left,midY,host?Math.PI:0);pvpCamera.x=me.x;pvpCamera.y=me.y;myWins=theirWins=0;pvpHudTimer=0;sendAt=pingAt=0;running=true;roundLocked=false;rematchMine=rematchTheirs=false;$('pvpLobby').classList.add('hidden');$('pvpHud').classList.remove('hidden');$('pvpCooldowns').classList.remove('hidden');$('pvpScore').classList.remove('hidden');$('pvpResult').classList.add('hidden');$('pvpStatus').textContent='여정 전투 시스템 PVP · 연결됨';updateScore();last=performance.now()}
+function startMatchIfReady(){if(running)return;if(!remoteSnap||!conn?.open)return;const snap=snapshot();if(!snap)return;resetPvpCombo();resetPvpCriticalHits();const left=ARENA_W*.5-350,right=ARENA_W*.5+350,midY=ARENA_H*.5;me=createFighter(snap,host?left:right,midY,host?0:Math.PI);enemy=createFighter(remoteSnap,host?right:left,midY,host?Math.PI:0);pvpCamera.x=me.x;pvpCamera.y=me.y;myWins=theirWins=0;pvpHudTimer=0;sendAt=pingAt=0;running=true;roundLocked=false;rematchMine=rematchTheirs=false;$('pvpLobby').classList.add('hidden');$('pvpHud').classList.remove('hidden');$('pvpCooldowns').classList.remove('hidden');$('pvpScore').classList.remove('hidden');$('pvpResult').classList.add('hidden');$('pvpStatus').textContent='여정 전투 시스템 PVP · 연결됨';updateScore();last=performance.now()}
 function createFighter(s,x,y,a){return {...s,x,y,a,netX:x,netY:y,netVX:0,netVY:0,hp:s.maxHp,shield:s.maxShield,stam:s.maxStam,r:18,block:false,parryWindow:0,parryCd:0,galeRoot:0,shieldDelay:0,shieldBroken:0,shieldRearm:0,shieldNeedsRelease:false,dash:0,dashCd:0,inv:0,hitInv:0,attackCd:0,attackAnim:0,attackDuration:.26,combo:0,comboTimer:0,exhaust:0,basicMoveSlow:0,moveLock:0,postSkillLock:0,cool:[0,0,0,0,0],stun:0,vx:0,vy:0,hurt:0,skillHold:null,skillEvent:null,skillPose:-1,skillKind:'',followUntil:0,followMarked:false,stigmaMarkUntil:0,forcedMove:null,forceTrack:null,forceTrackSeq:0,controlLease:null,controlStateSeq:0,outgoingControl:null,forcePriority:0,knockCameraHold:0,remoteForceLockUntil:0,remoteTrackSeq:0,potionCd:0,riposte:0,stamDelay:0,lastMoveA:a,motion:{x,y,phase:0,walk:0,facing:a,lean:0}}}
 function resetFighterMotion(f){if(!f)return;f.netX=f.x;f.netY=f.y;f.netVX=f.netVY=0;f.remoteForce=null;f.remoteForceLockUntil=0;f.vx=f.vy=0;f.attackAnim=f.hurt=0;f.combo=f.comboTimer=0;f.skillHold=f.skillEvent=null;f.skillPose=-1;f.skillKind='';f.stigmaMarkUntil=0;f.forcedMove=null;f.forceTrack=null;f.forceTrackSeq=0;f.controlLease=null;f.controlStateSeq=0;f.outgoingControl=null;f.forcePriority=0;f.knockCameraHold=0;f.remoteTrackSeq=0;f.motion={x:f.x,y:f.y,phase:0,walk:0,facing:f.a,lean:0}}
-function resetRound(){if(!me||!enemy)return;void3Pvp=null;resetPvpCriticalHits();const left=ARENA_W*.5-350,right=ARENA_W*.5+350,midY=ARENA_H*.5;me.x=host?left:right;me.y=midY;me.a=host?0:Math.PI;me.hp=me.maxHp;me.shield=me.maxShield;me.stam=me.maxStam;me.stun=me.inv=me.hitInv=me.dash=me.dashCd=me.exhaust=me.moveLock=me.postSkillLock=me.forcePriority=me.knockCameraHold=me.galeRoot=0;me.cool.fill(0);me.block=false;me.parryWindow=0;me.shieldRearm=0;me.shieldNeedsRelease=false;pvpShieldKeyLatched=false;enemy.x=host?right:left;enemy.y=midY;enemy.a=host?Math.PI:0;enemy.hp=enemy.maxHp;enemy.shield=enemy.maxShield;enemy.stam=enemy.maxStam;enemy.stun=enemy.inv=enemy.dash=enemy.dashCd=enemy.exhaust=enemy.galeRoot=0;resetFighterMotion(me);resetFighterMotion(enemy);pvpCamera.x=me.x;pvpCamera.y=me.y;projectiles=[];pvpVortices=[];fx=[];pvpShake=0;roundLocked=false}
+function resetRound(){if(!me||!enemy)return;void3Pvp=null;resetPvpCombo();resetPvpCriticalHits();const left=ARENA_W*.5-350,right=ARENA_W*.5+350,midY=ARENA_H*.5;me.x=host?left:right;me.y=midY;me.a=host?0:Math.PI;me.hp=me.maxHp;me.shield=me.maxShield;me.stam=me.maxStam;me.stun=me.inv=me.hitInv=me.dash=me.dashCd=me.exhaust=me.moveLock=me.postSkillLock=me.forcePriority=me.knockCameraHold=me.galeRoot=0;me.cool.fill(0);me.block=false;me.parryWindow=0;me.shieldRearm=0;me.shieldNeedsRelease=false;pvpShieldKeyLatched=false;enemy.x=host?right:left;enemy.y=midY;enemy.a=host?Math.PI:0;enemy.hp=enemy.maxHp;enemy.shield=enemy.maxShield;enemy.stam=enemy.maxStam;enemy.stun=enemy.inv=enemy.dash=enemy.dashCd=enemy.exhaust=enemy.galeRoot=0;resetFighterMotion(me);resetFighterMotion(enemy);pvpCamera.x=me.x;pvpCamera.y=me.y;projectiles=[];pvpVortices=[];fx=[];pvpShake=0;roundLocked=false}
 function infoText(f){return `Lv.${f.level} · ${weaponData[f.weapon].name} +${f.upgrades[f.weapon]} · 회복 ${f.potions}`}
-function updateScore(){$('pvpScore').textContent=`${myWins}  —  ${theirWins} · 3선승`;if(me&&enemy){$('pvpMeInfo').textContent=`HP ${Math.ceil(me.hp)} / ${me.maxHp} · 쉴드 ${Math.ceil(me.shield)} / ${me.maxShield} · 마나 ${Math.ceil(me.stam)} / ${me.maxStam}`;$('pvpEnemyInfo').textContent=infoText(enemy);$('pvpMeHp').style.width=(me.hp/me.maxHp*100)+'%';$('pvpMeShield').style.width=(me.shield/me.maxShield*100)+'%';$('pvpEnemyHp').style.width=(enemy.hp/enemy.maxHp*100)+'%';$('pvpEnemyShield').style.width=(enemy.shield/enemy.maxShield*100)+'%';$('pvpMeStam').style.width=(me.stam/me.maxStam*100)+'%';$('pvpEnemyStam').style.width=(enemy.stam/enemy.maxStam*100)+'%'}}
+function updateScore(){$('pvpScore').textContent=`${myWins}  —  ${theirWins} · 3선승`;if(me&&enemy){$('pvpMeHpText').textContent=`HP ${Math.ceil(me.hp)} / ${me.maxHp}`;$('pvpMeInfo').textContent=`쉴드 ${Math.ceil(me.shield)} / ${me.maxShield} · 마나 ${Math.ceil(me.stam)} / ${me.maxStam}`;$('pvpEnemyInfo').textContent=infoText(enemy);$('pvpMeHp').style.width=(me.hp/me.maxHp*100)+'%';$('pvpMeShield').style.width=(me.shield/me.maxShield*100)+'%';$('pvpEnemyHp').style.width=(enemy.hp/enemy.maxHp*100)+'%';$('pvpEnemyShield').style.width=(enemy.shield/enemy.maxShield*100)+'%';$('pvpMeStam').style.width=(me.stam/me.maxStam*100)+'%';$('pvpEnemyStam').style.width=(enemy.stam/enemy.maxStam*100)+'%'}}
 function damageTaken(raw){const reduction=Number.isFinite(me.damageReduction)?me.damageReduction:clamp(me.defense*.018,0,.45);return window.EchoesCombat.damageAfterArmor(raw,reduction)}
 function facingSource(sx,sy){const a=Math.atan2(sy-me.y,sx-me.x);return Math.abs(angleDiff(a,me.a))<1.7}
 function hurt(raw,opts={}){if(!me||me.inv>0||(!opts.rapidHit&&me.hitInv>0)||roundLocked)return 'ignored';let {stun=.08,force=0,forceA=null,forceTime=null,sx=enemy?.x||0,sy=enemy?.y||0,parryable=true,breakShield=false,bypassShield=false,teleportHit=false}=opts;raw=Math.max(1,+raw||1);if(!bypassShield&&me.block&&me.shield>0){me.shieldDelay=1.4;if(parryable&&me.parryWindow>0&&!breakShield){me.parryWindow=0;me.shield=Math.max(0,me.shield-4);if(me.shield<=0){me.block=false;me.shieldNeedsRelease=true;}me.stam=Math.min(me.maxStam,me.stam+28);me.inv=.25;net({t:'parried'});ring(me.x,me.y,100,'#b8f2e5',.5,true);burst(me.x,me.y,'#d6f5e7',24,190);pvpShake=Math.max(pvpShake,6);if(me.rune==='echo')me.riposte=4;return 'parried'}if(breakShield){me.shield=0;me.shieldBroken=0;me.shieldNeedsRelease=true;me.block=false}else{const cost=window.EchoesCombat.shieldCost(raw),before=me.shield;me.shield=Math.max(0,before-cost);if(me.shield>0){ring(me.x,me.y,34,'#9edbe6',.2);return 'blocked'}me.shieldBroken=0;me.shieldNeedsRelease=true;me.block=false;raw*=Math.max(0,1-before/cost);if(raw<=0)return 'blocked'}}
@@ -4492,7 +4537,7 @@ function recoverPvpLoop(error){
  const now=performance.now();if(now-pvpLoopErrorAt>1000)console.error('PVP loop recovered',error);pvpLoopErrorAt=now;
  try{if(void3Pvp)endVoid3Pvp();if(me){me.skillHold=null;me.skillEvent=null;me.moveLock=0;me.postSkillLock=0;me.attackCd=Math.min(Math.max(0,me.attackCd||0),.12);}}catch(recoveryError){console.error('PVP recovery error',recoveryError);}
 }
-function loop(t){requestAnimationFrame(loop);const dt=Math.min(.033,(t-last)/1000||0);last=t;if(!layer.classList.contains('hidden')){try{if(running)update(dt);render()}catch(error){recoverPvpLoop(error)}}}
+function loop(t){requestAnimationFrame(loop);const dt=Math.min(.033,(t-last)/1000||0);last=t;if(!layer.classList.contains('hidden')){try{if(running)update(dt);updatePvpComboHud();render()}catch(error){recoverPvpLoop(error)}}}
 $('pvpBtn')?.addEventListener('click',open);$('pvpExit').addEventListener('click',close);$('pvpResultExit').addEventListener('click',close);$('pvpMatch').addEventListener('click',startMatchmaking);$('pvpCancelMatch').addEventListener('click',cancelMatchmaking);$('pvpRematch').addEventListener('click',rematch);const pvpMatchServer=window.EchoesMulti;pvpMatchServer?.on('pvp:matchStatus',msg=>{if(layer.classList.contains('hidden'))return;if(msg?.queued){matchWaiting=true;$('pvpMatch').disabled=true;$('pvpCancelMatch').disabled=false;$('pvpStatus').textContent='매칭 대기 중';$('pvpRoomView').textContent='상대를 찾는 중… 현재 대기열 '+Math.max(1,Number(msg.count)||1)+'명';$('pvpRoomView').classList.remove('hidden');return}if(msg?.error==='ruleset-mismatch'){const serverRuleset=String(msg.ruleset||pvpMatchServer?.state?.pvpRuleset||'');if(serverRuleset&&serverRuleset!==PVP_RULESET&&!pvpMatchServer?._pvpCompatRetry){pvpMatchServer._pvpCompatRetry=true;matchWaiting=false;(async()=>{try{if(pvpMatchServer.connected)pvpMatchServer.disconnect();matchSocketOwned=true;const ss=snapshot();await pvpMatchServer.connect({name:ss?.name||displayName(),accountId:pvpAccountId(),level:ss?.level||1,weapon:ss?.weapon||0,mode:'pvp',pvpRuleset:serverRuleset});matchWaiting=true;pvpMatchServer.pvpMatchJoin();$('pvpStatus').textContent='매칭 대기 중';$('pvpRoomView').textContent='매칭 서버 호환 모드로 상대를 찾는 중…';$('pvpRoomView').classList.remove('hidden')}catch(e){matchWaiting=false;showLobby('매칭 서버 호환 연결에 실패했습니다.')}})();return}matchWaiting=false;$('pvpStatus').textContent='전투 규칙 동기화 필요';showLobby('PVP 매칭 서버와 게임 버전이 다릅니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');return}if(matchWaiting){matchWaiting=false;$('pvpStatus').textContent='매칭 대기 종료';showLobby('매칭 대기열에서 나왔습니다.')}});pvpMatchServer?.on('reconnected',()=>{if(matchWaiting&&!layer.classList.contains('hidden'))pvpMatchServer.pvpMatchJoin();});pvpMatchServer?.on('pvp:matchFound',connectMatchedPeer);window.addEventListener('resize',resize);canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;mouse.active=true;mouse.lastMove=performance.now()});canvas.addEventListener('mouseleave',()=>{mouse.active=false;mouse.down=false});canvas.addEventListener('mousedown',e=>{mouse.lastMove=performance.now();if(e.button===0){mouse.down=true;if(running)basic()}});window.addEventListener('mouseup',e=>{if(e.button===0)mouse.down=false});window.addEventListener('keydown',e=>{if(layer.classList.contains('hidden'))return;if(['INPUT','TEXTAREA'].includes(document.activeElement?.tagName))return;keys.add(e.code);if(!running)return;if(e.repeat)return;if(e.code===pkey('KeyZ')){e.preventDefault();basic()}if(e.code===pkey('Space')){e.preventDefault();dash()}if(e.code===pkey('KeyC')&&!pvpShieldKeyLatched){e.preventDefault();pvpShieldKeyLatched=true;beginBlock()}if(e.code===pkey('KeyF')){e.preventDefault();potion()}for(let i=0;i<4;i++)if(e.code===pkey('Digit'+(i+1))){e.preventDefault();switchWeapon(i)}const actions=['KeyQ','KeyR','KeyT','KeyG','KeyV'];const i=actions.findIndex(k=>e.code===pkey(k));if(i>=0){e.preventDefault();skillDown(i)}});window.addEventListener('keyup',e=>{keys.delete(e.code);if(!me)return;if(e.code===pkey('KeyC')){const wasRaised=me.block||me.shieldNeedsRelease||me.shield<me.maxShield;pvpShieldKeyLatched=false;me.block=false;me.parryWindow=0;me.shieldNeedsRelease=false;if(wasRaised)me.shieldRearm=Math.max(me.shieldRearm||0,.5)}const actions=['KeyQ','KeyR','KeyT','KeyG','KeyV'];const i=actions.findIndex(k=>e.code===pkey(k));if(i>=0)skillUp(i)});showLobby();requestAnimationFrame(loop);
 })();
 </script>
