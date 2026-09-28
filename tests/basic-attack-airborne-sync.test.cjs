@@ -32,7 +32,7 @@ test('Arena sends opponent aerial height and resets it after interruption',()=>{
  assert.ok(html.includes('skillLift:clamp(me.skillLift||0,0,150)'));
  assert.ok(html.includes('enemy.skillLift=clamp(Number(m.skillLift)||0,0,150)'));
  assert.ok(html.includes('if(me.stun>0){me.skillLift=0'));
- assert.ok(html.includes('if(!me.skillHold&&!me.skillEvent)me.skillLift=0'));
+ assert.ok(html.includes('if(!me.skillHold&&!me.skillEvent){me.skillLift=0;'));
 });
 test('World, arena, network client and server scripts parse',()=>{
  const sections=html.split('<script>');assert.equal(sections.length,3);
