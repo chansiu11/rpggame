@@ -17,3 +17,13 @@ test('style transfer validates the first skill and isolates post-transfer failur
  assert.match(html,/\[style-transfer\] save/);
  assert.match(html,/requestAnimationFrame\(\(\)=>\{try\{updateHUD\(\)/);
 });
+
+
+test('style transfer coalesces tutorial progress and save work',()=>{
+ assert.match(html,/function updateTutorialJourney\(deferSave=false\)/);
+ assert.match(html,/while\(!tutorialJourneyClaimed\(\)&&guard\+\+<TUTORIAL_JOURNEY_STEPS\.length\+2\)/);
+ assert.match(html,/if\(changed&&!deferSave\)saveGame\(false\)/);
+ assert.match(html,/function scheduleStyleTransferSave\(\)/);
+ assert.match(html,/updateTutorialJourney\(true\)/);
+ assert.match(html,/scheduleStyleTransferSave\(\)/);
+});
