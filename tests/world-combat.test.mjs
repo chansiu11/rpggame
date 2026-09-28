@@ -21,9 +21,37 @@ test('repeated wave impacts renew force from victim actual position, not old end
  assert.equal(f.b.hp,500);assert.ok(f.b.x>1600);f.step(800);const end=f.b.x;assert.equal(f.c.ingest(f.b,{seq:1,combatAck:0,x:1100,y:1000}).x,end);
 });
 test('projectile cast acknowledgement is attached only to accepted damage',()=>{const f=fixture();f.hit({prismCast:'prism:1'});assert.equal(f.messages.at(-1).prismCast,'prism:1');const n=f.messages.length;f.hit({prismCast:'prism:2'});assert.equal(f.messages.length,n);});
-test('Stigma recast consumes a live target token, clears server stun and old force, and prevents stale rollback',()=>{
- const f=fixture();f.a.weapon=3;f.c.handle(f.a,{seq:1,events:[{kind:'stigmaFollowReady',targets:['b']}]});f.a.stunUntil=12000;f.a.controlUntil=12000;f.a.forceMove={startX:1000,startY:1000,x:800,y:1000,max:.4,startedAt:10000};
- f.c.handle(f.a,{seq:2,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});assert.equal(f.a.stun,0);assert.equal(f.a.stunUntil,0);assert.equal(f.a.forceMove,null);assert.equal(f.a.controlUntil,0);assert.equal(f.messages.at(-1).outcome,'stigmaCleanse');assert.equal(f.a.x,1160);
- assert.equal(f.c.ingest(f.a,{seq:1,combatAck:0,x:1000,y:1000}).x,1160);f.a.stunUntil=12000;f.c.handle(f.a,{seq:3,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});assert.equal(f.a.stunUntil,12000);
+test('Stigma follow-up requires an actual damaging mark and consumes that mark once',()=>{
+ const f=fixture();f.a.weapon=3;
+ f.hit({skillId:'hidden:1',procId:'mark-1'});assert.equal(f.b.hp,900);
+ f.c.handle(f.a,{seq:2,events:[{kind:'stigmaFollowReady',targets:['b']}]});
+ f.a.stunUntil=12000;f.a.controlUntil=12000;f.a.forceMove={startX:1000,startY:1000,x:800,y:1000,max:.4,startedAt:10000};
+ f.c.handle(f.a,{seq:3,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});
+ assert.equal(f.a.stun,0);assert.equal(f.a.stunUntil,0);assert.equal(f.a.forceMove,null);assert.equal(f.a.controlUntil,0);
+ assert.equal(f.messages.at(-1).outcome,'stigmaCleanse');assert.equal(f.a.x,1160);
+ assert.equal(f.c.ingest(f.a,{seq:1,combatAck:0,x:1000,y:1000}).x,1160);
+ f.a.stunUntil=12000;f.c.handle(f.a,{seq:4,events:[{kind:'stigmaFollowReady',targets:['b']}]});
+ f.c.handle(f.a,{seq:5,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});
+ assert.equal(f.a.stunUntil,12000);
 });
-test('Stigma cleanse rejects missing or expired marks and wrong weapons',()=>{for(const mode of ['missing','expired','weapon']){const f=fixture();f.a.weapon=3;if(mode!=='missing')f.c.handle(f.a,{seq:1,events:[{kind:'stigmaFollowReady',targets:['b']}]});if(mode==='expired')f.step(3001);if(mode==='weapon')f.a.weapon=0;f.a.stunUntil=20000;f.c.handle(f.a,{seq:2,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});assert.equal(f.a.stunUntil,20000);}});
+test('Stigma cleanse rejects missing or expired marks and wrong weapons',()=>{for(const mode of ['missing','expired','weapon']){const f=fixture();f.a.weapon=3;if(mode!=='missing'){f.hit({skillId:'hidden:1'});f.c.handle(f.a,{seq:2,events:[{kind:'stigmaFollowReady',targets:['b']}]});}if(mode==='expired')f.step(3001);if(mode==='weapon')f.a.weapon=0;f.a.stunUntil=20000;f.c.handle(f.a,{seq:3,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});assert.equal(f.a.stunUntil,20000);}});
+
+test('Blocking all HP damage rejects an on-hit proc, forced movement and follow-up mark',()=>{
+ const f=fixture();f.a.weapon=3;f.b.block=true;f.b.shield=500;f.hit({damage:100,skillId:'hidden:1',procId:'blocked:1',dx:300,stun:1.2});
+ assert.equal(f.b.hp,1000);assert.equal(f.b.x,1100);assert.ok(!f.b.forceMove);
+ assert.equal(f.messages.at(-1).procId,'blocked:1');assert.equal(f.messages.at(-1).damage,0);
+ f.c.handle(f.a,{seq:2,events:[{kind:'stigmaFollowReady',targets:['b']},{kind:'control',targetId:'b',dx:200,stun:1}]});
+ assert.ok(!f.a.stigmaFollow);assert.ok(!f.b.forceMove);
+ f.c.handle(f.a,{seq:3,events:[{kind:'stigmaFollow',targetId:'b',x:1160,y:1000}]});assert.equal(f.a.x,1000);
+});
+test('Exact shield depletion blocks all HP damage instead of leaking a minimum 1 HP',()=>{
+ const f=fixture();f.b.block=true;f.b.shield=140;f.hit({damage:100,skillId:'hidden:1',procId:'shield-exact',dx:300,stun:.9});
+ assert.equal(f.b.shield,0);assert.equal(f.b.hp,1000);assert.ok(!f.b.forceMove);
+ assert.equal(f.messages.at(-1).outcome,'blocked');assert.equal(f.messages.at(-1).damage,0);
+ assert.equal(f.messages.at(-1).procId,'shield-exact');
+});
+test('Breaking shield and actually hitting HP authorizes the impact proc',()=>{
+ const f=fixture();f.b.block=true;f.hit({damage:100,breakShield:true,procId:'break:hit',dx:120});
+ assert.equal(f.b.shield,0);assert.equal(f.b.hp,900);assert.equal(f.messages.at(-1).procId,'break:hit');
+ assert.equal(f.messages.at(-1).damage,100);assert.ok(f.b.forceMove);
+});
