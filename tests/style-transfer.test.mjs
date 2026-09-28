@@ -18,14 +18,15 @@ test('style transfer validates the first skill and isolates post-transfer failur
  assert.doesNotMatch(html,/requestAnimationFrame\(\(\)=>\{try\{updateHUD\(\)/);
 });
 
-test('style transfer does not perform cloud save or HUD work in the transfer frame',()=>{
+test('style transfer checkpoints locally and defers cloud sync',()=>{
  assert.match(html,/function saveLocalSnapshot\(\)/);
  assert.match(html,/function scheduleStyleTransferSave\(\)/);
  assert.match(html,/saveLocalSnapshot\(\)/);
  const start=html.indexOf('function scheduleStyleTransferSave()');
  const end=html.indexOf('function chooseSwordStyle',start);
  const scheduler=html.slice(start,end);
- assert.doesNotMatch(scheduler,/saveGame\(/);
+ assert.match(scheduler,/saveGame\(false\)/);
+ assert.ok(scheduler.indexOf('saveLocalSnapshot()')<scheduler.indexOf('setTimeout('));
  assert.doesNotMatch(scheduler,/EchoesCloud/);
  assert.match(scheduler,/1200/);
 });
