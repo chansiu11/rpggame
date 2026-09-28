@@ -64,7 +64,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    if(e.kind==='stigmaFollowReady'){
     if(a.weapon!==3||a.hp<=0||t<(a.stunUntil||0)||t<(a.stigmaReadyAfter||0))continue;
     const ids=(Array.isArray(e.targets)?e.targets:[]).slice(0,32).map(String).filter(id=>{const q=resolveTarget(id);return q&&q!==a&&q.hp>0&&!q.dead&&Math.hypot(q.x-a.x,q.y-a.y)<=550;});
-    if(ids.length){a.stigmaFollow={until:t+3000,ids:new Set(ids)};a.stigmaReadyAfter=t+3000;}continue;
+    const landed=ids.filter(id=>{const h=a.confirmedSkillHits?.get(id);return h&&h.skillId==='hidden:1'&&t-h.at<=3000;});if(landed.length){a.stigmaFollow={until:t+3000,ids:new Set(landed)};a.stigmaReadyAfter=t+3000;}continue;
    }
    if(e.kind==='stigmaFollow'){
     const f=a.stigmaFollow,id=String(e.targetId||''),q=resolveTarget(id);
@@ -77,6 +77,8 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    const kind=String(e.kind||'attack'),damageEvent=kind==='attack',hasLease=b.controlBy===a.id&&t<(b.controlLeaseUntil||0),galePulseControl=!damageEvent&&kind==='special'&&String(e.skillId||'')==='galeOrbit'&&String(a.skillId||'')==='galeOrbit'&&Math.hypot(a.x-b.x,a.y-b.y)<=320;
    if(!damageEvent&&!['control','special'].includes(kind))continue;
    if(!damageEvent&&!hasLease&&!galePulseControl)continue;
+   // Pure shield blocks also resist queued pulls, stuns and follow-up control.
+   if(!damageEvent&&b.block&&b.shield>0&&!e.bypassShield)continue;
    if(damageEvent&&!contact(b,e,t))continue;
    if(t<(b.invulnUntil||0)&&damageEvent)continue;
    let damage=0,outcome='control';
@@ -85,14 +87,15 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     if(b.block&&b.shield>0&&!e.bypassShield){
      b.shieldDelayUntil=t+1400;
      if(e.parryable!==false&&t<(b.parryWindowUntil||0)&&!e.breakShield){b.parryWindowUntil=0;b.shield=Math.max(0,b.shield-4);if(b.shield<=0)b.block=false;b.stam=Math.min(b.maxStam||0,(b.stam||0)+28);b.invulnUntil=t+250;lease(a,{stun:1.25},t);a.forceMove=null;a.controlBy=null;emit(a,{attackerId:b.id,outcome:'parried',damage:0});emit(b,{attackerId:a.id,outcome:'parry',damage:0});b.controlBy=null;continue;}
-     if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}else{const cost=C.shieldCost(raw),before=b.shield;b.shield=Math.max(0,b.shield-cost);if(b.shield>0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0});b.controlBy=null;continue;}b.shieldBrokenUntil=t;b.block=false;raw*=Math.max(0,1-before/cost);}
+     if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}else{const cost=C.shieldCost(raw),before=b.shield;b.shield=Math.max(0,b.shield-cost);if(b.shield>0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0,procId:String(e.procId||'').slice(0,40)});b.controlBy=null;continue;}b.shieldBrokenUntil=t;b.block=false;raw*=Math.max(0,1-before/cost);}
     }
     damage=C.damageAfterArmor(raw,b.defenseReduction||0);b.hp=Math.max(0,b.hp-damage);b.invulnUntil=t+100;b.shieldDelayUntil=t+1400;outcome='hit';
     b.controlBy=a.id;b.controlLeaseUntil=t+1400;
    }
+   if(damage>0){a.confirmedSkillHits??=new Map();a.confirmedSkillHits.set(b.id,{at:t,skillId:String(e.skillId||a.skillId||'')});if(a.confirmedSkillHits.size>64){for(const [id,h] of a.confirmedSkillHits)if(t-h.at>3000)a.confirmedSkillHits.delete(id);}}
    if(b.hp>0){lease(b,e,t);if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}if(e.mark)b.markUntil=t+clamp(e.mark,0,5)*1000;if(e.stun>0){b.block=false;b.dodgeUntil=0;}}
    if(b.hp<=0){b.forceMove=null;b.controlBy=null;}
-   emit(b,{attackerId:a.id,outcome,damage,prismCast:damage>0?String(e.prismCast||'').slice(0,64):'',skillId:String(e.skillId||a.skillId||'').slice(0,48)});
+   emit(b,{attackerId:a.id,outcome,damage,prismCast:damage>0?String(e.prismCast||'').slice(0,64):'',skillId:String(e.skillId||a.skillId||'').slice(0,48),procId:String(e.procId||'').slice(0,40)});
    if(b.hp<=0){b.forceMove=null;b.controlBy=null;broadcast({type:'pvp:defeated',targetId:b.id,targetName:b.name,killerId:a.id,killerName:a.name});}
   }
  }
