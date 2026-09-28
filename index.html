@@ -135,7 +135,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <script type="module" src="./cloud-save.js?v=20260928-auth-ready-1"></script>
 <script src="./multiplayer-config.js?v=20260926-2"></script>
 <script src="./multiplayer-server/combat-core.js?v=20260927-dawn-pull"></script>
-<script src="./multiplayer-client.js?v=20260928-style-transfer-reconnect-1"></script>
+<script src="./multiplayer-client.js?v=20260928-seamless-recovery-2"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (() => {
@@ -467,16 +467,16 @@ function tutorialJourneyStep(){
  return TUTORIAL_JOURNEY_STEPS.length;
 }
 function tutorialJourneyTarget(){const i=tutorialJourneyStep();return i<TUTORIAL_JOURNEY_STEPS.length?TUTORIAL_JOURNEY_STEPS[i].target():null;}
-function updateTutorialJourney(deferSave=false){
+function updateTutorialJourney(deferSave=false,maxSteps=Infinity){
  if(!player||tutorialJourneyClaimed())return false;
- let changed=false,guard=0;
- while(!tutorialJourneyClaimed()&&guard++<TUTORIAL_JOURNEY_STEPS.length+2){
+ let changed=false,guard=0,processed=0;
+ while(!tutorialJourneyClaimed()&&guard++<TUTORIAL_JOURNEY_STEPS.length+2&&processed<maxSteps){
   const i=tutorialJourneyStep();
   if(i<TUTORIAL_JOURNEY_STEPS.length){
    const step=TUTORIAL_JOURNEY_STEPS[i];if(!step.done())break;
    const gold=Math.max(0,Number(step.gold)||0),xp=Math.max(0,Number(step.xp)||0);player.claimed.push(TUTORIAL_JOURNEY_ID+':'+i);player.gold+=gold;if(xp)addXp(xp);
    toast('<b>초보자 여정 '+(i+1)+' / '+TUTORIAL_JOURNEY_STEPS.length+' 완료 · '+step.name+'</b><br>'+gold+' G · 경험치 '+xp);
-   sound('reward');changed=true;continue;
+   sound('reward');changed=true;processed++;continue;
   }
   player.claimed.push(TUTORIAL_JOURNEY_ID);player.gold+=900;player.ore+=8;addXp(600);sound('reward');
   toast('<b>대형 튜토리얼 퀘스트 완료 · 모험가의 첫 여정</b><br>900 G · 경험치 600 · 별철 광석 8');changed=true;break;
@@ -1221,7 +1221,7 @@ function chooseSwordStyle(id){
  normalizeSwordStyleState();
  player.swordStyle=g.id;player.learnedSwordSkills=[first];player.equippedSwordSkills=[first,null,null,null,null];player.skillCds=[0,0,0,0,0];
  try{closeModal();}catch(e){console.error('[style-transfer] close modal',e);}
- try{updateTutorialJourney(true);}catch(e){console.error('[style-transfer] tutorial',e);}
+ try{updateTutorialJourney(true,1);}catch(e){console.error('[style-transfer] tutorial',e);}
  try{scheduleStyleTransferSave();}catch(e){console.error('[style-transfer] save',e);}
  try{sound('reward');}catch(e){console.error('[style-transfer] sound',e);}
  toast('<b>'+g.name+' 전수 완료</b><br>세린에게서 유파와 첫 검술을 배웠습니다. 이후 레벨 조건을 충족하면 같은 사범에게 다음 검술을 배울 수 있습니다.');
