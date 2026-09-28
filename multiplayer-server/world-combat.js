@@ -36,7 +36,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    for(const k of ['maxShield','maxStam'])if(number(msg[k]))p[k]=clamp(msg[k],0,999999);
    for(const k of ['shield','stam'])if(number(msg[k]))p[k]=clamp(msg[k],0,p[k==='shield'?'maxShield':'maxStam']||999999);
    for(const k of timed){if(k==='stun'||k==='mark')continue;if(number(msg[k]))p[k+'Until']=t+clamp(msg[k],0,k==='invuln'?1:3)*1000;}
-   if(number(msg.defenseReduction))p.defenseReduction=clamp(msg.defenseReduction,0,.45);
+   if(number(msg.defenseReduction))p.defenseReduction=clamp(msg.defenseReduction,0,.75);
    p.block=!!msg.block&&t>=(p.stunUntil||0)&&p.shield>0;
    p.skillId=String(msg.skillId||'').slice(0,48);p.skillKind=String(msg.skillKind||'').slice(0,48);p.moveSpeed=clamp(msg.moveSpeed,0,3000);
    const s=msg.special||{};p.special={void3:clamp(s.void3,0,7),hold:!!s.hold,moveScale:clamp(s.moveScale??1,0,2)};
