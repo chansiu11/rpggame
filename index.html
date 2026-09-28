@@ -2461,7 +2461,7 @@ function updateStyleAdeptCast(e,dt){
 }
 function executeStyleAdeptAttack(e){styleAdeptStartCast(e);}
 
-function prepareEnemyAttack(e,forcedType=null){const atkSpeed=enemyAttackSpeed(e);e.state='windup';e.timer=e.wind/((e.phase===2?1.12:1)*atkSpeed);e.windTotal=e.timer;e.facing=Math.atan2(player.y-e.y,player.x-e.x);e.locked=e.facing;e.perfectDodged=false;e.attackType=forcedType||e.kind;e.pattern++;e.castId=(e.castId||0)+1;
+function prepareEnemyAttack(e,forcedType=null){const atkSpeed=enemyAttackSpeed(e);e.state='windup';e.timer=e.wind/((e.phase===2?1.12:1)*atkSpeed);e.windTotal=e.timer;e.facing=Math.atan2(player.y-e.y,player.x-e.x);e.locked=e.facing;e.tx=player.x;e.ty=player.y;e.perfectDodged=false;e.attackType=forcedType||e.kind;e.pattern++;e.castId=(e.castId||0)+1;
  if(e.type==='styleAdept'&&!forcedType){const sk=styleAdeptSkillSpec(e,true);e.attackType='style';e.styleSkillSlot=sk.slot;e.styleSkillId=sk.skillId;e.range=sk.range;e.styleOriginX=e.x;e.styleOriginY=e.y;e.styleAnchorX=player.x;e.styleAnchorY=player.y;e.styleSide=((e.castId||0)&1)?1:-1;e.timer=e.windTotal=sk.wind/atkSpeed;const info=typeof swordSkillById==='function'?swordSkillById(sk.skillId):null;floating(e.x,e.y-e.r-28,(info?.name||sk.style.name+' '+(sk.slot+1)+'식'),sk.style.main);return;}
  if(e.kind==='boss'){e.phase=e.hp<e.maxHp*.5?2:1;e.attackType=BOSS_PATTERNS[e.type][(e.pattern-1)%4];e.timer=e.windTotal=(e.attackType==='charge'?1.05:e.attackType==='melee'?.85:1.25)/atkSpeed;e.range=e.attackType==='slam'?210:e.attackType==='charge'?380:e.attackType==='melee'?175:650;
  const x=player.x,y=player.y,a=e.locked;
@@ -2494,7 +2494,7 @@ function executeBossPattern(e){if(e.kind!=='boss')return false;const a=e.locked;
 function executeEnemyAttack(e){if(e.type==='styleAdept'&&e.attackType==='style'){executeStyleAdeptAttack(e);return;}if(executeBossPattern(e))return;e.state='recover';e.timer=(e.kind==='boss'?.9:.85)/enemyAttackSpeed(e);const a=e.locked;const d=distance(e,player),difference=Math.abs(angleDiff(Math.atan2(player.y-e.y,player.x-e.x),a));
  if(e.attackType==='ranged'){const spread=e.kind==='boss'?(e.phase===2?5:3):1;const projectileSpeed=e.kind==='boss'?240:560;for(let j=0;j<spread;j++)fireProjectile(e.x+Math.cos(a)*26,e.y+Math.sin(a)*26,a+(j-(spread-1)/2)*.22,projectileSpeed,e.damage,'enemy',e.kind==='boss'?'star':'orb');tone(210,.12,'sine',.07,130);}
  else if(e.attackType==='charge'){e.state='charge';e.timer=.5;e.chargeHit=false;}
- else if(e.attackType==='slam'){ring(e.x,e.y,e.range,'#e9a87f',.5);burst(e.x,e.y,'#dac99b',20,170);if(d<e.range+player.r)hitPlayer(e.damage,e,false);if(e.kind==='boss'&&e.phase===2){effects.push({type:'hazard',x:player.x,y:player.y,r:90,t:1.0,max:1,color:'#dc9c96',damage:e.damage});}}
+ else if(e.attackType==='slam'){ring(e.x,e.y,e.range,'#e9a87f',.5);burst(e.x,e.y,'#dac99b',20,170);if(d<e.range+player.r)hitPlayer(e.damage,e,false);if(e.kind==='boss'&&e.phase===2){effects.push({type:'hazard',x:Number.isFinite(e.tx)?e.tx:player.x,y:Number.isFinite(e.ty)?e.ty:player.y,r:90,t:1.0,max:1,color:'#dc9c96',damage:e.damage});}}
  else{effects.push({type:'slash',x:e.x,y:e.y,a,arc:2,r:e.range,color:'#e4b590',t:.22,max:.22});if(d<e.range+player.r&&difference<1.1+player.r/Math.max(d,20))hitPlayer(e.damage,e,true);}
 }
 function updateEnemy(e,dt){if(admin.freeze)return;if(e.riftSleeping)return;if(e.type!=='dummy'&&distance(e,player)<340&&!(e.type==='finalBoss'&&!e.alert)&&player.bestiary[e.type]===undefined)player.bestiary[e.type]=0;if(e.dead){if(e.riftId)return;if(e.kind!=='boss'&&e.type!=='dummy'){e.respawn-=dt;if(e.respawn<=0&&distance(e,player)>700){e.dead=false;e.hp=e.maxHp;e.x=e.sx;e.y=e.sy;e.state='idle';e.alert=false;e.provoked=false;e.timer=1;e.guardActive=false;e.firstGuardDone=false;e.firstGuardPending=false;e.styleSeq=null;e.aiDashCd=.5+rnd(0,.7);}}return;}
@@ -2539,7 +2539,7 @@ function updateEnemy(e,dt){if(admin.freeze)return;if(e.riftSleeping)return;if(e.
   for(const o of candidates(e.x,e.y,100)){if(!o.solid)continue;const od=distance(e,o),rad=(o.box?Math.max(o.w,o.h)/2:o.r)+e.r+36;if(od<rad){const push=(rad-od)/rad*e.speed*2.5;vx+=(e.x-o.x)/(od||1)*push;vy+=(e.y-o.y)/(od||1)*push;}}
   for(const b of nearbyBodies(e.x,e.y,120)){if(b===e||b===player)continue;const bd=distance(e,b),space=bodyRadius(e)+bodyRadius(b)+24;if(bd<space&&bd>.01){const push=(space-bd)/space*e.speed;vx+=(e.x-b.x)/bd*push;vy+=(e.y-b.y)/bd*push;}}
   const ox=e.x,oy=e.y;moveBody(e,vx*dt,vy*dt);if(Math.hypot(e.x-ox,e.y-oy)<dt*e.speed*.15&&d>range){const side=(parseInt(e.id.replace(/\D/g,''),10)||0)%2?1:-1;moveBody(e,Math.cos(a+side*1.2)*e.speed*dt,Math.sin(a+side*1.2)*e.speed*dt);}
- }else if(e.state==='windup'){if(e.timer>.35&&e.attackType!=='slam')e.locked=Math.atan2(player.y-e.y,player.x-e.x);if(e.timer<=0){executeEnemyAttack(e);if(e.kind==='boss'&&e.state!=='charge')applyPendingBossStun(e);}}
+ }else if(e.state==='windup'){e.facing=e.locked;if(e.timer<=0){executeEnemyAttack(e);if(e.kind==='boss'&&e.state!=='charge')applyPendingBossStun(e);}}
  else if(e.state==='charge'){const speed=e.kind==='boss'?670:e.type==='abyssHound'?560:e.type==='shardStalker'?520:460;moveBody(e,Math.cos(e.locked)*speed*dt,Math.sin(e.locked)*speed*dt);const ec=bodyCenter(e),pc=bodyCenter(player),chargeContact=bodyRadius(e)+bodyRadius(player)+(e.kind==='boss'?10:4);if(Math.hypot(ec.x-pc.x,ec.y-pc.y)<=chargeContact&&!e.chargeHit){const result=hitPlayer(e.damage,e,true);e.chargeHit=result!=='dodged';if(result==='parried')return;}if(e.timer<=0){e.state='recover';e.timer=1.2/enemyAttackSpeed(e);if(e.kind==='boss')applyPendingBossStun(e);}}
  else if(e.state==='recover'&&e.timer<=0){e.state='chase';e.timer=.2/enemyAttackSpeed(e);}
 }
@@ -3012,6 +3012,17 @@ function syncInstantPlayerMove(protectMs=420){
 function syncSkillMoveIfNeeded(ox,oy,threshold=34,protectMs=420){
  if(!player)return;const moved=Math.hypot(player.x-ox,player.y-oy);if(moved>=threshold)syncInstantPlayerMove(protectMs);
 }
+function worldMobPacketHitsPlayer(msg,e){
+ const kind=String(msg?.kind||e?.kind||''),attackType=String(msg?.attackType||e?.attackType||kind);
+ if(kind==='ranged'||kind==='style')return true;
+ const x=Number(msg?.x),y=Number(msg?.y),a=Number(msg?.attackA??msg?.facing),range=Math.max(1,Number(msg?.attackRange)||Number(e?.range)||Number(e?.reach)||90);
+ if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(a))return false;
+ const pc=bodyCenter(player),dx=pc.x-x,dy=pc.y-y,d=Math.hypot(dx,dy),pr=bodyRadius(player);
+ if(attackType==='charge'||kind==='charge')return d<=(Number(e?.r)||18)+pr+18;
+ if(attackType==='slam')return d<=range+pr;
+ const ta=Math.atan2(dy,dx),diff=Math.abs(angleDiff(ta,a)),halfArc=Math.max(.2,(Number(msg?.attackArc)||2.1)/2)+pr/Math.max(24,d);
+ return d<=range+pr&&diff<=halfArc;
+}
 function bindMultiplayerEvents(){
  const m=window.EchoesMulti;if(!m||m.__gameBound)return;m.__gameBound=true;
  m.on('world:combatResult',applyWorldCombatResult);
@@ -3021,7 +3032,7 @@ function bindMultiplayerEvents(){
  m.on('world:role',role=>{multiWorldLeader=!!role?.isLeader;multiWorldSyncTimer=0;multiWorldFullSyncTimer=0;multiWorldFullSyncPending=false;multiMobLastSent.clear();});
  m.on('world:snapshot',applySharedWorldSnapshot);m.on('world:mobsDelta',applySharedMobDelta);
  m.on('world:mobAttack',msg=>{
-  const e=enemies.find(v=>v.id===msg?.mobId);if(!e)return;e.attackType=msg.attackType||e.attackType;e.facing=Number(msg.facing)||e.facing;
+  const e=enemies.find(v=>v.id===msg?.mobId);if(!e)return;e.attackType=msg.attackType||e.attackType;if(Number.isFinite(Number(msg.facing)))e.facing=Number(msg.facing);
   const styleAttack=e.type==='styleAdept'&&Number.isFinite(Number(msg.skillSlot));
   if(styleAttack){
    if(typeof msg.styleId==='string'&&msg.styleId)e.styleId=msg.styleId;e.styleSkillSlot=clamp(Number(msg.skillSlot),0,4)|0;e.styleSkillId=String(msg.skillId||'');
@@ -3038,6 +3049,7 @@ function bindMultiplayerEvents(){
    burst(sx,sy,e.color||'#edc899',5,55);sound('enemyShot');
    return;
   }
+  if(!worldMobPacketHitsPlayer(msg,e))return;
   const result=hitPlayer(Math.max(0,Number(msg.damage)||e.damage||1),e,true);
   if(result==='parried'){const a=Math.atan2(e.y-player.y,e.x-player.x),control={stun:1.25,knockbackX:Math.cos(a)*18,knockbackY:Math.sin(a)*18};if(e.kind==='boss')m.damageBoss(e.id,0,control);else m.damageMob(e.id,0,control);}
  });
