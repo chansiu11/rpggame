@@ -1517,14 +1517,14 @@ function attack(){
  const grace=performance.now()<skillBasicGraceUntil&&!skillBasicGraceUsed,skillBusy=skillActionBusy(),duringSkill=grace&&skillBusy;
  if(!canAct()||player.exhaust>0||(skillBusy&&!grace))return;
  if(player.dodge>0||(!grace&&player.attackCd>0)||player.parry>0||(!grace&&player.cast>0)){if(!grace&&Math.max(player.dodge,player.attackCd,player.parry,player.cast)<.17)queueAction('attack');return;}
- const savedSkillAngle=player.attackAngle,savedSkillArc=player.attackArc;
- const w=WEAPONS[player.weapon];if(player.weapon===2&&!useStam(w.cost))return;if(grace)skillBasicGraceUsed=true;player.basicMoveSlow=.5;aim();
+ const savedSkillState=duringSkill?{attackCd:player.attackCd,attackAnim:player.attackAnim,attackDuration:player.attackDuration,attackAngle:player.attackAngle,attackArc:player.attackArc,skillPose:player.skillPose,skillKind:player.skillKind,cast:player.cast,heavy:player.heavy,strikePose:player.strikePose,moveLock:player.moveLock,exhaust:player.exhaust,facing:player.facing}:null;
+ const w=WEAPONS[player.weapon];if(player.weapon===2&&!useStam(w.cost))return;if(grace)skillBasicGraceUsed=true;if(!duringSkill)player.basicMoveSlow=.5;aim();
  if(player.weapon!==2){player.combo=player.comboTimer>0?player.combo+1:1;player.comboTimer=1;player.strikePose=player.combo-1;}else player.strikePose=0;
  player.attackCd=grace?Math.max(player.attackCd,w.cool):w.cool;player.attackDuration=grace?Math.max(player.attackDuration,player.weapon===1?.25:.34):(player.weapon===1?.25:.34);player.attackAnim=grace?Math.max(player.attackAnim,player.weapon===1?.25:.34):player.attackDuration;player.attackAngle=player.facing;player.attackArc=w.arc+(player.combo===5?.9:0);player.heavy=false;basicAttackLockUntil=performance.now()+(player.weapon===1?.25:.34)*1000;if(!duringSkill)player.skillPose=-1;
  const riposte=player.rune==='echo'&&player.riposte>0?1.45:1,mult=(player.weapon===2?1:player.combo===5?1.8:1+(player.combo-1)*.08)*riposte;if(riposte>1)player.riposte=0;
  if(player.weapon===2)Object.assign(fireProjectile(player.x+Math.cos(player.facing)*23,player.y+Math.sin(player.facing)*23,player.facing,650,damageValue(mult),'player','arrow',1),{basicStunBonus:.07});
- else{basicMeleeHit(w.reach,player.attackArc,damageValue(mult),player.combo===5);hitSecretStatue();moveBody(player,Math.cos(player.facing)*(player.combo===3?12:4),Math.sin(player.facing)*(player.combo===3?12:4));effects.push({type:'slash',x:player.x,y:player.y-12,a:player.facing,arc:player.attackArc,r:w.reach,color:player.weapon===3?'#e7c9ff':['#c9f4dd','#b0e8ff','#fff0b0','#d8b7ff','#ffe3a0'][player.strikePose],t:.25,max:.25});if(player.combo===5){if(player.weapon===3)Object.assign(fireProjectile(player.x+Math.cos(player.facing)*38,player.y+Math.sin(player.facing)*38,player.facing,520,damageValue(.68),'player','wave',3),{basicStunBonus:.07});player.exhaust=2;player.comboTimer=0;bufferedAction=null;burst(player.x+Math.cos(player.facing)*45,player.y+Math.sin(player.facing)*45,player.weapon===3?'#e7c9ff':'#ffe3a0',14,115);}}
- if(duringSkill){player.attackAngle=savedSkillAngle;player.attackArc=savedSkillArc;}
+ else{basicMeleeHit(w.reach,player.attackArc,damageValue(mult),player.combo===5);hitSecretStatue();if(!duringSkill)moveBody(player,Math.cos(player.facing)*(player.combo===3?12:4),Math.sin(player.facing)*(player.combo===3?12:4));effects.push({type:'slash',x:player.x,y:player.y-12,a:player.facing,arc:player.attackArc,r:w.reach,color:player.weapon===3?'#e7c9ff':['#c9f4dd','#b0e8ff','#fff0b0','#d8b7ff','#ffe3a0'][player.strikePose],t:.25,max:.25});if(player.combo===5){if(player.weapon===3)Object.assign(fireProjectile(player.x+Math.cos(player.facing)*38,player.y+Math.sin(player.facing)*38,player.facing,520,damageValue(.68),'player','wave',3),{basicStunBonus:.07});if(!duringSkill){player.exhaust=2;player.comboTimer=0;bufferedAction=null;}burst(player.x+Math.cos(player.facing)*45,player.y+Math.sin(player.facing)*45,player.weapon===3?'#e7c9ff':'#ffe3a0',14,115);}}
+ if(savedSkillState)Object.assign(player,savedSkillState); // A whiff or shielded grace basic must never reset or delay the active skill.
  sound(player.weapon===2?'bow':'swing');
 }
 // Restore shared skill definitions removed with the Void 3 rewrite.
@@ -1834,8 +1834,9 @@ function beginStandardSkillInput(index){
   standardSkillHold={index,weapon:player.weapon,continuous:true,color:sk.color||'#d7c181'};
   return true;
  }
- standardSkillHold={index,weapon:player.weapon,facing:player.facing,elapsed:0,fx:0,color:sk.color||'#d7c181'};
- player.skillKind='prepare:'+window.EchoesSkillPrepare.kind(player.weapon,sk.cfg?.mode,index);player.skillPose=index;player.attackAngle=player.facing;player.attackDuration=.15;player.attackAnim=.15;return true;
+ // Tap skills commit and begin on keydown/pointerdown, not on key release after a 0.15s prepare.
+ triggerSkillShake(index);
+ return player.weapon===2?executeSkillNow(index):startSwordSkill(index);
 }
 function releaseStandardSkillInput(index){
  if(index===2&&void3State)return releaseVoid3WorldInput();
@@ -4302,9 +4303,11 @@ function grantPvpSkillBasicGrace(){me.skillBasicGraceUntil=performance.now()+100
 function skillDown(i){
  if(!me||roundLocked||me.dash>0)return;
  if(me.weapon===3){if(beginHidden(i))grantPvpSkillBasicGrace();return}
- if(me.weapon===2){if(!skillReady(i))return;const a=combatAimAngle();me.a=a;me.skillPose=i;me.skillKind='prepare:bow';me.skillHold={kind:'bowPrepare',index:i,a,elapsed:0};me.block=false;me.parryWindow=0;me.attackDuration=.15;me.attackAnim=.15;grantPvpSkillBasicGrace();return}
- const sk=pvpSwordSkillAt(i);if(!sk||!skillReady(i))return;if(sk.id==='gravityCut'){if(startVoid3Pvp())grantPvpSkillBasicGrace();return}if(sk.holdContinuous){if(startWorldSwordHold(i,sk))grantPvpSkillBasicGrace();return}
- const a=combatAimAngle();me.a=a;me.skillPose=i;me.skillKind='prepare:'+window.EchoesSkillPrepare.kind(me.weapon,sk.cfg?.mode,i);me.skillHold={kind:'swordPrepare',index:i,a,elapsed:0};me.block=false;me.parryWindow=0;me.attackDuration=.15;me.attackAnim=.15;grantPvpSkillBasicGrace();
+ if(me.weapon===2){if(startBowSkill(i,combatAimAngle()))grantPvpSkillBasicGrace();return}
+ const sk=pvpSwordSkillAt(i);if(!sk||!skillReady(i))return;
+ if(sk.id==='gravityCut'){if(startVoid3Pvp())grantPvpSkillBasicGrace();return}
+ if(sk.holdContinuous){if(startWorldSwordHold(i,sk))grantPvpSkillBasicGrace();return}
+ if(startSwordSequence(i,combatAimAngle()))grantPvpSkillBasicGrace();
 }
 function skillUp(i){
  if(!me)return;
@@ -4321,10 +4324,12 @@ function basic(){
  if(void3Pvp){if(void3Pvp.held)void3PvpBasic();return;}
  const grace=!!me&&performance.now()<me.skillBasicGraceUntil&&!me.skillBasicGraceUsed;
  if(!me||(!grace&&me.attackCd>0)||me.stun>0||me.exhaust>0||(!grace&&(me.skillHold||me.skillEvent))||roundLocked)return;
- const w=weaponData[me.weapon];if(w.cost&&!useStam(w.cost))return;if(grace)me.skillBasicGraceUsed=true;me.basicMoveSlow=.5;me.a=combatAimAngle();me.combo=me.comboTimer>0?Math.min(5,me.combo+1):1;me.comboTimer=1;me.attackCd=grace?Math.max(me.attackCd,w.cool):w.cool;me.attackDuration=grace?Math.max(me.attackDuration,me.weapon===1?.25:.34):(me.weapon===1?.25:.34);me.attackAnim=grace?Math.max(me.attackAnim,me.weapon===1?.25:.34):me.attackDuration;me.basicAttackLockUntil=performance.now()+(me.weapon===1?.25:.34)*1000;let mult=me.weapon===2?1:me.combo===5?1.8:1+(me.combo-1)*.08;if(me.rune==='echo'&&me.riposte>0){mult*=1.45;me.riposte=0}const final=me.combo===5;if(final){me.exhaust=2;me.comboTimer=0}
+ const duringSkill=grace&&!!(me.skillHold||me.skillEvent||(me.skillPose>=0&&me.attackAnim>0)),savedSkillState=duringSkill?{attackCd:me.attackCd,attackDuration:me.attackDuration,attackAnim:me.attackAnim,skillPose:me.skillPose,skillKind:me.skillKind,moveLock:me.moveLock,postSkillLock:me.postSkillLock,exhaust:me.exhaust,a:me.a}:null;
+ const w=weaponData[me.weapon];if(w.cost&&!useStam(w.cost))return;if(grace)me.skillBasicGraceUsed=true;if(!duringSkill)me.basicMoveSlow=.5;me.a=combatAimAngle();me.combo=me.comboTimer>0?Math.min(5,me.combo+1):1;me.comboTimer=1;me.attackCd=grace?Math.max(me.attackCd,w.cool):w.cool;me.attackDuration=grace?Math.max(me.attackDuration,me.weapon===1?.25:.34):(me.weapon===1?.25:.34);me.attackAnim=grace?Math.max(me.attackAnim,me.weapon===1?.25:.34):me.attackDuration;me.basicAttackLockUntil=performance.now()+(me.weapon===1?.25:.34)*1000;let mult=me.weapon===2?1:me.combo===5?1.8:1+(me.combo-1)*.08;if(me.rune==='echo'&&me.riposte>0){mult*=1.45;me.riposte=0}const final=me.combo===5;if(final&&!duringSkill){me.exhaust=2;me.comboTimer=0}
  if(me.weapon===2)sendProjectile(me.a,650,fighterAttack(me)*mult,{pierce:1,stun:.29,force:0});
  else{if(me.weapon===1&&enemy){const behind=Math.abs(angleDiff(me.a,enemy.a))<1.1;if(behind)mult*=1.45}arcAttack(w.range,fighterAttack(me)*mult,w.arc+(final?.9:0),window.EchoesCombat.basicControl(final).force,window.EchoesCombat.basicControl(final).stun,{color:me.weapon===3?'#e7c9ff':'#c9f4dd'});if(me.weapon===3&&final)sendProjectile(me.a,520,fighterAttack(me)*.68,{r:12,pierce:3,stun:.82,force:180})}
  if(final)burst(me.x+Math.cos(me.a)*45,me.y+Math.sin(me.a)*45,me.weapon===3?'#e7c9ff':'#ffe3a0',14,115);
+ if(savedSkillState)Object.assign(me,savedSkillState); // Keep live skill motion/timing even when this basic misses or is shielded.
 }
 function dash(){if(me&&performance.now()<(me.basicAttackLockUntil||0))return;if(void3Pvp?.exitDash)void3Pvp.exitDash=null;if(!me||me.dash>0||me.dashCd>0||me.stun>0||(me.galeRoot||0)>0||me.skillHold||me.skillEvent||roundLocked)return;/* void3Pvp is intentionally not blocked: dash stays usable during Void 3 tracking */const cost=20-4*(me.perks?.flow||0);if(!useStam(cost))return;const a=moveAngle(me.a),speed=720+(me.perks?.flow||0)*40;me.a=a;me.lastMoveA=a;me.dash=.2;me.dashCd=.55;me.inv=.16;me.vx=Math.cos(a)*speed;me.vy=Math.sin(a)*speed;ring(me.x,me.y,33,'#b7dec9',.3,true)}
 function beginBlock(){if(!me||performance.now()<(me.basicAttackLockUntil||0)||me.block||me.stun>0||me.dash>0||me.shieldNeedsRelease||(me.shieldRearm||0)>0||me.shieldBroken>0||me.skillHold||me.skillEvent)return;me.shield=me.maxShield;me.shieldNeedsRelease=false;me.block=true;if(me.parryCd<=0){me.parryWindow=.19+(me.perks?.focus||0)*.035;me.parryCd=.38}ring(me.x,me.y,25,'#9bd6db',.15,false)}
