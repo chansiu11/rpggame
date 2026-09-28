@@ -84,3 +84,23 @@ test('Arena ordinary unguarded hit triggers one confirmed follow-up',()=>{
 test('Arena missed skill does not trigger its follow-up',()=>{
  const f=arenaCase({block:false,contact:false});assert.equal(f.result,'miss');assert.equal(f.procs,0);assert.equal(f.hp,1000);
 });
+
+test('A late confirmed sword hit still releases its finisher once, but an interrupted skill does not',()=>{
+ const snippet=section('const carryOnHit=()=>{','const heavyArc=');
+ const factory=new Function('env',`
+ const {ev,me,enemy,mode,forces}=env,performance={now:()=>env.now};
+ let roundLocked=false,running=true;
+ const forceEnemyTo=(...args)=>forces.push(args);
+ ${snippet}
+ return carryOnHit;
+ `);
+ const ev={a:0,endedAt:500,carryFinalized:false},forces=[];
+ const env={ev,me:{skillEvent:null},enemy:{x:400,y:500},mode:'chaseCombo',now:1000,forces};
+ const callback=factory(env);callback();callback();
+ assert.equal(forces.length,1,'late confirmed finisher must be deduplicated');
+ assert.equal(forces[0][0],462,'late confirmed hit preserves the sword launch');
+ const interrupted={a:0},other=[];
+ factory({...env,ev:interrupted,forces:other})();assert.equal(other.length,0);
+ const expired={a:0,endedAt:100},stale=[];
+ factory({...env,ev:expired,now:2200,forces:stale})();assert.equal(stale.length,0);
+});
