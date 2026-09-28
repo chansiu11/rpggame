@@ -20,7 +20,8 @@ async function arena(port,id){
  const raw=[...storage.entries()].find(([k])=>k.startsWith('echoes_wild_save_v1'))[1];storage.set('echoes_account_session_v1',id);storage.set('echoes_wild_save_v1::account::'+id,raw);
  Object.assign(c,{WebSocket,setTimeout,clearTimeout,queueMicrotask,ECHOES_MULTIPLAYER_CONFIG:{serverUrl:'ws://127.0.0.1:'+port}});
  vm.runInContext(fs.readFileSync(root+'/multiplayer-client.js','utf8'),c);
- const script=html.split('<script>')[2].split('</script>')[0].replace('showLobby();requestAnimationFrame(loop);',"window.arenaTest={startMatchmaking,net,stopNet,onData,update,get running(){return running;},get me(){return me;},get enemy(){return enemy;},get room(){return room;}};showLobby();requestAnimationFrame(loop);");
+ vm.runInContext(fs.readFileSync(root+'/pvp-transport.js','utf8'),c);
+ const script=html.split('<script>')[2].split('</script>')[0].replace('showLobby();requestAnimationFrame(loop);',"window.arenaTest={startMatchmaking,net,stopNet,onData,update,burst,pushFx,sendProjectile,get effects(){return fx;},get projectiles(){return projectiles;},get running(){return running;},get me(){return me;},get enemy(){return enemy;},get room(){return room;}};showLobby();requestAnimationFrame(loop);");
  vm.runInContext(script,c,{filename:'pvp-inline.js'});return out;
 }
 test('two real clients enter arena without PeerJS, exchange packets, reject outsiders and close cleanly',{timeout:15000},async()=>{
@@ -33,6 +34,14 @@ test('two real clients enter arena without PeerJS, exchange packets, reject outs
   assert.equal(a.c.arenaTest.me.level,200);assert.equal(b.c.arenaTest.enemy.level,200);assert.equal(a.c.arenaTest.room,b.c.arenaTest.room);
   let states=0;const relaySend=a.c.EchoesMulti.pvpRelaySend;a.c.EchoesMulti.pvpRelaySend=(id,data)=>{if(data.t==='state')states++;return relaySend(id,data);};for(let i=0;i<60;i++)a.c.arenaTest.update(1/60);assert.ok(states>=49&&states<=51,'60 FPS must retain the 50Hz schedule: '+states);a.c.EchoesMulti.pvpRelaySend=relaySend;
   a.c.arenaTest.net({t:'state',x:800,y:900,hp:456,shield:10,stam:30});await waitFor(()=>b.c.arenaTest.enemy.hp===456);assert.equal(b.c.arenaTest.enemy.netX,800);
+  // Generated random particles and geometric effects must be identical on both peers.
+  const aFx=a.c.arenaTest.effects.length,bFx=b.c.arenaTest.effects.length;
+  a.c.arenaTest.burst(450,600,'#123456',6,180,123);
+  a.c.arenaTest.pushFx({kind:'riftCut',x:450,y:600,a:.8,len:250,width:32,t:2,max:2,c:'#abcdef'},true);
+  await waitFor(()=>b.c.arenaTest.effects.length>=bFx+7);
+  assert.deepEqual(JSON.parse(JSON.stringify(a.c.arenaTest.effects.slice(aFx))),JSON.parse(JSON.stringify(b.c.arenaTest.effects.slice(bFx))));
+  a.c.arenaTest.sendProjectile(.3,470,42,{visualLen:105,color:'#aabbcc'});await waitFor(()=>b.c.arenaTest.projectiles.length>0);
+  assert.equal(b.c.arenaTest.projectiles.at(-1).visualLen,105);assert.equal(b.c.arenaTest.projectiles.at(-1).color,'#aabbcc');
   // A repeated hello ack must not reset a running fight.
   const hp=a.c.arenaTest.me.hp;a.c.arenaTest.me.hp=321;a.c.arenaTest.onData({t:'helloAck',v:3,s:b.c.arenaTest.me});assert.equal(a.c.arenaTest.me.hp,321);
   const outsider=await arena(port,'outsider');clients.push(outsider);await outsider.c.EchoesMulti.connect({name:'outsider',accountId:'outsider',mode:'world'});
