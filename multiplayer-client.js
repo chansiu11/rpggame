@@ -24,7 +24,7 @@ const state={
   socket:null,connected:false,connecting:false,selfId:null,
   players:new Map(),bosses:new Map(),party:null,pendingInvite:null,
   world:null,worldRole:{leaderId:null,isLeader:false},worldSnapshot:{mobs:[],items:[],updatedAt:0},worldRevision:0,takenItems:new Set(),
-  profile:null,lastError:'',partyMax:4,pvpRuleset:'',serverBuild:'',clientSessionId:getClientSessionId(),reconnectTimer:null,reconnectGraceTimer:null,reconnectAttempts:0,manualClose:false,lastWorldResyncAt:0
+  profile:null,lastError:'',partyMax:4,pvpRuleset:'',serverBuild:'',clientSessionId:getClientSessionId(),reconnectTimer:null,reconnectGraceTimer:null,reconnectAttempts:0,recovering:false,pendingState:null,manualClose:false,lastWorldResyncAt:0
 };
 function emit(type,payload){
   const set=listeners.get(type);if(!set)return;
@@ -152,10 +152,12 @@ function connect(profile={},reconnecting=false){
           return;
         }
         const wasRecovering=reconnecting||state.reconnectAttempts>0;
-        state.connected=true;state.connecting=false;state.reconnectAttempts=0;
+        state.connected=true;state.connecting=false;state.reconnectAttempts=0;state.recovering=false;
         if(state.reconnectGraceTimer){clearTimeout(state.reconnectGraceTimer);state.reconnectGraceTimer=null;}
+        const pendingState=state.pendingState;state.pendingState=null;
         emit('connection',{connected:true,reconnected:wasRecovering});
         if(wasRecovering)emit('reconnected',{brief:true});
+        if(pendingState)queueMicrotask(()=>window.EchoesMulti?.sendState(pendingState));
         if(!settled){settled=true;clearTimeout(timer);clearTimeout(waiting);connectingPromise=null;resolve(true);}
       }
     });
@@ -163,8 +165,9 @@ function connect(profile={},reconnecting=false){
       clearTimeout(timer);clearTimeout(waiting);if(state.socket!==ws){if(!settled){settled=true;reject(new Error('연결이 취소되었습니다.'));}return;}connectingPromise=null;const shouldReconnect=!state.manualClose&&!!state.profile&&(opened||reconnecting);
       state.connected=false;state.connecting=false;if(state.socket===ws)state.socket=null;
       if(shouldReconnect){
-        if(!state.reconnectGraceTimer)state.reconnectGraceTimer=setTimeout(()=>{state.reconnectGraceTimer=null;if(!state.connected&&!state.manualClose){state.selfId=null;state.party=null;emit('connection',{connected:false,reconnecting:true});emit('reconnecting',{attempt:Math.max(1,state.reconnectAttempts),delay:0});}},2200);
-      }else{state.selfId=null;state.party=null;emit('connection',{connected:false,reconnecting:false});}
+        state.recovering=true;
+        if(!state.reconnectGraceTimer)state.reconnectGraceTimer=setTimeout(()=>{state.reconnectGraceTimer=null;if(!state.connected&&!state.manualClose){state.recovering=false;state.selfId=null;state.party=null;emit('connection',{connected:false,reconnecting:true});emit('reconnecting',{attempt:Math.max(1,state.reconnectAttempts),delay:0});}},6000);
+      }else{state.recovering=false;state.pendingState=null;state.selfId=null;state.party=null;emit('connection',{connected:false,reconnecting:false});}
       if(!settled){settled=true;reject(new Error('멀티플레이 서버에 연결하지 못했습니다.'));}
       if(shouldReconnect)scheduleReconnect();
     });
@@ -172,7 +175,7 @@ function connect(profile={},reconnecting=false){
   });
 }
 function disconnect(){
-  connectingPromise=null;state.manualClose=true;state.profile=null;state.reconnectAttempts=0;
+  connectingPromise=null;state.manualClose=true;state.profile=null;state.reconnectAttempts=0;state.recovering=false;state.pendingState=null;
   if(state.reconnectTimer){clearTimeout(state.reconnectTimer);state.reconnectTimer=null;}
   if(state.reconnectGraceTimer){clearTimeout(state.reconnectGraceTimer);state.reconnectGraceTimer=null;}
   try{state.socket?.close();}catch{}
@@ -184,9 +187,9 @@ window.EchoesMulti={
   packetAge(stamp){return Number.isFinite(stamp)&&Number.isFinite(state.serverOffset)?Math.max(0,Math.min(.3,(Date.now()+state.serverOffset-stamp)/1000)):0;},
   get combatAck(){return combatAck;},
   get enabled(){return !!url();},
-  get connected(){return state.connected;},
+  get connected(){return state.connected||state.recovering;},
   get serverUrl(){return url();},
-  sendState(p){if(!state.connected||!p)return;const now=Date.now();if(now-(state.lastPingAt||0)>2000){state.lastPingAt=now;state.lastPingNonce=now;send({type:'net:ping',nonce:now});}send({type:p.teleport?'world:teleport':'state',combatAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
+  sendState(p){if(!p)return;if(!state.connected){if(state.recovering)state.pendingState=p;return;}const now=Date.now();if(now-(state.lastPingAt||0)>2000){state.lastPingAt=now;state.lastPingNonce=now;send({type:'net:ping',nonce:now});}send({type:p.teleport?'world:teleport':'state',combatAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
     x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
     swordStyle:p.swordStyle,swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):undefined,
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
