@@ -457,7 +457,7 @@ function styleServerPose(m,data,k){
  if(mode==='flameBreathSweep'){x=ox;y=oy;}
   else if(mode==='flameBreathRise'){const q=clamp(t/.50,0,1),progress=1-Math.pow(1-q,3);x=ox+ca*328*progress;y=oy+sa*328*progress;}
   else if(mode==='flameBreathCleave'){const q=clamp((t-.11)/.39,0,1),smooth=q*q*(3-2*q);x=ox+ca*225*smooth;y=oy+sa*225*smooth;}
-  else if(mode==='flameBreathWheel'){const p=clamp((t-.065)/.31,0,1),q=clamp((t-.375)/.27,0,1),forward=465*p+400*q,lateral=side*(100*Math.sin(Math.PI*p)-86*Math.sin(Math.PI*q));x=ox+ca*forward-sa*lateral;y=oy+sa*forward+ca*lateral;}
+  else if(mode==='flameBreathWheel'){const rawFirst=clamp((t-.065)/.31,0,1),start=clamp(rawFirst/.10,0,1),first=rawFirst<.10?.10*(2*start*start-start*start*start):rawFirst,rawThird=clamp((t-.375)/.27,0,1),stop=clamp((rawThird-.86)/.14,0,1),third=rawThird<.86?rawThird:.86+.14*(stop+stop*stop-stop*stop*stop),forward=465*first+400*third,lateral=side*(100*Math.sin(Math.PI*first)-86*Math.sin(Math.PI*third));x=ox+ca*forward-sa*lateral;y=oy+sa*forward+ca*lateral;}
   else if(mode==='flameBreathFinale'){
    if(k===0){const along=Math.max(0,(tx-ox)*ca+(ty-oy)*sa);const advance=Math.min(1020,Math.max(0,along-79));x=ox+ca*advance;y=oy+sa*advance;}
    else{const stances=[[-96,-80],[-104,99],[69,-79],[92,75],[-88,-106],[76,96],[-105,-42],[-97,81],[78,-91],[-112,-62],[91,68],[-84,100],[82,-81],[-103,73],[-117,0]],v=stances[Math.min(k-1,14)];x=tx+ca*v[0]-sa*side*v[1];y=ty+sa*v[0]+ca*side*v[1];face=Math.atan2(ty-y,tx-x);}
