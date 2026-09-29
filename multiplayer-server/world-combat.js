@@ -87,7 +87,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    const guard=b.void3Mark;
    if(damageEvent&&guard&&guard.targetId===a.id&&t<guard.until&&guard.remaining>0&&!guard.pending&&clamp(e.damage,0,5000)>0){
     guard.remaining--;guard.pending={at:t+50,enemyId:a.id};
-    b.invulnUntil=t+140;b.block=false;b.parryWindowUntil=0;
+    b.invulnUntil=t+140;b.block=false;b.parryWindowUntil=0;b.forceMove=null;
     const side=(guard.remaining%2?1:-1)*Math.PI/2,angle=(b.a||0)+side;
     const spot=clipTarget(b,{x:clamp(b.x+Math.cos(angle)*76,40,width-40),y:clamp(b.y+Math.sin(angle)*76,40,height-40)});
     b.x=spot.x;b.y=spot.y;b.vx=b.vy=0;b.teleportSeq=(b.teleportSeq||0)+1;
@@ -131,7 +131,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     p.x=spot.x;p.y=spot.y;p.a=Math.atan2(target.y-p.y,target.x-p.x);p.vx=p.vy=0;p.forceMove=null;p.teleportSeq=(p.teleportSeq||0)+1;
     p.invulnUntil=Math.max(p.invulnUntil||0,t+130);
     emit(p,{attackerId:target.id,outcome:'void3Counter',damage:0,void3Remaining:q.remaining});
-    if(t>=(target.invulnUntil||0)){
+    {
      const d=C.damageAfterArmor(q.damage,target.defenseReduction||0),a=Math.atan2(target.y-p.y,target.x-p.x);
      target.hp=Math.max(0,target.hp-d);target.invulnUntil=t+100;target.block=false;target.void3Mark=null;
      lease(target,{kind:'attack',stun:.75,dx:Math.cos(a)*220,dy:Math.sin(a)*220,duration:.3},t);
