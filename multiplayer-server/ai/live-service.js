@@ -2,10 +2,13 @@ import {Worker} from 'node:worker_threads';
 import {randomUUID} from 'node:crypto';
 import {styles,seedPolicy,normalizeDifficulty} from './brain.js';
 import {FirebaseStore} from './store.js';
-export function createAiService(send){
- const sessions=new Map(),store=new FirebaseStore();let policy=seedPolicy();
- if(store.enabled)store.load().then(p=>{if(p)policy=p}).catch(e=>console.error('[ai-policy-load]',e.message));
- const refresh=setInterval(()=>{if(store.enabled)store.load().then(p=>{if(p)policy=p}).catch(e=>console.error('[ai-policy-refresh]',e.message))},60000);refresh.unref();
+export function createAiService(send,{store=new FirebaseStore(),refreshIntervalMs=60000}={}){
+ const sessions=new Map();let policy=seedPolicy(),devicePolicyInstalled=false;
+ // The device trainer can publish a newer policy while an earlier Firestore
+ // read is still in flight. Never let that stale read undo its learned weights.
+ const useStored=p=>{if(p&&!devicePolicyInstalled)policy=p;};
+ if(store.enabled)store.load().then(useStored).catch(e=>console.error('[ai-policy-load]',e.message));
+ const refresh=setInterval(()=>{if(store.enabled&&!devicePolicyInstalled)store.load().then(useStored).catch(e=>console.error('[ai-policy-refresh]',e.message))},refreshIntervalMs);refresh.unref();
  function leave(p){const s=sessions.get(p.id);if(!s)return;sessions.delete(p.id);clearTimeout(s.timeout);s.worker.terminate();}
  function handle(p,m,bytes){if(!String(m?.type||'').startsWith('pvp:ai'))return false;
  if(m.type==='pvp:aiLeave'){leave(p);return true;}
@@ -24,5 +27,5 @@ export function createAiService(send){
  const s=sessions.get(p.id);if(!s||s.id!==m.matchId||bytes>65536||!m.data||typeof m.data.t!=='string')return true;
  if(Date.now()-s.at>=1000){s.at=Date.now();s.count=0;}if(++s.count>(s.spectate?1200:240))return true;s.worker.postMessage(m.data);
  }return true;
- }return {handle,leave,setPolicy(value){policy=value;},get active(){return sessions.size;}};
+ }return {handle,leave,setPolicy(value){policy=value;devicePolicyInstalled=true;},get currentPolicy(){return policy;},get active(){return sessions.size;},close(){clearInterval(refresh);for(const s of sessions.values()){clearTimeout(s.timeout);s.worker.terminate();}sessions.clear();}};
 }
