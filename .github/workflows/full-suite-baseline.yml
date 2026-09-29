@@ -1,0 +1,19 @@
+name: Baseline full RPG regression audit
+on:
+  push:
+    branches:
+      - ci/baseline-full-test-20260930
+  workflow_dispatch:
+jobs:
+  full-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: multiplayer-server/package-lock.json
+      - run: npm ci --prefix multiplayer-server
+      - run: npm test --prefix multiplayer-server
