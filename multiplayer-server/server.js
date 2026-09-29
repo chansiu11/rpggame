@@ -435,7 +435,7 @@ function styleServerPose(m,data,k){
  else if(mode==='stationaryFlurry'){for(let j=0;j<=k;j++){const aa=a+(j%2?1:-1)*1.05,gx=tx-Math.cos(aa)*58,gy=ty-Math.sin(aa)*58;x+=clamp(gx-x,-48,48);y+=clamp(gy-y,-48,48);const st=Number(cfg.step?.[j])||0;x+=ca*st;y+=sa*st;}face=Math.atan2(ty-y,tx-x);}
  else if(mode==='galePursuit'){const offs=[2.35,-2.35,1.55,-1.55,Math.PI,.85,-.85,2.75,-2.75,0],aa=a+offs[k%offs.length],dist=k===m.styleHits.length-1?62:82;x=tx+Math.cos(aa)*dist;y=ty+Math.sin(aa)*dist;face=Math.atan2(ty-y,tx-x);}
  else if(mode==='crescentRetreat'){const back=185*Math.min(t,.24);x=ox-ca*back+ca*step;y=oy-sa*back+sa*step;}
- else if(mode==='emberBrand'||mode==='flameMantle'||mode==='cinderSnare'||mode==='furnaceBloom'){x=ox;y=oy;face=Math.atan2(ty-y,tx-x);}
+ else if(mode==='emberBrand'||mode==='flameMantle'||mode==='cinderSnare'||mode==='furnaceBloom'){x=m.x;y=m.y;face=Math.atan2(ty-y,tx-x);}
  else if(mode==='ashRecall'){const forward=Math.sin(Math.PI*u)*340,lateral=Math.sin(Math.PI*2*u)*150*side;x=ox+ca*forward-sa*lateral;y=oy+sa*forward+ca*lateral;face=u<.5?a:a+Math.PI;}
  else if(mode==='guardPierce'){const lateral=180*Math.min(t,.20)*side;x=ox-sa*lateral+ca*step;y=oy+ca*lateral+sa*step;}
  else if(mode==='earthSlam'){const fwd=92*Math.min(t,.70)+step;x=ox+ca*fwd;y=oy+sa*fwd;}
