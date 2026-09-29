@@ -1787,6 +1787,8 @@ function beginVoid3WorldEvade(source){
 }
 function updateVoid3WorldAuto(){
  const q=void3State;if(!q)return;
+ // If the marked player disappears while a server counter is pending, do not lock this skill forever.
+ if(q.pending?.server&&realTime>=q.until+.2){endVoid3World();return;}
  if(q.pending&&!q.pending.server&&realTime>=q.pending.at){
   q.pending=null;const target=void3WorldTarget();if(!target||player.hp<=0){endVoid3World();return;}
   if(target.networkPlayer){/* Remote players are countered by the authoritative world server. */return;}
