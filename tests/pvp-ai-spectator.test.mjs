@@ -8,12 +8,14 @@ test('spectator camera follows both fighters with automatic fit, allows free dra
  const js=fs.readFileSync(new URL('../pvp-ai-spectator.js',import.meta.url),'utf8');
  const nodes=new Map(),events=new Map();
  let started=null,stopped=0;
- function node(id){if(nodes.has(id))return nodes.get(id);const n={id,hidden:false,value:'',style:{},textContent:'',children:[],appendChild(c){this.children.push(c)},querySelector(){return node('card')},addEventListener(t,fn){events.set(id+':'+t,fn)},setPointerCapture(){},getBoundingClientRect(){return {width:1200,height:700}},setAttribute(){}};nodes.set(id,n);return n;}
+ function node(id){if(nodes.has(id))return nodes.get(id);for(const existing of nodes.values())if(existing.id===id)return existing;const n={id,hidden:false,value:'',style:{},textContent:'',children:[],appendChild(c){this.children.push(c)},querySelector(){return node('card')},addEventListener(t,fn){events.set(id+':'+t,fn)},setPointerCapture(){},getBoundingClientRect(){return {width:1200,height:700}},setAttribute(){}};nodes.set(id,n);return n;}
  const ctx={document:{getElementById:node,createElement:id=>node('dynamic'+nodes.size),head:node('head')},Set,Math,Number};
  ctx.window=ctx;vm.createContext(ctx);vm.runInContext(js,ctx);
  const viewer=ctx.EchoesPvpSpectator;
  viewer.mount({start:config=>started=config,stop:()=>stopped++});
- assert.equal(node('pvpAiSpectateSetup').children.length,0); // HTML is mounted in the original PVP lobby.
+ assert.ok(node('card').children.some(el=>el.id==='pvpAiSpectateSetup'));
+ assert.ok(node('pvpStage').children.some(el=>el.id==='pvpSpectateTools'));
+ assert.match(node('pvpAiSpectateSetup').innerHTML,/AI끼리 대전 관전/);
  node('pvpSpecStyleA').value='gale';node('pvpSpecStyleB').value='void';
  node('pvpSpecDiffA').value='4';node('pvpSpecDiffB').value='5';
  node('pvpAiSpectateStart').onclick();
@@ -26,7 +28,10 @@ test('spectator camera follows both fighters with automatic fit, allows free dra
  assert.ok(viewer.zoom()<.4,'Both far-apart fighters remain in the frame');
  let zoomed=false;events.get('pvpCanvas:wheel')({deltaY:-1,preventDefault(){zoomed=true}});
  assert.ok(zoomed);
- const previousZoom=viewer.zoom();viewer.update(camera,a,b,.2,1200,700,3600,2100);assert.ok(viewer.zoom()>previousZoom);
+ const previousZoom=viewer.zoom();viewer.update(camera,a,b,.2,1200,700,3600,2100);
+ assert.equal(viewer.zoom(),previousZoom,'Both-fighter tracking must never crop either character to satisfy a manual zoom');
+ node('pvpSpecCamera').value='a';node('pvpSpecCamera').onchange({target:{value:'a'}});
+ viewer.update(camera,a,b,.5,1200,700,3600,2100);assert.ok(viewer.zoom()>previousZoom,'Individual follow allows manual zoom');
  viewer.key('ArrowRight',true);viewer.update(camera,a,b,.5,1200,700,3600,2100);
  assert.equal(node('pvpSpecCamera').value,'free');
  const priorX=camera.x;
