@@ -1,11 +1,11 @@
 import {Worker} from 'node:worker_threads';
 import {createHash,timingSafeEqual,randomUUID} from 'node:crypto';
-import {seedPolicy} from './brain.js';
+import {seedPolicy,leastTrainedPair} from './brain.js';
 import {validatePolicy} from './store.js';
 // One authenticated device leases training on the existing web service.
 // No extra Render instance. Dropped heartbeat or a failed save pauses work.
 export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWorker=(data)=>new Worker(new URL('./train-worker.js',import.meta.url),{workerData:data,resourceLimits:{maxOldGenerationSizeMb:144}}),passwordHash=process.env.AI_DEVICE_PASSWORD_SHA256||''}){
- let owner=null,lease=0,running=false,worker=null,checkpoint=null,revision=0,savedRevision=0,error='',loaded=false;
+ let owner=null,lease=0,running=false,worker=null,checkpoint=null,revision=0,savedRevision=0,error='',loaded=false,lastPair=null;
  const control=new Int32Array(new SharedArrayBuffer(4)),watchControl=new Int32Array(new SharedArrayBuffer(4)),session=randomUUID();let lastSave=now(),lastSaveMatches=0,watchEnabled=false;
  const attempts=new Map();
  // A successful administrator login on another device transfers the training lease.
@@ -49,12 +49,13 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
   h.timer=setTimeout(()=>finishTakeover(h,false),6500);h.timer.unref?.();
  }
  const valid=c=>{if(!c||c.schema!==1||c.batch!==25||!Number.isInteger(c.completed)||c.completed<0||c.completed>25)throw Error('잘못된 학습 기록입니다.');validatePolicy(c.policy);validatePolicy(c.baseline);if(c.evaluation&&(!Number.isInteger(c.evaluation.completed)||c.evaluation.completed<0||c.evaluation.completed>32))throw Error('잘못된 평가 기록입니다.');return c;};
- function status(){if(owner)send(owner.ws,{type:'ai:trainStatus',session,running,paused:!running?'stopped':isBusy(owner)?'players':now()>lease?'disconnected':error?'save-error':'',matches:checkpoint?.policy.matches||0,revision,savedRevision,error});}
+ function status(){if(owner)send(owner.ws,{type:'ai:trainStatus',session,running,paused:!running?'stopped':isBusy(owner)?'players':now()>lease?'disconnected':error?'save-error':'',matches:checkpoint?.policy.matches||0,lastPair,nextPair:checkpoint?leastTrainedPair(checkpoint.policy):null,revision,savedRevision,error});}
  function exportCheckpoint(force=false){if(owner&&checkpoint)send(owner.ws,{type:'ai:trainCheckpoint',session,revision,checkpoint,save:force||checkpoint.policy.matches-lastSaveMatches>=25||now()-lastSave>=300000});}
  function pause(){Atomics.store(control,0,0);}
  function launch(){if(worker||!running||!loaded)return;Atomics.store(control,0,1);
  const w=makeWorker({policy:checkpoint.policy,checkpoint,control:control.buffer,watch:watchControl.buffer,device:true});worker=w;
  w.on('message',m=>{if(worker!==w)return;
+  if(Array.isArray(m.pair)&&m.pair.length===2)lastPair=[...m.pair];
   if(m.preview){
    if(watchEnabled&&owner&&!pendingTakeover&&(owner.ws?.bufferedAmount||0)<65536)
     send(owner.ws,{type:'ai:trainPreview',session,preview:m.preview});
