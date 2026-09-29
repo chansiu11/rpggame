@@ -132,3 +132,15 @@ test('AI training manager mounts spectator only behind authenticated controls',a
  events['ai:trainPreview']({session:'test-session',preview:{step:32}});
  assert.equal(calls.filter(x=>x[0]==='frame').length,1);
 });
+
+test('training status includes the last duel and the next least-experienced pairing',()=>{
+ const h=harness();try{
+  h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
+  const job=h.jobs[0],policy=seedPolicy();policy.matches=1;policy.styles.gale.games=1;policy.styles.void.games=1;
+  job.emit('message',{progress:1,pair:['gale','void'],checkpoint:{schema:1,batch:25,completed:1,policy,baseline:seedPolicy()}});
+  const status=h.sent.filter(m=>m.type==='ai:trainStatus').at(-1);
+  assert.deepEqual(status.lastPair,['gale','void']);
+  assert.deepEqual(status.nextPair,['dawn','break']);
+  assert.equal(status.matches,1);
+ }finally{h.svc.close();}
+});

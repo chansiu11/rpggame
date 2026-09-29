@@ -35,7 +35,7 @@ test('reselecting and learning both duelists gives every style equal training ex
  const policy=seedPolicy(),first=[];
  for(let i=0;i<24;i++){
   const [a,b]=leastTrainedPair(policy);
-  if(i<2)first.push([a,b]);
+  if(i<6)first.push([a,b]);
   const games=Object.values(policy.styles).map(s=>s.games);
   assert.equal(policy.styles[a].games,Math.min(...games));
   assert.equal(policy.styles[b].games,[...games].sort((x,y)=>x-y)[1]);
@@ -43,7 +43,8 @@ test('reselecting and learning both duelists gives every style equal training ex
   learn(policy,b,0,{win:false,reward:0,metrics:{}});
   policy.matches++;
  }
- assert.deepEqual(first,[['gale','void'],['dawn','break']]);
+ assert.deepEqual(first,[['gale','void'],['dawn','break'],['gale','dawn'],['void','break'],['gale','break'],['void','dawn']]);
+ assert.equal(new Set(first.map(pair=>pair.slice().sort().join('|'))).size,6,'Every possible style matchup must appear in the first three balanced rounds');
  assert.deepEqual(Object.values(policy.styles).map(s=>s.games),[12,12,12,12]);
  assert.equal(policy.matches,24,'Every duel increments the shared match count only once');
 });
@@ -95,4 +96,18 @@ test('live countdown freezes actions and incoming combat for 3 seconds on start 
  a.api.receive({t:'round',mine:3,theirs:0});a.step(.6);assert.equal(a.api.running,false);a.api.receive({t:'rematch'});a.api.rematch();assert.ok(a.api.running&&a.api.countdown&&a.api.locked,'rematch also starts locked');
  }finally{a.dispose();}
  const training=createArena();try{training.api.init(training.snapshot,training.snapshot,true,()=>{});training.api.resetRound();assert.equal(training.api.locked,false);assert.equal(training.api.countdown,false);}finally{training.dispose();}
+});
+
+test('a stale Firestore read cannot overwrite a newer policy learned by the connected trainer',async()=>{
+ let resolveRead;const store={enabled:true,load:()=>new Promise(resolve=>{resolveRead=resolve;})};
+ const service=createAiService(()=>{},{store,refreshIntervalMs:600000});
+ try{
+  const device=seedPolicy();device.matches=175;device.generation=7;device.styles.break.games=91;device.styles.break.weights=[2.1,3.2,1.8];
+  service.setPolicy(device);
+  const stale=seedPolicy();stale.matches=25;stale.generation=1;
+  resolveRead(stale);
+  await Promise.resolve();await Promise.resolve();
+  assert.strictEqual(service.currentPolicy,device);
+  assert.deepEqual(service.currentPolicy.styles.break.weights,[2.1,3.2,1.8]);
+ }finally{service.close();}
 });
