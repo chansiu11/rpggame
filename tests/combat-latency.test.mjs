@@ -19,6 +19,15 @@ test('moving victim: 200ms old observed contact accepted but expired contact and
  f.step(150);f.c.handle(f.a,{seq:2,events:[e]});assert.equal(f.b.hp,900);
  f.b.invulnUntil=f.time()+1000;f.c.handle(f.a,{seq:3,events:[{...e,x:1500,observedAt:f.time()}]});assert.equal(f.b.hp,900);
 });
+test('Void 3 world PVP evades the marked opponent and counters after 50ms',()=>{
+ const f=fixture();f.a.swordStyle='void';f.a.weapon=0;f.b.weapon=0;
+ f.c.handle(f.a,{seq:1,events:[{kind:'attack',targetId:'b',damage:100,skillId:'gravityCut'}]});
+ assert.equal(f.b.hp,900);assert.equal(f.a.void3Mark?.targetId,'b');assert.equal(f.a.void3Mark?.remaining,5);
+ const hpBefore=f.a.hp;f.c.handle(f.b,{seq:1,events:[{kind:'attack',targetId:'a',damage:120,procId:'should-not-follow'}]});
+ assert.equal(f.a.hp,hpBefore,'marked attack should be evaded without damage');assert.equal(f.a.void3Mark?.remaining,4);assert.ok(f.messages.some(m=>m.targetId==='a'&&m.outcome==='void3Evade'&&m.damage===0));
+ f.step(50);assert.ok(f.messages.some(m=>m.targetId==='a'&&m.outcome==='void3Counter'));assert.ok(f.b.hp<900,'counter should damage the marked opponent');assert.ok(f.b.forceMove,'counter should apply authoritative knockback');assert.ok((f.b.stun||0)>0,'counter should stun the marked opponent');
+ const evade=f.messages.find(m=>m.targetId==='a'&&m.outcome==='void3Evade');assert.equal(evade.procId,undefined,'evaded attack must not activate hit-confirm follow-ups');
+});
 test('stun/force basic data is shared with the arena and force duration matches',()=>{
  assert.deepEqual(C.basicControl(false),{stun:.5,force:0});assert.deepEqual(C.basicControl(true),{stun:.75,force:180});
  const f=fixture(),ctrl=C.basicControl(true);f.c.handle(f.a,{seq:1,events:[{kind:'attack',targetId:'b',damage:100,dx:ctrl.force,stun:ctrl.stun}]});assert.equal(f.b.forceMove.max,C.forceDuration(180));
