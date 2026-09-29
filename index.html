@@ -4355,61 +4355,42 @@ function finishHidden3(){const h=me.skillHold;if(!h||h.kind!=='hidden3')return;m
 function finishHidden4(){const h=me.skillHold;if(!h||h.kind!=='hidden4')return;me.skillHold=null;me.skillKind='';me.skillPose=-1;me.attackCd=.28;const a=h.a,x=me.x+Math.cos(a)*82,y=me.y+Math.sin(a)*82;if(h.caught&&targetNear(190)){circleAttack(x,y,135,pvpSkillAttack(me)*2.05,.75,{color:'#ffd083',force:0,forceA:a,fx:false,controlLease:'hidden4',controlLeaseMs:1100,onHit:()=>{if(enemy)queueStigmaControl('hidden4',enemy.x+Math.cos(a)*260,enemy.y+Math.sin(a)*260,.42,.75,.8,true)}});sealFx(x,y,190,'#ffd083',.52,true);nova(x,y,210,'#ffffff',.62,true);for(let j=0;j<14;j++){const aa=a+(j-6.5)*.14;beamFx(me.x,me.y,me.x+Math.cos(aa)*230,me.y+Math.sin(aa)*230,j%2?'#fff3cf':'#ffd083',.3,true)}burst(x,y,'#ffe0a1',34,245);pvpShake=Math.max(pvpShake,12)}}
 function finishHidden5(cancelled=false){const h=me.skillHold;if(!h||h.kind!=='hidden5')return;me.skillHold=null;me.skillKind='';me.skillPose=-1;me.attackCd=.18;if(cancelled)ring(me.x,me.y,58,'#ff9ee8',.22,true)}
 
-function endVoid3Pvp(){void3Pvp=null;}
-function queueVoid3PvpRandomMove(step=-1){
- if(!void3Pvp||!enemy||enemy.hp<=0)return false;
- const ox=me.x,oy=me.y,a=Math.random()*TAU,dist=135+Math.random()*105,tx=clamp(enemy.x+Math.cos(a)*dist,25,ARENA_W-25),ty=clamp(enemy.y+Math.sin(a)*dist,25,ARENA_H-25),dir=Math.atan2(ty-oy,tx-ox),len=Math.max(110,Math.hypot(tx-ox,ty-oy)+110),styleStep=Math.max(0,step);
- void3Pvp.exitDash={x:tx,y:ty,startX:ox,startY:oy,elapsed:0,max:.10,fx:0,step:styleStep};
- beamFx(ox,oy,tx,ty,styleStep%2?'#ffffff':'#a76cff',.24,true);riftCutFx((ox+tx)/2,(oy+ty)/2,dir,len,24,styleStep%2?'#a76cff':'#d8b7ff',.24,true);burst(ox,oy,'#8f52c8',9,115);
- return true;
-}
-function releaseVoid3PvpInput(){
- if(!void3Pvp)return false;
- void3Pvp.held=false;void3Pvp.autoFinish=true;void3Pvp.ending=true;void3Pvp.nextBasicAt=Math.max(void3Pvp.nextBasicAt||0,performance.now());
- return true;
+// Confirmed Void 3 marks the opponent; its five counters trigger on incoming hits.
+function endVoid3Pvp(){if(!void3Pvp)return;const q=void3Pvp;void3Pvp=null;if(me){me.cool[2]=Math.max(me.cool[2],q.cooldown||0);me.void3DodgeRemaining=0;me.void3DodgeUntil=0;if(me.skillKind==='void3Evade'){me.skillKind='';me.skillPose=-1;}}}
+function releaseVoid3PvpInput(){return !!void3Pvp;}
+function beginVoid3PvpEvade(){
+ const q=void3Pvp,now=performance.now();if(!q||q.pending||q.remaining<=0||now>=q.until||!enemy||enemy.hp<=0)return false;
+ q.remaining--;q.pending={at:now+50};me.void3DodgeRemaining=q.remaining;
+ const x=me.x,y=me.y,a=me.a+(q.remaining%2?1:-1)*Math.PI/2,nx=clamp(x+Math.cos(a)*76,25,ARENA_W-25),ny=clamp(y+Math.sin(a)*76,25,ARENA_H-25);
+ me.inv=Math.max(me.inv,.14);me.skillHold=me.skillEvent=null;me.skillPose=2;me.skillKind='void3Evade';me.attackDuration=me.attackAnim=.05;me.attackCd=Math.max(me.attackCd,.05);
+ me.block=false;me.parryWindow=0;me.moveLock=0;me.forcedMove=me.forceTrack=null;me.vx=me.vy=0;
+ beamFx(x,y,nx,ny,'#d8b7ff',.18,true);riftCutFx((x+nx)/2,(y+ny)/2,a,140,24,'#a76cff',.18,true);burst(x,y,'#8d55d1',12,175);
+ me.x=nx;me.y=ny;net({t:'teleport',x:nx,y:ny,a:me.a});return true;
 }
 function updateVoid3PvpAuto(){
- if(!void3Pvp)return;
- const now=performance.now();
- if(now>=void3Pvp.until||!enemy||enemy.hp<=0){endVoid3Pvp();return;}
- if(void3Pvp.count>=5){if(!void3Pvp.exitDash)endVoid3Pvp();return;}
- if(void3Pvp.autoFinish&&!void3Pvp.exitDash&&now>=(void3Pvp.nextBasicAt||0))void3PvpBasic(true);
+ const q=void3Pvp;if(!q)return;const now=performance.now();
+ if(q.pending&&now>=q.pending.at){
+  q.pending=null;if(!me||me.hp<=0||!enemy||enemy.hp<=0||roundLocked){endVoid3Pvp();return;}
+  const x=me.x,y=me.y,behind=(Number(enemy.a)||0)+Math.PI,dist=me.r+enemy.r+45;
+  me.x=clamp(enemy.x+Math.cos(behind)*dist,25,ARENA_W-25);me.y=clamp(enemy.y+Math.sin(behind)*dist,25,ARENA_H-25);me.a=Math.atan2(enemy.y-me.y,enemy.x-me.x);
+  me.skillKind='void3Counter';me.skillPose=2;me.attackDuration=me.attackAnim=.23;me.attackCd=Math.max(me.attackCd,.12);me.inv=Math.max(me.inv,.13);
+  net({t:'teleport',x:me.x,y:me.y,a:me.a});beamFx(x,y,me.x,me.y,'#f5e9ff',.16,true);burst(me.x,me.y,'#d8b7ff',14,150);
+  riftCutFx((me.x+enemy.x)/2,(me.y+enemy.y)/2,me.a,175,32,'#a76cff',.28,true);
+  // Victim applies knockback on receipt; duplicating it on the proxy causes snap-back.
+  arcAttack(158,pvpSkillAttack(me,'gravityCut')*.90,1.55,220,.75,{color:'#d8b7ff',teleportHit:true,parryable:false,fx:false});
+ }
+ if(void3Pvp===q&&!q.pending&&(now>=q.until||q.remaining<=0||!enemy||enemy.hp<=0))endVoid3Pvp();
 }
 function startVoid3Pvp(){
- const i=2,sk=pvpSwordSkillAt(i);if(!sk||sk.id!=='gravityCut'||!skillReady(i)||!commitSkill(i,sk.cost,sk.cool))return false;
- const a=combatAimAngle(),reach=(weaponData[me.weapon]?.range||94)+70,arc=1.35,hit=!!enemy&&enemy.hp>0&&enemyInArc(a,reach,arc);
+ const i=2,sk=pvpSwordSkillAt(i);if(void3Pvp||!sk||sk.id!=='gravityCut'||!skillReady(i)||!commitSkill(i,sk.cost,sk.cool))return false;
+ const a=combatAimAngle(),reach=(weaponData[me.weapon]?.range||94)+70,arc=1.35,hit=!!enemy&&enemy.hp>0&&enemyInArc(a,reach,arc),cooldown=me.cool[i];
  me.a=a;me.attackDuration=me.attackAnim=.24;me.attackCd=.24;me.skillPose=-1;me.skillKind='';
  arcAttack(reach,pvpSkillAttack(me,'gravityCut')*1.05,arc,0,.62,{color:sk.color||'#a76cff',fx:false,teleportHit:hit,onHit:()=>{
-  if(!me||!enemy||enemy.hp<=0||roundLocked)return;
-  const now=performance.now();void3Pvp={until:now+7000,count:0,exitDash:null,nextBasicAt:now,held:true,autoFinish:false,ending:false};me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);queueVoid3PvpRandomMove(-1);
+  if(!me||!enemy||enemy.hp<=0||roundLocked)return;const now=performance.now();
+  void3Pvp={until:now+10000,remaining:5,pending:null,cooldown};me.cool[2]=0;me.void3DodgeRemaining=5;me.void3DodgeUntil=now+10000;
+  me.attackCd=0;me.moveLock=0;me.postSkillLock=0;burst(enemy.x,enemy.y,'#a76cff',14,150);ring(enemy.x,enemy.y,62,'#d8b7ff',.28,true);
  }});
- riftCutFx(me.x+Math.cos(a)*72,me.y+Math.sin(a)*72,a,190,28,hit?'#d8b7ff':'#a76cff',.28,true);
- if(!hit)endVoid3Pvp();
- return true;
-}
-function void3PvpBasic(auto=false){
- if(!void3Pvp)return false;
- const now=performance.now();
- if(now>=void3Pvp.until){if(!void3Pvp.exitDash)endVoid3Pvp();return true;}
- if(!void3Pvp.held&&!void3Pvp.autoFinish&&!auto){if(!void3Pvp.exitDash)endVoid3Pvp();return true;}
- if(void3Pvp.count>=5){if(!void3Pvp.exitDash)endVoid3Pvp();return true;}
- if(void3Pvp.exitDash||now<(void3Pvp.nextBasicAt||0))return true;
- if(!enemy||enemy.hp<=0){endVoid3Pvp();return true;}
- if(me.stun>0||me.attackCd>0||me.dash>0||me.skillHold||me.skillEvent||roundLocked)return true;
- const step=void3Pvp.count%5,behind=(Number(enemy.a)||0)+Math.PI,dist=me.r+enemy.r+44,ox=me.x,oy=me.y;
- me.x=clamp(enemy.x+Math.cos(behind)*dist,25,ARENA_W-25);me.y=clamp(enemy.y+Math.sin(behind)*dist,25,ARENA_H-25);me.a=Math.atan2(enemy.y-me.y,enemy.x-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a});
- const strikeX=me.x,strikeY=me.y,teleA=Math.atan2(strikeY-oy,strikeX-ox),teleLen=Math.max(80,Math.hypot(strikeX-ox,strikeY-oy)+85);
- beamFx(ox,oy,strikeX,strikeY,step%2?'#d8b7ff':'#a76cff',.18,true);riftCutFx((ox+strikeX)/2,(oy+strikeY)/2,teleA,teleLen,18,'#ffffff',.16,true);burst(ox,oy,'#7a45b5',6,90);burst(strikeX,strikeY,'#d8b7ff',8,105);
- me.inv=Math.max(me.inv,.10);me.attackDuration=me.attackAnim=.10;me.attackCd=.10;me.combo=step+1;
- const mult=[.70,.77,.85,.95,1.06][step],reach=[118,124,132,140,150][step],arc=[1.18,1.42,1.72,1.22,1.9][step],hit=enemyInArc(me.a,reach,arc);
- arcAttack(reach,pvpSkillAttack(me,'gravityCut')*mult,arc,0,0,{color:'#a76cff',fx:false,teleportHit:hit,bypassShield:true});
- const a=me.a,fa=a+[.55,-.65,1.05,-1.10,.15][step],fxX=strikeX+Math.cos(a)*62,fxY=strikeY+Math.sin(a)*62;
- if(step===0)slashFx(fxX,fxY,fa,1.45,125,'#a76cff',.22,true);
- else if(step===1)riftCutFx(fxX,fxY,fa,205,22,'#d8b7ff',.27,true);
- else if(step===2){riftCutFx(fxX,fxY,fa,170,28,'#ffffff',.24,true);beamFx(ox,oy,strikeX,strikeY,'#a76cff',.18,true);}
- else if(step===3){slashFx(fxX,fxY,fa,2.2,142,'#d8b7ff',.26,true);burst(fxX,fxY,'#a76cff',10,120);}
- else riftCutFx(fxX,fxY,fa,260,36,'#ffffff',.34,true);
- void3Pvp.count++;void3Pvp.nextBasicAt=now+100;queueVoid3PvpRandomMove(step);if(void3Pvp.count>=5)void3Pvp.ending=true;return true;
+ riftCutFx(me.x+Math.cos(a)*72,me.y+Math.sin(a)*72,a,190,28,hit?'#d8b7ff':'#a76cff',.28,true);return true;
 }
 function grantPvpSkillBasicGrace(){me.skillBasicGraceUntil=performance.now()+100;me.skillBasicGraceUsed=false;}
 function beginPvpPreparedSkill(h){
