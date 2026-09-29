@@ -51,7 +51,7 @@ test('ground flame effects restore drawing state separately from airborne skill 
  assert.ok(h.stats().fills>prev);
 });
 test('off-screen particles are culled, but long skill trails intersecting the viewport are rendered',()=>{
- const offscreen=Array.from({length:500},()=>sample('particle',{x:9999,y:9999}));
+ const offscreen=Array.from({length:500},()=>sample('particle',{x:9999,y:9999,x2:9999,y2:9999}));
  const h=harness([...offscreen,sample('line',{x:4100,y:1000,x2:1000,y2:1000})]);
  h.draw(false);assert.equal(h.stats().saves,1,'Only intersecting long skill trail should be rendered');
  assert.equal(h.stats().depth,0);
