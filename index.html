@@ -4000,7 +4000,8 @@ function snapshot(){
 }
 function pvpOwnSnapshot(){return spectating&&spectatorSnapshot?spectatorSnapshot:snapshot();}
 function makeSpectatorSnapshot(style){
- const lvl=100,source=snapshot()||{
+ // Both AI use the same level-100 default loadout, independent of the spectator's save.
+ const lvl=100,source={
   ruleset:PVP_RULESET,level:lvl,weapon:0,weaponName:weaponData[0].name,upgrades:[0,0,0,0],ownedWeapons:[0],
   attacks:weaponData.map(w=>Math.round(w.d+(lvl-1)*PVP_DAMAGE_PER_LEVEL)),
   maxHp:Math.round((Number(WORLD_COMBAT.baseHp)||82)+(lvl-1)*PVP_HP_PER_LEVEL),
