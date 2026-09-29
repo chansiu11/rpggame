@@ -6,6 +6,7 @@ on:
       - 'multiplayer-server/**'
       - 'tests/void3.test.mjs'
       - 'tests/ai.test.mjs'
+      - 'tests/hongryeon-integration.test.mjs'
       - '.github/workflows/void3-tests.yml'
   pull_request:
     paths:
@@ -13,6 +14,7 @@ on:
       - 'multiplayer-server/**'
       - 'tests/void3.test.mjs'
       - 'tests/ai.test.mjs'
+      - 'tests/hongryeon-integration.test.mjs'
   workflow_dispatch:
 jobs:
   void3-tests:
@@ -26,4 +28,9 @@ jobs:
           cache: npm
           cache-dependency-path: multiplayer-server/package-lock.json
       - run: npm ci --prefix multiplayer-server
-      - run: node --test tests/void3.test.mjs tests/ai.test.mjs
+      - run: node --test tests/void3.test.mjs tests/ai.test.mjs tests/hongryeon-integration.test.mjs
+      # The unchanged main fails the same 47 legacy assertions: baseline run 36603121406.
+      # Retain the full report without suppressing failures in the focused integration gate.
+      - name: Full legacy regression audit (non-blocking baseline failures)
+        continue-on-error: true
+        run: npm test --prefix multiplayer-server

@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const $=id=>document.getElementById(id),names={gale:'질풍',void:'이형',dawn:'여명'};
+const $=id=>document.getElementById(id),names={gale:'질풍',void:'이형',dawn:'여명',break:'홍련'};
 const s={active:false,mode:'both',zoom:1,actualZoom:1,panX:1800,panY:1050,pressed:new Set(),drag:null,brainModule:null};
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 let start=()=>{},stop=()=>{};
@@ -8,7 +8,7 @@ function mount(callbacks){
  start=callbacks.start;stop=callbacks.stop;
  const card=$('pvpLobby')?.querySelector('.pvp-card'),stage=$('pvpStage'),canvas=$('pvpCanvas');
  if(!card||!stage||!canvas)return;
- const styles='<option value="random">무작위</option><option value="gale">질풍</option><option value="void">이형</option><option value="dawn">여명</option>';
+ const styles='<option value="random">무작위</option><option value="gale">질풍</option><option value="void">이형</option><option value="dawn">여명</option><option value="break">홍련</option>';
  const difficulty='<option value="1">1 · 매우 쉬움</option><option value="2">2 · 쉬움</option><option value="3" selected>3 · 보통</option><option value="4">4 · 어려움</option><option value="5">5 · 매우 어려움</option>';
  const lobby=document.createElement('section');lobby.id='pvpAiSpectateSetup';
  lobby.innerHTML='<h3>AI 대 AI · 실제 PVP 관전</h3><p>두 AI가 같은 PVP 아레나에서 싸웁니다. 전투는 AI에게 맡기고 관전 시점을 직접 조작합니다.</p><div class="pvpSpectateConfig"><label>AI 1 유파<select id="pvpSpecStyleA">'+styles+'</select></label><label>AI 1 난이도<select id="pvpSpecDiffA">'+difficulty+'</select></label><label>AI 2 유파<select id="pvpSpecStyleB">'+styles+'</select></label><label>AI 2 난이도<select id="pvpSpecDiffB">'+difficulty+'</select></label><button type="button" id="pvpAiSpectateStart" class="primary">AI끼리 대전 관전</button></div>';
@@ -30,7 +30,7 @@ function mount(callbacks){
  canvas.addEventListener('pointermove',e=>{const d=s.drag;if(!s.active||!d||d.id!==e.pointerId)return;const rect=canvas.getBoundingClientRect();s.panX-=(e.clientX-d.x)*1200/Math.max(1,rect.width)/Math.max(.1,s.actualZoom);s.panY-=(e.clientY-d.y)*700/Math.max(1,rect.height)/Math.max(.1,s.actualZoom);d.x=e.clientX;d.y=e.clientY;});
  for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(s.drag?.id===e.pointerId)s.drag=null;});
 }
-function getConfig(){const choose=id=>id==='random'?['gale','void','dawn'][Math.floor(Math.random()*3)]:id;return {styleA:choose($('pvpSpecStyleA')?.value||'random'),styleB:choose($('pvpSpecStyleB')?.value||'random'),difficultyA:Number($('pvpSpecDiffA')?.value)||3,difficultyB:Number($('pvpSpecDiffB')?.value)||3};}
+function getConfig(){const choose=id=>id==='random'?['gale','void','dawn','break'][Math.floor(Math.random()*4)]:id;return {styleA:choose($('pvpSpecStyleA')?.value||'random'),styleB:choose($('pvpSpecStyleB')?.value||'random'),difficultyA:Number($('pvpSpecDiffA')?.value)||3,difficultyB:Number($('pvpSpecDiffB')?.value)||3};}
 async function loadBrain(){if(!s.brainModule)s.brainModule=import('./multiplayer-server/ai/brain.js');return s.brainModule;}
 function makeBrain(style,policy,difficulty){return loadBrain().then(m=>m.createBrain(style,policy||m.seedPolicy(),Math.random,difficulty));}
 function setActive(on){s.active=!!on;s.pressed.clear();s.drag=null;s.mode='both';s.zoom=1;s.actualZoom=1;s.panX=1800;s.panY=1050;if($('pvpSpecZoom'))$('pvpSpecZoom').textContent='100%';if($('pvpSpecCamera'))$('pvpSpecCamera').value='both';if($('pvpSpectateTools'))$('pvpSpectateTools').hidden=!on;}

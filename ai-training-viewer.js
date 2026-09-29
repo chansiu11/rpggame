@@ -3,8 +3,8 @@
 // Optional, read-only visualization. Combat and learning continue in the worker.
 function create(){
  let root=null,canvas=null,info=null,enabled=false,pending=null,queued=false;
- const labels={gale:'질풍',void:'이형',dawn:'여명'};
- const colors={gale:'#64e7ce',void:'#c6a0ff',dawn:'#ffd48a'};
+ const labels={gale:'질풍',void:'이형',dawn:'여명',break:'홍련'};
+ const colors={gale:'#64e7ce',void:'#c6a0ff',dawn:'#ffd48a',break:'#ff782e'};
  function init(node){
   if(root)return;
   root=node;root.hidden=true;
