@@ -6,11 +6,21 @@ export const styles={
  break:{name:'홍련',distance:230,combos:[[1,2,3,4,0],[0,1,4,2,3],[3,0,2,1,4]],aggression:.73}
 };
 export function seedPolicy(){return {schema:1,generation:0,matches:0,styles:Object.fromEntries(Object.keys(styles).map(s=>[s,{weights:[1,1,1],games:0,wins:0,reward:0,metrics:{}}]))};}
-// Select the two styles with the fewest actual training bouts. Recalculate after
-// every bout so even an AI restored from an older, uneven checkpoint catches up.
-// Stable tie ordering ensures two different styles and reproducible matchmaking.
+// Always select the two least-trained styles. When their experience is tied,
+// rotate the deterministic tie order every two bouts. Across three balanced
+// rounds this covers all six distinct style pairings instead of indefinitely
+// training the same two opponents against each other.
+const trainingTieOrders=[
+ ['gale','void','dawn','break'],
+ ['gale','dawn','void','break'],
+ ['gale','break','void','dawn']
+];
 export function leastTrainedPair(policy){
- return Object.keys(styles).sort((a,b)=>policy.styles[a].games-policy.styles[b].games).slice(0,2);
+ const round=Math.floor((Number(policy?.matches)||0)/2)%trainingTieOrders.length;
+ const order=trainingTieOrders[round],priority=Object.fromEntries(order.map((id,i)=>[id,i]));
+ return Object.keys(styles).sort((a,b)=>
+  (policy.styles[a].games-policy.styles[b].games)||(priority[a]-priority[b])
+ ).slice(0,2);
 }
 export function rng(seed=1){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};}
 export const difficulties={
