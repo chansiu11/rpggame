@@ -69,3 +69,29 @@ test('PVP caps all visual effects, even while spectating, without suppressing co
  assert.equal(make('low',false),300);assert.equal(make('high',false),520);assert.equal(make('high',true),640);
  assert.match(html,/fxMargin=250/,'PVP rendering must cull invisible effects');
 });
+
+test('Hongryeon fifth-form persistent flame aura renders without consuming particle slots',()=>{
+ const source=section('function drawHongryeonFinaleAura(', 'window.EchoesHongryeonFinaleAura=');
+ const draw=new Function(source+';return drawHongryeonFinaleAura;')();
+ const measure=low=>{
+  let depth=0,flames=0,strokes=0;
+  const ctx=new Proxy({},{
+   get(_,key){
+    if(key==='save')return ()=>{depth++;};
+    if(key==='restore')return ()=>{depth--;assert.ok(depth>=0);};
+    if(key==='fill')return ()=>{flames++;};
+    if(key==='stroke')return ()=>{strokes++;};
+    if(typeof key==='string')return ()=>{};
+   },
+   set(){return true;}
+  });
+  for(let frame=0;frame<10;frame++){draw(ctx,1200,1500,frame*.05,172,low);assert.equal(depth,0,'Canvas state must be restored every frame');}
+  return {flames,strokes};
+ };
+ assert.deepEqual(measure(false),{flames:150,strokes:10},'High quality retains a full flame ring throughout the ultimate');
+ assert.deepEqual(measure(true),{flames:90,strokes:10},'Low quality retains its own lightweight ring');
+ assert.match(html,/activeSwordSkill\?\.skillId==='meteorBreaker'/,'World ultimate draws independently of FX object culling');
+ assert.match(html,/if\(me\?\.skillKind==='flameBreathFinale'\)/,'Local PVP ultimate draws the persistent aura');
+ assert.match(html,/if\(enemy\?\.skillKind==='flameBreathFinale'\)/,'Remote PVP ultimate has the same persistent aura');
+ assert.match(html,/rp\.remoteSkillId!=='meteorBreaker'/,'Remote world ultimate draws the same flame ring');
+});
