@@ -23,7 +23,7 @@ for(let i=saved?.completed||0;i<batch;i++){
  permit();const start=performance.now(),n=policy.matches,[a,b]=leastTrainedPair(policy),r=duel(a,b,policy,policy,n+7,90,permit,spectator('train',n+1,[a,b]));
  // Both selected AIs train in each bout; the frozen baseline is evaluation-only.
  learn(policy,a,r.results[0].tactic,r.results[0]);learn(policy,b,r.results[1].tactic,r.results[1]);policy.matches++;
- parentPort.postMessage({progress:policy.matches});checkpoint(i+1,null);cool(start);
+ parentPort.postMessage({progress:policy.matches,pair:[a,b]});checkpoint(i+1,null);cool(start);
 }
 let {wins=0,losses=0,draws=0,completed=0}=saved?.evaluation||{};const rounds=32;
 for(let i=completed;i<rounds;i++){
