@@ -48,7 +48,7 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
   if(!checkpoint||now()>lease){finishTakeover(h,false);return;}
   h.timer=setTimeout(()=>finishTakeover(h,false),6500);h.timer.unref?.();
  }
- const valid=c=>{if(!c||c.schema!==1||c.batch!==25||!Number.isInteger(c.completed)||c.completed<0||c.completed>25)throw Error('잘못된 학습 기록입니다.');validatePolicy(c.policy);validatePolicy(c.baseline);if(c.evaluation&&(!Number.isInteger(c.evaluation.completed)||c.evaluation.completed<0||c.evaluation.completed>18))throw Error('잘못된 평가 기록입니다.');return c;};
+ const valid=c=>{if(!c||c.schema!==1||c.batch!==25||!Number.isInteger(c.completed)||c.completed<0||c.completed>25)throw Error('잘못된 학습 기록입니다.');validatePolicy(c.policy);validatePolicy(c.baseline);if(c.evaluation&&(!Number.isInteger(c.evaluation.completed)||c.evaluation.completed<0||c.evaluation.completed>32))throw Error('잘못된 평가 기록입니다.');return c;};
  function status(){if(owner)send(owner.ws,{type:'ai:trainStatus',session,running,paused:!running?'stopped':isBusy(owner)?'players':now()>lease?'disconnected':error?'save-error':'',matches:checkpoint?.policy.matches||0,revision,savedRevision,error});}
  function exportCheckpoint(force=false){if(owner&&checkpoint)send(owner.ws,{type:'ai:trainCheckpoint',session,revision,checkpoint,save:force||checkpoint.policy.matches-lastSaveMatches>=25||now()-lastSave>=300000});}
  function pause(){Atomics.store(control,0,0);}
