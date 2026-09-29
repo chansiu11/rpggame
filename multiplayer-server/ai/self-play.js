@@ -14,10 +14,10 @@ export function duel(styleA,styleB,policyA,policyB,seed=1,seconds=90,permit=()=>
  let steps=0;try{for(;steps<seconds*60;steps++){permit();
  for(let i=0;i<2;i++){const r=arenas[i];r.api.control(brains[i].step(1/60,r.api.me,r.api.enemy));r.step(1/60);metrics[i].frames++;if(r.api.me.stam<r.api.me.maxStam*.2)metrics[i].lowResourceFrames++;}
  let count=0;while(queue.length){if(++count>2000)throw Error('Combat message loop');const [i,m]=queue.shift();arenas[i].api.receive(m);}
- if(onFrame&&steps%8===0)onFrame({step:steps,players:arenas.map(r=>frame(r.api.me)),hits:metrics.map(m=>m.hits)});
+ if(onFrame&&(!onFrame.enabled||onFrame.enabled())&&steps%8===0)onFrame({step:steps,players:arenas.map(r=>frame(r.api.me)),hits:metrics.map(m=>m.hits)});
  if(arenas.some(r=>r.api.locked||r.api.me.hp<=0))break;
  }
- if(onFrame)onFrame({step:steps,players:arenas.map(r=>frame(r.api.me)),hits:metrics.map(m=>m.hits),final:true});
+ if(onFrame&&(!onFrame.enabled||onFrame.enabled()))onFrame({step:steps,players:arenas.map(r=>frame(r.api.me)),hits:metrics.map(m=>m.hits),final:true});
  const fractions=arenas.map(r=>r.api.me.hp/r.api.me.maxHp),winner=Math.abs(fractions[0]-fractions[1])<.001?-1:fractions[0]>fractions[1]?0:1;
  metrics.forEach((m,i)=>{m.damage=arenas[1-i].api.me.maxHp-arenas[1-i].api.me.hp});
  return {winner,timeout:steps>=seconds*60,steps,results:metrics.map((m,i)=>({win:winner===i,tactic:brains[i].tactic,metrics:m,reward:(winner===i?1:winner===-1?0:-1)+.25*(m.hits/Math.max(1,m.attempts))+.08*(m.defenses+m.parries)/Math.max(1,m.defenses+m.parries+metrics[1-i].hits)+.07*m.comboHits/Math.max(1,m.hits)-.15*m.lowResourceFrames/Math.max(1,m.frames)}))};
