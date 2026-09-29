@@ -174,3 +174,44 @@ test('Hongryeon self-play uses live PVP mechanics and returns finite learning re
  assert.ok(result.results.every(x=>Number.isFinite(x.reward)));
  assert.ok(result.results.some(x=>x.metrics.attempts>0));
 });
+
+test('PVP draws the actual test-version vortex for both fighters from confirmed combat state',()=>{
+ const arena=createArena({style:'break',level:100});
+ try{
+  const {api,c}=arena,frames=[],original=c.EchoesDrawFlameFinaleVortex;
+  assert.equal(typeof original,'function','The original test-build vortex is exposed by the world renderer');
+  assert.equal(typeof api.render,'function','The headless PVP harness can exercise the real PVP render path');
+  c.EchoesDrawFlameFinaleVortex=(seq,ctx,center,caster,quality)=>{
+   original(seq,ctx,center,caster,quality);
+   frames.push({since:seq.elapsed-seq.flameCaughtAt,centerX:seq.flameVortexCenterX,
+    centerY:seq.flameVortexCenterY,particles:seq.flameVortexParticleCount,
+    spin:seq.flameVortexSpinRate,casterX:caster.x});
+  };
+  api.init(arena.snapshot,arena.snapshot,true,()=>{});
+  api.enemy.x=api.me.x+260;api.enemy.y=api.me.y;
+  api.render();
+  assert.equal(frames.length,0,'Idle PVP must not draw any fifth-form fire');
+  api.me.skillKind=''; // Rendering must not depend on a transient pose string.
+  api.me.skillEvent={kind:'swordSeq',skill:{id:'meteorBreaker'},hongCaught:true,
+   elapsed:1.14,hongCaughtAt:.53,side:1};
+  api.render();
+  assert.equal(frames.length,1,'The caster must see the original vortex after a confirmed hit');
+  assert.equal(frames[0].particles,1040,'The real test-build high-quality 780+260 particles render');
+  assert.equal(frames[0].spin,410);
+  assert.equal(frames[0].centerX,api.enemy.x);
+  api.me.skillEvent=null;
+  api.receive({t:'state',x:api.enemy.x,y:api.enemy.y,a:api.enemy.a,
+   hp:api.enemy.hp,skillPose:4,skillKind:'flameBreathFinale',skillId:'meteorBreaker',
+   hongVortexActive:true,hongVortexSince:.8,hongVortexSide:-1});
+  assert.equal(api.enemy.hongVortexActive,true,'The recipient must read the explicit PvP hit-confirmed state');
+  api.render();
+  assert.equal(frames.length,2,'The defender must also see the original vortex');
+  assert.equal(frames[1].centerX,api.me.x);
+  assert.equal(frames[1].spin,410);
+  api.receive({t:'state',x:api.enemy.x,y:api.enemy.y,a:api.enemy.a,
+   hp:api.enemy.hp,skillPose:-1,skillKind:'',skillId:'',
+   hongVortexActive:false,hongVortexSince:0,hongVortexSide:1});
+  api.render();
+  assert.equal(frames.length,2,'Remote vortex must stop when the confirmed combo ends');
+ }finally{arena.dispose();}
+});
