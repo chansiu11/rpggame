@@ -1,0 +1,29 @@
+name: Void 3 combat regressions
+on:
+  push:
+    paths:
+      - 'index.html'
+      - 'multiplayer-server/**'
+      - 'tests/void3.test.mjs'
+      - 'tests/ai.test.mjs'
+      - '.github/workflows/void3-tests.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'multiplayer-server/**'
+      - 'tests/void3.test.mjs'
+      - 'tests/ai.test.mjs'
+  workflow_dispatch:
+jobs:
+  void3-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: multiplayer-server/package-lock.json
+      - run: npm ci --prefix multiplayer-server
+      - run: node --test tests/void3.test.mjs tests/ai.test.mjs
