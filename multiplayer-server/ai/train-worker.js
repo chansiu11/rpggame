@@ -10,12 +10,14 @@ function cool(start){if(workerData.device){const delay=Math.max(500,(performance
 const watch=workerData.watch?new Int32Array(workerData.watch):null;
 function spectator(phase,match,styles){
  let last=-Infinity;
- return frame=>{
-  if(!workerData.device||!watch||Atomics.load(watch,0)!==1)return;
+ const emit=frame=>{
+  if(!emit.enabled())return;
   const at=performance.now();
   if(!frame.final&&at-last<70)return;last=at;
   parentPort.postMessage({preview:{phase,match,styles,...frame}});
  };
+ emit.enabled=()=>!!workerData.device&&!!watch&&Atomics.load(watch,0)===1;
+ return emit;
 }
 for(let i=saved?.completed||0;i<batch;i++){
  permit();const start=performance.now(),n=policy.matches,a=ids[n%3],b=ids[Math.floor(n/3)%3],r=duel(a,b,policy,i%4===0?baseline:policy,n+7,90,permit,spectator('train',n+1,[a,b]));
