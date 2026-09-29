@@ -2967,6 +2967,19 @@ function updateFlameBreathFinale(seq,sk,dt){
  const e=seq.flameTarget&&!seq.flameTarget.dead?seq.flameTarget:targets().find(v=>v.id===seq.flameTargetId);
  const c=e?combatCenter(e):seq.flameImpactPoint||{x:player.x+fx*92,y:player.y+fy*92};
  seq.flameImpactPoint={x:c.x,y:c.y};
+ // Use the ORIGINAL test-build moving flames around the caught target while the cuts continue.
+ // This is the same orbiting plume/charge effect used by the opening dash, not a replacement drawing.
+ if(e&&!e.dead){seq.flameFX=(seq.flameFX||0)-dt;if(seq.flameFX<=0){seq.flameFX=.085;
+  const theta=seq.elapsed*19,orbit=45,px=c.x,py=c.y;
+     for(const a of [theta,theta+Math.PI]){
+      const xx=px+nx*Math.cos(a)*orbit+fx*Math.sin(a)*orbit*.48;
+      const yy=py+ny*Math.cos(a)*orbit+fy*Math.sin(a)*orbit*.48;
+      flameBreathPlume(xx-fx*35,yy-fy*35,f,165,81,.23,1.05,.63);
+     }
+     crimsonChargeFlames(px,py,63,.17,.83);
+     crimsonEmbers(px,py,f+Math.PI,options.quality==='low'?2:3,235,.31,.62);
+ }}
+
  // Once the dash connects, do not slide between swings. Each authored cut
  // instantly relocates to a different stance, like a flame-hidden blink strike.
  // Distances stay within the ORIGINAL sword reaches; damage and timings are unchanged.
