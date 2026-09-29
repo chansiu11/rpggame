@@ -81,3 +81,54 @@ test('new admin login triggers previous browser checkpoint save, sign-out and di
  assert.equal(loggedOut,1);assert.equal(disconnected,1);assert.equal(node('aiDeviceControls').hidden,true);
  const before=sent.length;events['reconnected']();assert.equal(sent.length,before,'Old computer must not silently authenticate again');
 });
+
+
+test('authenticated spectator previews are optional, bounded and disabled on logout',()=>{
+ const h=harness();
+ try{
+  const stranger={clientMode:'pvp',ws:{_socket:{remoteAddress:'stranger'}}};
+  h.svc.handle(stranger,{type:'ai:trainWatch',enabled:true});
+  assert.equal(h.sent.at(-1).type,'ai:trainError');
+  h.auth();h.load();h.ack();
+  h.svc.handle(h.p,{type:'ai:trainStart'});
+  const job=h.jobs[0],watch=new Int32Array(job.data.watch);
+  assert.equal(watch[0],0,'Live previews must be off by default');
+  const preview={phase:'train',match:1,styles:['gale','void'],step:16,players:[{x:1450,y:1050,hp:100,maxHp:100},{x:2150,y:1050,hp:100,maxHp:100}]};
+  const before=h.sent.filter(m=>m.type==='ai:trainPreview').length;
+  job.emit('message',{preview});assert.equal(h.sent.filter(m=>m.type==='ai:trainPreview').length,before);
+  h.svc.handle(h.p,{type:'ai:trainWatch',enabled:true});
+  assert.equal(watch[0],1);assert.equal(h.sent.at(-1).enabled,true);
+  job.emit('message',{preview});assert.equal(h.sent.filter(m=>m.type==='ai:trainPreview').length,before+1);
+  h.p.ws.bufferedAmount=70000;job.emit('message',{preview});
+  assert.equal(h.sent.filter(m=>m.type==='ai:trainPreview').length,before+1,'Skip preview when browser network is backed up');
+  h.p.ws.bufferedAmount=0;h.svc.handle(h.p,{type:'ai:trainWatch',enabled:false});assert.equal(watch[0],0);
+  job.emit('message',{preview});assert.equal(h.sent.filter(m=>m.type==='ai:trainPreview').length,before+1);
+  h.svc.leave(h.p);assert.equal(watch[0],0);
+ }finally{h.svc.close()}
+});
+test('AI training manager mounts spectator only behind authenticated controls',async()=>{
+ const vm=await import('node:vm'),{readFileSync}=await import('node:fs');
+ const nodes=new Map(),events={},listeners={},calls=[];
+ const node=id=>{if(nodes.has(id))return nodes.get(id);const n={id,hidden:false,value:'',textContent:'',setAttribute(){},classList:{contains:()=>false},appendChild(){},replaceChildren(){},addEventListener(t,f){listeners[id+':'+t]=f},focus(){},showModal(){this.open=true},close(){this.open=false}};nodes.set(id,n);return n};
+ const panel=node('panel'),viewer={init(el){calls.push(['init',el.id])},show(v){calls.push(['show',v])},frame(f){calls.push(['frame',f.step])}};
+ const multi={on:(name,f)=>events[name]=f,training:(name,p)=>calls.push(['send',name,p]),state:{deviceTrainingProtocol:1},connect:async()=>{},disconnect(){},connected:false};
+ const cloud={ready:Promise.resolve(),currentTrainingUid:()=> 'admin-test',loginTraining:async()=>{},logoutTraining:async()=>{},loadTraining:async()=>null};
+ const c={console,Promise,Map,Object,JSON,String,structuredClone,setInterval:()=>1,clearInterval(){},setTimeout,localStorage:{getItem:()=>null,setItem(){}},document:{createElement:t=>t==='dialog'?panel:node(t),head:node('head'),body:node('body'),getElementById:node},EchoesAiTrainingViewer:viewer,EchoesMulti:multi,EchoesCloud:cloud,EchoesTrainingAccount:{clearGameSession(){}},addEventListener:(t,f)=>listeners[t]=f};
+ c.window=c;vm.createContext(c);vm.runInContext(readFileSync(new URL('../ai-device-panel.js',import.meta.url),'utf8'),c);
+ assert.deepEqual(calls[0],['init','aiSpectator']);
+ events['ai:trainPreview']({session:'not-logged-in',preview:{step:16}});
+ assert.ok(!calls.some(x=>x[0]==='frame'));
+ listeners.keydown({code:'F9',ctrlKey:true,shiftKey:true,preventDefault(){}});
+ node('aiDevicePassword').value='test-password';await node('aiDeviceLogin').onsubmit({preventDefault(){}});
+ await events['ai:trainAuth']({ok:true,session:'test-session',loaded:true});
+ await panel.onclick({target:{dataset:{ai:'Watch'}}});
+ assert.ok(calls.some(x=>x[0]==='send'&&x[1]==='Watch'&&x[2].enabled===true));
+ events['ai:trainPreview']({session:'wrong-session',preview:{step:16}});
+ assert.ok(!calls.some(x=>x[0]==='frame'));
+ events['ai:trainPreview']({session:'test-session',preview:{step:24}});
+ assert.deepEqual(calls.find(x=>x[0]==='frame'),['frame',24]);
+ await panel.onclick({target:{dataset:{ai:'Watch'}}});
+ assert.ok(calls.some(x=>x[0]==='send'&&x[1]==='Watch'&&x[2].enabled===false));
+ events['ai:trainPreview']({session:'test-session',preview:{step:32}});
+ assert.equal(calls.filter(x=>x[0]==='frame').length,1);
+});
