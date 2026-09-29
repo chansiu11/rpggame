@@ -99,6 +99,29 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
 });
 
 
+test('Hongryeon PVP fifth-form immediately ends when its caught opponent dies',()=>{
+ const arena=createArena({style:'break',level:100}),packets=[];
+ try{
+  arena.api.init(arena.snapshot,arena.snapshot,true,m=>packets.push(m));
+  arena.api.enemy.x=arena.api.me.x+350;arena.api.enemy.y=arena.api.me.y;
+  arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
+  arena.api.control({keys:[],aim:0,skill:4});arena.step(.35);
+  arena.api.control({keys:[],aim:0,release:4});
+  for(let i=0;i<32&&!packets.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)arena.step(1/60);
+  const opening=packets.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
+  assert.ok(opening,'opening dash should hit');
+  arena.api.receive({t:'attackResult',id:opening.id,result:'hit'});
+  assert.equal(arena.api.me.skillEvent?.hongCaught,true);
+  arena.api.enemy.hp=0;arena.step(1/60);
+  assert.equal(arena.api.me.skillEvent,null,'victim death cancels the remaining animation');
+  assert.equal(arena.api.me.attackCd,0);
+  assert.equal(arena.api.me.moveLock,0);
+  const hits=packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length;
+  for(let i=0;i<120;i++)arena.step(1/60);
+  assert.equal(packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length,hits,'no phantom follow-up strikes after kill');
+ }finally{arena.dispose();}
+});
+
 test('all four regular Hongryeon forms emit authored PVP hit timings and shield metadata',()=>{
  const expected=[2,1,2,3];
  for(let index=0;index<4;index++){

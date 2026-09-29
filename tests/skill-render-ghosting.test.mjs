@@ -70,28 +70,50 @@ test('PVP caps all visual effects, even while spectating, without suppressing co
  assert.match(html,/fxMargin=250/,'PVP rendering must cull invisible effects');
 });
 
-test('Hongryeon fifth-form persistent flame aura renders without consuming particle slots',()=>{
- const source=section('function drawHongryeonFinaleAura(', 'window.EchoesHongryeonFinaleAura=');
- const draw=new Function(source+';return drawHongryeonFinaleAura;')();
- const measure=low=>{
-  let depth=0,flames=0,strokes=0;
-  const ctx=new Proxy({},{
-   get(_,key){
-    if(key==='save')return ()=>{depth++;};
-    if(key==='restore')return ()=>{depth--;assert.ok(depth>=0);};
-    if(key==='fill')return ()=>{flames++;};
-    if(key==='stroke')return ()=>{strokes++;};
-    if(typeof key==='string')return ()=>{};
-   },
-   set(){return true;}
-  });
-  for(let frame=0;frame<10;frame++){draw(ctx,1200,1500,frame*.05,172,low);assert.equal(depth,0,'Canvas state must be restored every frame');}
-  return {flames,strokes};
- };
- assert.deepEqual(measure(false),{flames:150,strokes:10},'High quality retains a full flame ring throughout the ultimate');
- assert.deepEqual(measure(true),{flames:90,strokes:10},'Low quality retains its own lightweight ring');
- assert.match(html,/activeSwordSkill\?\.skillId==='meteorBreaker'/,'World ultimate draws independently of FX object culling');
- assert.match(html,/if\(me\?\.skillKind==='flameBreathFinale'\)/,'Local PVP ultimate draws the persistent aura');
- assert.match(html,/if\(enemy\?\.skillKind==='flameBreathFinale'\)/,'Remote PVP ultimate has the same persistent aura');
- assert.match(html,/rp\.remoteSkillId!=='meteorBreaker'/,'Remote world ultimate draws the same flame ring');
+// These branches are copied from rpggametest/index.html, not recreated.
+test('the test build original fire renderers all draw, including roaming fifth-form flames',()=>{
+ const copied=['crimsonWing','crimsonPillar','crimsonTriangle','crimsonRibbon','crimsonBloom','crimsonFlameRing','crimsonFlameSlash'];
+ for(const kind of copied)assert.match(worldFx,new RegExp("if\\(e\\.type==='"+kind+"'\\)"),kind+' original render path');
+ const effects=[
+  sample('crimsonWing',{reach:150}),
+  sample('crimsonPillar',{t:.3,max:.5,activeLife:.5}),
+  sample('crimsonTriangle',{vs:[{x:940,y:940},{x:1040,y:1000},{x:960,y:1060}]}),
+  sample('crimsonRibbon',{w:45}),
+  sample('crimsonBloom',{intensity:1}),
+  sample('crimsonFlameRing'),
+  sample('crimsonFlameSlash')
+ ];
+ for(const quality of ['high','low']){
+  const h=harness(effects,quality);
+  h.draw(false);
+  assert.equal(h.stats().depth,0,'Original '+quality+' fire must restore Canvas state');
+  assert.ok(h.stats().fills>35,'Original '+quality+' fire should visibly render');
+  assert.ok(h.stats().saves>=7,'Original moving flame types should all render');
+ }
+ const ground=harness([sample('crimsonScorch',{w:90})]);
+ ground.draw(true);
+ assert.equal(ground.stats().depth,0);
+ assert.ok(ground.stats().fills>0,'Original test scorch must draw below the fighters');
+ assert.doesNotMatch(html,/drawHongryeonFinaleAura/,'Do not recreate the test project fire as a synthetic aura');
+});
+test('world fifth-form target death ends the active combo without leftover attack lock',()=>{
+ const fn=section('function updateFlameBreathFinale(', 'function updateSwordSkill(');
+ const original={flameCaught:true,flameFace:0,facing:0,originX:100,originY:100,flameTarget:{dead:true,hp:0}};
+ const state=new Function('seq',`
+  const player={x:100,y:100,skillPose:4,skillLift:0,cast:3.6,attackCd:3.6,attackAnim:3.6,moveLock:3.6,postSkillLockTimer:3.6};
+  let activeSwordSkill=seq;
+  const syncInstantPlayerMove=()=>{throw Error('No teleport should occur when standing still');};
+  ${fn}
+  updateFlameBreathFinale(seq,{id:'meteorBreaker'},1/60);
+  return {activeSwordSkill,player};
+ `)(original);
+ assert.equal(state.activeSwordSkill,null);
+ assert.equal(state.player.attackCd,0);
+ assert.equal(state.player.moveLock,0);
+ assert.ok(fn.includes('if(e.dead||Number(e.hp)<=0){finish();return;}'),'Death on the current strike should stop additional hits');
+ const orbit='flameBreathPlume(xx-fx*35,yy-fy*35,f,165,81,.23,1.05,.63);';
+ assert.equal(fn.split(orbit).length-1,2,'The original test opening-dash orbit must also keep moving during the 14 cuts');
+ assert.ok(fn.includes('const theta=seq.elapsed*19,orbit=45,px=c.x,py=c.y;'),'The copied test effect must orbit the current caught target');
+ const pvp=section('function pvpHongryeonFinale(', 'function pvpWorldSwordMotion(');
+ assert.ok(pvp.includes('if(ev.hongCaught&&(!enemy||enemy.hp<=0)){finish();return;}'),'PVP fifth form should stop when caught opponent dies');
 });
