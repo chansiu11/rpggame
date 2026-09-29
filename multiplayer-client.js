@@ -94,7 +94,7 @@ function handle(msg){
   if(msg.type==='party:update'){state.party=msg.party||null;emit('party',state.party);return;}
   if(msg.type==='party:invite'){state.pendingInvite=msg;emit('party:invite',msg);return;}
   if(msg.type==='party:chat'){emit('party:chat',msg);return;}
-  if(['ai:trainAuth','ai:trainStatus','ai:trainCheckpoint','ai:trainError'].includes(msg.type)){emit(msg.type,msg);return;}
+  if(['ai:trainAuth','ai:trainStatus','ai:trainCheckpoint','ai:trainError','ai:trainWatchStatus','ai:trainPreview','ai:trainTakeoverPending','ai:trainTakeoverNotice','ai:trainReplaced'].includes(msg.type)){emit(msg.type,msg);return;}
   if(['pvp:relay','pvp:relayOpen','pvp:relayClosed','pvp:aiReady','pvp:aiPacket','pvp:aiError'].includes(msg.type)){emit(msg.type,msg);return;}
   if(msg.type==='pvp:matchStatus'){emit('pvp:matchStatus',msg);return;}
   if(msg.type==='pvp:matchFound'){emit('pvp:matchFound',msg);return;}
