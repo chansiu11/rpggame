@@ -110,7 +110,7 @@ test('world fifth-form target death ends the active combo without leftover attac
  assert.equal(state.activeSwordSkill,null);
  assert.equal(state.player.attackCd,0);
  assert.equal(state.player.moveLock,0);
- assert.match(fn,/if\\(e\\.dead\\|\\|Number\\(e\\.hp\\)<=0\\)\\{finish\\(\\);return;/,'Death on the current strike should stop additional hits');
+ assert.ok(fn.includes('if(e.dead||Number(e.hp)<=0){finish();return;}'),'Death on the current strike should stop additional hits');
  const pvp=section('function pvpHongryeonFinale(', 'function pvpWorldSwordMotion(');
- assert.match(pvp,/if\\(ev\\.hongCaught&&\\(!enemy\\|\\|enemy\\.hp<=0\\)\\)\\{finish\\(\\);return;/);
+ assert.ok(pvp.includes('if(ev.hongCaught&&(!enemy||enemy.hp<=0)){finish();return;}'),'PVP fifth form should stop when caught opponent dies');
 });
