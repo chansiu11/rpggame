@@ -205,6 +205,30 @@ const GALE_VORTEX=Object.freeze({
  ctx.restore();}
 });
 window.EchoesGaleVortex=GALE_VORTEX;
+// Persistent, bounded flame aura for Hongryeon form five. Draw directly from
+// active skill state: particle caps and FX culling must never erase the aura.
+function drawHongryeonFinaleAura(c,x,y,time,radius=138,low=false){
+ if(!Number.isFinite(x)||!Number.isFinite(y))return;
+ const count=low?9:15,colors=['#9e2b23','#d63724','#f65225','#ff842e','#ffba54','#ffe0a0'];
+ c.save();c.translate(x,y);c.globalCompositeOperation='lighter';
+ c.strokeStyle='#ee652d73';c.lineWidth=low?2.4:3.2;c.beginPath();
+ c.ellipse(0,0,radius*.76,radius*.39,time*.65,0,Math.PI*2);c.stroke();
+ for(let j=0;j<count;j++){
+  const theta=j*Math.PI*2/count+time*.82,wiggle=Math.sin(time*8+j*2.34);
+  const baseR=radius*(.68+.12*Math.sin(j*7.17+time*1.9)),length=radius*(.20+.10*(.5+.5*Math.sin(j*3.29+time*6.4)));
+  const a=theta+.10*Math.sin(j*2.19+time*5),tx=Math.cos(a),ty=Math.sin(a),nx=-ty,ny=tx;
+  const bx=tx*baseR,by=ty*baseR,w=radius*(low?.033:.042)*(1+.3*wiggle);
+  const tipX=tx*(baseR+length)+nx*radius*.075*wiggle,tipY=ty*(baseR+length)+ny*radius*.075*wiggle;
+  c.globalAlpha=.56+.22*Math.sin(time*5+j*1.7);
+  c.fillStyle=colors[j%colors.length];c.beginPath();
+  c.moveTo(bx+nx*w,by+ny*w);
+  c.quadraticCurveTo(bx+tx*length*.48+nx*w*1.2,by+ty*length*.48+ny*w*1.2,tipX,tipY);
+  c.quadraticCurveTo(bx+tx*length*.35-nx*w*.8,by+ty*length*.35-ny*w*.8,bx-nx*w,by-ny*w);
+  c.closePath();c.fill();
+ }
+ c.restore();
+}
+window.EchoesHongryeonFinaleAura=drawHongryeonFinaleAura;
 // Limb-only anticipation, shared by local and remote world/arena renderers.
 window.EchoesSkillPrepare={
  duration:.2,
@@ -4520,7 +4544,21 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;ctx.global
  for(const d of renderList){if(d.kind==='tree')drawTree(d.o);else if(d.kind==='rock')drawRock(d.o);else if(d.kind==='house')drawHouse(d.o);else if(d.kind==='object')drawObject(d.o);else if(d.kind==='enemy')drawEnemy(d.o);else if(d.kind==='remote')drawRemotePlayer(d.o);else drawPlayer();}
  for(const p of projectiles){if(p._styleCollisionOnly||!visible(p))continue;const color=p.owner==='player'?(p.kind==='arrow'?'#dddcc1':'#c4ecda'):'#edc899';if(p.kind==='orb'||p.kind==='star'){glow(ctx,p.x,p.y,17,color+'30');circle(ctx,p.x,p.y,5,color);circle(ctx,p.x,p.y,2,'#f7f0d4');}else{const len=p.visualLen||(p.kind==='charged'?29:p.kind==='wave'?48:20);line(ctx,p.x-Math.cos(p.a)*len,p.y-Math.sin(p.a)*len,p.x,p.y,color,p.kind==='wave'?6:p.kind==='charged'?4:2);polygon(ctx,[[p.x+Math.cos(p.a)*5,p.y+Math.sin(p.a)*5],[p.x+Math.cos(p.a+2.5)*7,p.y+Math.sin(p.a+2.5)*7],[p.x+Math.cos(p.a-2.5)*7,p.y+Math.sin(p.a-2.5)*7]],color);}}
  for(const p of remoteSkillProjectiles){if(!visible(p))continue;const color=p.color||(p.kind==='arrow'?'#dddcc1':'#c4ecda');if(p.kind==='orb'||p.kind==='star'){glow(ctx,p.x,p.y,17,color+'30');circle(ctx,p.x,p.y,5,color);circle(ctx,p.x,p.y,2,'#f7f0d4');}else{const len=p.visualLen||(p.kind==='charged'?29:p.kind==='wave'?48:20);line(ctx,p.x-Math.cos(p.a)*len,p.y-Math.sin(p.a)*len,p.x,p.y,color,p.kind==='wave'?6:p.kind==='charged'?4:2);polygon(ctx,[[p.x+Math.cos(p.a)*5,p.y+Math.sin(p.a)*5],[p.x+Math.cos(p.a+2.5)*7,p.y+Math.sin(p.a+2.5)*7],[p.x+Math.cos(p.a-2.5)*7,p.y+Math.sin(p.a-2.5)*7]],color);}}
- for(const v of galeVortices)GALE_VORTEX.draw(ctx,v);for(const v of remoteGaleVortices)GALE_VORTEX.draw(ctx,v);drawEffects(false);drawLockMarker();
+ for(const v of galeVortices)GALE_VORTEX.draw(ctx,v);for(const v of remoteGaleVortices)GALE_VORTEX.draw(ctx,v);drawEffects(false);
+  // Keep fifth-form fire visible through the whole dash and 14-cut finisher,
+  // independent of temporary skill particles and their performance limits.
+  const finale=activeSwordSkill?.skillId==='meteorBreaker'?activeSwordSkill:null;
+  if(finale){
+   const anchor=finale.flameCaught?(finale.flameImpactPoint||(finale.flameTarget&&!finale.flameTarget.dead?combatCenter(finale.flameTarget):null)):null;
+   if(anchor)drawHongryeonFinaleAura(ctx,anchor.x,anchor.y,realTime,172,options.quality==='low');
+   drawHongryeonFinaleAura(ctx,player.x,player.y,realTime,anchor?68:112,options.quality==='low');
+  }
+  if(multiplayerMode)for(const rp of multiRemotePlayers.values()){
+   if(rp.remoteSkillId!=='meteorBreaker'||!((Number(rp.remoteSkillVisualUntil)||0)>realTime||Number(rp.skillPose)===4))continue;
+   const x=Number.isFinite(rp.rx)?rp.rx:rp.x,y=Number.isFinite(rp.ry)?rp.ry:rp.y;
+   if(visible({x,y}))drawHongryeonFinaleAura(ctx,x,y,realTime,106,options.quality==='low');
+  }
+  drawLockMarker();
  if(nearby&&mode==='play'){ctx.strokeStyle='#dcd4a47a';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(nearby.x,nearby.y+6,28,13,0,0,TAU);ctx.stroke();}
  for(const f of floaters){ctx.globalAlpha=clamp(f.t*2,0,1);if(f.damage){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.rot||0);ctx.font='900 '+(f.big?22:16)+'px system-ui';ctx.textAlign='center';ctx.lineWidth=f.big?5:4;ctx.strokeStyle='#391619cc';ctx.strokeText(f.text,0,0);ctx.fillStyle=f.color;ctx.fillText(f.text,0,0);ctx.restore();}else worldText(f.text,f.x,f.y-(1-f.t/f.max)*30,f.color,f.big?18:13);}ctx.globalAlpha=1;
  if(mapWaypoint&&mode==='play'){const d=distance(player,mapWaypoint);if(d<55){mapWaypoint=null;toast('목적지에 도착했습니다.');}else if(visible(mapWaypoint)){const yy=mapWaypoint.y+Math.sin(realTime*3)*5;polygon(ctx,[[mapWaypoint.x,yy-46],[mapWaypoint.x+8,yy-34],[mapWaypoint.x,yy-22],[mapWaypoint.x-8,yy-34]],'#e5c780','#fff0b1',1);ctx.strokeStyle='#ebd18b80';ctx.beginPath();ctx.ellipse(mapWaypoint.x,mapWaypoint.y,21,10,0,0,TAU);ctx.stroke();}}
@@ -5925,7 +5963,18 @@ function drawEnemyDirectionArrow(){if(!me||!enemy||enemy.hp<=0)return;const spec
 function drawPvpArenaDecor(){const cx=ARENA_W*.5,cy=ARENA_H*.5;ctx.save();pCircle(cx,cy,245,'#1c3032');pCircle(cx,cy,185,'#20383a');ctx.strokeStyle='#bfa96a55';ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,214,0,TAU);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,128,0,TAU);ctx.stroke();for(let i=0;i<8;i++){const a=i*TAU/8,x1=cx+Math.cos(a)*70,y1=cy+Math.sin(a)*70,x2=cx+Math.cos(a)*205,y2=cy+Math.sin(a)*205;pLine(x1,y1,x2,y2,i%2?'#76918322':'#d0bc7a22',5)}ctx.fillStyle='#31404455';ctx.fillRect(cx-620,cy-44,1240,88);ctx.fillRect(cx-44,cy-620,88,1240);for(let x=cx-600;x<=cx+600;x+=80)pLine(x,cy-38,x+24,cy+38,'#9aac9d18',2);for(let y=cy-600;y<=cy+600;y+=80)pLine(cx-38,y,cx+38,y+24,'#9aac9d18',2);const pillars=[[cx-430,cy-430],[cx+430,cy-430],[cx-430,cy+430],[cx+430,cy+430],[cx,cy-560],[cx,cy+560],[cx-560,cy],[cx+560,cy]];for(const [x,y] of pillars){pEllipse(x,y+10,17,7,'#07141766');ctx.fillStyle='#52605c';ctx.fillRect(x-8,y-24,16,34);pCircle(x,y-25,11,'#758078');ctx.globalAlpha=.13;pCircle(x,y-38,34,'#f3ca73');ctx.globalAlpha=1;pCircle(x,y-38,6,'#f0bf63')}for(let gy=180;gy<ARENA_H-160;gy+=330)for(let gx=180;gx<ARENA_W-160;gx+=390){if(Math.hypot(gx-cx,gy-cy)<760)continue;const n=((gx*13+gy*7)%37)/37;pEllipse(gx,gy,24+n*18,9+n*5,'#203b3444');pCircle(gx-9,gy-5,3+n*3,'#65746b');pCircle(gx+11,gy+2,2+n*2,'#56665e');pLine(gx-15,gy,gx-20,gy-11,'#466b55',2);pLine(gx+3,gy,gx+8,gy-13,'#466b55',2)}ctx.restore()}
 function render(){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.shadowBlur=0;ctx.filter='none';ctx.setLineDash([]);ctx.fillStyle='#111a1e';ctx.fillRect(0,0,W,H);ctx.save();const sx=Math.sin(performance.now()*.105)*pvpShake,sy=Math.cos(performance.now()*.129)*pvpShake*.68;const spectatorZoom=spectating&&pvpSpectator?pvpSpectator.zoom():1;ctx.translate(W*.5-pvpCamera.x*spectatorZoom+sx,H*.5-pvpCamera.y*spectatorZoom+sy);ctx.scale(spectatorZoom,spectatorZoom);ctx.fillStyle='#182529';ctx.fillRect(18,18,ARENA_W-36,ARENA_H-36);drawPvpArenaDecor();for(let x=60;x<ARENA_W;x+=80)pLine(x,20,x,ARENA_H-20,'#94ab9a10',1);for(let y=60;y<ARENA_H;y+=80)pLine(20,y,ARENA_W-20,y,'#94ab9a10',1);ctx.strokeStyle='#dfbf7b77';ctx.lineWidth=3;ctx.strokeRect(18,18,ARENA_W-36,ARENA_H-36);for(const p of projectiles){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.atan2(p.vy,p.vx));ctx.strokeStyle=p.color||'#efd792';ctx.lineWidth=p.r>9?5:2;ctx.beginPath();ctx.moveTo(-(p.visualLen||12),0);ctx.lineTo(10,0);ctx.stroke();ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(3,-4);ctx.lineTo(3,4);ctx.closePath();ctx.fillStyle=ctx.strokeStyle;ctx.fill();ctx.restore()}for(const v of pvpVortices)GALE_VORTEX_PVP.draw(ctx,v);
  const fxMargin=250,fxLeft=pvpCamera.x-(W*.5+fxMargin)/spectatorZoom,fxRight=pvpCamera.x+(W*.5+fxMargin)/spectatorZoom,fxTop=pvpCamera.y-(H*.5+fxMargin)/spectatorZoom,fxBottom=pvpCamera.y+(H*.5+fxMargin)/spectatorZoom;
- for(const f of fx){if(Number.isFinite(f.x)&&Number.isFinite(f.y)){const span=Math.max(35,Number(f.r)||0,Number(f.len)||0,Number(f.width)||0),x2=Number.isFinite(f.x2)?f.x2:f.x,y2=Number.isFinite(f.y2)?f.y2:f.y;if(Math.max(f.x,x2)+span<fxLeft||Math.min(f.x,x2)-span>fxRight||Math.max(f.y,y2)+span<fxTop||Math.min(f.y,y2)-span>fxBottom)continue;}renderFx(f);}if(me&&enemy){const order=[{f:me,m:true},{f:enemy,m:false}].sort((a,b)=>a.f.y-b.f.y);for(const q of order)drawJourneyFighter(q.f,q.m)}else{if(me)drawJourneyFighter(me,true);if(enemy)drawJourneyFighter(enemy,false)}ctx.restore();drawEnemyDirectionArrow();if(running&&(aiCountdownUntil||aiAwaitStart)){ctx.save();ctx.fillStyle='#08151baa';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#f4dfaa';ctx.font='bold 88px sans-serif';ctx.fillText(String(Math.max(1,Math.ceil((aiCountdownUntil-performance.now())/1000))),W/2,H/2);ctx.font='20px sans-serif';ctx.fillText('잠시 후 대전 시작',W/2,H/2+70);ctx.restore()}}
+ for(const f of fx){if(Number.isFinite(f.x)&&Number.isFinite(f.y)){const span=Math.max(35,Number(f.r)||0,Number(f.len)||0,Number(f.width)||0),x2=Number.isFinite(f.x2)?f.x2:f.x,y2=Number.isFinite(f.y2)?f.y2:f.y;if(Math.max(f.x,x2)+span<fxLeft||Math.min(f.x,x2)-span>fxRight||Math.max(f.y,y2)+span<fxTop||Math.min(f.y,y2)-span>fxBottom)continue;}renderFx(f);}
+ const flameAura=window.EchoesHongryeonFinaleAura;
+ if(typeof flameAura==='function'){
+  const lowFx=window.EchoesOptions?.quality==='low',time=performance.now()/1000;
+  if(me?.skillKind==='flameBreathFinale'){
+   const caught=me.skillEvent?.hongCaught&&enemy?.hp>0;
+   if(caught)flameAura(ctx,enemy.x,enemy.y,time,172,lowFx);
+   flameAura(ctx,me.x,me.y,time,caught?68:112,lowFx);
+  }
+  if(enemy?.skillKind==='flameBreathFinale')flameAura(ctx,enemy.x,enemy.y,time,112,lowFx);
+ }
+ if(me&&enemy){const order=[{f:me,m:true},{f:enemy,m:false}].sort((a,b)=>a.f.y-b.f.y);for(const q of order)drawJourneyFighter(q.f,q.m)}else{if(me)drawJourneyFighter(me,true);if(enemy)drawJourneyFighter(enemy,false)}ctx.restore();drawEnemyDirectionArrow();if(running&&(aiCountdownUntil||aiAwaitStart)){ctx.save();ctx.fillStyle='#08151baa';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#f4dfaa';ctx.font='bold 88px sans-serif';ctx.fillText(String(Math.max(1,Math.ceil((aiCountdownUntil-performance.now())/1000))),W/2,H/2);ctx.font='20px sans-serif';ctx.fillText('잠시 후 대전 시작',W/2,H/2+70);ctx.restore()}}
 let pvpLoopErrorAt=-Infinity,lastPvpCanvasRecoveryAt=-Infinity;
 function recoverPvpLoop(error){
  const now=performance.now();if(now-pvpLoopErrorAt>1000)console.error('PVP loop recovered',error);pvpLoopErrorAt=now;
