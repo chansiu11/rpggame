@@ -1,0 +1,47 @@
+name: Hongryeon live deployment smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'multiplayer-server/server.js'
+      - '.github/workflows/hongryeon-live-smoke.yml'
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Check public GitHub Pages exposes the merged five forms
+        shell: bash
+        run: |
+          set -eu
+          for n in $(seq 1 15); do
+            if curl --fail --location --silent --show-error --connect-timeout 8 --max-time 25 https://chansiu11.github.io/rpggame/ -o /tmp/hongryeon-live.html; then
+              if grep -Fq 'function pvpHongryeonFinale(' /tmp/hongryeon-live.html &&
+                 grep -Fq "mode:'flameBreathFinale'" /tmp/hongryeon-live.html &&
+                 grep -Fq 'function updateFlameBreathFinale(' /tmp/hongryeon-live.html; then
+                echo 'Verified: public Pages includes world + PvP Hongryeon latest finale.'
+                exit 0
+              fi
+            fi
+            sleep 8
+          done
+          echo 'Pages did not expose merged Hongryeon code.' >&2
+          exit 1
+      - name: Check public Render health exposes newly deployed Hongryeon server
+        shell: bash
+        run: |
+          set -eu
+          for n in $(seq 1 17); do
+            if curl --fail --location --silent --show-error --connect-timeout 8 --max-time 25 https://echoes-world-server.onrender.com/health -o /tmp/hongryeon-health.json; then
+              if node -e 'const fs=require("fs");const h=JSON.parse(fs.readFileSync("/tmp/hongryeon-health.json","utf8"));if(!(h.ok===true&&h.serverBuild==="2026-09-30-hongryeon-five-forms-1"&&h.hongryeonProtocol===1&&h.serverAuthority===true))process.exit(1);'; then
+                echo 'Verified: Render serves Hongryeon build, protocol, and authoritative world.'
+                exit 0
+              fi
+              node -e 'try{console.log("Render currently reports:",JSON.parse(require("fs").readFileSync("/tmp/hongryeon-health.json","utf8")).serverBuild)}catch{}'
+            fi
+            sleep 10
+          done
+          echo 'Render did not confirm deployment of Hongryeon server code.' >&2
+          exit 1
