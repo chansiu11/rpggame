@@ -5396,7 +5396,7 @@ function pvpHongryeonHit(ev,k){
  const mode=ev.cfg.mode,a=ev.hongFace??ev.a,ca=Math.cos(a),sa=Math.sin(a),base=pvpSkillAttack(me),color=ev.skill.color||'#ff782e',enemyNear=enemy&&enemy.hp>0,r=mode==='flameBreathSweep'?(k===0?300:328):mode==='flameBreathRise'?250:mode==='flameBreathCleave'?(k===0?190:245):[265,230,270][k]||265;
  const mult=ev.cfg.mult[k]||1,stun=mode==='flameBreathSweep'?(k===0?.24:1.06):mode==='flameBreathRise'?1.12:mode==='flameBreathCleave'?(k===0?.82:1.06):k===2?.94:.46;
  const common={d:base*mult,stun,force:mode==='flameBreathRise'?112:mode==='flameBreathCleave'?(k===1?126:24):mode==='flameBreathWheel'?(k===2?155:0):k===0?20:44,forceA:a,skillId:ev.skill.id,rapidHit:true};
- if(mode==='flameBreathSweep'){const arc=(k===0?2.14:2.24);arcAttack(r,common.d,arc,common.force,stun,{color,rapidHit:true,skillId:ev.skill.id,fx:false});pvpHongryeonFx(me.x,me.y,a,r,k);}
+ if(mode==='flameBreathSweep'){const arc=(k===0?2.14:2.24);sendAttack({...common,shape:'arc',x:me.x,y:me.y,a,range:r,arc});pvpHongryeonFx(me.x,me.y,a,r,k);}
  if(mode==='flameBreathRise'){
   // Test-source landing ring and the original 328-unit travel corridor.
   const corridor=enemyNear&&pointSegmentDistance(enemy.x,enemy.y,ev.originX,ev.originY,me.x,me.y)<=76+enemy.r;
@@ -5408,9 +5408,10 @@ function pvpHongryeonHit(ev,k){
   sendAttack({...common,shape:'circle',x,y,r,forceA:enemyNear?Math.atan2(enemy.y-y,enemy.x-x):a,teleportHit:!!confirmed});pvpHongryeonFx(x,y,a,r,k);nova(x,y,r,'#ff7a2c',.38,true);
  }
  if(mode==='flameBreathWheel'){const face=a+(ev.side||1)*k*.72,arc=[4.04,5,6.10][k],close=k===0&&enemyNear&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=205+enemy.r,hit=!!enemyNear&&(close||ev.hongWheelCaught||(Math.hypot(enemy.x-me.x,enemy.y-me.y)<=r+enemy.r&&Math.abs(Math.atan2(Math.sin(Math.atan2(enemy.y-me.y,enemy.x-me.x)-face),Math.cos(Math.atan2(enemy.y-me.y,enemy.x-me.x)-face)))<=arc/2));
-  const onHit=()=>{if(me.skillEvent!==ev)return;if(k<2)ev.hongWheelCaught=true;else ev.hongWheelCaught=false;};
+  const onHit=()=>{if(me.skillEvent!==ev)return;if(k<2){ev.hongWheelCaught=true;return;}ev.hongWheelCaught=false;
+   if(enemy&&enemy.hp>0){const angle=ev.hongFace??ev.a;queueStigmaControl('hongWheel',enemy.x+Math.cos(angle)*155,enemy.y+Math.sin(angle)*155,.26,.94,.45,true);}};
   sendAttack({...common,shape:close?'circle':'arc',x:me.x,y:me.y,a:face,range:r,arc,r:205,forceA:enemyNear?Math.atan2(enemy.y-me.y,enemy.x-me.x):a,teleportHit:hit,controlLease:'hongWheel',controlLeaseMs:920},onHit);
-  if(k===2){ev.hongWheelCaught=false;if(enemyNear&&hit)queueStigmaControl('hongWheel',enemy.x+ca*155,enemy.y+sa*155,.26,.94,.45,true);}
+  if(k===2)ev.hongWheelCaught=false;
   pvpHongryeonFx(me.x,me.y,face,r,k);
  }
  triggerPvpShake(ev.index,.65,false);
