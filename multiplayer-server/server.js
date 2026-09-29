@@ -21,7 +21,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v8-player-balance';
-const SERVER_BUILD = '2026-09-28-gale-vortex-root-2';
+const SERVER_BUILD = '2026-09-30-hongryeon-five-forms-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const PLAYER_REFERENCE_BASE_HP = 100;
@@ -757,7 +757,7 @@ setInterval(()=>worldCombat.tick(),50);
 const server=http.createServer((req,res)=>{
   if(req.url==='/health'){
     res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
-    res.end(JSON.stringify({ok:true,serverBuild:SERVER_BUILD,deviceTrainingProtocol:1,worldResetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
+    res.end(JSON.stringify({ok:true,serverBuild:SERVER_BUILD,hongryeonProtocol:1,deviceTrainingProtocol:1,worldResetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION,combatProtocol:1,mobCombatProtocol:1,controlProtocol:2,visualProtocol:2,players:players.size,worldPlayers:[...players.values()].filter(p=>p.ready&&p.clientMode!=='pvp').length,pvpQueue:pvpMatchQueue.length,pvpRuleset:PVP_RULESET,parties:parties.size,bosses:bossSnapshot(),world:WORLD,worldLeaderId,worldSnapshotUpdatedAt:worldSnapshot.updatedAt,worldRevision,authoritativeMobs:authoritativeMobs.size,serverAuthority:true}));
     return;
   }
   res.writeHead(200,{'content-type':'application/json','access-control-allow-origin':'*'});
