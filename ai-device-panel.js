@@ -46,7 +46,7 @@ m?.on('ai:trainCheckpoint',msg=>{if(!authenticated||msg.session!==session)return
  const c=structuredClone(msg.checkpoint),rev=msg.revision,sid=msg.session;
  saveQueue=saveQueue.then(async()=>{try{await cloud.saveTraining(c);savedMatches=c.policy.matches;if(authenticated&&session===sid){send('Saved',{session:sid,revision:rev,matches:savedMatches});tell('Firebase 저장 완료 · '+savedMatches+'전');if(autoResume){autoResume=false;send('Start');}}}catch(e){autoResume=false;send('SaveFailed');tell('저장 실패 · 훈련을 멈췄습니다: '+e.message);}});
 });
-m?.on('ai:trainStatus',s=>{if(!authenticated||replaced)return;if(!s.running)stopAck?.();$('aiDeviceStats').textContent=`${s.running?s.paused==='players'?'플레이어 접속 중 · 훈련 휴식':s.paused==='save-error'?'저장 오류 · 훈련 휴식':'자동 훈련 중':'훈련 중지'} · 누적 ${s.matches}전 · Firebase 저장 ${savedMatches}전`;if(s.error)tell(s.error);});
+m?.on('ai:trainStatus',s=>{if(!authenticated||replaced)return;if(!s.running)stopAck?.();$('aiDeviceStats').textContent=`${s.running?s.paused==='players'?'플레이어 접속 중 · 훈련 휴식':s.paused==='save-error'?'저장 오류 · 훈련 휴식':'자동 훈련 중':'훈련 중지'} · 누적 ${s.matches}전 · Firebase 저장 ${savedMatches}전${s.lastPair?' · 최근 '+s.lastPair.map(id=>({gale:'질풍',void:'이형',dawn:'여명',break:'홍련'}[id]||id)).join(' vs '):''}${s.nextPair?' · 다음 '+s.nextPair.map(id=>({gale:'질풍',void:'이형',dawn:'여명',break:'홍련'}[id]||id)).join(' vs '):''}`;if(s.error)tell(s.error);});
 m?.on('ai:trainWatchStatus',msg=>{if(authenticated&&msg.session===session)showWatch(msg.enabled===true);});
 m?.on('ai:trainPreview',msg=>{if(opened&&authenticated&&!replaced&&watchRequested&&msg.session===session)viewer?.frame(msg.preview);});
 m?.on('ai:trainTakeoverPending',s=>{if(opened&&!replaced)tell(s.message||'기존 기기의 최신 학습 기록을 저장하고 있습니다.');});
