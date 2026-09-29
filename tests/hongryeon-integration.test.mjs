@@ -58,6 +58,7 @@ test('Hongryeon AI supports all five skill indices without changing old style en
 test('Hongryeon arena boots with original saved character data, costs and five equipped slots',()=>{
  const arena=createArena({style:'break',level:100});
  try{
+  arena.api.init(arena.snapshot,arena.snapshot,true,()=>{});
   assert.equal(arena.api.me.swordStyle,'break');
   assert.deepEqual(Array.from(arena.api.me.swordSkills?.map(s=>s?.id)),skills.map(s=>s[0]));
   assert.equal(arena.api.me.cool.length,5);
@@ -71,6 +72,8 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
   a.api.init(a.snapshot,a.snapshot,true,m=>out.push(m));
   a.api.enemy.x=a.api.me.x+1750;a.api.enemy.y=a.api.me.y;
   a.api.control({keys:[],aim:0,skill:4});
+  a.step(.35);a.api.control({keys:[],aim:0,release:4});
+  assert.equal(a.api.me.skillEvent?.skill?.id,'meteorBreaker','ultimate should cast after preparation and key release');
   for(let i=0;i<65;i++)a.step(1/60);
   assert.equal(out.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker'),false,'miss should send no fabricated hits');
   assert.equal(a.api.me.skillEvent,null,'missed dash must finish instead of starting the finisher');
@@ -80,6 +83,8 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
   b.api.init(b.snapshot,b.snapshot,true,m=>hits.push(m));
   b.api.enemy.x=b.api.me.x+350;b.api.enemy.y=b.api.me.y;
   b.api.control({keys:[],aim:0,skill:4});
+  b.step(.35);b.api.control({keys:[],aim:0,release:4});
+  assert.equal(b.api.me.skillEvent?.skill?.id,'meteorBreaker');
   for(let i=0;i<32&&!hits.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)b.step(1/60);
   const first=hits.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
   assert.ok(first,'short dash must produce an opening hit packet');
