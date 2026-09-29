@@ -111,6 +111,9 @@ test('world fifth-form target death ends the active combo without leftover attac
  assert.equal(state.player.attackCd,0);
  assert.equal(state.player.moveLock,0);
  assert.ok(fn.includes('if(e.dead||Number(e.hp)<=0){finish();return;}'),'Death on the current strike should stop additional hits');
+ const orbit='flameBreathPlume(xx-fx*35,yy-fy*35,f,165,81,.23,1.05,.63);';
+ assert.equal(fn.split(orbit).length-1,2,'The original test opening-dash orbit must also keep moving during the 14 cuts');
+ assert.ok(fn.includes('const theta=seq.elapsed*19,orbit=45,px=c.x,py=c.y;'),'The copied test effect must orbit the current caught target');
  const pvp=section('function pvpHongryeonFinale(', 'function pvpWorldSwordMotion(');
  assert.ok(pvp.includes('if(ev.hongCaught&&(!enemy||enemy.hp<=0)){finish();return;}'),'PVP fifth form should stop when caught opponent dies');
 });
