@@ -2895,6 +2895,9 @@ function updateFlameBreathFinale(seq,sk,dt){
  };
  emit();
  if(!seq.flameCaught){
+  // In world PvP hitEnemy returns null until the authoritative server accepts the hit.
+  // Do not manufacture a 14-cut follow-up from speculative client-side contact.
+  if(seq.flamePending){if(realTime-(seq.flamePendingAt||realTime)>.9)finish();return;}
   const ox=player.x,oy=player.y,dashLength=1020,dashSpeed=2350,dashTime=.53;
   const traveled=Math.hypot(ox-seq.originX,oy-seq.originY);
   const distanceToGo=Math.max(0,dashLength-traveled);
@@ -2930,14 +2933,11 @@ function updateFlameBreathFinale(seq,sk,dt){
   if(traveledNow>7)syncSkillMoveIfNeeded(ox,oy,18,2500);
   if(collision&&Math.hypot(player.x-ox,player.y-oy)+2>=advance){
    const e=collision.enemy,c=combatCenter(e);
-   const landed=hitEnemy(e,damageValue(1.36),false,player,{
-    stun:e.kind==='boss'?.19*HONGRYEON_STUN_SCALE:1.55*HONGRYEON_STUN_SCALE,dx:0,dy:0,duration:0,
-    bypassShield:true,skillId:sk.id,shape:'circle',x:c.x,y:c.y,r:79+combatRadius(e)
-   });
-   if(landed!==false){
-    seq.flameCaught=true;seq.flameCaughtAt=seq.elapsed;
+   const confirmed=()=>{
+    if(activeSwordSkill!==seq||seq.flameCaught)return;
+    seq.flamePending=false;seq.flameCaught=true;seq.flameCaughtAt=seq.elapsed;
     seq.flameTarget=e;seq.flameTargetId=e.id;seq.flameStage=0;
-    // Extend the hit-confirmed combo and real character animation, not the missed dash.
+    // Extend both input lock and animation only after an accepted hit.
     seq.duration=seq.elapsed+3.61;
     const followTime=seq.duration-seq.elapsed;
     player.cast=Math.max(player.cast,followTime);
@@ -2949,8 +2949,14 @@ function updateFlameBreathFinale(seq,sk,dt){
     flameBreathSignature(sk.id,0,false,f,185,{x:c.x,y:c.y},{side:seq.side||1,baseFacing:f});
     shake=Math.max(shake,11);sound('hit');
     if(e.kind!=='boss'&&!e.networkPlayer)applyEnemyStun(e,1.55*HONGRYEON_STUN_SCALE);
-    return;
-   }
+   };
+   const landed=hitEnemy(e,damageValue(1.36),false,player,{
+    stun:e.kind==='boss'?.19*HONGRYEON_STUN_SCALE:1.55*HONGRYEON_STUN_SCALE,dx:0,dy:0,duration:0,
+    bypassShield:true,skillId:sk.id,shape:'circle',x:c.x,y:c.y,r:79+combatRadius(e),
+    onHit:e.networkPlayer?confirmed:null
+   });
+   if(landed===true){confirmed();return;}
+   if(e.networkPlayer&&landed===null){seq.flamePending=true;seq.flamePendingAt=realTime;return;}
   }
   // On a miss there is no artificial finishing explosion or follow-up sequence.
   if(seq.elapsed>=dashTime||traveledNow<1&&seq.elapsed>.22||distanceToGo<1)finish();
