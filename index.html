@@ -5725,7 +5725,7 @@ function pvpHongryeonFinale(ev,dt){
    sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:79,d:pvpSkillAttack(me)*1.36,stun:3.1,force:0,bypassShield:true,parryable:false,teleportHit:true,rapidHit:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
     if(me.skillEvent!==ev||!enemy||enemy.hp<=0)return;
     ev.hongPending=false;ev.hongCaught=true;ev.hongCaughtAt=ev.elapsed;ev.hongStage=0;ev.cfg.duration=ev.elapsed+3.61;ev.anchorX=enemy.x;ev.anchorY=enemy.y;me.attackDuration=me.attackAnim=me.attackCd=me.moveLock=3.61;
-    pvpCrimsonImpact(enemy.x,enemy.y,a,1.35);pvpHongryeonFx(enemy.x,enemy.y,a,185,0,1.3);pvpCrimsonShake(11,true);
+    slashFx(enemy.x,enemy.y,a,1.35,190,'#ff832b',.32,true);pvpCrimsonShake(11,true);
    });return;
   }
   if(ev.elapsed>=.53||Math.hypot(ex-ox,ey-oy)<1&&ev.elapsed>.22||traveled>=1020)finish();
@@ -5740,11 +5740,15 @@ function pvpHongryeonFinale(ev,dt){
   const near=enemy&&enemy.hp>0&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=cut.reach+enemy.r;
   const centerX=enemy&&enemy.hp>0?enemy.x:cx,centerY=enemy&&enemy.hp>0?enemy.y:cy;
   sendPvpUltimateHit({shape:cut.kind==='finisher'?'circle':'arc',x:cut.kind==='finisher'?centerX:me.x,y:cut.kind==='finisher'?centerY:me.y,r:cut.reach,range:cut.reach,a:me.a,arc:cut.arc,d:pvpSkillAttack(me)*cut.mult,stun:Math.min(3.1,cut.stun*2),force:cut.kind==='finisher'?145:0,forceA:a,bypassShield:true,parryable:false,teleportHit:!!near,controlLease:'hongFinale',controlLeaseMs:1400,skillId:'meteorBreaker'});
-  // Blink disappearance and a bounded flame envelope are local animations;
-  // only the compact existing FX event packet is replicated.
-  if(Math.hypot(me.x-ox,me.y-oy)>8)pvpCrimsonEmbers(ox,oy,a,3,120,.16,.6);
-  pvpHongryeonFx(cut.kind==='finisher'?centerX:me.x,cut.kind==='finisher'?centerY:me.y,me.a,cut.reach,k,cut.kind==='finisher'?1.65:1);
-  if(cut.kind==='finisher'){pvpCrimsonImpact(centerX,centerY,a,2.2);pvpCrimsonOutside(centerX,centerY,211,360,11,true);pvpCrimsonShake(19,true);}
+  // The world/test fifth form has one authored sword-shaped flame slash per
+  // cut. Its original victim-centered vortex supplies the surrounding fire.
+  // Do not overlay the old PvP-only explosions, rings and random ember clouds.
+  const swordAngleOffsets={wide:-.26,reverse:.37,thrust:0,overhead:0,backhand:-.34,rising:.23,cross:-.18};
+  const narrow=cut.kind==='thrust',heavy=cut.kind==='overhead'||cut.kind==='rising';
+  const dir=me.a+((swordAngleOffsets[cut.kind]||0)+(cut.offset||0))*(ev.side||1);
+  const visualReach=cut.reach*(narrow?1.37:heavy?1.57:1.54);
+  slashFx(cut.kind==='finisher'?centerX:me.x,cut.kind==='finisher'?centerY:me.y,dir,Math.min(TAU,cut.arc*(narrow?1.10:1.20)),visualReach,k%2?'#ffb24a':'#ff6d30',narrow?.30:heavy?.43:.35,true);
+  if(cut.kind==='finisher'){nova(centerX,centerY,211,'#ff812c',.55,true);pvpCrimsonShake(19,true);}
  }
  if(since>=3.61)finish();
 }

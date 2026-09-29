@@ -215,3 +215,46 @@ test('PVP draws the actual test-version vortex for both fighters from confirmed 
   assert.equal(frames.length,2,'Remote vortex must stop when the confirmed combo ends');
  }finally{arena.dispose();}
 });
+
+test('PvP fifth form retains test-world rotating fire without stacked legacy explosions',()=>{
+ const start=html.indexOf('function pvpHongryeonFinale(ev,dt)'),end=html.indexOf('function pvpWorldSwordMotion(',start);
+ assert.ok(start>0&&end>start);
+ const pvp=html.slice(start,end);
+ assert.doesNotMatch(pvp,/pvpCrimsonImpact\(|pvpHongryeonFx\(|pvpCrimsonOutside\(/,
+   'Old PvP-only explosions must not cover the original TEST vortex');
+ assert.match(pvp,/const swordAngleOffsets=\{wide:-\.26,reverse:\.37/,
+   'PvP blade arcs must follow the original fifth-form authored sword angles');
+ assert.match(html,/const drawVortex=window\.EchoesDrawFlameFinaleVortex/,
+   'The PvP canvas must use the exact original TEST vortex renderer');
+ assert.match(html,/hongVortexActive:me\.skillEvent\?\.skill\?\.id==='meteorBreaker'/,
+   'The same confirmed vortex state must be sent to the remote player');
+ const arena=createArena({style:'break',level:100}),packets=[];
+ try{
+  arena.api.init(arena.snapshot,arena.snapshot,true,m=>packets.push(m));
+  arena.api.enemy.x=arena.api.me.x+350;arena.api.enemy.y=arena.api.me.y;
+  arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
+  arena.api.control({keys:[],aim:0,skill:4});arena.step(.35);
+  arena.api.control({keys:[],aim:0,release:4});
+  for(let i=0;i<32&&!packets.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)arena.step(1/60);
+  const opening=packets.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
+  assert.ok(opening);
+  arena.api.receive({t:'attackResult',id:opening.id,result:'hit'});
+  assert.equal(arena.api.me.skillEvent?.hongCaught,true);
+  const recorded=[],original=arena.c.EchoesDrawFlameFinaleVortex;
+  assert.equal(typeof original,'function');
+  arena.c.EchoesDrawFlameFinaleVortex=(...args)=>{recorded.push(args);return original(...args);};
+  arena.step(.20);arena.api.render();
+  assert.equal(recorded.length,1,'Local confirmed fifth form renders one original vortex');
+  assert.equal(recorded[0][2].x,arena.api.enemy.x,'The original vortex is centered on the caught enemy');
+  assert.equal(recorded[0][0].skillId,'meteorBreaker');
+  assert.ok(recorded[0][0].elapsed>recorded[0][0].flameCaughtAt);
+  arena.api.me.skillEvent=null;arena.api.me.skillKind='';recorded.length=0;
+  arena.api.receive({t:'state',x:arena.api.enemy.x,y:arena.api.enemy.y,
+   hp:arena.api.enemy.hp,skillPose:4,skillId:'meteorBreaker',skillKind:'flameBreathFinale',
+   hongVortexActive:true,hongVortexSince:.48,hongVortexSide:-1});
+  arena.api.render();
+  assert.equal(recorded.length,1,'Remote confirmed fifth form renders the same original vortex once');
+  assert.equal(recorded[0][2].x,arena.api.me.x,'The remote vortex surrounds its victim');
+  assert.equal(recorded[0][0].side,-1);
+ }finally{arena.dispose();}
+});
