@@ -1,7 +1,10 @@
 import {createSign,randomUUID} from 'node:crypto';
 export function validatePolicy(p){
  if(p?.schema!==1||!Number.isSafeInteger(p.matches)||p.matches<0||!Number.isSafeInteger(p.generation)||p.generation<0)throw Error('Invalid policy');
- for(const id of ['gale','void','dawn']){const s=p.styles?.[id];if(!s||s.weights?.length!==3||s.weights.some(v=>!Number.isFinite(v)||v<.2||v>5)||!Number.isFinite(s.games)||!Number.isFinite(s.wins)||!Number.isFinite(s.reward)||!s.metrics)throw Error('Invalid style policy');}
+ // A v1 checkpoint created before Hongryeon keeps all existing learned weights.
+ // Only the new style starts with an untrained tactic policy.
+ if(p.styles&&!p.styles.break)p.styles.break={weights:[1,1,1],games:0,wins:0,reward:0,metrics:{}};
+ for(const id of ['gale','void','dawn','break']){const s=p.styles?.[id];if(!s||s.weights?.length!==3||s.weights.some(v=>!Number.isFinite(v)||v<.2||v>5)||!Number.isFinite(s.games)||!Number.isFinite(s.wins)||!Number.isFinite(s.reward)||!s.metrics)throw Error('Invalid style policy');}
  return p;
 }
 export class FirebaseStore{
