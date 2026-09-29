@@ -105,7 +105,7 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
  else if(m.type==='ai:trainWatch'){watchEnabled=m.enabled===true;Atomics.store(watchControl,0,watchEnabled?1:0);send(p.ws,{type:'ai:trainWatchStatus',session,enabled:watchEnabled});}
  else if(m.type==='ai:trainLoad'){
  if(running||worker)throw Error('중지 후 현재 작업이 끝날 때까지 기다려 주세요.');
- checkpoint=m.checkpoint?valid(structuredClone(m.checkpoint)):{schema:1,batch:25,completed:0,policy:seedPolicy(),baseline:seedPolicy()};loaded=true;revision++;error='';onPolicy(checkpoint.baseline);exportCheckpoint(true);status();
+ checkpoint=m.checkpoint?valid(structuredClone(m.checkpoint)):{schema:1,batch:25,completed:0,policy:seedPolicy(),baseline:seedPolicy()};lastPair=null;loaded=true;revision++;error='';onPolicy(checkpoint.baseline);exportCheckpoint(true);status();
  }else if(m.type==='ai:trainStart'){if(!loaded||savedRevision!==revision)throw Error('Firebase 저장 확인 후 시작할 수 있습니다.');running=true;error='';tick();status();}
  else if(m.type==='ai:trainStop'){running=false;pause();if(worker){Atomics.store(control,0,2);Atomics.notify(control,0);const w=worker;worker=null;w.terminate();}exportCheckpoint(true);status();}
  else if(m.type==='ai:trainSaved'){if(m.session!==session||!Number.isInteger(m.revision)||m.revision>revision||m.revision<savedRevision)return true;savedRevision=m.revision;lastSave=now();lastSaveMatches=Math.max(lastSaveMatches,Number(m.matches)||0);error='';status();}
