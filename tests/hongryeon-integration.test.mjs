@@ -124,7 +124,7 @@ test('all four regular Hongryeon forms emit authored PVP hit timings and shield 
 
 test('server-owned Hongryeon NPC shapes follow the authored five move tracks',async()=>{
  const {runInNewContext}=await import('node:vm');
- const fn=name=>{const a=server.indexOf('function '+name+'('),b=server.indexOf('\\nfunction ',a+10);assert.ok(a>0&&b>a,name);return server.slice(a,b);};
+ const fn=name=>{const a=server.indexOf('function '+name+'('),b=server.indexOf(String.fromCharCode(10)+'function ',a+10);assert.ok(a>0&&b>a,name);return server.slice(a,b);};
  const first=server.indexOf('const FLAME_FINALE_CUTS=Object.freeze('),last=server.indexOf('function styleServerPose(',first);
  assert.ok(first>0&&last>first);
  const c={Math,Number,clamp:(v,lo,hi)=>Math.max(lo,Math.min(hi,v))};
