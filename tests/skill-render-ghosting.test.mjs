@@ -111,9 +111,45 @@ test('world fifth-form target death ends the active combo without leftover attac
  assert.equal(state.player.attackCd,0);
  assert.equal(state.player.moveLock,0);
  assert.ok(fn.includes('if(e.dead||Number(e.hp)<=0){finish();return;}'),'Death on the current strike should stop additional hits');
- const orbit='flameBreathPlume(xx-fx*35,yy-fy*35,f,165,81,.23,1.05,.63);';
- assert.equal(fn.split(orbit).length-1,2,'The original test opening-dash orbit must also keep moving during the 14 cuts');
- assert.ok(fn.includes('const theta=seq.elapsed*19,orbit=45,px=c.x,py=c.y;'),'The copied test effect must orbit the current caught target');
+ assert.ok(fn.includes("const theta=seq.elapsed*19,orbit=45,px=player.x,py=player.y;"),'Keep the original test opening-dash plumes');
  const pvp=section('function pvpHongryeonFinale(', 'function pvpWorldSwordMotion(');
  assert.ok(pvp.includes('if(ev.hongCaught&&(!enemy||enemy.hp<=0)){finish();return;}'),'PVP fifth form should stop when caught opponent dies');
+});
+
+test('the exact test-project 1100-particle rotating fifth-form vortex renders over the characters',()=>{
+ const copied=section('const FLAME_FINALE_PARTICLES=Array.from(', 'window.EchoesDrawFlameFinaleVortex=');
+ assert.match(copied,/length:1100/,'The source must reuse the test project particle pool');
+ assert.match(copied,/spin=since\*410\.0/,'The test-project 410 rad\/s rotation must be preserved');
+ assert.match(copied,/swarmCount=low\?340:780,sparks=low\?118:260/);
+ assert.match(html,/drawEffects\(false\);drawFlameFinaleVortex\(\);drawLockMarker\(\);/,'Draw the TEST vortex in the world foreground');
+ assert.match(html,/const drawVortex=window\.EchoesDrawFlameFinaleVortex/,'PvP must reuse the very same TEST renderer');
+ const create=new Function('ctx','activeSwordSkill','player','options','TAU','clamp','combatCenter','window',
+  copied+';return {drawFlameFinaleVortex,FLAME_FINALE_PARTICLES};');
+ for(const quality of ['high','low']){
+  let depth=0,moves=0,quads=0,fills=0,strokes=0;
+  const canvas=new Proxy({},{
+   get(_,key){
+    if(key==='save')return ()=>{depth++;};
+    if(key==='restore')return ()=>{depth--;assert.ok(depth>=0,'Unbalanced Canvas context');};
+    if(key==='moveTo')return ()=>{moves++;};
+    if(key==='quadraticCurveTo')return ()=>{quads++;};
+    if(key==='fill')return ()=>{fills++;};
+    if(key==='stroke')return ()=>{strokes++;};
+    if(typeof key==='string')return ()=>{};
+   },set(){return true;}
+  });
+  const target={x:1100,y:1080,dead:false,hp:3000},
+   player={x:980,y:1010},seq={skillId:'meteorBreaker',flameCaught:true,elapsed:.20,flameCaughtAt:0,side:1,flameTarget:target};
+  const fx=create(canvas,seq,player,{quality},Math.PI*2,(v,a,b)=>Math.max(a,Math.min(b,v)),v=>v,{});
+  assert.equal(fx.FLAME_FINALE_PARTICLES.length,1100);
+  for(let frame=0;frame<8;frame++){
+   seq.elapsed=.20+frame*.18;const before=moves;
+   fx.drawFlameFinaleVortex();
+   assert.equal(depth,0,'Every fifth-form frame must restore its Canvas state');
+   assert.ok(moves-before>=(quality==='low'?500:1130),'Original TEST '+quality+' flames and rotating points must render');
+  }
+  assert.ok(quads>0&&fills>0&&strokes>0,'Swirling flame tongues, spark shards and curved strokes remain visible');
+  const before=moves;target.dead=true;fx.drawFlameFinaleVortex();
+  assert.equal(moves,before,'Do not leave a vortex behind once the target disappears');
+ }
 });
