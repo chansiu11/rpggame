@@ -57,7 +57,7 @@ function worldFixture(){
 test('shared world PvP enforces five marked dodges and authoritative knockback',()=>{
  const w=worldFixture();w.arm();const original=w.a.hp;
  for(let n=1;n<=5;n++){
-  w.step(150);w.attack();
+  w.step(800);w.attack(); // The marked attacker must recover from the previous .75s stun.
   assert.equal(w.a.hp,original,'marked attacks cannot damage the dodging player');
   assert.equal(w.a.void3Mark.remaining,5-n);
   assert.equal(w.broadcasts.at(-1).outcome,'void3Evade');
