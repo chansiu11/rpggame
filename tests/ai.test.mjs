@@ -8,6 +8,15 @@ import {createAiService} from '../multiplayer-server/ai/live-service.js';
 test('all styles execute the existing arena code and inflict damage without rendering',()=>{
  for(const [a,b] of [['gale','void'],['void','dawn'],['dawn','gale']]){const r=duel(a,b,seedPolicy(),seedPolicy(),72,20);assert.ok(r.results.some(x=>x.metrics.damage>0));assert.ok(r.results.every(x=>Number.isFinite(x.reward)));}
 });
+test('AI self-play optionally exposes real read-only spectator snapshots',()=>{
+ const a=seedPolicy(),b=seedPolicy(),frames=[];
+ const result=duel('gale','void',a,b,98,2,()=>{},frame=>frames.push(frame));
+ assert.ok(frames.length>=2,'A watched bout should produce initial and final snapshots');
+ assert.equal(frames.at(-1).final,true);
+ assert.ok(frames.every(f=>f.players?.length===2&&f.players.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.hp)&&p.maxHp>0)));
+ assert.ok(result.results.every(x=>Number.isFinite(x.reward)));
+ assert.equal(a.matches,0,'Watching alone must not mutate AI policy');
+});
 test('learning is bounded and survives serialization; malformed policy rejected',()=>{const p=seedPolicy();for(let i=0;i<100;i++)learn(p,'gale',0,{win:true,reward:1,metrics:{hits:1}});assert.equal(validatePolicy(JSON.parse(JSON.stringify(p))).styles.gale.weights[0],5);assert.throws(()=>validatePolicy({...p,schema:2}));});
 test('live worker negotiates the same PVP protocol and sends state, skills and damage',{timeout:12000},async()=>{
  const a=createArena(),worker=new Worker(new URL('../multiplayer-server/ai/live-worker.js',import.meta.url),{workerData:{style:'gale',level:100}});let ready=false,started=false,states=0,attacks=0,countdownAt=0,goAt=0,ponged=false;
