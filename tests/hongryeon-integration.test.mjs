@@ -121,6 +121,31 @@ test('all four regular Hongryeon forms emit authored PVP hit timings and shield 
  }
 });
 
+
+test('server-owned Hongryeon NPC shapes follow the authored five move tracks',async()=>{
+ const {runInNewContext}=await import('node:vm');
+ const fn=name=>{const a=server.indexOf('function '+name+'('),b=server.indexOf('\\nfunction ',a+10);assert.ok(a>0&&b>a,name);return server.slice(a,b);};
+ const first=server.indexOf('const FLAME_FINALE_CUTS=Object.freeze('),last=server.indexOf('function styleServerPose(',first);
+ assert.ok(first>0&&last>first);
+ const c={Math,Number,clamp:(v,lo,hi)=>Math.max(lo,Math.min(hi,v))};
+ runInNewContext(server.slice(first,last)+fn('styleServerPose')+fn('styleServerShapes')+';globalThis.pose=styleServerPose;globalThis.shapes=styleServerShapes;',c);
+ const m=(hits,slot)=>({x:1000,y:1000,locked:0,styleOriginX:1000,styleOriginY:1000,styleAnchorX:1350,styleAnchorY:1000,styleSide:1,styleHits:hits,skillSlot:slot});
+ const sweep=c.shapes(m([.24,.48],0),{cfg:{mode:'flameBreathSweep',duration:.62}},0);
+ assert.equal(sweep[0].r,300);assert.equal(sweep[0].type,'sector');
+ const rise=c.shapes(m([.5],1),{cfg:{mode:'flameBreathRise',duration:.8}},0);
+ assert.equal(rise[0].r,250);assert.equal(rise[1].w,76);
+ assert.equal(Math.round(rise[1].x2),1328);
+ const leap=c.shapes(m([.10,.65],2),{cfg:{mode:'flameBreathCleave',duration:.85}},1);
+ assert.equal(leap[0].r,245);
+ const wheel=c.pose(m([.18,.375,.58],3),{cfg:{mode:'flameBreathWheel',duration:.83}},2);
+ assert.ok(wheel.x>1700&&wheel.x<1870,'third cut should finish the smooth, extended S dash');
+ const finale=c.shapes(m([.53,.70],4),{cfg:{mode:'flameBreathFinale',duration:.71}},0);
+ assert.equal(finale[0].type,'segment');assert.equal(finale[0].w,79);
+ assert.equal(Math.round(finale[0].x2),1271);
+ const follow=c.shapes(m([.53,.70],4),{cfg:{mode:'flameBreathFinale',duration:4.14}},1);
+ assert.equal(follow[0].type,'sector');
+});
+
 test('Hongryeon self-play uses live PVP mechanics and returns finite learning rewards',()=>{
  const p=seedPolicy(),result=duel('break','gale',p,p,411,3);
  assert.ok(result.results.every(x=>Number.isFinite(x.reward)));
