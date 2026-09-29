@@ -36,7 +36,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const keys=[];if(mx>.22)keys.push('KeyD');if(mx<-.22)keys.push('KeyA');if(my>.22)keys.push('KeyS');if(my<-.22)keys.push('KeyW');if(d>500&&resources>.55)keys.push('ShiftLeft');
  current={keys,aim:a+dodgeBias*.06,block:!mistake&&threat&&random()<settings.block&&me.shield>0,dash:!mistake&&threat&&resources>.2&&random()<settings.dash,basic:false};
  if(current.block||current.dash||me.stun>0)return current;
- if(hold>=0){current.basic=style==='void'&&hold===2&&d<240;return current;}
+ if(hold>=0){current.basic=false;return current;}
  const ready=i=>me.cool[i]<=0&&!(style==='void'&&i===2&&me.void3DodgeRemaining>0),available=chain.filter(ready),busy=me.skillEvent||me.skillHold;
  if(!busy&&resources>.18&&d<650&&!mistake&&available.length&&random()<Math.min(1,(profile.aggression+.15)*settings.attack)){
  const i=ready(chain[combo%chain.length])?chain[combo++%chain.length]:available[0];current.skill=i;hold=i;releaseAt=time+.2+random()*.45;
