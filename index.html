@@ -5354,10 +5354,26 @@ function pvpHongryeonFx(x,y,a,reach,stage=0,power=1){
  const low=window.EchoesOptions?.quality==='low',n=low?3:6,color=stage%3===0?'#ff612a':stage%3===1?'#ffb34f':'#ef3525';
  slashFx(x,y,a+(stage%2?.16:-.16),stage%3===2?1.2:2.45,reach,color,.26,true);
  for(let j=0;j<n;j++){const aa=a+(j/n-.5)*(stage%3===2?1.5:2.8),rr=reach*(.52+.38*Math.random());
-  pushFx({kind:'particle',x:x+Math.cos(aa)*rr,y:y+Math.sin(aa)*rr,vx:Math.cos(aa)*(88+Math.random()*100),vy:Math.sin(aa)*(88+Math.random()*100),r:(low?2.8:3.9)*power,t:.24,max:.24,c:j%2?'#ffd273':color},true);
+  pushFx({kind:'particle',x:x+Math.cos(aa)*rr,y:y+Math.sin(aa)*rr,vx:Math.cos(aa)*(88+Math.random()*100),vy:Math.sin(aa)*(88+Math.random()*100),r:(low?2.8:3.9)*power,t:.24,max:.24,c:j%2?'#ffd273':color},false);
  }
+ // Only this seeded visual event and the slash are sent: clients generate the remaining fire locally.
+ burst(x,y,color,low?3:7,135+reach*.2,undefined,true);
  if(stage===0||stage===13)ring(x,y,reach,'#ff9639',stage===13?.52:.26,true);
 }
+
+function pvpHongryeonTrail(x1,y1,x2,y2,power=1,ev=null){
+ const dx=x2-x1,dy=y2-y1,d=Math.hypot(dx,dy);if(d<=1)return;
+ const a=Math.atan2(dy,dx),low=window.EchoesOptions?.quality==='low',n=low?2:4;
+ for(let k=0;k<n;k++){const t=(k+.5)/n,px=x1+dx*t,py=y1+dy*t,speed=140+power*52;
+  const fa=a+Math.PI+(Math.random()-.5)*1.2;
+  pushFx({kind:'ember',x:px,y:py,vx:Math.cos(fa)*speed,vy:Math.sin(fa)*speed,rx:(low?4:7)*power,ry:1.7*power,a:fa,c:k%2?'#ffb34f':'#ff4a32',t:.24,max:.24},false);
+ }
+ // Position and one line are replicated; seeded burst creates the distant player's
+ // flame impression without serializing dozens of randomly positioned embers.
+ beamFx(x1,y1,x2,y2,power>1.5?'#ffb04a':'#ff314d',.10,true);
+ if(ev){const now=performance.now();if(now-(ev.hongTrailBroadcastAt||0)>140){ev.hongTrailBroadcastAt=now;burst(x2,y2,'#ff7532',low?3:6,105+power*55,undefined,true);}}
+}
+
 function pvpHongryeonMotion(ev,dt){
  const mode=ev.cfg.mode,a=ev.hongFace??ev.a,fx=Math.cos(a),fy=Math.sin(a),nx=-fy,ny=fx,side=ev.side||1,t=ev.elapsed,ox=me.x,oy=me.y;
  ev.hongFace=a;const move=(x,y,maxSpeed=4600)=>{const dx=x-me.x,dy=y-me.y,dist=Math.hypot(dx,dy);if(dist>.0001){const step=Math.min(dist,maxSpeed*dt);me.x=clamp(me.x+dx/dist*step,25,ARENA_W-25);me.y=clamp(me.y+dy/dist*step,25,ARENA_H-25)}};
@@ -5374,7 +5390,7 @@ function pvpHongryeonMotion(ev,dt){
   if(ev.hongWheelCaught&&enemy&&enemy.hp>0){ev.hongCarryAt=(ev.hongCarryAt||0)-dt;if(ev.hongCarryAt<=0){const fa=Math.atan2(enemy.y-me.y,enemy.x-me.x),dist=me.r+enemy.r+34,tx=me.x+Math.cos(fa)*dist,ty=me.y+Math.sin(fa)*dist;queueStigmaControl('hongWheel',tx,ty,.12,.20,.38,false);ev.hongCarryAt=.065;}}
  }
  if(mode!=='flameBreathWheel')me.a=a;
- if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.047:mode==='flameBreathWheel'?.060:.066;pvpCrimsonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05);pvpCrimsonEmbers(me.x,me.y,a+Math.PI,3,180,.30,.65);}}
+ if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.047:mode==='flameBreathWheel'?.060:.066;pvpHongryeonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05,ev);pvpCrimsonEmbers(me.x,me.y,a+Math.PI,3,180,.30,.65);}}
 }
 function pvpHongryeonHit(ev,k){
  const mode=ev.cfg.mode,a=ev.hongFace??ev.a,ca=Math.cos(a),sa=Math.sin(a),base=pvpSkillAttack(me),color=ev.skill.color||'#ff782e',enemyNear=enemy&&enemy.hp>0,r=mode==='flameBreathSweep'?(k===0?300:328):mode==='flameBreathRise'?250:mode==='flameBreathCleave'?(k===0?190:245):[265,230,270][k]||265;
@@ -5413,7 +5429,7 @@ function pvpHongryeonFinale(ev,dt){
    ex=clamp(ox+fx*adv,25,ARENA_W-25);ey=clamp(oy+fy*adv,25,ARENA_H-25);collision=true;
   }
   me.x=ex;me.y=ey;me.a=a;me.skillLift=4+Math.sin(Math.PI*clamp(ev.elapsed/.53,0,1))*7;
-  ev.fx-=dt;if(ev.fx<=0){ev.fx=.085;pvpCrimsonEmbers(me.x,me.y,a+Math.PI,4,240,.25,.75);pvpCrimsonTrail(ox,oy,me.x,me.y,1.55);}
+  ev.fx-=dt;if(ev.fx<=0){ev.fx=.085;pvpCrimsonEmbers(me.x,me.y,a+Math.PI,4,240,.25,.75);pvpHongryeonTrail(ox,oy,me.x,me.y,1.55,ev);}
   if(collision){ev.hongPending=true;ev.hongPendingAt=performance.now();net({t:'teleport',x:me.x,y:me.y,a});
    sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:79,d:pvpSkillAttack(me)*1.36,stun:3.1,force:0,bypassShield:true,parryable:false,teleportHit:true,rapidHit:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
     if(me.skillEvent!==ev||!enemy||enemy.hp<=0)return;
