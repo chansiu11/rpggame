@@ -98,6 +98,29 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
  }finally{b.dispose();}
 });
 
+
+test('all four regular Hongryeon forms emit authored PVP hit timings and shield metadata',()=>{
+ const expected=[2,1,2,3];
+ for(let index=0;index<4;index++){
+  const a=createArena({style:'break',level:100}),packets=[];
+  try{
+   a.api.init(a.snapshot,a.snapshot,true,m=>packets.push(m));
+   a.api.enemy.x=a.api.me.x+180;a.api.enemy.y=a.api.me.y;
+   a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
+   a.api.control({keys:[],aim:0,skill:index});a.step(.35);
+   a.api.control({keys:[],aim:0,release:index});
+   assert.equal(a.api.me.skillEvent?.skill?.id,skills[index][0],'skill '+(index+1)+' must launch');
+   for(let n=0;n<92;n++)a.step(1/60);
+   const hits=packets.filter(p=>p.t==='atk'&&p.skillId===skills[index][0]);
+   assert.equal(hits.length,expected[index],'skill '+(index+1)+' must emit its current authored hit count');
+   assert.ok(hits.every(p=>Number.isFinite(p.d)&&p.d>0&&Number.isFinite(p.stun)&&p.stun>0));
+   assert.ok(packets.some(p=>p.t==='fxBatch'),'each skill must send bounded remote visual events');
+   if(index===1){assert.equal(hits[0].bypassShield,true);assert.equal(hits[0].shape==='circle'||hits[0].shape==='segment',true);}
+   if(index===3){assert.ok(hits.every(p=>p.controlLease==='hongWheel'));}
+  }finally{a.dispose();}
+ }
+});
+
 test('Hongryeon self-play uses live PVP mechanics and returns finite learning rewards',()=>{
  const p=seedPolicy(),result=duel('break','gale',p,p,411,3);
  assert.ok(result.results.every(x=>Number.isFinite(x.reward)));
