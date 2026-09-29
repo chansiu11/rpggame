@@ -29,3 +29,4 @@ jobs:
           cache-dependency-path: multiplayer-server/package-lock.json
       - run: npm ci --prefix multiplayer-server
       - run: node --test tests/void3.test.mjs tests/ai.test.mjs tests/hongryeon-integration.test.mjs
+      - run: npm test --prefix multiplayer-server
