@@ -71,6 +71,7 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
  try{
   a.api.init(a.snapshot,a.snapshot,true,m=>out.push(m));
   a.api.enemy.x=a.api.me.x+1750;a.api.enemy.y=a.api.me.y;
+  a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
   a.api.control({keys:[],aim:0,skill:4});
   a.step(.35);a.api.control({keys:[],aim:0,release:4});
   assert.equal(a.api.me.skillEvent?.skill?.id,'meteorBreaker','ultimate should cast after preparation and key release');
@@ -82,6 +83,7 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
  try{
   b.api.init(b.snapshot,b.snapshot,true,m=>hits.push(m));
   b.api.enemy.x=b.api.me.x+350;b.api.enemy.y=b.api.me.y;
+  b.api.enemy.netX=b.api.enemy.x;b.api.enemy.netY=b.api.enemy.y;
   b.api.control({keys:[],aim:0,skill:4});
   b.step(.35);b.api.control({keys:[],aim:0,release:4});
   assert.equal(b.api.me.skillEvent?.skill?.id,'meteorBreaker');
