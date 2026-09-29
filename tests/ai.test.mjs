@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {Worker} from 'node:worker_threads';
 import {createArena} from '../multiplayer-server/ai/arena-runtime.js';
-import {seedPolicy,learn} from '../multiplayer-server/ai/brain.js';
+import {seedPolicy,learn,createBrain} from '../multiplayer-server/ai/brain.js';
 import {validatePolicy} from '../multiplayer-server/ai/store.js';
 import {duel} from '../multiplayer-server/ai/self-play.js';
 import {createAiService} from '../multiplayer-server/ai/live-service.js';
@@ -16,6 +16,13 @@ test('AI self-play optionally exposes real read-only spectator snapshots',()=>{
  assert.ok(frames.every(f=>f.players?.length===2&&f.players.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.hp)&&p.maxHp>0)));
  assert.ok(result.results.every(x=>Number.isFinite(x.reward)));
  assert.equal(a.matches,0,'Watching alone must not mutate AI policy');
+});
+test('Void AI treats skill 3 as a reactive evade stance, not the old basic follow-up combo',()=>{
+ const brain=createBrain('void',seedPolicy(),()=>.2,3),me={x:1000,y:1000,stam:100,maxStam:100,hp:100,maxHp:100,shield:100,stun:0,cool:[9,9,0,9,9],skillEvent:null,skillHold:null,void3DodgeRemaining:0},enemy={x:1100,y:1000,dash:0,attackAnim:0,skillPose:-1};
+ let command;for(let i=0;i<8&&!Number.isInteger(command?.skill);i++)command=brain.step(.3,me,enemy);assert.equal(command.skill,2);
+ const holding=brain.step(.05,me,enemy);assert.equal(holding.basic,false,'arming Void 3 must not issue the obsolete basic follow-up');
+ let release;for(let i=0;i<12&&!Number.isInteger(release?.release);i++)release=brain.step(.1,me,enemy);assert.equal(release.release,2);
+ me.void3DodgeRemaining=5;me.cool=[9,9,0,9,9];const active=brain.step(.5,me,enemy);assert.notEqual(active.skill,2,'AI must not recast Void 3 while evade charges are active');
 });
 test('learning is bounded and survives serialization; malformed policy rejected',()=>{const p=seedPolicy();for(let i=0;i<100;i++)learn(p,'gale',0,{win:true,reward:1,metrics:{hits:1}});assert.equal(validatePolicy(JSON.parse(JSON.stringify(p))).styles.gale.weights[0],5);assert.throws(()=>validatePolicy({...p,schema:2}));});
 test('live worker negotiates the same PVP protocol and sends state, skills and damage',{timeout:12000},async()=>{
