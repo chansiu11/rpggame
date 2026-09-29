@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {Worker} from 'node:worker_threads';
 import {createArena} from '../multiplayer-server/ai/arena-runtime.js';
-import {seedPolicy,learn,createBrain} from '../multiplayer-server/ai/brain.js';
+import {seedPolicy,learn,createBrain,leastTrainedPair} from '../multiplayer-server/ai/brain.js';
 import {validatePolicy} from '../multiplayer-server/ai/store.js';
 import {duel} from '../multiplayer-server/ai/self-play.js';
 import {createAiService} from '../multiplayer-server/ai/live-service.js';
@@ -25,6 +25,28 @@ test('Void AI treats skill 3 as a reactive evade stance, not the old basic follo
  me.void3DodgeRemaining=5;me.cool=[9,9,0,9,9];const active=brain.step(.5,me,enemy);assert.notEqual(active.skill,2,'AI must not recast Void 3 while evade charges are active');
 });
 test('learning is bounded and survives serialization; malformed policy rejected',()=>{const p=seedPolicy();for(let i=0;i<100;i++)learn(p,'gale',0,{win:true,reward:1,metrics:{hits:1}});assert.equal(validatePolicy(JSON.parse(JSON.stringify(p))).styles.gale.weights[0],5);assert.throws(()=>validatePolicy({...p,schema:2}));});
+test('training pairs the least experienced two styles even after loading uneven progress',()=>{
+ const policy=seedPolicy();policy.styles.gale.games=100;policy.styles.void.games=9;policy.styles.dawn.games=3;policy.styles.break.games=1;
+ assert.deepEqual(leastTrainedPair(policy),['break','dawn']);
+ assert.deepEqual(leastTrainedPair(JSON.parse(JSON.stringify(policy))),['break','dawn'],'Stored progress determines the next opponents');
+ assert.equal(new Set(leastTrainedPair(policy)).size,2,'A style must never duel itself');
+});
+test('reselecting and learning both duelists gives every style equal training exposure',()=>{
+ const policy=seedPolicy(),first=[];
+ for(let i=0;i<24;i++){
+  const [a,b]=leastTrainedPair(policy);
+  if(i<2)first.push([a,b]);
+  const games=Object.values(policy.styles).map(s=>s.games);
+  assert.equal(policy.styles[a].games,Math.min(...games));
+  assert.equal(policy.styles[b].games,[...games].sort((x,y)=>x-y)[1]);
+  learn(policy,a,0,{win:true,reward:0,metrics:{}});
+  learn(policy,b,0,{win:false,reward:0,metrics:{}});
+  policy.matches++;
+ }
+ assert.deepEqual(first,[['gale','void'],['dawn','break']]);
+ assert.deepEqual(Object.values(policy.styles).map(s=>s.games),[12,12,12,12]);
+ assert.equal(policy.matches,24,'Every duel increments the shared match count only once');
+});
 test('live worker negotiates the same PVP protocol and sends state, skills and damage',{timeout:12000},async()=>{
  const a=createArena(),worker=new Worker(new URL('../multiplayer-server/ai/live-worker.js',import.meta.url),{workerData:{style:'gale',level:100}});let ready=false,started=false,states=0,attacks=0,countdownAt=0,goAt=0,ponged=false;
  a.api.init(a.snapshot,a.snapshot,true,m=>worker.postMessage(m));

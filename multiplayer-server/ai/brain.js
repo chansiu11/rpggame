@@ -6,6 +6,12 @@ export const styles={
  break:{name:'홍련',distance:230,combos:[[1,2,3,4,0],[0,1,4,2,3],[3,0,2,1,4]],aggression:.73}
 };
 export function seedPolicy(){return {schema:1,generation:0,matches:0,styles:Object.fromEntries(Object.keys(styles).map(s=>[s,{weights:[1,1,1],games:0,wins:0,reward:0,metrics:{}}]))};}
+// Select the two styles with the fewest actual training bouts. Recalculate after
+// every bout so even an AI restored from an older, uneven checkpoint catches up.
+// Stable tie ordering ensures two different styles and reproducible matchmaking.
+export function leastTrainedPair(policy){
+ return Object.keys(styles).sort((a,b)=>policy.styles[a].games-policy.styles[b].games).slice(0,2);
+}
 export function rng(seed=1){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};}
 export const difficulties={
  1:{name:'매우 쉬움',delay:.50,jitter:.30,mistake:.38,block:.22,dash:.10,attack:.42},
