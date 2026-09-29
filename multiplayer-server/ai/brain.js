@@ -2,7 +2,8 @@
 export const styles={
  gale:{name:'질풍',distance:115,combos:[[1,2,3,4],[0,1,4]],aggression:.8},
  void:{name:'이형',distance:155,combos:[[1,2,4],[0,3,1]],aggression:.65},
- dawn:{name:'여명',distance:330,combos:[[0,3,4],[2,1,0]],aggression:.45}
+ dawn:{name:'여명',distance:330,combos:[[0,3,4],[2,1,0]],aggression:.45},
+ break:{name:'홍련',distance:230,combos:[[1,2,3,4,0],[0,1,4,2,3],[3,0,2,1,4]],aggression:.73}
 };
 export function seedPolicy(){return {schema:1,generation:0,matches:0,styles:Object.fromEntries(Object.keys(styles).map(s=>[s,{weights:[1,1,1],games:0,wins:0,reward:0,metrics:{}}]))};}
 export function rng(seed=1){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};}
@@ -17,7 +18,7 @@ export function normalizeDifficulty(value){const n=Number(value);return Number.i
 export function createBrain(style,policy=seedPolicy(),random=Math.random,difficulty=3){
  const settings=difficulties[normalizeDifficulty(difficulty)];
  const profile=styles[style];if(!profile)throw Error('Unsupported AI style');
- const weights=policy.styles[style].weights;let pick=random()*weights.reduce((a,b)=>a+b,0),tactic=0;
+ const weights=(policy.styles[style]||seedPolicy().styles[style]).weights;let pick=random()*weights.reduce((a,b)=>a+b,0),tactic=0;
  while(tactic<2&&pick>weights[tactic])pick-=weights[tactic++];if(random()<.12)tactic=Math.floor(random()*3);
  let wait=0,hold=-1,releaseAt=0,time=0,combo=0,side=random()<.5?-1:1,previous=null,dodgeBias=0;
  const chain=profile.combos[tactic%profile.combos.length];let current={keys:[],aim:0};
