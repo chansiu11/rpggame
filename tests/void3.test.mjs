@@ -37,7 +37,7 @@ test('Void 3 PVP automatically counters five times after the 50ms disappearance 
 });
 test('Void 3 PVP expiry restores original cooldown without a hit',()=>{
  const {arena}=prepareVoidArena();
- try{arena.step(10.1);assert.equal(arena.api.me.void3DodgeRemaining,0);assert.ok(arena.api.me.cool[2]>0);}
+ try{for(let i=0;i<102;i++)arena.step(.1);assert.equal(arena.api.me.void3DodgeRemaining,0);assert.ok(arena.api.me.cool[2]>0);}
  finally{arena.dispose();}
 });
 function worldFixture(){
