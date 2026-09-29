@@ -1743,91 +1743,63 @@ function standardSkillCanPrepare(index){
  return cancelBasicAttackForSkill();
 }
 
-function endVoid3World(){void3State=null;}
-function void3WorldTarget(){
- if(!void3State)return null;
- const id=void3State.targetId;
- let target=enemies.find(e=>e.id===id)||worldPlayerTargets.get(id)||null;
- if(target?.networkPlayer){
-  const rp=multiRemotePlayers.get(id);
-  if(!rp||Number(rp.hp)<=0||!sharedPvpEligible(rp))target=null;
- }
- if(!target||target.dead||target.riftSleeping||Number(target.hp)===0)return null;
- return target;
+// Void 3 world form shares the PVP five-charge/ten-second reactive rules.
+function endVoid3World(){
+ if(!void3State)return;const q=void3State;void3State=null;
+ player.skillCds[2]=Math.max(player.skillCds[2]||0,q.cooldown||0);
+ if(player.skillKind==='void3Evade'||player.skillKind==='void3Counter'){player.skillKind='';player.skillPose=-1;}
 }
-function releaseVoid3WorldInput(){
- if(!void3State)return false;
- void3State.held=false;void3State.ending=true;
- if(!void3State.exitDash)endVoid3World();
- return true;
+function void3WorldTarget(){
+ if(!void3State)return null;const id=void3State.targetId;
+ let target=enemies.find(e=>e.id===id)||worldPlayerTargets.get(id)||null;
+ if(target?.networkPlayer){const rp=multiRemotePlayers.get(id);if(!rp||Number(rp.hp)<=0||!sharedPvpEligible(rp))target=null;}
+ return !target||target.dead||target.riftSleeping||Number(target.hp)===0?null:target;
+}
+function releaseVoid3WorldInput(){return !!void3State;}
+function beginVoid3WorldEvade(source){
+ const q=void3State;if(!q||!source||q.pending||q.remaining<=0||realTime>=q.until)return false;
+ const sourceId=String(source.id||source.sourceMobId||'');if(sourceId!==q.targetId)return false;
+ q.remaining--;q.pending={at:realTime+.05};player.invuln=Math.max(player.invuln,.14);
+ player.cast=0;player.attackCd=Math.max(player.attackCd,.05);player.skillPose=2;player.skillKind='void3Evade';
+ const ox=player.x,oy=player.y,sideA=player.facing+(q.remaining%2?1:-1)*Math.PI/2,spot=freeBodySpot(ox+Math.cos(sideA)*76,oy+Math.sin(sideA)*76,player.r+4);
+ moveBody(player,spot.x-ox,spot.y-oy);syncInstantPlayerMove(620);
+ effects.push({type:'line',x:ox,y:oy,x2:player.x,y2:player.y,color:'#d8b7ff',t:.18,max:.18});
+ effects.push({type:'riftCut',x:(ox+player.x)/2,y:(oy+player.y)/2,a:sideA,len:140,width:24,color:'#a76cff',t:.18,max:.18});
+ burst(ox,oy,'#8d55d1',12,175);return true;
 }
 function updateVoid3WorldAuto(){
- if(!void3State)return;
- if(realTime>=void3State.until){endVoid3World();return;}
- if(realTime>=(void3State.nextTargetCheckAt||0)){
-  void3State.nextTargetCheckAt=realTime+.10;
-  if(!void3WorldTarget()){endVoid3World();return;}
+ const q=void3State;if(!q)return;
+ if(q.pending&&realTime>=q.pending.at){
+  q.pending=null;const target=void3WorldTarget();if(!target||player.hp<=0){endVoid3World();return;}
+  if(target.networkPlayer){/* Remote players are countered by the authoritative world server. */return;}
+  const ox=player.x,oy=player.y,tf=Number.isFinite(target.facing)?target.facing:Math.atan2(target.y-player.y,target.x-player.x),behind=tf+Math.PI,dist=player.r+combatRadius(target)+42;
+  const spot=freeBodySpot(target.x+Math.cos(behind)*dist,target.y+Math.sin(behind)*dist,player.r+4);
+  moveBody(player,spot.x-player.x,spot.y-player.y);player.facing=player.attackAngle=Math.atan2(target.y-player.y,target.x-player.x);syncInstantPlayerMove(620);
+  player.skillKind='void3Counter';player.skillPose=2;player.attackDuration=player.attackAnim=.23;player.attackCd=Math.max(player.attackCd,.12);player.invuln=Math.max(player.invuln,.13);
+  effects.push({type:'line',x:ox,y:oy,x2:player.x,y2:player.y,color:'#f5e9ff',t:.16,max:.16});
+  effects.push({type:'riftCut',x:(player.x+target.x)/2,y:(player.y+target.y)/2,a:player.facing,len:175,width:32,color:'#a76cff',t:.28,max:.28});burst(player.x,player.y,'#d8b7ff',14,150);
+  hitEnemy(target,damageValue(.90,'gravityCut'),false,player,{skillId:'gravityCut',stun:.75,dx:Math.cos(player.facing)*220,dy:Math.sin(player.facing)*220,duration:.30,noHitstop:true});
  }
- if((!void3State.held||void3State.count>=5)&&!void3State.exitDash)endVoid3World();
+ if(void3State===q&&!q.pending&&(realTime>=q.until||q.remaining<=0||!void3WorldTarget()))endVoid3World();
 }
 function startVoid3World(){
- const slot=2,sk=skillInfo(slot);if(!sk||sk.id!=='gravityCut'||!canAct()||player.skillCds[slot]>0||player.exhaust>0||player.cast>0||player.dodge>0)return false;
+ const slot=2,sk=skillInfo(slot);if(void3State||!sk||sk.id!=='gravityCut'||!canAct()||player.skillCds[slot]>0||player.exhaust>0||player.cast>0||player.dodge>0)return false;
  if(!cancelBasicAttackForSkill()||!useStam(sk.cost))return false;aim();cancelShieldForSkill();
  player.skillCds[slot]=sk.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];
- player.attackDuration=player.attackAnim=.24;player.attackCd=.24;player.attackAngle=player.facing;player.attackArc=1.35;player.strikePose=2;player.skillPose=-1;
+ const cooldown=player.skillCds[slot];player.attackDuration=player.attackAnim=.24;player.attackCd=.24;player.attackAngle=player.facing;player.attackArc=1.35;player.strikePose=2;player.skillPose=-1;
  const reach=(WEAPONS[player.weapon]?.reach||80)+70,a=player.facing;
  const target=combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)).map(e=>{const c=combatCenter(e),dx=c.x-player.x,dy=c.y-player.y,d=Math.hypot(dx,dy),ea=Math.atan2(dy,dx);return {e,d,ea};}).filter(v=>v.d<=reach+combatRadius(v.e)&&Math.abs(angleDiff(v.ea,a))<=.675+combatRadius(v.e)/Math.max(35,v.d)).sort((x,y)=>x.d-y.d)[0]?.e||null;
- if(!target){effects.push({type:'riftCut',x:player.x+Math.cos(a)*72,y:player.y+Math.sin(a)*72,a,len:190,width:24,color:'#a76cff',t:.28,max:.28});void3State=null;sound('swing');return true;}
- const enableVoid3=()=>{
+ if(!target){effects.push({type:'riftCut',x:player.x+Math.cos(a)*72,y:player.y+Math.sin(a)*72,a,len:190,width:24,color:'#a76cff',t:.28,max:.28});sound('swing');return true;}
+ const enable=()=>{
   if(target.dead||target.riftSleeping||player.hp<=0)return;
   applyEnemyStun(target,target.kind==='boss'?.28:.62);
-  const tc=combatCenter(target);effects.push({type:'riftCut',x:(player.x+tc.x)/2,y:(player.y+tc.y)/2,a,len:210,width:30,color:'#d8b7ff',t:.32,max:.32});burst(tc.x,tc.y,'#a76cff',14,150);ring(tc.x,tc.y,62,'#d8b7ff',.28);
-  void3State={targetId:target.id,until:realTime+7,count:0,exitDash:null,nextBasicAt:realTime,nextTargetCheckAt:realTime+.10,held:true,ending:false};player.attackCd=0;player.cast=0;player.moveLock=0;player.shieldNeedsRelease=false;sound('hit');
+  const c=combatCenter(target);effects.push({type:'riftCut',x:(player.x+c.x)/2,y:(player.y+c.y)/2,a,len:210,width:30,color:'#d8b7ff',t:.32,max:.32});burst(c.x,c.y,'#a76cff',14,150);ring(c.x,c.y,62,'#d8b7ff',.28);
+  void3State={targetId:target.id,until:realTime+10,remaining:5,pending:null,cooldown};player.skillCds[2]=0;player.attackCd=0;player.cast=0;player.moveLock=0;player.shieldNeedsRelease=false;sound('hit');
  };
- hitEnemyConfirmed(target,damageValue(1.05,'gravityCut'),false,player,enableVoid3,{skillId:'gravityCut'});
- return true;
+ hitEnemyConfirmed(target,damageValue(1.05,'gravityCut'),false,player,enable,{skillId:'gravityCut'});return true;
 }
-function void3WorldBasic(){
- if(!void3State)return false;
- if(realTime>=void3State.until||!void3State.held){if(!void3State.exitDash)endVoid3World();return true;}
- if(void3State.count>=5){if(!void3State.exitDash)endVoid3World();return true;}
- if(void3State.exitDash||realTime<(void3State.nextBasicAt||0))return true;
- const target=void3WorldTarget();if(!target){endVoid3World();return true;}
- if(!canAct()||player.attackCd>0||player.dodge>0)return true;
- const step=void3State.count%5,tf=Number.isFinite(target.facing)?target.facing:Math.atan2(target.y-player.y,target.x-player.x),behind=tf+Math.PI,dist=player.r+combatRadius(target)+42;
- const spot=freeBodySpot(target.x+Math.cos(behind)*dist,target.y+Math.sin(behind)*dist,player.r+4),ox=player.x,oy=player.y;
- moveBody(player,clamp(spot.x-player.x,-520,520),clamp(spot.y-player.y,-520,520));player.facing=player.attackAngle=Math.atan2(target.y-player.y,target.x-player.x);syncInstantPlayerMove(620);
- const strikeX=player.x,strikeY=player.y,teleA=Math.atan2(strikeY-oy,strikeX-ox),teleLen=Math.max(80,Math.hypot(strikeX-ox,strikeY-oy)+85);
- effects.push({type:'line',x:ox,y:oy,x2:strikeX,y2:strikeY,color:step%2?'#d8b7ff':'#a76cff',t:.18,max:.18});
- effects.push({type:'riftCut',x:(ox+strikeX)/2,y:(oy+strikeY)/2,a:teleA,len:teleLen,width:18,color:'#ffffff',t:.16,max:.16});burst(ox,oy,'#7a45b5',6,90);burst(strikeX,strikeY,'#d8b7ff',8,105);
- player.invuln=Math.max(player.invuln,.10);player.attackDuration=player.attackAnim=.10;player.attackCd=.10;player.strikePose=step;player.combo=step+1;
- const mult=[.70,.77,.85,.95,1.06][step];
- hitEnemy(target,damageValue(mult,'gravityCut'),false,player,{stun:0,bypassShield:true,noHitstop:true});
- const a=player.facing,fxA=a+[.55,-.65,1.05,-1.10,.15][step],fxX=strikeX+Math.cos(a)*62,fxY=strikeY+Math.sin(a)*62;
- if(step===0)effects.push({type:'slash',x:fxX,y:fxY,a:fxA,arc:1.45,r:125,color:'#a76cff',t:.22,max:.22});
- else if(step===1)effects.push({type:'riftCut',x:fxX,y:fxY,a:fxA,len:205,width:22,color:'#d8b7ff',t:.27,max:.27});
- else if(step===2){effects.push({type:'riftCut',x:fxX,y:fxY,a:fxA,len:170,width:28,color:'#ffffff',t:.24,max:.24});effects.push({type:'line',x:ox,y:oy,x2:strikeX,y2:strikeY,color:'#a76cff',t:.18,max:.18});}
- else if(step===3){effects.push({type:'slash',x:fxX,y:fxY,a:fxA,arc:2.2,r:142,color:'#d8b7ff',t:.26,max:.26});burst(fxX,fxY,'#a76cff',10,120);}
- else effects.push({type:'riftCut',x:fxX,y:fxY,a:fxA,len:260,width:36,color:'#ffffff',t:.34,max:.34});
- const exitA=Math.random()*TAU,exitDist=135+Math.random()*105,exit=freeBodySpot(strikeX+Math.cos(exitA)*exitDist,strikeY+Math.sin(exitA)*exitDist,player.r+4);
- void3State.exitDash={x:exit.x,y:exit.y,startX:strikeX,startY:strikeY,elapsed:0,max:.10,fx:0,step};
- const exitLen=Math.max(110,Math.hypot(exit.x-strikeX,exit.y-strikeY)+110),exitDir=Math.atan2(exit.y-strikeY,exit.x-strikeX);
- effects.push({type:'line',x:strikeX,y:strikeY,x2:exit.x,y2:exit.y,color:step%2?'#ffffff':'#a76cff',t:.24,max:.24});
- effects.push({type:'riftCut',x:(strikeX+exit.x)/2,y:(strikeY+exit.y)/2,a:exitDir,len:exitLen,width:24,color:step%2?'#a76cff':'#d8b7ff',t:.24,max:.24});
- burst(strikeX,strikeY,'#8f52c8',9,115);
- void3State.count++;void3State.nextBasicAt=realTime+.10;if(void3State.count>=5)void3State.ending=true;sound('swing');return true;
-}
-function updateVoid3WorldExitDash(dt){
- if(!void3State?.exitDash)return;
- const d=void3State.exitDash,oldX=player.x,oldY=player.y;d.elapsed=Math.min(d.max,d.elapsed+dt);
- const u=clamp(d.elapsed/Math.max(.01,d.max),0,1),ease=1-Math.pow(1-u,2);
- const nx=d.startX+(d.x-d.startX)*ease,ny=d.startY+(d.y-d.startY)*ease;
- moveBody(player,nx-player.x,ny-player.y);player.moving=true;const dir=Math.atan2(d.y-d.startY,d.x-d.startX);player.dx=Math.cos(dir);player.dy=Math.sin(dir);player.facing=dir;player.invuln=Math.max(player.invuln,.055);
- d.fx-=dt;if(d.fx<=0){d.fx=.026;const th=swordStyleFxForSkill('gravityCut');effects.push({type:'line',x:oldX,y:oldY,x2:player.x,y2:player.y,color:d.step%2?th.sub:th.main,t:.11,max:.11});effects.push({type:'riftCut',x:(oldX+player.x)/2,y:(oldY+player.y)/2,a:dir,len:90,width:14,color:d.step%2?th.main:th.sub,t:.10,max:.10});}
- syncSkillMoveIfNeeded(oldX,oldY,8,980);
- if(u>=1){moveBody(player,d.x-player.x,d.y-player.y);syncInstantPlayerMove(980);burst(player.x,player.y,'#d8b7ff',11,135);void3State.exitDash=null;}
-}
-
+function void3WorldBasic(){return false;}
+function updateVoid3WorldExitDash(dt){}
 function beginStandardSkillInput(index){
  const sk=skillInfo(index);if(!sk||sk.locked||standardSkillHold)return false;
  const follow=hiddenFollowReady(index);
