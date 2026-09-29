@@ -1045,6 +1045,72 @@ function crimsonStrokeLine(x1,y1,x2,y2,a,power=1){
  const dx=x2-x1,dy=y2-y1;for(let j=1;j<=10;j++){const q=j/11,px=x1+dx*q,py=y1+dy*q,side=j%2?1:-1,spread=rnd(7,18);crimsonEmbers(px+nx*side*spread,py+ny*side*spread,a+Math.PI+side*rnd(.38,.72),j%4===0?3:2,rnd(125,205),.30,rnd(.58,.82));}
 }
 
+function crimsonOneFireFlecks(x,y,a,n,spread=.30){
+ const low=options.quality==='low',count=low?Math.ceil(n*.57):n;
+ const palette=['#e51b32','#ff352c','#ff642e','#ffad4b','#ffe0a0','#b61131'];
+ for(let i=0;i<count;i++){
+  const ang=a+rnd(-spread,spread),speed=rnd(110,270),life=rnd(.28,.64),size=rnd(4.8,11.5);
+  effects.push({type:'ember',x:x+rnd(-5,5),y:y+rnd(-5,5),vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed,color:palette[Math.floor(rnd(0,palette.length))],t:life,max:life,rx:size,ry:size*rnd(.23,.37),a:ang});
+ }
+ if(effects.length>760)effects.splice(0,effects.length-760);
+}
+function crimsonStrokeCircle(cx,cy,rx,ry,aim,power=1){
+ // Keep the circular hit area; the outward-moving embers add depth without obscuring its outline.
+ const r=rx,low=options.quality==='low';
+ effects.push({type:'crimsonFlameRing',x:cx,y:cy,r,a:aim,seed:Math.floor(rnd(1,2147483646)),t:.55,max:.55});
+ const groups=[aim-.28,aim+.83,aim+2.43,aim-2.18],count=low?30:58;
+ for(let j=0;j<count;j++){
+  const group=j<count*.49?0:j<count*.71?1:j<count*.86?2:3;
+  const a=groups[group]+rnd(-.70,.70),rr=r+rnd(-10,10);
+  crimsonOneFireFlecks(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,a+rnd(-.38,.38),j%5===0?3:2,.32);
+ }
+ // Concentrate a few additional glowing sweeps on the forward rim.
+ const sweeps=low?4:9;
+ for(let j=0;j<sweeps;j++){
+  const a=aim+rnd(-1.05,1.05),rr=r+rnd(2,11);
+  crimsonOneFireFlecks(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,a+rnd(-.18,.18),j%3===0?3:2,.20);
+ }
+}
+function crimsonStrokeLine(x1,y1,x2,y2,a,power=1){
+ // A straight main slash with layered fire and an evenly spread wake of oval embers.
+ const dx=x2-x1,dy=y2-y1,nx=-Math.sin(a),ny=Math.cos(a);
+ effects.push({type:'crimsonFlameSlash',x:x1,y:y1,x2,y2,a,seed:Math.floor(rnd(1,2147483646)),t:.50,max:.50});
+ const low=options.quality==='low',steps=low?18:38;
+ for(let j=0;j<steps;j++){
+  const q=(j+rnd(.15,.85))/steps,off=rnd(8,20)*(j%2?-1:1);
+  crimsonOneFireFlecks(x1+dx*q+nx*off,y1+dy*q+ny*off,a+Math.PI+(j%2?.52:-.52),j%6===0?3:2,.40);
+ }
+ // A small flash where the line bursts from the circle, plus a few falling sparks at its tip.
+ const flare=low?5:10;
+ for(let j=0;j<flare;j++){
+  const side=j%2?-1:1;
+  crimsonOneFireFlecks(x1+nx*rnd(4,17)*side,y1+ny*rnd(4,17)*side,a+Math.PI+side*rnd(.20,.60),1,.25);
+ }
+ const tip=low?3:6;
+ for(let j=0;j<tip;j++)crimsonOneFireFlecks(x2+rnd(-9,9),y2+rnd(-9,9),a+rnd(-.50,.50),1,.28);
+}
+
+function crimsonRibbon(x1,y1,x2,y2,w=40,life=.42,kind='wake'){
+ if(Math.hypot(x2-x1,y2-y1)<3)return;
+ effects.push({type:'crimsonRibbon',x:x1,y:y1,x2,y2,w,kind,seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
+ if(kind==='wall')effects.push({type:'crimsonScorch',x:x1,y:y1,x2,y2,w:w*1.5,r:0,t:life*1.55,max:life*1.55});
+}
+function crimsonBloom(x,y,r=112,life=.5,intensity=1){
+ effects.push({type:'crimsonBloom',x,y,r,intensity,seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
+ effects.push({type:'crimsonScorch',x,y,r:r*.76,w:r*.60,t:life*1.4,max:life*1.4});
+}
+// Distinct original Crimson render primitives: wing-shaped flame, rising embers, and triangular burn seal.
+function crimsonFireWake(x1,y1,x2,y2,scale=1){crimsonSwordWake(x1,y1,x2,y2,scale);crimsonDashEdgeFire(x1,y1,x2,y2,44*scale,.39,.65+scale*.22);}
+function crimsonWingFx(x,y,a,reach=180,side=1,life=.45){
+ effects.push({type:'crimsonWing',x,y,a,reach,side,seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
+ crimsonEmbers(x+Math.cos(a)*reach*.56,y+Math.sin(a)*reach*.56,a+Math.PI,options.quality==='low'?4:7,235,.75,.96);
+}
+function crimsonPillarFx(x,y,r=82,delay=0,life=.52){
+ effects.push({type:'crimsonPillar',x,y,r,activeLife:life,delay,t:life+delay,max:life+delay,seed:Math.floor(rnd(1,2147483646))});
+}
+function crimsonTriangleFx(vs,life=.76){
+ if(!Array.isArray(vs)||vs.length!==3)return;effects.push({type:'crimsonTriangle',vs:vs.map(v=>({x:v.x,y:v.y})),t:life,max:life,seed:Math.floor(rnd(1,2147483646))});
+}
 // 홍련의 불꽃은 검의 호 궤적을 따라 뒤틀리는 불혀와 그을음으로 표현한다. 단색 레이저 선을 쓰지 않는다.
 function crimsonBladeFire(x,y,a,r=176,arc=1.7,side=1,life=.46,power=1){
  effects.push({type:'crimsonBladeFire',x,y,a,r,arc,side,seed:Math.floor(rnd(1,2147483646)),power,t:life,max:life});
