@@ -435,8 +435,10 @@ function styleServerPose(m,data,k){
  else if(mode==='stationaryFlurry'){for(let j=0;j<=k;j++){const aa=a+(j%2?1:-1)*1.05,gx=tx-Math.cos(aa)*58,gy=ty-Math.sin(aa)*58;x+=clamp(gx-x,-48,48);y+=clamp(gy-y,-48,48);const st=Number(cfg.step?.[j])||0;x+=ca*st;y+=sa*st;}face=Math.atan2(ty-y,tx-x);}
  else if(mode==='galePursuit'){const offs=[2.35,-2.35,1.55,-1.55,Math.PI,.85,-.85,2.75,-2.75,0],aa=a+offs[k%offs.length],dist=k===m.styleHits.length-1?62:82;x=tx+Math.cos(aa)*dist;y=ty+Math.sin(aa)*dist;face=Math.atan2(ty-y,tx-x);}
  else if(mode==='crescentRetreat'){const back=185*Math.min(t,.24);x=ox-ca*back+ca*step;y=oy-sa*back+sa*step;}
- else if(mode==='emberBrand'||mode==='flameMantle'||mode==='cinderSnare'||mode==='furnaceBloom'){x=m.x;y=m.y;face=Math.atan2(ty-y,tx-x);}
+ else if(mode==='emberBrand'||mode==='cinderSnare'){x=ox;y=oy;face=Math.atan2(ty-y,tx-x);}
+ else if(mode==='flameMantle'){const nx=-sa,ny=ca;if(u<.42){const q=u/.42;x=tx-ca*(112-40*q)+nx*side*(138-28*q);y=ty-sa*(112-40*q)+ny*side*(138-28*q);}else if(u<.78){const q=(u-.42)/.36;x=tx-ca*(70-10*q)+nx*side*(110-220*q);y=ty-sa*(70-10*q)+ny*side*(110-220*q);}else{const q=(u-.78)/.22;x=tx-ca*(60-18*q)-nx*side*(110-48*q);y=ty-sa*(60-18*q)-ny*side*(110-48*q);}face=Math.atan2(ty-y,tx-x);}
  else if(mode==='ashRecall'){const forward=Math.sin(Math.PI*u)*340,lateral=Math.sin(Math.PI*2*u)*150*side;x=ox+ca*forward-sa*lateral;y=oy+sa*forward+ca*lateral;face=u<.5?a:a+Math.PI;}
+ else if(mode==='furnaceBloom'){const nx=-sa,ny=ca;if(u<.24){const q=u/.24,oa=a+side*(1.10-.35*q),r=150-32*q;x=tx+Math.cos(oa)*r;y=ty+Math.sin(oa)*r;}else if(u>=.66&&u<.80){const q=(u-.66)/.14;x=tx-ca*(85+125*q)-nx*side*(45+35*q);y=ty-sa*(85+125*q)-ny*side*(45+35*q);}else if(u>=.90){const q=(u-.90)/.10;x=tx-ca*(210-395*q);y=ty-sa*(210-395*q);}else{x=m.x;y=m.y;}face=Math.atan2(ty-y,tx-x);}
  else if(mode==='guardPierce'){const lateral=180*Math.min(t,.20)*side;x=ox-sa*lateral+ca*step;y=oy+ca*lateral+sa*step;}
  else if(mode==='earthSlam'){const fwd=92*Math.min(t,.70)+step;x=ox+ca*fwd;y=oy+sa*fwd;}
  else if(mode==='boomerangWave'){const dur=Math.max(.01,Number(cfg.dashDuration)||.30),dist=(Number(cfg.dashDistance)||360)*clamp(t/dur,0,1);x=ox+ca*dist;y=oy+sa*dist;}
@@ -521,20 +523,7 @@ function aiMobStep(m,dx,dy,now){if(now<(m.rootUntil||0))return false;return move
 function simulateStyleAdept(m,target,dt,now){
   if(!target||m.dead)return;
   const dx=target.x-m.x,dy=target.y-m.y,d=Math.hypot(dx,dy)||1,a=Math.atan2(dy,dx);m.facing=a;m.alert=true;
-  if(m.state==='styleSkill'){
-    const data=STYLE_ADEPT_SKILL_DATA[m.skillId],mode=data?.cfg?.mode,elapsed=(now-(m.styleStartedAt||now))/1000;
-    if(['emberBrand','flameMantle','cinderSnare','furnaceBloom'].includes(mode)){
-      const a=Math.atan2(target.y-m.y,target.x-m.x),d=Math.hypot(target.x-m.x,target.y-m.y),side=(m.styleSide||1),tangent=a+side*Math.PI/2;
-      let forward=0,lateral=0;
-      if(mode==='emberBrand'){forward=d>185?m.speed*.45:d<105?-m.speed*.28:0;lateral=m.speed*.32;}
-      else if(mode==='flameMantle'){forward=d>125?m.speed*.72:d<72?-m.speed*.25:0;lateral=m.speed*.42;}
-      else if(mode==='cinderSnare'){forward=d>175?m.speed*.42:d<115?-m.speed*.36:0;lateral=m.speed*.20;}
-      else{forward=d>205?m.speed*.50:d<120?-m.speed*.22:0;lateral=(elapsed<2.25?m.speed*.30:0);}
-      if(Math.abs(forward)+Math.abs(lateral)>.1)moveServerMob(m,(Math.cos(a)*forward+Math.cos(tangent)*lateral)*dt,(Math.sin(a)*forward+Math.sin(tangent)*lateral)*dt);
-      m.facing=a;
-    }
-    advanceStyleCast(m,target,now);return;
-  }
+  if(m.state==='styleSkill'){advanceStyleCast(m,target,now);return;}
   if(now<m.recoverUntil){if(m.state!=='recover'){m.state='recover';markMobDirty(m);}return;}
   if(m.state==='windup'){
     if(now>=m.attackAt){if(!beginStyleCast(m,target,now)){m.state='recover';m.recoverUntil=now+350;}markMobDirty(m);}
