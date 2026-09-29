@@ -4373,7 +4373,7 @@ function updateVoid3PvpAuto(){
 }
 function startVoid3Pvp(){
  const i=2,sk=pvpSwordSkillAt(i);if(void3Pvp||!sk||sk.id!=='gravityCut'||!skillReady(i)||!commitSkill(i,sk.cost,sk.cool))return false;
- const a=combatAimAngle(),reach=(weaponData[me.weapon]?.range||94)+70,arc=1.35,hit=!!enemy&&enemy.hp>0&&enemyInArc(a,reach,arc),cooldown=me.cool[i];
+ const a=combatAimAngle(),reach=(weaponData[me.weapon]?.range||94)+70,arc=1.35,hit=!!enemy&&enemy.hp>0&&enemyInArc(a,reach,arc),cooldown=sk.cool*cdrScale();
  me.a=a;me.attackDuration=me.attackAnim=.24;me.attackCd=.24;me.skillPose=-1;me.skillKind='';
  arcAttack(reach,pvpSkillAttack(me,'gravityCut')*1.05,arc,0,.62,{color:sk.color||'#a76cff',fx:false,teleportHit:hit,onHit:()=>{
   if(!me||!enemy||enemy.hp<=0||roundLocked)return;const now=performance.now();
