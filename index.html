@@ -1520,7 +1520,7 @@ const SWORD_SKILL_IDENTITY={
 const SWORD_STYLE_GROUPS=[
  {id:'gale',name:'질풍 유파',desc:'3열 단거리 검풍·점멸 압송·지연 원폭·전방 파문·적중 연계형 추살 궁극기 중심',skills:['windSlash','flashRush','galeOrbit','starRush','thunderDrive']},
  {id:'moon',name:'월영 유파',desc:'위치 교환·흡인·후퇴 검압·교차 난무 중심',skills:['moonSpin','mirrorStep','crossBloom','crescent','lunarBind']},
- {id:'break',name:'홍련 유파',desc:'불을 단순 돌진 이펙트가 아니라 낙인·외투·수축·회귀·축적으로 사용하는 근접 유파. 다섯 스킬의 조작 방식과 이펙트 밀도가 서로 다릅니다.',skills:['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker']},
+ {id:'break',name:'홍련 유파',desc:'홍염 횡참·승염 비상·열하 단공·유염 회천·극홍 염화일천으로 이어지는 다섯 화염 검형.',skills:['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker']},
  {id:'dawn',name:'여명 유파',desc:'원거리 검압·회전·다중 발사·낙하 중심',skills:['dawnArc','tempest','skyFall','solarReturn','prismLance']},
  {id:'void',name:'이형 유파',desc:'중력 편향 이동·특이점 돌진·지속 압착·공간 접기·공허 난무 중심',skills:['chainReap','phantomSwap','gravityCut','bladeRain','voidDance']}
 ];
@@ -1726,7 +1726,7 @@ function balancedSwordSkill(sk,slot=-1){
  }
  if(slot===4&&sk.id==='prismLance'){cfg.hits=[0,cfg.duration*.52,cfg.duration];cfg.finisher={back:120,forward:640,width:46,mult:3.4,stun:.75};}
  if(slot===4&&sk.id==='thunderDrive'){cfg.duration=2.35;cfg.hits=Array.from({length:30},(_,i)=>.70+i*.05);cfg.mult=Array.from({length:30},(_,i)=>i===29?.38:.20);cfg.arc=Array(30).fill(TAU);cfg.reach=Array(30).fill(0);cfg.step=Array(30).fill(0);}
- if(slot===4&&sk.id==='meteorBreaker'){cfg.duration=3.05;cfg.hits=[.18,.45,.72,1.08,1.36,1.64,1.92,2.28,2.82];cfg.mult=[.46,.52,.62,.38,.44,.50,.58,.82,2.45];cfg.arc=[1.7,2.1,2.6,TAU,TAU,TAU,TAU,TAU,TAU];cfg.reach=[103,119,135,0,0,0,0,0,0];cfg.step=Array(9).fill(0);}
+ if(slot===4&&sk.id==='meteorBreaker'){cfg.duration=1.65;cfg.hits=[];cfg.mult=[];cfg.arc=[TAU];cfg.reach=[0];cfg.step=[0];}
  if(SWORD_DASH_SKILLS.has(sk.id)){cfg.dashSkill=true;cfg.rangeScale=SWORD_RANGE_SCALE;}
  return {...sk,holdMax,cfg};
 }
