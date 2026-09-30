@@ -85,7 +85,7 @@ test('damage escape resets after 2.5 seconds of no actual damage',()=>{
  const f=fixture();
  f.hit({damage:250});assert.equal(f.b.escapeDamage,250);
  f.step(2499);assert.equal(f.b.escapeDamage,250);
- f.step(1);assert.equal(f.b.escapeDamage,0);
+ f.step(1);f.c.tick();assert.equal(f.b.escapeDamage,0);
  f.c.handle(f.b,{seq:1,events:[{kind:'escape'}]});
  assert.equal(f.messages.at(-1).outcome,'escapeRejected');
  assert.equal(f.b.invuln||0,0);
@@ -103,4 +103,18 @@ test('shield blocks never fill the escape meter and scripted ultimate locks reje
  assert.equal(f.messages.at(-1).outcome,'escapeRejected','a confirmed meteor finisher cannot be interrupted mid-sequence');
  assert.ok(f.b.stunUntil>0);
  assert.equal(f.b.escapeDamage,400,'a rejected escape does not spend the earned gauge');
+});
+
+test('authoritative escape combines local monster HP loss with later world-PvP damage',()=>{
+ const f=fixture();
+ // The initial saved HP is not combat damage. Later acknowledged HP changes are.
+ f.c.ingest(f.b,{seq:1,combatAck:0,hp:1000});
+ assert.equal(f.b.escapeDamage||0,0);
+ f.c.ingest(f.b,{seq:2,combatAck:0,hp:850});f.b.hp=850;
+ assert.equal(f.b.escapeDamage,150);
+ f.hit({damage:250,stun:.4,dx:120});
+ assert.equal(f.b.escapeDamage,400);
+ f.c.handle(f.b,{seq:1,events:[{kind:'escape'}]});
+ assert.equal(f.messages.at(-1).outcome,'escape');
+ assert.equal(f.b.forceMove,null);
 });
