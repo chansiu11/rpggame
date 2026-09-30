@@ -1,4 +1,5 @@
 name: AI regressions
+# Focused neural/runtime checks
 on:
   push:
     branches: [main]
