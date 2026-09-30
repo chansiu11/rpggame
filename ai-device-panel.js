@@ -6,10 +6,10 @@ const style=document.createElement('style');style.textContent='#aiDevicePanel{ma
 const $=id=>document.getElementById(id),m=window.EchoesMulti;
 const tell=text=>$('aiDeviceMessage').textContent=text,viewer=window.EchoesAiTrainingViewer;viewer?.init($('aiSpectator'));
 function showWatch(on){viewer?.show(on);$('aiWatchButton').textContent=on?'대전 관전 끄기':'대전 관전 켜기';$('aiWatchButton').setAttribute?.('aria-pressed',String(on));}
-const key=()=> 'echoes-ai-checkpoint-v3-reset-20260930-2:'+cloud.currentTrainingUid();
+const key=()=> 'echoes-ai-checkpoint-v4-neural-20260930:'+cloud.currentTrainingUid();
 function localRead(){try{return JSON.parse(localStorage.getItem(key())||'null')}catch{return null}}
 function localWrite(c){try{localStorage.setItem(key(),JSON.stringify(c))}catch{}}
-function purgeLegacyLocalTraining(){try{const doomed=[];for(let i=0;i<(localStorage.length||0);i++){const k=localStorage.key?.(i);if(k&&k.startsWith('echoes-ai-checkpoint-')&&!k.startsWith('echoes-ai-checkpoint-v3-reset-20260930-2:'))doomed.push(k);}for(const k of doomed)localStorage.removeItem?.(k);}catch{}}
+function purgeLegacyLocalTraining(){try{const doomed=[];for(let i=0;i<(localStorage.length||0);i++){const k=localStorage.key?.(i);if(k&&k.startsWith('echoes-ai-checkpoint-')&&!k.startsWith('echoes-ai-checkpoint-v4-neural-20260930:'))doomed.push(k);}for(const k of doomed)localStorage.removeItem?.(k);}catch{}}
 function send(type,data={}){return m.training(type,data)}
 const fmt=n=>Number(n||0).toLocaleString('ko-KR');
 const tuningKey='echoes-ai-training-tuning-v1';
@@ -58,7 +58,7 @@ m?.on('ai:trainAuth',async msg=>{if(!opened||replaced)return;if(!msg.ok){passwor
  if(preparedTrainingPending){try{const local=localRead(),remote=preparedTraining,chosen=local&&(!remote||local.policy.matches>remote.policy.matches||local.policy.matches===remote.policy.matches&&local.policy.generation>remote.policy.generation)?local:remote;preparedTrainingPending=false;preparedTraining=null;send('Load',{checkpoint:chosen||null});tell(chosen?'새 초기화 세대의 저장 기록을 불러왔습니다.':'AI 딥러닝 데이터 초기화 완료 · 0전부터 시작합니다.');}catch(e){preparedTrainingPending=false;preparedTraining=null;tell('AI 초기화 확인 실패: '+e.message);autoResume=false;}}
  else if(!msg.loaded){try{const remote=await cloud.loadTraining(),local=localRead();const chosen=local&&(!remote||local.policy.matches>remote.policy.matches||local.policy.matches===remote.policy.matches&&local.policy.generation>remote.policy.generation)?local:remote;send('Load',{checkpoint:chosen||null});}catch(e){tell('Firebase 불러오기 실패: '+e.message);autoResume=false;}}
 });
-m?.on('ai:trainCheckpoint',msg=>{if(!authenticated||msg.session!==session)return;latest=msg.checkpoint;localWrite(latest);$('aiDeviceStyles').textContent=Object.entries(latest.policy.styles).map(([id,s])=>`${{gale:'질풍',void:'이형',dawn:'여명',break:'홍련'}[id]} · ${fmt(s.games)}전 · ${fmt(s.wins)}승 · 전술 ${s.weights.map(n=>n.toFixed(2)).join(' / ')}`).join('\n');if(!msg.save)return;
+m?.on('ai:trainCheckpoint',msg=>{if(!authenticated||msg.session!==session)return;latest=msg.checkpoint;localWrite(latest);$('aiDeviceStyles').textContent=Object.entries(latest.policy.styles).map(([id,s])=>{const params=(s.network?.w1?.length||0)+(s.network?.b1?.length||0)+(s.network?.w2?.length||0)+(s.network?.b2?.length||0)+(s.network?.w3?.length||0)+(s.network?.b3?.length||0);const name=({gale:'질풍',void:'이형',dawn:'여명',break:'홍련'}[id]||id);return name+' · '+fmt(s.games)+'전 · '+fmt(s.wins)+'승 · 신경망 '+fmt(params)+'개 · 평균보상 '+Number(s.rewardMean||0).toFixed(3)}).join('\n');if(!msg.save)return;
  const c=structuredClone(msg.checkpoint),rev=msg.revision,sid=msg.session;
  saveQueue=saveQueue.then(async()=>{try{await cloud.saveTraining(c);savedMatches=c.policy.matches;if(authenticated&&session===sid){send('Saved',{session:sid,revision:rev,matches:savedMatches});tell('Firebase 저장 완료 · '+savedMatches+'전');if(autoResume){autoResume=false;send('Start');}}}catch(e){autoResume=false;send('SaveFailed');tell('저장 실패 · 자동으로 다시 시도합니다: '+e.message);}});
 });
