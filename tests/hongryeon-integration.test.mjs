@@ -392,3 +392,58 @@ test('Hongryeon fifth form halves opening and follow-up PvP stun without changin
   assert.ok(follow.every(m=>m.stun<=1.55),'all follow-up stuns must remain halved');
  }finally{a.dispose();}
 });
+
+test('Hongryeon second and third forms use bounded flame geometry without altering other styles',()=>{
+ const arena=createArena({style:'break',level:100});
+ try{
+  arena.api.init(arena.snapshot,arena.snapshot,true,()=>{});
+  const build=arena.c.EchoesBuildHongryeonFx;
+  assert.equal(typeof build,'function');
+  const second=build({id:'earthRend',phase:'signature',x:1328,y:1000,a:0,originX:1000,originY:1000,side:1});
+  const thirdStart=build({id:'quakeRush',phase:'startup',x:1000,y:1000,a:0});
+  const thirdFinish=build({id:'quakeRush',phase:'signature',index:1,final:true,x:1225,y:1000,a:0});
+  const plumes=fx=>fx.filter(e=>e.type==='flameBreathPlume');
+  assert.equal(second.filter(e=>e.type==='crimsonBladeFire').length,1,
+   'the second-form finish keeps one visible circular flame blade, without a redundant overlapping ring');
+  assert.ok(plumes(second).length<=10,'the second-form impact should have at most six ring and four corridor plumes');
+  assert.ok(plumes(second).every(e=>e.density<=.58),'the second-form plume layers should be reduced in both world and PvP');
+  assert.ok(plumes(thirdStart).length<=6,'the third-form startup ring should use at most six plumes');
+  assert.ok(plumes(thirdFinish).length<=6,'the third-form landing ring should use at most six plumes');
+  const hotTrail=build({id:'earthRend',phase:'trail',x:1000,y:1000,x2:1045,y2:1000,a:0,power:1.18});
+  const leapTrail=build({id:'quakeRush',phase:'trail',x:1000,y:1000,x2:1045,y2:1000,a:0,power:1.05});
+  for(const fx of [hotTrail,leapTrail]){
+   assert.equal(fx.find(e=>e.type==='crimsonDashEdgeFire')?.density,.62);
+   assert.equal(plumes(fx)[0]?.density,.62);
+  }
+  const otherTrail=build({id:'guardBreak',phase:'trail',x:1000,y:1000,x2:1045,y2:1000,a:0});
+  assert.equal(otherTrail.find(e=>e.type==='crimsonDashEdgeFire')?.density,1,
+   'other Hongryeon effects retain their existing normal-quality density');
+ }finally{arena.dispose();}
+});
+
+test('Hongryeon second and third form PvP dash trails send fewer packets with state replay backup',()=>{
+ for(const slot of [1,2]){
+  const arena=createArena({style:'break',level:100}),packets=[];
+  try{
+   arena.api.init(arena.snapshot,arena.snapshot,true,m=>packets.push(m));
+   arena.api.enemy.x=arena.api.me.x+620;arena.api.enemy.y=arena.api.me.y;
+   arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
+   arena.api.control({keys:[],aim:0,skill:slot});arena.step(.35);
+   arena.api.control({keys:[],aim:0,release:slot});
+   for(let i=0;i<70;i++)arena.step(1/60);
+   const skillId=skills[slot][0],
+    direct=packets.filter(p=>p.t==='hongFx'&&p.f.id===skillId&&p.f.phase==='trail'),
+    batches=packets.filter(p=>p.t==='fxBatch').flatMap(p=>p.effects||[]),
+    replay=packets.filter(p=>p.t==='state').flatMap(p=>p.hongFxReplay||[]);
+   assert.ok(direct.length>0,'skill '+(slot+1)+' must retain its visible dash trail');
+   assert.ok(direct.length<=8,'skill '+(slot+1)+' should not flood the relay with per-frame fire');
+   assert.ok(direct.every(p=>p.f.max===.36),'optimized trail particles should expire promptly');
+   assert.equal(batches.filter(f=>f.id===skillId&&f.phase==='trail').length,0,
+    'short dash trails use direct delivery without a redundant batch copy');
+   assert.ok(replay.some(f=>f.id===skillId&&f.phase==='trail'),
+    'a recent trail stays available in state snapshots for a dropped direct packet');
+   assert.ok(batches.some(f=>f.id===skillId&&f.phase==='signature'),
+    'important impact flames must retain their separate FX batch fallback');
+  }finally{arena.dispose();}
+ }
+});
