@@ -324,3 +324,71 @@ test('PvP fifth-form confirmed hit sends the first flame to the other player fro
   assert.ok(received.worldFx?.length>0,'defender renders the same authored world first-hit flames');
  }finally{attacker.dispose();defender.dispose();}
 });
+
+test('Hongryeon fourth-form finishing launch is not overridden by older PvP carry snapshots',()=>{
+ const a=createArena({style:'gale',level:100}),sent=[];
+ try{
+  a.api.init(a.snapshot,a.snapshot,true,m=>sent.push(m));
+  const me=a.api.me,enemy=a.api.enemy,originalX=me.x,originalY=me.y;
+  me.controlLease={key:'hongWheel',until:performance.now()+920};
+  const stale={t:'state',x:enemy.x,y:enemy.y,hp:enemy.hp,
+   controlKey:'hongWheel',controlX:originalX-110,controlY:originalY,
+   controlTime:.12,controlStun:.20,controlSeq:30};
+  a.api.receive(stale);
+  assert.equal(me.forceTrack?.source,'stigmaState','the prior two hits can still carry the defender');
+  a.api.receive({t:'atk',id:981,skillId:'ironJudgment',teleportHit:true,rapidHit:true,
+   d:5,stun:.94,force:155,forceA:0,controlLease:'hongWheel',controlLeaseMs:920});
+  assert.equal(me.forcedMove?.priority,true,'the third hit uses the defender-native knockback');
+  assert.equal(me.forceTrack,null,'the previous carry must end immediately on the finishing hit');
+  a.api.receive({...stale,controlSeq:31});
+  assert.equal(me.forceTrack,null,'a delayed carry state cannot bring the launched defender back');
+  for(let i=0;i<32;i++)a.step(1/60);
+  assert.ok(me.x>originalX+95,'the defender should remain displaced in the final slash direction');
+ }finally{a.dispose();}
+});
+
+test('Hongryeon fourth form never resumes carrying after its last PvP cut',()=>{
+ const a=createArena({style:'break',level:100}),sent=[];
+ try{
+  a.api.init(a.snapshot,a.snapshot,true,m=>sent.push(m));
+  a.api.enemy.x=a.api.me.x+180;a.api.enemy.y=a.api.me.y;
+  a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
+  a.api.control({keys:[],aim:0,skill:3});a.step(.35);
+  a.api.control({keys:[],aim:0,release:3});
+  let first=null,second=null,third=null;
+  for(let i=0;i<90&&!third;i++){
+   a.step(1/60);
+   const cuts=sent.filter(m=>m.t==='atk'&&m.skillId==='ironJudgment');
+   if(cuts[0]&&!first){first=cuts[0];a.api.receive({t:'attackResult',id:first.id,result:'hit'});}
+   if(cuts[1])second=cuts[1];
+   if(cuts[2])third=cuts[2];
+  }
+  assert.ok(first&&second&&third,'all three authored sword cuts should be emitted');
+  assert.equal(third.force,155);
+  assert.equal(a.api.me.skillEvent?.hongWheelReleased,true,'third cut releases the victim');
+  assert.equal(a.api.me.outgoingControl,null,'the stale carry snapshot is cleared before the launch');
+  a.api.receive({t:'attackResult',id:second.id,result:'hit'});
+  assert.equal(a.api.me.skillEvent?.hongWheelCaught,false,'a late second-cut ACK cannot restart carry');
+ }finally{a.dispose();}
+});
+
+test('Hongryeon fifth form halves opening and follow-up PvP stun without changing damage',()=>{
+ const a=createArena({style:'break',level:100}),sent=[];
+ try{
+  a.api.init(a.snapshot,a.snapshot,true,m=>sent.push(m));
+  a.api.enemy.x=a.api.me.x+350;a.api.enemy.y=a.api.me.y;
+  a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
+  a.api.control({keys:[],aim:0,skill:4});a.step(.35);
+  a.api.control({keys:[],aim:0,release:4});
+  for(let i=0;i<32&&!sent.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)a.step(1/60);
+  const opening=sent.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
+  assert.ok(opening);
+  assert.equal(opening.stun,1.55,'opening stun is half of 3.1 seconds');
+  a.api.receive({t:'attackResult',id:opening.id,result:'hit'});
+  for(let i=0;i<45;i++)a.step(1/60);
+  const follow=sent.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').slice(1);
+  assert.ok(follow.length>=2,'confirmed impact must trigger its authored follow-up');
+  assert.equal(follow[0].stun,1.1,'first follow-up stun is half of 2.2 seconds');
+  assert.ok(follow.every(m=>m.stun<=1.55),'all follow-up stuns must remain halved');
+ }finally{a.dispose();}
+});
