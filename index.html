@@ -1137,9 +1137,9 @@ function crimsonEdgeFlames(x,y,a,r,arc,side=1,life=.43,power=1){
  if(!Number.isFinite(x)||!Number.isFinite(y))return;
  effects.push({type:'crimsonEdgeFlames',x,y,a,r,arc,side,seed:Math.floor(rnd(1,2147483646)),power,t:life,max:life});
 }
-function crimsonDashEdgeFire(x1,y1,x2,y2,width=47,life=.35,power=1){
+function crimsonDashEdgeFire(x1,y1,x2,y2,width=47,life=.35,power=1,density=1){
  if(Math.hypot(x2-x1,y2-y1)<8)return;
- effects.push({type:'crimsonDashEdgeFire',x:x1,y:y1,x2,y2,width,seed:Math.floor(rnd(1,2147483646)),power,t:life,max:life});
+ effects.push({type:'crimsonDashEdgeFire',x:x1,y:y1,x2,y2,width,seed:Math.floor(rnd(1,2147483646)),power,density,t:life,max:life});
 }
 function crimsonChargeFlames(x,y,r=90,life=.95,power=1){
  effects.push({type:'crimsonChargeFlames',x,y,r,power,seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
@@ -1197,12 +1197,13 @@ function flameBreathStroke(x,y,a,r,arc,side=1,life=.46,power=1){
   crimsonEmbers(x+Math.cos(aa)*rr,y+Math.sin(aa)*rr,aa+Math.PI,2,140+power*65,.64,.75);
  }
 }
-function flameBreathTrail(x1,y1,x2,y2,power=1){
+function flameBreathTrail(x1,y1,x2,y2,power=1,density=1){
  const d=Math.hypot(x2-x1,y2-y1);
  if(d<5)return;
  const a=Math.atan2(y2-y1,x2-x1);
- crimsonDashEdgeFire(x1,y1,x2,y2,30+power*12,.28+.03*power,.78*power);
- flameBreathPlume(x1+(x2-x1)*.28,y1+(y2-y1)*.28,a,Math.min(180,d+85),24+power*25,.24,power*.73);
+ const lean=density<1;
+ crimsonDashEdgeFire(x1,y1,x2,y2,30+power*12,lean?.24:.28+.03*power,.78*power,density);
+ flameBreathPlume(x1+(x2-x1)*.28,y1+(y2-y1)*.28,a,Math.min(180,d+85),24+power*25,lean?.21:.24,power*.73,density);
 }
 function flameBreathSignature(id,index,final,ang,reach,actor=player,ctxInfo=null){
  const side=ctxInfo?.side||1,f=ctxInfo?.baseFacing??ang,x=actor.x,y=actor.y,ta=ctxInfo?.target,
@@ -1215,15 +1216,15 @@ function flameBreathSignature(id,index,final,ang,reach,actor=player,ctxInfo=null
   }
  }else if(id==='earthRend'){
   // The ring and the entire previously traversed dash trail ignite together at .50s.
-  flameBreathCleaveCircle(x,y,FLAME_RISE_IMPACT_RADIUS,look,.67,1.35);
-  flameBreathStroke(x,y,look+side*.14,FLAME_RISE_IMPACT_RADIUS,TAU,side,.57,1.16);
+  flameBreathCleaveCircle(x,y,FLAME_RISE_IMPACT_RADIUS,look,.67,1.35,.58);
   if(actor===player&&activeSwordSkill?.skillId==='earthRend'){
    const origin=activeSwordSkill,d=Math.hypot(x-origin.originX,y-origin.originY),a=Math.atan2(y-origin.originY,x-origin.originX);
    if(d>10){
-    crimsonDashEdgeFire(origin.originX,origin.originY,x,y,76,.54,1.07);
-    for(let j=0;j<Math.max(2,Math.ceil(d/68));j++){
-     const q=(j+.5)/Math.max(2,Math.ceil(d/68)),px=origin.originX+(x-origin.originX)*q,py=origin.originY+(y-origin.originY)*q;
-     flameBreathPlume(px,py,a,101,78,.47,1.04);
+    crimsonDashEdgeFire(origin.originX,origin.originY,x,y,76,.43,1.07,.62);
+    const n=Math.min(4,Math.max(2,Math.ceil(d/110)));
+    for(let j=0;j<n;j++){
+     const q=(j+.5)/n,px=origin.originX+(x-origin.originX)*q,py=origin.originY+(y-origin.originY)*q;
+     flameBreathPlume(px,py,a,101,78,.40,1.04,.58);
     }
    }
   }
@@ -1233,7 +1234,7 @@ function flameBreathSignature(id,index,final,ang,reach,actor=player,ctxInfo=null
    // Startup ring already appeared at activation. The first hit is its delayed damage frame.
    crimsonEmbers(x,y,look+Math.PI,5,185,.34,.56);
   }else{
-   flameBreathCleaveCircle(x,y,FLAME_CLEAVE_LAND_RADIUS,look,.72,1.38);
+   flameBreathCleaveCircle(x,y,FLAME_CLEAVE_LAND_RADIUS,look,.72,1.38,.58);
    flameBreathStroke(x,y,look,345,1.58,-side,.62,1.41);
    crimsonFlameBurst(x+Math.cos(look)*102,y+Math.sin(look)*102,89,.50,1.15);
   }
@@ -1281,9 +1282,9 @@ window.EchoesBuildHongryeonFx=function(p){
   const x=Number(p.x)||0,y=Number(p.y)||0,a=Number(p.a)||0,side=p.side===-1?-1:1,
    id=String(p.id||''),phase=p.phase||'signature';
   if(phase==='trail'){
-   flameBreathTrail(x,y,Number.isFinite(p.x2)?p.x2:x,Number.isFinite(p.y2)?p.y2:y,Number(p.power)||1);
+   flameBreathTrail(x,y,Number.isFinite(p.x2)?p.x2:x,Number.isFinite(p.y2)?p.y2:y,Number(p.power)||1,(id==='earthRend'||id==='quakeRush')?.62:1);
   }else if(phase==='startup'){
-   if(id==='quakeRush')flameBreathCleaveCircle(x,y,FLAME_CLEAVE_START_RADIUS,a,.42,1.15);
+   if(id==='quakeRush')flameBreathCleaveCircle(x,y,FLAME_CLEAVE_START_RADIUS,a,.42,1.15,.58);
    crimsonChargeFlames(x,y,id==='meteorBreaker'?83:27,id==='meteorBreaker'?.29:.21,id==='meteorBreaker'?1.16:.46);
    crimsonEmbers(x,y,a+Math.PI,id==='meteorBreaker'?10:3,id==='meteorBreaker'?188:83,.64,.62);
   }else{
@@ -1291,8 +1292,8 @@ window.EchoesBuildHongryeonFx=function(p){
    // The rising slash also lights up every section of its already-traveled dash.
    if(id==='earthRend'&&Number.isFinite(p.originX)&&Number.isFinite(p.originY)){
     const x1=p.originX,y1=p.originY,d=Math.hypot(x-x1,y-y1),dir=Math.atan2(y-y1,x-x1);
-    if(d>10){crimsonDashEdgeFire(x1,y1,x,y,76,.54,1.07);
-     const n=Math.max(2,Math.ceil(d/68));for(let j=0;j<n;j++){const q=(j+.5)/n;flameBreathPlume(x1+(x-x1)*q,y1+(y-y1)*q,dir,101,78,.47,1.04);}
+    if(d>10){crimsonDashEdgeFire(x1,y1,x,y,76,.43,1.07,.62);
+     const n=Math.min(4,Math.max(2,Math.ceil(d/110)));for(let j=0;j<n;j++){const q=(j+.5)/n;flameBreathPlume(x1+(x-x1)*q,y1+(y-y1)*q,dir,101,78,.40,1.04,.58);}
     }
    }
   }
@@ -2181,7 +2182,7 @@ function heldSwordInputAngle(fallback){
 }
 function swordSkillStartVisuals(actor,sk,slot,facing){
  if(!actor||!sk)return;
- if(FLAME_BREATH_MODES.has(sk.cfg?.mode)){if(sk.cfg.mode==='flameBreathCleave'){flameBreathCleaveCircle(actor.x,actor.y,FLAME_CLEAVE_START_RADIUS,facing,.42,1.15);if(actor===player)shake=Math.max(shake,7);}crimsonChargeFlames(actor.x,actor.y,sk.id==='meteorBreaker'?83:27,sk.id==='meteorBreaker'?.29:.21,sk.id==='meteorBreaker'?1.16:.46);crimsonEmbers(actor.x,actor.y,facing+Math.PI,sk.id==='meteorBreaker'?10:3,sk.id==='meteorBreaker'?188:83,.64,.62);return;}const cfg=sk.cfg||{},theme=swordStyleFxForSkill(sk.id),x=actor.x,y=actor.y;
+ if(FLAME_BREATH_MODES.has(sk.cfg?.mode)){if(sk.cfg.mode==='flameBreathCleave'){flameBreathCleaveCircle(actor.x,actor.y,FLAME_CLEAVE_START_RADIUS,facing,.42,1.15,.58);if(actor===player)shake=Math.max(shake,7);}crimsonChargeFlames(actor.x,actor.y,sk.id==='meteorBreaker'?83:27,sk.id==='meteorBreaker'?.29:.21,sk.id==='meteorBreaker'?1.16:.46);crimsonEmbers(actor.x,actor.y,facing+Math.PI,sk.id==='meteorBreaker'?10:3,sk.id==='meteorBreaker'?188:83,.64,.62);return;}const cfg=sk.cfg||{},theme=swordStyleFxForSkill(sk.id),x=actor.x,y=actor.y;
  if(sk.holdContinuous){
   if(sk.id==='gravityCut'){effects.push({type:'riftCut',x:x+Math.cos(facing)*65,y:y+Math.sin(facing)*65,a:facing+.55,len:145,width:18,color:theme.main,t:.28,max:.28});effects.push({type:'line',x:x-Math.cos(facing)*35,y:y-Math.sin(facing)*35,x2:x+Math.cos(facing)*105,y2:y+Math.sin(facing)*105,color:theme.sub,t:.24,max:.24});}
   else ring(x,y,38,theme.main,.28);
@@ -2733,9 +2734,9 @@ function flameBreathMotion(seq,sk,dt,t,target){
   const dx=x-player.x,dy=y-player.y,d=Math.hypot(dx,dy);if(d<.001)return;
   const step=Math.min(d,speed*dt);moveBody(player,dx/d*step,dy/d*step);
  };
- const trail=(rate=.07,power=1)=>{
+ const trail=(rate=.07,power=1,density=1)=>{
   seq.fx-=dt;if(seq.fx<=0&&Math.hypot(player.x-ox,player.y-oy)>7){
-   seq.fx=rate;flameBreathTrail(ox,oy,player.x,player.y,power);
+   seq.fx=rate;flameBreathTrail(ox,oy,player.x,player.y,power,density);
    crimsonEmbers(player.x,player.y,f+Math.PI,options.quality==='low'?2:3,115+power*70,.62,.62);
   }
  };
@@ -2749,7 +2750,7 @@ function flameBreathMotion(seq,sk,dt,t,target){
   approach(seq.originX+fx*328*progress,seq.originY+fy*328*progress,2400);
   player.skillLift=Math.sin(Math.PI*q)*10;
   player.facing=seq.facing=f;
-  if(elapsed<=.50)trail(.047,1.18);
+  if(elapsed<=.50)trail(.082,1.18,.62);
  }else if(mode==='flameBreathCleave'){
   // At .10 seconds the opening ring deals damage; the jump begins .01 seconds later.
   const q=ease((elapsed-.11)/.39);
@@ -2760,7 +2761,7 @@ function flameBreathMotion(seq,sk,dt,t,target){
   if(jump>0&&jump<1){
    if(Math.hypot(player.x-ox,player.y-oy)>5){
     seq.fx-=dt;
-    if(seq.fx<=0){seq.fx=.066;flameBreathTrail(ox,oy,player.x,player.y,1.05);}
+    if(seq.fx<=0){seq.fx=.108;flameBreathTrail(ox,oy,player.x,player.y,1.05,.62);}
    }
   }
  }else if(mode==='flameBreathWheel'){
@@ -4587,7 +4588,7 @@ if(e.type==='crimsonDashEdgeFire'){
  const low=options.quality==='low',fade=clamp(e.t/e.max,0,1),age=1-fade,w=e.width||48;
  let seed=e.seed>>>0;const rand=()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};
  for(const side of [-1,1]){
-  for(let j=0,n=low?5:11;j<n;j++){
+  for(let j=0,n=Math.max(3,Math.ceil((low?5:11)*(e.density||1)));j<n;j++){
    if(j%6===4)continue;const q=(j+.18+rand()*.66)/n,x=len*q+(rand()-.5)*w*.26,baseY=side*w*(.70+rand()*.23),width=w*(.055+rand()*.11);
    const height=w*(.17+rand()*.34)*(.86+.14*Math.sin(age*15+j)),tipX=x+height*(.42+rand()*.64),tipY=baseY+side*height*(.46+rand()*.54);
    const c=j%4===0?'#ffb56e':j%4===1?'#fc6d32':j%4===2?'#d73436':'#f84d2e';
@@ -5429,7 +5430,7 @@ function sanitizeRemoteFx(f){if(!f||typeof f!=='object')return;
   const allowed=['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'],
    id=String(f.id||''),phase=String(f.phase||'signature');
   if(!allowed.includes(id)||!['signature','startup','trail'].includes(phase))return;
-  const life=phase==='trail'?.68:phase==='startup'?.72:1.45,
+  const life=phase==='trail'?(id==='earthRend'||id==='quakeRush'?.36:.68):phase==='startup'?.72:1.45,
    g={kind:'hongWorldFx',id,phase,index:clamp(Number(f.index)||0,0,24)|0,final:f.final===true,
     x:clamp(Number(f.x)||0,-100,ARENA_W+100),y:clamp(Number(f.y)||0,-100,ARENA_H+100),
     a:clamp(Number(f.a)||0,-100,100),reach:clamp(Number(f.reach)||190,10,1000),
@@ -5775,7 +5776,7 @@ const PVP_HONGRYEON_CUTS=Object.freeze([
 // Uses the existing bounded/relayed FX vocabulary. Only gameplay events and
 // a small visual sample cross the connection, never the full fire-particle field.
 function pvpHongryeonPacket(p){
- const phase=p.phase||'signature',life=phase==='trail'?.68:phase==='startup'?.72:1.45;
+ const phase=p.phase||'signature',leanTrail=phase==='trail'&&(p.id==='earthRend'||p.id==='quakeRush'),life=phase==='trail'?(leanTrail?.36:.68):phase==='startup'?.72:1.45;
  const packet={kind:'hongWorldFx',seq:++pvpHongFxSerial,id:p.id||'',phase,index:p.index||0,final:!!p.final,
   x:p.x,y:p.y,x2:p.x2,y2:p.y2,originX:p.originX,originY:p.originY,a:p.a||0,reach:p.reach||190,
   side:p.side===-1?-1:1,power:p.power||1,t:life,max:life};
@@ -5784,7 +5785,7 @@ function pvpHongryeonPacket(p){
  pushFx(packet,false);
  net({t:'hongFx',f:packet});
  // Existing compact batches are retained as an alternate delivery path.
- if(!receivingPvpVisual)queuePvpVisual(packet);
+ if(!receivingPvpVisual&&!leanTrail)queuePvpVisual(packet);
  // Snapshots recover a lost impact without flooding the 50 Hz state stream
  // with continuously generated dash trails.
  if(phase!=='trail'){
@@ -5823,7 +5824,7 @@ function pvpHongryeonMotion(ev,dt){
   if(ev.hongWheelCaught&&!ev.hongWheelReleased&&enemy&&enemy.hp>0){ev.hongCarryAt=(ev.hongCarryAt||0)-dt;if(ev.hongCarryAt<=0){const fa=Math.atan2(enemy.y-me.y,enemy.x-me.x),dist=me.r+enemy.r+34,tx=me.x+Math.cos(fa)*dist,ty=me.y+Math.sin(fa)*dist;queueStigmaControl('hongWheel',tx,ty,.12,.20,.38,false);ev.hongCarryAt=.065;}}
  }
  if(mode!=='flameBreathWheel')me.a=a;
- if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.047:mode==='flameBreathWheel'?.060:.066;pvpHongryeonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05,ev);}}
+ if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.082:mode==='flameBreathCleave'?.108:mode==='flameBreathWheel'?.060:.066;pvpHongryeonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05,ev);}}
 }
 function pvpHongryeonHit(ev,k){
  const mode=ev.cfg.mode,a=ev.hongFace??ev.a,ca=Math.cos(a),sa=Math.sin(a),base=pvpSkillAttack(me),color=ev.skill.color||'#ff782e',enemyNear=enemy&&enemy.hp>0,r=mode==='flameBreathSweep'?(k===0?300:328):mode==='flameBreathRise'?250:mode==='flameBreathCleave'?(k===0?190:245):[265,230,270][k]||265;
