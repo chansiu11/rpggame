@@ -1634,7 +1634,7 @@ const SWORD_SKILL_LIBRARY=[
  {id:'earthRend',name:'승염 비상',level:30,price:920,cost:43,cool:7.4,color:'#ff782e',desc:'직선으로 328만큼 빠르게 돌진하며 점차 감속한다. 발동 0.5초 후 도착 지점의 원형 화염과 지나온 직선 경로에 동시에 피해를 주며 방패를 관통한다.',cfg:{duration:.78,hits:[.50],mult:[2.61],arc:[TAU],reach:[250],step:[0],mode:'flameBreathRise'}},
  {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:3.5,color:'#ffd95c',desc:'강한 검압 하나를 발사한 반동으로 몸이 뒤로 밀리는 초장거리 단발기입니다.',cfg:{duration:.72,hits:[.28],mult:[1.15],arc:[1.7],reach:[20],step:[0],mode:'dawnWave'}},
  {id:'thunderDrive',name:'천풍 추살',level:44,price:1280,cost:74,cool:15.8,color:'#61f0c7',desc:'질풍 유파의 궁극기. 장거리 초고속 돌진에 맞는 순간 2번 질풍 점멸처럼 돌진 방향으로 강하게 날아가며, 이후 0.05초마다 총 30회의 추살 연계를 합니다. Lv.100 기준 일반 타격 100, 마지막 타격 200 피해입니다.',cfg:{duration:2.35,hits:Array.from({length:30},(_,i)=>.70+i*.05),mult:Array.from({length:30},(_,i)=>i===29?.38:.20),arc:Array(30).fill(TAU),reach:Array(30).fill(0),step:Array(30).fill(0),mode:'galePursuit'}},
- {id:'meteorBreaker',name:'극홍 · 염화일천',level:52,price:1520,cost:78,cool:19.5,color:'#ff782e',desc:'주변에 원형 화염을 피워 0.5초 예열한 뒤 기존보다 절반 속도의 화염 돌진을 시작한다. 적중하면 멈춰 기절시키고 횡베기·역베기·찌르기·교차 베기·내려베기·올려베기 등 열세 차례의 검격을 빠르게 연계한 뒤 폭염 참격으로 마무리한다. 빗나가면 돌진 후 즉시 종료된다.',cfg:{duration:1.65,hits:[],mult:[],arc:[TAU],reach:[0],step:[0],mode:'flameBreathFinale'}},
+ {id:'meteorBreaker',name:'극홍 · 염화일천',level:52,price:1520,cost:78,cool:19.5,color:'#ff782e',desc:'주변에 원형 화염을 피워 0.5초 예열한 뒤 기존보다 절반 속도의 넓어진 화염 돌진을 시작한다. 적중하면 즉시 멈추지 않고 적을 짧게 함께 밀고 전진한 뒤 열세 차례의 검격 연계를 시작하며 폭염 참격으로 마무리한다. 빗나가면 돌진 후 즉시 종료된다.',cfg:{duration:1.65,hits:[],mult:[],arc:[TAU],reach:[0],step:[0],mode:'flameBreathFinale'}},
  {id:'galeOrbit',name:'풍환 폭발',level:10,price:340,cost:39,cool:8,color:'#61f0c7',desc:'0.5초 동안 넓은 풍환으로 주변 적의 이동을 봉쇄하고 부드럽게 중심으로 끌어당깁니다. 적은 스킬을 사용할 수 있으며, 이후 회전하는 원형 폭발로 타격합니다.',cfg:{duration:.78,hits:[.50],mult:[6.45],arc:[TAU],reach:[0],step:[0],mode:'galePulse'}},
  {id:'mirrorStep',name:'거울 걸음',level:8,price:0,cost:30,cool:5,color:'#b88cff',desc:'멀리 있는 적을 포착해 반대편까지 단숨에 파고든 뒤 뒤쪽에서 베는 장거리 추격 돌진기입니다.',cfg:{duration:.55,hits:[.32],mult:[2.25],arc:[1.1],reach:[36],step:[0],mode:'mirrorBackstab'}},
  {id:'lunarBind',name:'월인 결박',level:26,price:0,cost:46,cool:14.8,color:'#b88cff',desc:'표적의 좌우와 뒤로 세 번 순간이동하며 달빛 결계를 이동시켜 적을 구속하고, 마지막 위치에서 월륜 참격으로 마무리합니다.',cfg:{duration:.82,hits:[.50],mult:[2.05],arc:[TAU],reach:[84],step:[0],mode:'lunarPull'}},
@@ -3016,7 +3016,7 @@ function updateFlameBreathFinale(seq,sk,dt){
   // Prioritize the first physical collision, not the nearest locked target.
   let collision=null;
   for(const e of targets()){
-   const c=combatCenter(e),rr=79+combatRadius(e),dx=c.x-ox,dy=c.y-oy,
+   const c=combatCenter(e),rr=92+combatRadius(e),dx=c.x-ox,dy=c.y-oy,
     along=dx*fx+dy*fy,perp2=Math.max(0,dx*dx+dy*dy-along*along);
    if(perp2>rr*rr)continue;
    const entrance=Math.max(0,along-Math.sqrt(Math.max(0,rr*rr-perp2)));
@@ -3046,24 +3046,23 @@ function updateFlameBreathFinale(seq,sk,dt){
    const e=collision.enemy,c=combatCenter(e);
    const confirmed=()=>{
     if(activeSwordSkill!==seq||seq.flameCaught)return;
-    seq.flamePending=false;seq.flameCaught=true;seq.flameCaughtAt=seq.elapsed;
+    seq.flamePending=false;seq.flameCaught=true;seq.flameCaughtAt=null;
     seq.flameTarget=e;seq.flameTargetId=e.id;seq.flameStage=0;
-    // Extend both input lock and animation only after an accepted hit.
-    seq.duration=seq.elapsed+3.61;
+    // Carry both bodies a short distance before the authored follow-up begins.
+    seq.flameCarryRemaining=e.kind==='boss'?54:92;seq.flameCarryFx=0;seq.flameCarrySyncAt=0;
+    seq.duration=seq.elapsed+.18+3.61;
     const followTime=seq.duration-seq.elapsed;
     player.cast=Math.max(player.cast,followTime);
     player.attackCd=Math.max(player.attackCd,followTime);
     player.attackAnim=Math.max(player.attackAnim,followTime);
     player.attackDuration=Math.max(player.attackDuration,followTime);
     player.moveLock=Math.max(player.moveLock||0,followTime);
-    player.skillLift=0;
-    flameBreathSignature(sk.id,0,false,f,185,{x:c.x,y:c.y},{side:seq.side||1,baseFacing:f});
-    shake=Math.max(shake,11);sound('hit');
+    player.skillLift=0;sound('hit');
     if(e.kind!=='boss'&&!e.networkPlayer)applyEnemyStun(e,1.55*HONGRYEON_STUN_SCALE*.5);
    };
    const landed=hitEnemy(e,damageValue(1.36),false,player,{
     stun:e.kind==='boss'?.19*HONGRYEON_STUN_SCALE*.5:1.55*HONGRYEON_STUN_SCALE*.5,dx:0,dy:0,duration:0,
-    bypassShield:false,skillId:sk.id,shape:'circle',x:c.x,y:c.y,r:79+combatRadius(e),
+    bypassShield:false,skillId:sk.id,shape:'circle',x:c.x,y:c.y,r:92+combatRadius(e),
     onHit:e.networkPlayer?confirmed:null,
     onResult:e.networkPlayer?result=>{if(activeSwordSkill===seq&&!(result.damage>0))finish();}:null
    });
@@ -3074,7 +3073,26 @@ function updateFlameBreathFinale(seq,sk,dt){
   if(dashElapsed>=dashTime||traveledNow<1&&dashElapsed>.22||distanceToGo<1)finish();
   return;
  }
- const since=seq.elapsed-seq.flameCaughtAt;
+ if((seq.flameCarryRemaining||0)>0){
+  const e=seq.flameTarget&&!seq.flameTarget.dead?seq.flameTarget:targets().find(v=>v.id===seq.flameTargetId);
+  if(!e){finish();return;}
+  const ox=player.x,oy=player.y,step=Math.min(seq.flameCarryRemaining,660*dt);
+  if(step>0)moveBody(player,fx*step,fy*step);
+  const moved=Math.hypot(player.x-ox,player.y-oy);seq.flameCarryRemaining=Math.max(0,seq.flameCarryRemaining-moved);
+  if(moved>0&&e.kind!=='boss'){
+   if(e.networkPlayer){
+    if(seq.elapsed>=(seq.flameCarrySyncAt||0)){seq.flameCarrySyncAt=seq.elapsed+.06;worldTargetControl(e.id,{kind:'control',x:e.x+fx*moved,y:e.y+fy*moved,duration:.11,stun:.22,range:1100,skillId:sk.id});}
+   }else moveBody(e,fx*moved,fy*moved);
+  }
+  seq.flameCarryFx=(seq.flameCarryFx||0)-dt;
+  if(moved>2&&seq.flameCarryFx<=0){seq.flameCarryFx=.055;flameBreathTrail(ox,oy,player.x,player.y,1.72,.82);}
+  if(moved>3)syncSkillMoveIfNeeded(ox,oy,18,2500);
+  if(seq.flameCarryRemaining>0)return;
+  const c=combatCenter(e);seq.flameCaughtAt=seq.elapsed;seq.flameImpactPoint={x:c.x,y:c.y};
+  flameBreathSignature(sk.id,0,false,f,185,{x:c.x,y:c.y},{side:seq.side||1,baseFacing:f});
+  shake=Math.max(shake,11);
+ }
+ const since=seq.elapsed-(seq.flameCaughtAt??seq.elapsed);
  const e=seq.flameTarget&&!seq.flameTarget.dead?seq.flameTarget:targets().find(v=>v.id===seq.flameTargetId);
  const c=e?combatCenter(e):seq.flameImpactPoint||{x:player.x+fx*92,y:player.y+fy*92};
  seq.flameImpactPoint={x:c.x,y:c.y};
@@ -5982,24 +6000,35 @@ function pvpHongryeonFinale(ev,dt){
   const ox=me.x,oy=me.y,traveled=Math.hypot(me.x-ev.originX,me.y-ev.originY),dashSpeed=1175,dashTime=1020/dashSpeed,step=Math.min(dashSpeed*dt,Math.max(0,1020-traveled));
   const x=clamp(ox+fx*step,25,ARENA_W-25),y=clamp(oy+fy*step,25,ARENA_H-25);
   let collision=false,ex=x,ey=y;
-  if(enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,ox,oy,x,y)<=79+enemy.r){
+  if(enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,ox,oy,x,y)<=92+enemy.r){
    const along=(enemy.x-ox)*fx+(enemy.y-oy)*fy;
-   const adv=Math.min(step,Math.max(0,along-(79+enemy.r)));
+   const adv=Math.min(step,Math.max(0,along-(92+enemy.r)));
    ex=clamp(ox+fx*adv,25,ARENA_W-25);ey=clamp(oy+fy*adv,25,ARENA_H-25);collision=true;
   }
   me.x=ex;me.y=ey;me.a=a;me.skillLift=4+Math.sin(Math.PI*clamp(dashElapsed/dashTime,0,1))*7;
   ev.fx-=dt;if(ev.fx<=0){ev.fx=.060;pvpHongryeonTrail(ox,oy,me.x,me.y,1.82,ev);}
   if(collision){ev.hongPending=true;ev.hongPendingAt=performance.now();net({t:'teleport',x:me.x,y:me.y,a});
-   sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:79,d:pvpSkillAttack(me)*1.36,stun:1.55,force:0,bypassShield:false,parryable:true,teleportHit:true,rapidHit:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
+   sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:92,d:pvpSkillAttack(me)*1.36,stun:1.55,force:0,bypassShield:false,parryable:true,teleportHit:true,rapidHit:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
     if(me.skillEvent!==ev||!enemy||enemy.hp<=0)return;
-    ev.hongPending=false;ev.hongCaught=true;ev.hongCaughtAt=ev.elapsed;ev.hongStage=0;ev.cfg.duration=ev.elapsed+3.61;ev.anchorX=enemy.x;ev.anchorY=enemy.y;me.attackDuration=me.attackAnim=me.attackCd=me.moveLock=3.61;
-    pvpHongryeonFx(enemy.x,enemy.y,a,190,0,1,ev);pvpCrimsonShake(11,true);
+    ev.hongPending=false;ev.hongCaught=true;ev.hongCaughtAt=null;ev.hongStage=0;ev.hongCarryRemaining=92;ev.hongCarryAt=0;ev.cfg.duration=ev.elapsed+.18+3.61;ev.anchorX=enemy.x;ev.anchorY=enemy.y;me.attackDuration=me.attackAnim=me.attackCd=me.moveLock=.18+3.61;
    },()=>{if(me.skillEvent===ev)finish();});return;
   }
   if(dashElapsed>=dashTime||Math.hypot(ex-ox,ey-oy)<1&&dashElapsed>.22||traveled>=1020)finish();
   return;
  }
- const since=ev.elapsed-ev.hongCaughtAt,cx=enemy&&enemy.hp>0?enemy.x:ev.anchorX,cy=enemy&&enemy.hp>0?enemy.y:ev.anchorY,stances=[[-96,-80],[-104,99],[69,-79],[92,75],[-88,-106],[76,96],[-105,-42],[-97,81],[78,-91],[-112,-62],[91,68],[-84,100],[82,-81],[-103,73],[-117,0]];
+ if((ev.hongCarryRemaining||0)>0){
+  if(!enemy||enemy.hp<=0){finish();return;}
+  const ox=me.x,oy=me.y,step=Math.min(ev.hongCarryRemaining,660*dt);
+  me.x=clamp(me.x+fx*step,25,ARENA_W-25);me.y=clamp(me.y+fy*step,25,ARENA_H-25);
+  const moved=Math.hypot(me.x-ox,me.y-oy);ev.hongCarryRemaining=Math.max(0,ev.hongCarryRemaining-moved);me.a=a;me.skillLift=4;
+  ev.fx-=dt;if(moved>2&&ev.fx<=0){ev.fx=.055;pvpHongryeonTrail(ox,oy,me.x,me.y,1.82,ev);}
+  ev.hongCarryAt=(ev.hongCarryAt||0)-dt;
+  if(moved>0&&ev.hongCarryAt<=0){ev.hongCarryAt=.055;const gap=me.r+enemy.r+28,tx=me.x+fx*gap,ty=me.y+fy*gap;queueStigmaControl('hongFinale',tx,ty,.11,.22,.55,false);}
+  if(ev.hongCarryRemaining>0)return;
+  ev.hongCaughtAt=ev.elapsed;ev.anchorX=enemy.x;ev.anchorY=enemy.y;
+  pvpHongryeonFx(enemy.x,enemy.y,a,190,0,1,ev);pvpCrimsonShake(11,true);
+ }
+ const since=ev.elapsed-(ev.hongCaughtAt??ev.elapsed),cx=enemy&&enemy.hp>0?enemy.x:ev.anchorX,cy=enemy&&enemy.hp>0?enemy.y:ev.anchorY,stances=[[-96,-80],[-104,99],[69,-79],[92,75],[-88,-106],[76,96],[-105,-42],[-97,81],[78,-91],[-112,-62],[91,68],[-84,100],[82,-81],[-103,73],[-117,0]];
  ev.anchorX=cx;ev.anchorY=cy;me.skillLift=0;
  while(ev.hongStage<PVP_HONGRYEON_CUTS.length&&since>=PVP_HONGRYEON_CUTS[ev.hongStage].at){
   const k=ev.hongStage++,cut=PVP_HONGRYEON_CUTS[k],stance=stances[Math.min(k,stances.length-1)],ox=me.x,oy=me.y;
