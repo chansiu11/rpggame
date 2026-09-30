@@ -1,6 +1,6 @@
 const config = window.ECHOES_FIREBASE_CONFIG;
 const TRAINING_ACCOUNT='gkrtmqrhksflwk';
-const AI_TRAINING_RESET_EPOCH='2026-09-30-ai-neural-reset-3';
+const AI_TRAINING_RESET_EPOCH='2026-09-30-ai-neural-reset-4';
 
 function normalizeUser(v){
   return String(v || '').trim().toLowerCase();
