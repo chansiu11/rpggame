@@ -3,6 +3,7 @@ export {NN_BEHAVIORS,NN_SHAPE,networkParameterCount};
 
 export const styles={
  gale:{name:'질풍'},
+ moon:{name:'흑월'},
  void:{name:'이형'},
  dawn:{name:'여명'},
  break:{name:'홍련'}
@@ -22,6 +23,15 @@ const initialStyle=id=>{
  network.b3[13]=.10; // mild punish initiative
  return {network,sigma:.055,learningRate:.0035,rewardMean:0,games:0,wins:0,reward:0,metrics:{}};
 };
+export function ensurePolicyStyles(policy){
+ if(!policy||typeof policy!=='object')return policy;
+ if(!policy.styles||typeof policy.styles!=='object')policy.styles={};
+ for(const id of Object.keys(styles)){
+  const s=policy.styles[id];
+  if(!s||!validateNetwork(s.network))policy.styles[id]=initialStyle(id);
+ }
+ return policy;
+}
 export function seedPolicy(){
  return {
   schema:2,model:'mlp-es-v1',generation:0,matches:0,
@@ -29,13 +39,15 @@ export function seedPolicy(){
   styles:Object.fromEntries(Object.keys(styles).map(id=>[id,initialStyle(id)]))
  };
 }
-// Always train the two least-experienced styles first so all six matchups rotate.
+// Always train the two least-experienced styles first. Five styles produce ten pairings.
 const trainingTieOrders=[
- ['gale','void','dawn','break'],
- ['gale','dawn','void','break'],
- ['gale','break','void','dawn']
+ ['gale','moon','void','dawn','break'],
+ ['moon','dawn','gale','break','void'],
+ ['void','break','moon','gale','dawn'],
+ ['dawn','gale','break','void','moon']
 ];
 export function leastTrainedPair(policy){
+ ensurePolicyStyles(policy);
  const round=Math.floor((Number(policy?.matches)||0)/2)%trainingTieOrders.length;
  const order=trainingTieOrders[round],priority=Object.fromEntries(order.map((id,i)=>[id,i]));
  return Object.keys(styles).sort((a,b)=>
@@ -85,6 +97,7 @@ function addDifficultyNoise(out,settings,random,training){
 }
 
 export function createBrain(style,policy=seedPolicy(),random=Math.random,difficulty=3,options={}){
+ ensurePolicyStyles(policy);
  const settings=difficulties[normalizeDifficulty(difficulty)],profile=policy?.styles?.[style],fallback=initialStyle(style);
  const base=profile&&validateNetwork(profile.network)?profile:fallback;
  const noiseSeed=Number.isInteger(options.noiseSeed)?options.noiseSeed>>>0:null;
@@ -177,6 +190,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
 
 export function learn(policy,style,training,result){
  if(typeof training==='number'){result=arguments[3];training=null;}
+ ensurePolicyStyles(policy);
  const s=policy.styles[style],reward=Number(result?.reward)||0;s.games++;s.wins+=result?.win?1:0;s.reward+=reward;
  const previous=Number(s.rewardMean)||0,advantage=clamp(reward-previous,-2,2);
  s.rewardMean=previous*.95+reward*.05;
