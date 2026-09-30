@@ -51,7 +51,7 @@ function plannedPair(planner){
  return [a,b];
 }
 function runConcurrent(configs){
- const active=configs.map(c=>({...c,session:createDuelSession(c.a,c.b,c.policyA,c.policyB,c.seed,90,()=>{},c.watch),result:null}));
+ const active=configs.map(c=>({...c,session:createDuelSession(c.a,c.b,c.policyA,c.policyB,c.seed,90,()=>{},c.watch,{explore:c.explore===true}),result:null}));
  let remaining=active.length;
  try{
   while(remaining>0){
@@ -81,13 +81,13 @@ for(;;){
   const configs=[];
   for(let j=0;j<count;j++){
    const [a,b]=plannedPair(planner),match=startMatch+j+1;
-   configs.push({a,b,policyA:wavePolicy,policyB:wavePolicy,seed:startMatch+j+7,watch:spectator('train',match,[a,b],j,lanes)});
+   configs.push({a,b,policyA:wavePolicy,policyB:wavePolicy,seed:startMatch+j+7,watch:spectator('train',match,[a,b],j,lanes),explore:true});
   }
   const finished=runConcurrent(configs);
   for(const item of finished){
    const {a,b,result:r}=item;
-   learn(policy,a,r.results[0].tactic,r.results[0]);
-   learn(policy,b,r.results[1].tactic,r.results[1]);
+   learn(policy,a,r.results[0].training,r.results[0]);
+   learn(policy,b,r.results[1].training,r.results[1]);
    policy.matches++;
    completed++;
    parentPort.postMessage({progress:policy.matches,pair:[a,b],parallel:lanes});
@@ -121,7 +121,12 @@ for(;;){
  }
 
  const accepted=wins>=losses;
- if(!accepted)for(const id of ids)policy.styles[id].weights=baseline.styles[id].weights;
+ if(!accepted)for(const id of ids){
+  policy.styles[id].network=structuredClone(baseline.styles[id].network);
+  policy.styles[id].sigma=baseline.styles[id].sigma;
+  policy.styles[id].learningRate=baseline.styles[id].learningRate;
+  policy.styles[id].rewardMean=baseline.styles[id].rewardMean;
+ }
  policy.generation++;
  policy.evaluation={wins,losses,draws,rounds,accepted,againstGeneration:baseline.generation,at:new Date().toISOString()};
  parentPort.postMessage({policy:structuredClone(policy),batch});
