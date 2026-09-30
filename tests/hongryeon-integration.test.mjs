@@ -483,3 +483,63 @@ test('Hongryeon fifth-form world opening waits for actual unshielded damage',()=
  assert.match(fn,/onResult:e\.networkPlayer\?result=>\{if\(activeSwordSkill===seq&&!\(result\.damage>0\)\)finish\(\);\}:null/,
   'shielded world hits should resolve without arming the follow-up');
 });
+
+test('Hongryeon fourth-form visual geometry stays bounded in shared world and PvP',()=>{
+ const arena=createArena({style:'break',level:100});
+ try{
+  arena.api.init(arena.snapshot,arena.snapshot,true,()=>{});
+  const build=arena.c.EchoesBuildHongryeonFx;
+  const ring2=build({id:'earthRend',phase:'signature',x:1328,y:1000,a:0,originX:1000,originY:1000});
+  const start3=build({id:'quakeRush',phase:'startup',x:1000,y:1000,a:0});
+  const land3=build({id:'quakeRush',phase:'signature',index:1,final:true,x:1225,y:1000,a:0});
+  const forms4=[0,1,2].map(index=>build({id:'ironJudgment',phase:'signature',index,final:index===2,x:1000+index*220,y:1000,a:0,side:1}));
+  const blades=fx=>fx.filter(e=>e.type==='crimsonBladeFire');
+  const edges=fx=>fx.filter(e=>e.type==='crimsonEdgeFlames');
+  assert.equal(blades(ring2).length,1,'second form retains exactly one circular flame blade');
+  assert.equal(blades(ring2)[0].density,.66);
+  assert.equal(edges(ring2)[0].density,.63);
+  assert.equal(blades(start3).length,1);
+  assert.equal(blades(start3)[0].density,.66);
+  assert.equal(blades(land3).length,2,'third-form finishing ring and separate sword slash both remain visible');
+  assert.ok(blades(land3).every(e=>e.density<.75));
+  assert.ok(land3.some(e=>e.type==='crimsonFlameBurst'&&e.density===.72));
+  for(const [index,fx] of forms4.entries()){
+   assert.equal(blades(fx).length,1,'fourth form sword cut '+index+' should still have its own flame blade');
+   assert.equal(blades(fx)[0].density,.72);
+   assert.equal(edges(fx)[0].density,.72);
+   assert.ok(fx.some(e=>e.type==='flameBreathPlume'&&e.density===.68));
+   if(index===2)assert.ok(fx.some(e=>e.type==='crimsonFlameBurst'&&e.density===.73));
+  }
+  const trail4=build({id:'ironJudgment',phase:'trail',x:1000,y:1000,x2:1110,y2:1040,a:0,power:1.21});
+  assert.equal(trail4.find(e=>e.type==='crimsonDashEdgeFire')?.density,.68);
+  assert.equal(trail4.find(e=>e.type==='flameBreathPlume')?.density,.68);
+  const other=build({id:'guardBreak',phase:'signature',x:1000,y:1000,a:0,index:0});
+  assert.equal(blades(other)[0].density,1,'the first form keeps its original full-strength painter');
+ }finally{arena.dispose();}
+});
+
+test('Hongryeon fourth-form PvP flame trail avoids duplicate packets but preserves every cut and launch',()=>{
+ const arena=createArena({style:'break',level:100}),packets=[];
+ try{
+  arena.api.init(arena.snapshot,arena.snapshot,true,m=>packets.push(m));
+  arena.api.enemy.x=arena.api.me.x+220;arena.api.enemy.y=arena.api.me.y;
+  arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
+  arena.api.control({keys:[],aim:0,skill:3});arena.step(.35);
+  arena.api.control({keys:[],aim:0,release:3});
+  for(let i=0;i<90;i++)arena.step(1/60);
+  const hits=packets.filter(p=>p.t==='atk'&&p.skillId==='ironJudgment');
+  assert.equal(hits.length,3,'optimizing the trail must not remove any of the three actual sword hits');
+  assert.equal(hits[2].force,155,'the third hit must retain its original final knockback');
+  assert.ok(hits.every(p=>p.controlLease==='hongWheel'),'the existing victim-control contract is unchanged');
+  const direct=packets.filter(p=>p.t==='hongFx'&&p.f.id==='ironJudgment'&&p.f.phase==='trail');
+  assert.ok(direct.length>0&&direct.length<=10,'the smooth S-shaped dash should have a bounded visible flame trail');
+  assert.ok(direct.every(p=>p.f.max===.38));
+  const batches=packets.filter(p=>p.t==='fxBatch').flatMap(p=>p.effects||[]);
+  assert.equal(batches.filter(p=>p.id==='ironJudgment'&&p.phase==='trail').length,0,
+   'short dash wakes use the direct FX channel, not duplicate generic batches');
+  assert.ok(batches.some(p=>p.id==='ironJudgment'&&p.phase==='signature'),
+   'every important sword impact retains the regular visual fallback');
+  assert.ok(packets.some(p=>p.t==='state'&&p.hongFxReplay?.some(e=>e.id==='ironJudgment'&&e.phase==='trail')),
+   'state snapshots can still recover a lost trail packet');
+ }finally{arena.dispose();}
+});
