@@ -576,3 +576,43 @@ test('Hongryeon fifth form uses a natural fire-circle startup and begins its hal
  assert.match(pvp,/startup=\.50,dashElapsed=ev\.elapsed-startup/);
  assert.match(pvp,/dashSpeed=1175/);
 });
+
+test('Hongryeon fifth form carries both fighters forward before its confirmed follow-up',()=>{
+ const arena=createArena({style:'break',level:100}),packets=[];
+ try{
+  arena.api.init(arena.snapshot,arena.snapshot,true,m=>packets.push(m));
+  const startX=arena.api.me.x,enemyStartX=startX+350;
+  arena.api.enemy.x=enemyStartX;arena.api.enemy.y=arena.api.me.y;
+  arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
+  arena.api.control({keys:[],aim:0,skill:4});arena.step(.35);
+  arena.api.control({keys:[],aim:0,release:4});
+  for(let i=0;i<150&&!packets.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)arena.step(1/60);
+  const opening=packets.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
+  assert.ok(opening,'the widened opening dash should still produce exactly one confirmed contact attempt');
+  assert.equal(opening.r,92,'fifth-form dash collision width is slightly wider than the previous 79px radius');
+  const contactX=arena.api.me.x,attacksAtContact=packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length;
+  arena.api.receive({t:'attackResult',id:opening.id,result:'hit'});
+  assert.equal(arena.api.me.skillEvent?.hongCarryRemaining,92);
+  assert.equal(arena.api.me.skillEvent?.hongCaughtAt,null,'authored cuts wait until the short carry finishes');
+  for(let i=0;i<4;i++)arena.step(1/60);
+  assert.ok(arena.api.me.x>contactX+25,'attacker continues forward instead of stopping on the contact frame');
+  assert.equal(packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length,attacksAtContact,
+   'no follow-up cut fires during the initial shared carry');
+  for(let i=0;i<18;i++)arena.step(1/60);
+  assert.ok(arena.api.me.x>contactX+70,'attacker completes the short post-hit carry distance');
+  assert.ok(arena.api.enemy.x>enemyStartX+8,'the victim follows forward before the combo starts');
+  assert.equal(arena.api.me.skillEvent?.hongCarryRemaining,0);
+  assert.ok(Number.isFinite(arena.api.me.skillEvent?.hongCaughtAt),'follow-up timing starts only after carry completion');
+ }finally{arena.dispose();}
+});
+
+test('world Hongryeon fifth-form source mirrors the wider carry-through opening',()=>{
+ const start=html.indexOf('function updateFlameBreathFinale('),end=html.indexOf('function updateSwordSkill(dt)',start);
+ assert.ok(start>0&&end>start);
+ const world=html.slice(start,end);
+ assert.match(world,/rr=92\+combatRadius\(e\)/);
+ assert.match(world,/r:92\+combatRadius\(e\)/);
+ assert.match(world,/seq\.flameCarryRemaining=e\.kind==='boss'\?54:92/);
+ assert.match(world,/worldTargetControl\(e\.id,\{kind:'control'/,
+  'shared-world PvP victim follows the attacker through authoritative target control');
+});
