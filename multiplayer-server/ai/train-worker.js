@@ -37,7 +37,7 @@ function spectator(phase,match,styles,lane,laneCount){
   if(!emit.enabled())return;
   // self-play already snapshots every 8 simulation frames. Keep those frames so
   // the browser can replay every training bout in its own split spectator lane.
-  parentPort.postMessage({preview:{phase,match,styles,lane,laneCount,cycle,...frame}});
+  if(frame.final||Number(frame.step)%24===0)parentPort.postMessage({preview:{phase,match,styles,lane,laneCount,cycle,...frame}});
  };
  emit.enabled=()=>!!workerData.device&&!!watch&&Atomics.load(watch,0)===1;
  return emit;
