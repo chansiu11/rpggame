@@ -1,10 +1,10 @@
 import {parentPort,workerData} from 'node:worker_threads';
 import {createDuelSession} from './self-play.js';
-import {learn,styles,leastTrainedPair} from './brain.js';
+import {learn,styles,leastTrainedPair,ensurePolicyStyles} from './brain.js';
 
 let saved=workerData.checkpoint||null;
-let policy=structuredClone(saved?.policy||workerData.policy);
-let baseline=structuredClone(saved?.baseline||workerData.policy);
+let policy=ensurePolicyStyles(structuredClone(saved?.policy||workerData.policy));
+let baseline=ensurePolicyStyles(structuredClone(saved?.baseline||workerData.policy));
 const ids=Object.keys(styles);
 const gate=workerData.control?new Int32Array(workerData.control):null;
 const watch=workerData.watch?new Int32Array(workerData.watch):null;
