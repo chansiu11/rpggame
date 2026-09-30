@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createArena} from '../multiplayer-server/ai/arena-runtime.js';
-import {seedPolicy,createBrain,styles,learn} from '../multiplayer-server/ai/brain.js';
+import {seedPolicy,createBrain,styles,NN_SHAPE} from '../multiplayer-server/ai/brain.js';
 import {validatePolicy} from '../multiplayer-server/ai/store.js';
 import {duel} from '../multiplayer-server/ai/self-play.js';
 
@@ -28,31 +28,32 @@ test('the production client and world server recognize all five current Hongryeo
  assert.match(server,/bypassShield:data\.cfg\.mode/,'shield bypass data reaches the client');
 });
 
-test('older v1 checkpoints preserve trained styles and initialize only Hongryeon',()=>{
- const previous=seedPolicy();delete previous.styles.break;
- previous.matches=208;previous.generation=12;previous.styles.gale.weights=[2.2,.35,4.8];
- previous.styles.void.games=120;previous.styles.dawn.reward=18.5;
- const restored=validatePolicy(JSON.parse(JSON.stringify(previous)));
- assert.deepEqual(restored.styles.gale.weights,[2.2,.35,4.8]);
- assert.equal(restored.styles.void.games,120);
- assert.equal(restored.styles.dawn.reward,18.5);
- assert.deepEqual(restored.styles.break.weights,[1,1,1]);
- assert.equal(restored.styles.break.games,0);
- learn(restored,'break',0,{win:true,reward:.4,metrics:{hits:1}});
- assert.equal(restored.styles.break.games,1);
- assert.equal(restored.styles.gale.games,previous.styles.gale.games);
+test('legacy v1 tactic checkpoints are rejected after the neural AI reset',()=>{
+ const legacy={schema:1,matches:208,generation:12,styles:{
+  gale:{weights:[2.2,.35,4.8],games:80,wins:40,reward:12,metrics:{}},
+  void:{weights:[1,1,1],games:120,wins:55,reward:9,metrics:{}},
+  dawn:{weights:[1,1,1],games:90,wins:44,reward:18.5,metrics:{}}
+ }};
+ assert.throws(()=>validatePolicy(structuredClone(legacy)),/Invalid policy/);
+ const fresh=seedPolicy();
+ assert.equal(fresh.schema,2);
+ assert.equal(fresh.model,'mlp-es-v1');
+ assert.ok(fresh.styles.break.network);
+ assert.equal(fresh.styles.break.games,0);
 });
 
-test('Hongryeon AI supports all five skill indices without changing old style entries',()=>{
- assert.deepEqual(styles.break.combos[0].slice().sort(),[0,1,2,3,4]);
- const policy=seedPolicy(),brain=createBrain('break',policy,()=>.15);
- const me={x:1000,y:1000,stam:100,maxStam:100,hp:100,maxHp:100,shield:100,stun:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null},
- enemy={x:1150,y:1000,dash:0,attackAnim:0,skillPose:-1};
- const actions=[];for(let i=0;i<60;i++){
-  const v=brain.step(.35,me,enemy);if(Number.isInteger(v.skill)){actions.push(v.skill);me.cool[v.skill]=100;}
+test('Hongryeon neural policy can choose every one of its five skill slots',()=>{
+ assert.equal(styles.break.name,'홍련');
+ assert.equal(NN_SHAPE.output,18);
+ const me=()=>({x:1000,y:1000,stam:100,maxStam:100,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0});
+ const enemy={x:1150,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:0,skillPose:-1,block:false,combo:0};
+ for(let i=0;i<5;i++){
+  const policy=seedPolicy(),net=policy.styles.break.network;
+  for(const a of [net.w1,net.b1,net.w2,net.b2,net.w3,net.b3])a.fill(0);
+  net.b3[4+i]=2;
+  const brain=createBrain('break',policy,()=>.5,5,{training:true});
+  assert.equal(brain.step(1/60,me(),enemy).skill,i,'Hongryeon skill logit '+i+' should map to slot '+i);
  }
- assert.ok(actions.length>0);
- assert.ok(actions.every(i=>i>=0&&i<=4));
 });
 
 test('PvP sends the shared world Hongryeon startup, strike and trail recipes to the opponent',()=>{
