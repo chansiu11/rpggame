@@ -13,11 +13,11 @@ function create(){
   const css=document.createElement('style');
   css.textContent='#aiSpectator{margin-top:16px;padding:12px;border:1px solid #476658;border-radius:9px;background:#0a1921}#aiSpectator .aiSplitHead{margin:10px 0 7px;color:#e9d9ab;font:700 13px/1.4 system-ui}#aiSpectator .aiSplitGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:10px;align-items:start}#aiSpectator .aiBattlePane{min-width:0;padding:7px;background:#0d1d24;border:1px solid #3d5a52;border-radius:7px}#aiSpectator .aiBattlePane canvas{display:block;width:100%;height:auto;background:#101f25;border:1px solid #4b6c61;border-radius:5px}#aiSpectator .aiBattlePane p{margin:5px 0 0;color:#b6c9c0;font:11px/1.45 system-ui;white-space:normal}#aiSpectator .aiBattlePane .aiBattleTitle{margin:0 0 5px;color:#f0dfb6;font-weight:700}#aiSpectator .aiSpectatorHint{margin:9px 0 0;color:#8fa99f;font:11px/1.5 system-ui}';
   document.head.appendChild(css);
-  const h1=document.createElement('p');h1.className='aiSplitHead';h1.textContent='자율 학습 전투 · 연속 훈련 슬롯별 분할';
+  const h1=document.createElement('p');h1.className='aiSplitHead';h1.textContent='자율 학습 전투 · 반복 재전투 분할 관전';
   trainGrid=document.createElement('div');trainGrid.className='aiSplitGrid';
-  const h2=document.createElement('p');h2.className='aiSplitHead';h2.textContent='성능 검증 전투 · 32경기 분할';
+  const h2=document.createElement('p');h2.className='aiSplitHead';h2.textContent='성능 검증 전투 · 반복 분할 관전';
   evalGrid=document.createElement('div');evalGrid.className='aiSplitGrid';
-  const hint=document.createElement('p');hint.className='aiSpectatorHint';hint.textContent='각 전투는 별도 화면에 남고, 새 전투가 같은 슬롯에서 이어집니다. 관전은 읽기 전용이라 학습 판정과 속도에는 영향을 주지 않습니다.';
+  const hint=document.createElement('p');hint.className='aiSpectatorHint';hint.textContent='모든 실제 대전은 최대 6개의 관전 칸에 순서대로 배정됩니다. 한 대전이 끝난 칸은 다음 대전이 오면 즉시 초기 상태로 바뀌어 재전투를 보여줍니다. 관전은 읽기 전용이라 학습 판정과 속도에는 영향을 주지 않습니다.';
   root.appendChild(h1);root.appendChild(trainGrid);root.appendChild(h2);root.appendChild(evalGrid);root.appendChild(hint);
  }
  function show(on){
@@ -42,13 +42,21 @@ function create(){
   const info=document.createElement('p');info.textContent='전투 대기 중';
   box.appendChild(title);box.appendChild(canvas);box.appendChild(info);
   (phase==='evaluation'?evalGrid:trainGrid)?.appendChild(box);
-  pane={key,phase,lane,box,title,canvas,info,queue:[],last:null};
+  pane={key,phase,lane,box,title,canvas,info,queue:[],last:null,lastMatch:null,restarts:0};
   panes.set(key,pane);
   return pane;
  }
 
  function draw(pane,frame){
-  const ctx=pane.canvas?.getContext?.('2d'),p=frame?.players;
+  const p=frame?.players;
+  const pair=(frame.styles||[]).map(id=>labels[id]||id).join(' vs ');
+  pane.title.textContent=(frame.phase==='evaluation'?'검증':'학습')+' '+(pane.lane+1)+' · '+(pair||'AI 대전')+(pane.restarts?` · 재전투 ${pane.restarts}회`:'');
+  if(Array.isArray(p)&&p.length===2){
+   const status=p.map((f,i)=>(labels[frame.styles?.[i]]||'AI')+' '+Math.round(100*ratio(f.hp,f.maxHp))+'%').join(' / ');
+   pane.info.textContent=(frame.match||'?')+'번째 · '+status+' · '+(num(frame.step)/60).toFixed(1)+'초'+(frame.final?' · 종료':'')+' · 세대 사이클 '+(num(frame.cycle)+1);
+  }
+  pane.last=frame;
+  const ctx=pane.canvas?.getContext?.('2d');
   if(!ctx||!Array.isArray(p)||p.length!==2)return;
   const w=pane.canvas.width,h=pane.canvas.height,a=p[0],b=p[1],cx=(num(a.x)+num(b.x))/2,cy=(num(a.y)+num(b.y))/2;
   const scale=Math.min(.27,315/Math.max(850,Math.abs(num(a.x)-num(b.x))*1.8),165/Math.max(550,Math.abs(num(a.y)-num(b.y))*1.8));
@@ -73,11 +81,6 @@ function create(){
    ctx.fillStyle='#0b1318';ctx.fillRect(x-23,y-22,46,4);ctx.fillStyle='#eb8787';ctx.fillRect(x-23,y-22,46*ratio(f.hp,f.maxHp),4);
    ctx.fillStyle='#0b1318';ctx.fillRect(x-23,y-16,46,2);ctx.fillStyle='#9bcfcf';ctx.fillRect(x-23,y-16,46*ratio(f.shield,f.maxShield),2);
   }
-  const pair=(frame.styles||[]).map(id=>labels[id]||id).join(' vs ');
-  pane.title.textContent=(frame.phase==='evaluation'?'검증':'학습')+' '+(pane.lane+1)+' · '+(pair||'AI 대전');
-  const status=p.map((f,i)=>(labels[frame.styles?.[i]]||'AI')+' '+Math.round(100*ratio(f.hp,f.maxHp))+'%').join(' / ');
-  pane.info.textContent=(frame.match||'?')+'번째 · '+status+' · '+(num(frame.step)/60).toFixed(1)+'초'+(frame.final?' · 종료':'')+' · 세대 사이클 '+(num(frame.cycle)+1);
-  pane.last=frame;
  }
 
  function ensurePump(){
@@ -104,10 +107,21 @@ function create(){
  function frame(data){
   if(!enabled||!data)return;
   const pane=ensurePane(data);
-  pane.queue.push(data);
+  const matchKey=String(data.cycle??0)+':'+String(data.match??'');
+  if(pane.lastMatch!==null&&pane.lastMatch!==matchKey){
+   // A new real bout has been assigned to this lane. Drop stale playback from
+   // the previous bout and show the new opening frame immediately so the pane
+   // visibly restarts instead of sitting on an old 'ended' frame.
+   pane.queue.length=0;
+   pane.restarts++;
+   draw(pane,data);
+  }else{
+   pane.queue.push(data);
+  }
+  pane.lastMatch=matchKey;
   // A single slot can receive long 90-second bouts. Bound only frame density,
   // not the number of battle slots, so every split battle remains visible.
-  if(pane.queue.length>360){
+  if(pane.queue.length>180){
    const keep=[pane.queue[0]];
    for(let i=2;i<pane.queue.length-1;i+=2)keep.push(pane.queue[i]);
    keep.push(pane.queue.at(-1));
