@@ -133,6 +133,21 @@ test('AI training manager mounts spectator only behind authenticated controls',a
  assert.equal(calls.filter(x=>x[0]==='frame').length,1);
 });
 
+test('split spectator creates separate panes for training and evaluation battles',async()=>{
+ const vm=await import('node:vm'),{readFileSync}=await import('node:fs');
+ const el=tag=>({tag,children:[],hidden:false,className:'',textContent:'',width:0,height:0,appendChild(v){this.children.push(v)},setAttribute(){}});
+ const head=el('head'),document={head,createElement:el};
+ const c={console,Map,Math,Number,Array,Object,String,setTimeout:()=>1,clearTimeout(){},document};c.window=c;vm.createContext(c);
+ vm.runInContext(readFileSync(new URL('../ai-training-viewer.js',import.meta.url),'utf8'),c);
+ const root=el('root');c.EchoesAiTrainingViewer.init(root);c.EchoesAiTrainingViewer.show(true);
+ const players=[{x:1400,y:1050,a:0,hp:100,maxHp:100,shield:100,maxShield:100},{x:2200,y:1050,a:3.14,hp:100,maxHp:100,shield:100,maxShield:100}];
+ c.EchoesAiTrainingViewer.frame({phase:'train',lane:0,laneCount:3,match:1,styles:['gale','void'],step:0,players});
+ c.EchoesAiTrainingViewer.frame({phase:'train',lane:1,laneCount:3,match:2,styles:['dawn','break'],step:0,players});
+ c.EchoesAiTrainingViewer.frame({phase:'evaluation',lane:0,laneCount:32,match:1,styles:['gale','break'],step:0,players});
+ assert.equal(root.children[1].children.length,2);
+ assert.equal(root.children[3].children.length,1);
+});
+
 test('retraining cadence changes live without changing battle simulation speed',()=>{
  const h=harness();try{
   h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
