@@ -46,6 +46,15 @@ test('self-play exploration produces trainable neural result',()=>{
  }
 });
 
+test('fresh neural policies produce combat exploration for every style',()=>{
+ const p=seedPolicy(),pairs=[['gale','void'],['dawn','break'],['gale','dawn'],['void','break']];
+ for(let n=0;n<pairs.length;n++){
+  const [a,b]=pairs[n],session=createDuelSession(a,b,p,p,200+n,4,()=>{},null,{explore:true});
+  let result;try{while(!session.done)result=session.step();}finally{session.dispose();}
+  assert.ok(result.results.some(r=>r.metrics.attempts>0),a+' vs '+b+' must explore at least one attack from a fresh policy');
+ }
+});
+
 test('learning updates the network and never learns resource management',()=>{
  const p=seedPolicy(),before=p.styles.break.network.w1.slice();
  learn(p,'break',{noiseSeed:123456,sigma:p.styles.break.sigma},{win:true,reward:1.2,metrics:{hits:3}});
