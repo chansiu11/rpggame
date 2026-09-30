@@ -112,7 +112,7 @@ if(config && config.apiKey && config.authDomain && config.projectId && config.ap
       async loadTraining(){
         const u=trainingAuth.currentUser;if(!u)throw new Error('게임 계정 로그인이 필요합니다.');
         const snap=await storeMod.getDoc(storeMod.doc(trainingDb,'users',u.uid,'aiTraining','main'));
-        if(!snap.exists())return null;
+        if(!snap.exists()){await purgeTrainingHistory(u.uid);return null;}
         const checkpoint=snap.data().checkpoint;
         if(checkpoint?.resetEpoch!==AI_TRAINING_RESET_EPOCH){await purgeTrainingHistory(u.uid);return null;}
         return checkpoint;
