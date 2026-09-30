@@ -55,3 +55,52 @@ test('Breaking shield and actually hitting HP authorizes the impact proc',()=>{
  assert.equal(f.b.shield,0);assert.equal(f.b.hp,900);assert.equal(f.messages.at(-1).procId,'break:hit');
  assert.equal(f.messages.at(-1).damage,100);assert.ok(f.b.forceMove);
 });
+
+test('forty-percent damage builds an escape even while stunned and grants one second of server immunity',()=>{
+ const f=fixture();let defenderSeq=0;
+ for(const [i,damage] of [150,150,100].entries()){
+  f.hit({damage,stun:.8,dx:60,procId:'escape-'+i});
+  if(i<2)f.step(130);
+ }
+ assert.equal(f.b.escapeDamage,400);
+ assert.ok(f.b.forceMove,'the normal launch is still active when the meter fills');
+ f.c.handle(f.b,{seq:++defenderSeq,events:[{kind:'escape'}]});
+ assert.equal(f.messages.at(-1).outcome,'escape');
+ assert.equal(f.b.escapeDamage,0);
+ assert.equal(f.b.forceMove,null);
+ assert.equal(f.b.stunUntil,0);
+ assert.equal(f.b.rootUntil,0);
+ assert.equal(f.c.snapshot(f.b).invuln,1);
+ const hp=f.b.hp;
+ f.hit({damage:200,dx:120});
+ assert.equal(f.b.hp,hp,'fresh attacks cannot hurt an escaped defender during immunity');
+ f.step(900);
+ f.hit({damage:200});
+ assert.equal(f.b.hp,hp,'immunity should still apply just before one second');
+ f.step(101);
+ f.hit({damage:100});
+ assert.equal(f.b.hp,hp-100,'hits return immediately after the one-second window');
+});
+test('damage escape resets after 2.5 seconds of no actual damage',()=>{
+ const f=fixture();
+ f.hit({damage:250});assert.equal(f.b.escapeDamage,250);
+ f.step(2499);assert.equal(f.b.escapeDamage,250);
+ f.step(1);assert.equal(f.b.escapeDamage,0);
+ f.c.handle(f.b,{seq:1,events:[{kind:'escape'}]});
+ assert.equal(f.messages.at(-1).outcome,'escapeRejected');
+ assert.equal(f.b.invuln||0,0);
+ f.hit({damage:180});assert.equal(f.b.escapeDamage,180,'the new sequence begins with only its own damage');
+});
+test('shield blocks never fill the escape meter and scripted ultimate locks reject escape',()=>{
+ const f=fixture();f.b.block=true;f.b.shield=500;
+ f.hit({damage:100,skillId:'meteorBreaker'});
+ assert.equal(f.b.escapeDamage||0,0,'a fully shielded impact does not count as lost HP');
+ f.b.block=false;
+ f.step(130);
+ for(const damage of [200,200]){f.hit({damage,skillId:'meteorBreaker',stun:.9});f.step(130);}
+ assert.equal(f.b.escapeDamage,400);
+ f.c.handle(f.b,{seq:1,events:[{kind:'escape'}]});
+ assert.equal(f.messages.at(-1).outcome,'escapeRejected','a confirmed meteor finisher cannot be interrupted mid-sequence');
+ assert.ok(f.b.stunUntil>0);
+ assert.equal(f.b.escapeDamage,400,'a rejected escape does not spend the earned gauge');
+});
