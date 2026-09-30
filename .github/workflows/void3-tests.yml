@@ -1,4 +1,4 @@
-name: Void 3 combat regressions
+name: Combat regressions
 on:
   push:
     paths:
@@ -7,6 +7,7 @@ on:
       - 'tests/void3.test.mjs'
       - 'tests/ai.test.mjs'
       - 'tests/device-training.test.mjs'
+      - 'tests/neural-ai-smoke.test.mjs'
       - 'tests/hongryeon-integration.test.mjs'
       - 'tests/damage-escape.test.mjs'
       - 'tests/world-combat.test.mjs'
@@ -19,16 +20,46 @@ on:
       - 'tests/void3.test.mjs'
       - 'tests/ai.test.mjs'
       - 'tests/device-training.test.mjs'
+      - 'tests/neural-ai-smoke.test.mjs'
       - 'tests/hongryeon-integration.test.mjs'
       - 'tests/damage-escape.test.mjs'
       - 'tests/world-combat.test.mjs'
       - 'tests/skill-render-ghosting.test.mjs'
+      - '.github/workflows/void3-tests.yml'
   workflow_dispatch:
 concurrency:
   group: combat-regressions-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  void3-tests:
+  ai-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: multiplayer-server/package-lock.json
+      - run: npm ci --prefix multiplayer-server
+      - run: node --test tests/neural-ai-smoke.test.mjs tests/ai.test.mjs tests/device-training.test.mjs
+
+  combat-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: multiplayer-server/package-lock.json
+      - run: npm ci --prefix multiplayer-server
+      - run: node --test tests/void3.test.mjs tests/hongryeon-integration.test.mjs tests/damage-escape.test.mjs tests/world-combat.test.mjs tests/skill-render-ghosting.test.mjs
+
+  legacy-audit:
+    needs: [ai-regressions, combat-regressions]
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -39,9 +70,6 @@ jobs:
           cache: npm
           cache-dependency-path: multiplayer-server/package-lock.json
       - run: npm ci --prefix multiplayer-server
-      - run: node --test tests/void3.test.mjs tests/ai.test.mjs tests/device-training.test.mjs tests/hongryeon-integration.test.mjs tests/damage-escape.test.mjs tests/world-combat.test.mjs tests/skill-render-ghosting.test.mjs
-      # The unchanged main fails the same 47 legacy assertions: baseline run 36603121406.
-      # Retain the full report without suppressing failures in the focused integration gate.
-      - name: Full legacy regression audit (non-blocking baseline failures)
+      - name: Full legacy regression audit
         continue-on-error: true
         run: npm test --prefix multiplayer-server
