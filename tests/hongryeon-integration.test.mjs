@@ -411,10 +411,12 @@ test('Hongryeon second and third forms use bounded flame geometry without alteri
   assert.ok(plumes(thirdFinish).length<=6,'the third-form landing ring should use at most six plumes');
   const hotTrail=build({id:'earthRend',phase:'trail',x:1000,y:1000,x2:1045,y2:1000,a:0,power:1.18});
   const leapTrail=build({id:'quakeRush',phase:'trail',x:1000,y:1000,x2:1045,y2:1000,a:0,power:1.05});
-  for(const fx of [hotTrail,leapTrail]){
-   assert.equal(fx.find(e=>e.type==='crimsonDashEdgeFire')?.density,.62);
-   assert.equal(plumes(fx)[0]?.density,.62);
-  }
+  assert.equal(hotTrail.find(e=>e.type==='crimsonDashEdgeFire')?.density,.62);
+  assert.equal(plumes(hotTrail)[0]?.density,.62);
+  assert.equal(leapTrail.find(e=>e.type==='crimsonDashEdgeFire')?.density,.5);
+  assert.equal(plumes(leapTrail)[0]?.density,.5);
+  assert.ok(plumes(thirdStart).every(e=>e.density<=.45));
+  assert.ok(plumes(thirdFinish).every(e=>e.density<=.45));
   const otherTrail=build({id:'guardBreak',phase:'trail',x:1000,y:1000,x2:1045,y2:1000,a:0});
   assert.equal(otherTrail.find(e=>e.type==='crimsonDashEdgeFire')?.density,1,
    'other Hongryeon effects retain their existing normal-quality density');
@@ -446,4 +448,38 @@ test('Hongryeon second and third form PvP dash trails send fewer packets with st
     'important impact flames must retain their separate FX batch fallback');
   }finally{arena.dispose();}
  }
+});
+
+test('Hongryeon fifth-form PvP shield blocks and perfect parries end the cast without follow-up strikes',()=>{
+ for(const result of ['blocked','parried']){
+  const a=createArena({style:'break',level:100}),packets=[];
+  try{
+   a.api.init(a.snapshot,a.snapshot,true,m=>packets.push(m));
+   a.api.enemy.x=a.api.me.x+350;a.api.enemy.y=a.api.me.y;
+   a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
+   a.api.control({keys:[],aim:0,skill:4});a.step(.35);
+   a.api.control({keys:[],aim:0,release:4});
+   for(let i=0;i<32&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)a.step(1/60);
+   const opening=packets.find(p=>p.t==='atk'&&p.skillId==='meteorBreaker');
+   assert.ok(opening,'the opening dash should reach the defender');
+   assert.equal(opening.bypassShield,false,'the opening dash must be blockable');
+   assert.equal(opening.parryable,true,'the opening dash must allow a perfect parry');
+   a.api.receive({t:'attackResult',id:opening.id,result});
+   assert.equal(a.api.me.skillEvent,null,result+' should immediately end the ultimate');
+   assert.equal(a.api.me.attackCd,0,'a shielded cast should release movement and action lock');
+   assert.equal(a.api.me.moveLock,0);
+   for(let i=0;i<260;i++)a.step(1/60);
+   assert.equal(packets.filter(p=>p.t==='atk'&&p.skillId==='meteorBreaker').length,1,
+    result+' must not create a phantom follow-up cut');
+  }finally{a.dispose();}
+ }
+});
+
+test('Hongryeon fifth-form world opening waits for actual unshielded damage',()=>{
+ const fn=html.slice(html.indexOf('function updateFlameBreathFinale('),html.indexOf('function updateSwordSkill(dt)'));
+ assert.ok(fn.length>1000,'world finale should remain present');
+ assert.match(fn,/bypassShield:false,skillId:sk\.id,shape:'circle'/,
+  'opening damage must be processed by the world shield rather than bypassing it');
+ assert.match(fn,/onResult:e\.networkPlayer\?result=>\{if\(activeSwordSkill===seq&&!!\(result\.damage>0\)\)finish\(\);\}:null/.source.replace('!!\\(', '!?\\('),
+  'shielded world hits should resolve without arming the follow-up');
 });
