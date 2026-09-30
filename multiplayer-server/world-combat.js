@@ -11,7 +11,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
   for(const k of timed)p[k]=Math.max(0,((p[k+'Until']||0)-t)/1000);
   if(p.forceMove){const q=C.forcePoint(p.forceMove,(t-p.forceMove.startedAt)/1000);p.x=q.x;p.y=q.y;p.vx=p.vy=0;if(q.done){p.forceMove=null;emit(p,{outcome:'settled',damage:0});}}
  }
- function snapshot(p){advance(p);return {serverTime:now(),teleportSeq:p.teleportSeq||0,combatRevision:p.combatRevision||0,controlRevision:p.controlRevision||0,shield:p.shield||0,maxShield:p.maxShield||0,stam:p.stam||0,maxStam:p.maxStam||0,block:!!p.block,stun:p.stun||0,root:p.root||0,invuln:p.invuln||0,dodge:p.dodge||0,parryWindow:p.parryWindow||0,shieldBroken:p.shieldBroken||0,shieldDelay:p.shieldDelay||0,mark:p.mark||0,forceMove:p.forceMove?{...p.forceMove,elapsed:(now()-p.forceMove.startedAt)/1000}:null,skillId:p.skillId||'',skillKind:p.skillKind||'',moveSpeed:p.moveSpeed||0,special:p.special||{}};}
+ function snapshot(p){advance(p);return {serverTime:now(),teleportSeq:p.teleportSeq||0,combatRevision:p.combatRevision||0,controlRevision:p.controlRevision||0,shield:p.shield||0,maxShield:p.maxShield||0,escapeDamage:p.escapeDamage||0,escapeLastAt:p.escapeLastAt||0,stam:p.stam||0,maxStam:p.maxStam||0,block:!!p.block,stun:p.stun||0,root:p.root||0,invuln:p.invuln||0,dodge:p.dodge||0,parryWindow:p.parryWindow||0,shieldBroken:p.shieldBroken||0,shieldDelay:p.shieldDelay||0,mark:p.mark||0,forceMove:p.forceMove?{...p.forceMove,elapsed:(now()-p.forceMove.startedAt)/1000}:null,skillId:p.skillId||'',skillKind:p.skillKind||'',moveSpeed:p.moveSpeed||0,special:p.special||{}};}
  function emit(p,extra={}){p.combatRevision=(p.combatRevision||0)+1;const result={type:'world:combatResult',eventId:++eventSeq,targetId:p.id,serverTime:now(),...extra,player:{...publicState(p),...snapshot(p)}};broadcast(result);return result;}
  function allowed(a,b){return a&&b&&a!==b&&a.ready&&b.ready&&a.clientMode!=='pvp'&&b.clientMode!=='pvp'&&a.hp>0&&b.hp>0&&!safeZone(a.x,a.y)&&!safeZone(b.x,b.y)&&(!(a.partyId&&a.partyId===b.partyId)||allowParty(a,b));}
  function lease(p,e,t){
@@ -74,6 +74,19 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     f.ids.delete(id);a.stigmaConsumed??=new Map();a.stigmaConsumed.set(id,t+3000);a.stunUntil=0;a.stun=0;a.forceMove=null;a.controlUntil=0;a.controlBy=null;a.controlLeaseUntil=0;a.controlRevision=(a.controlRevision||0)+1;
     a.x=clamp(e.x,40,width-40);a.y=clamp(e.y,40,height-40);a.vx=a.vy=0;emit(a,{outcome:'stigmaCleanse',damage:0});continue;
    }
+   if(e.kind==='escape'){
+    // The defender can spend an earned escape even while stunned or knocked back.
+    // Scripted guaranteed-hit sequences must finish before it becomes usable.
+    const ready=(a.escapeDamage||0)>=Math.max(1,(a.maxHp||100)*.4)&&t-(a.escapeLastAt||0)<2500;
+    const locked=t<(a.escapeGuaranteedUntil||0);
+    if(!ready||locked||a.hp<=0){emit(a,{outcome:'escapeRejected',damage:0});continue;}
+    a.escapeDamage=0;a.escapeLastAt=0;a.escapeGuaranteedUntil=0;
+    a.forceMove=null;a.controlUntil=0;a.controlBy=null;a.controlLeaseUntil=0;
+    a.stunUntil=0;a.stun=0;a.rootUntil=0;a.root=0;
+    a.invulnUntil=t+1000;a.dodgeUntil=Math.max(a.dodgeUntil||0,t+200);
+    a.controlRevision=(a.controlRevision||0)+1;a.vx=a.vy=0;
+    emit(a,{outcome:'escape',damage:0});continue;
+   }
    const b=players.get(String(e.targetId||''));if(b)advance(b,t);
    if(!allowed(a,b)||t<(a.stunUntil||0)||Math.hypot(a.x-b.x,a.y-b.y)>clamp(e.range||1100,40,1200)+80)continue;
    const kind=String(e.kind||'attack'),damageEvent=kind==='attack',hasLease=b.controlBy===a.id&&t<(b.controlLeaseUntil||0),galePulseControl=!damageEvent&&kind==='special'&&String(e.skillId||'')==='galeOrbit'&&String(a.skillId||'')==='galeOrbit'&&Math.hypot(a.x-b.x,a.y-b.y)<=320;
@@ -107,6 +120,14 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     b.controlBy=a.id;b.controlLeaseUntil=t+1400;
    }
    if(damage>0){
+    if(t-(b.escapeLastAt||0)>=2500)b.escapeDamage=0;
+    b.escapeLastAt=t;b.escapeDamage=Math.min((b.maxHp||100)*.4,(b.escapeDamage||0)+damage);
+    // Mark scripted follow-up sequences; other attacks still allow a stun escape.
+    if(String(e.skillId||'')==='meteorBreaker'){
+     if(t>=(b.escapeGuaranteedUntil||0))b.escapeGuaranteedUntil=t+3800;
+    }else if(['thunderDrive','voidDance'].includes(String(e.skillId||''))){
+     b.escapeGuaranteedUntil=Math.max(b.escapeGuaranteedUntil||0,t+450);
+    }
     // Arm only from a confirmed opening hit; the server counters never submit another cast event.
     if(String(e.skillId||'')==='gravityCut'&&a.swordStyle==='void'&&!a.void3Mark)
       a.void3Mark={targetId:b.id,until:t+10000,remaining:5,pending:null,damage:clamp(e.damage,1,5000)*.86};
@@ -121,6 +142,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
   const t=now();
   for(const p of players.values())if(p.ready&&p.clientMode!=='pvp'){
    const moving=!!p.forceMove;advance(p,t);record(p,t);
+   if(p.escapeDamage&&t-(p.escapeLastAt||0)>=2500)p.escapeDamage=0;
    const q=p.void3Mark;
    if(q&&q.pending&&t>=q.pending.at){
     const target=players.get(q.pending.enemyId);q.pending=null;
@@ -134,6 +156,8 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     {
      const d=C.damageAfterArmor(q.damage,target.defenseReduction||0),a=Math.atan2(target.y-p.y,target.x-p.x);
      target.hp=Math.max(0,target.hp-d);target.invulnUntil=t+100;target.block=false;target.void3Mark=null;
+     if(t-(target.escapeLastAt||0)>=2500)target.escapeDamage=0;
+     target.escapeLastAt=t;target.escapeDamage=Math.min((target.maxHp||100)*.4,(target.escapeDamage||0)+d);
      lease(target,{kind:'attack',stun:.75,dx:Math.cos(a)*220,dy:Math.sin(a)*220,duration:.3},t);
      emit(target,{attackerId:p.id,outcome:'hit',damage:d,skillId:'gravityCut',void3Counter:true});
      if(target.hp<=0){target.forceMove=null;broadcast({type:'pvp:defeated',targetId:target.id,targetName:target.name,killerId:p.id,killerName:p.name});}
