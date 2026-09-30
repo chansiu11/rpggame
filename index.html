@@ -1160,14 +1160,14 @@ function crimsonTriangleFx(vs,life=.76){
  if(!Array.isArray(vs)||vs.length!==3)return;effects.push({type:'crimsonTriangle',vs:vs.map(v=>({x:v.x,y:v.y})),t:life,max:life,seed:Math.floor(rnd(1,2147483646))});
 }
 // 홍련의 불꽃은 검의 호 궤적을 따라 뒤틀리는 불혀와 그을음으로 표현한다. 단색 레이저 선을 쓰지 않는다.
-function crimsonBladeFire(x,y,a,r=176,arc=1.7,side=1,life=.46,power=1){
- effects.push({type:'crimsonBladeFire',x,y,a,r,arc,side,seed:Math.floor(rnd(1,2147483646)),power,t:life,max:life});
- const n=options.quality==='low'?4:8;for(let j=0;j<n;j++){const th=a-arc*.5+arc*(j+rnd(.10,.90))/n,rr=r*rnd(.59,.87);crimsonEmbers(x+Math.cos(th)*rr,y+Math.sin(th)*rr,th+side*rnd(.12,.65),1+Math.round(power),rnd(150,255),.58,.84);}
+function crimsonBladeFire(x,y,a,r=176,arc=1.7,side=1,life=.46,power=1,density=1){
+ effects.push({type:'crimsonBladeFire',x,y,a,r,arc,side,seed:Math.floor(rnd(1,2147483646)),power,density,t:life,max:life});
+ const n=Math.max(2,Math.ceil((options.quality==='low'?4:8)*density));for(let j=0;j<n;j++){const th=a-arc*.5+arc*(j+rnd(.10,.90))/n,rr=r*rnd(.59,.87);crimsonEmbers(x+Math.cos(th)*rr,y+Math.sin(th)*rr,th+side*rnd(.12,.65),1+Math.round(power),rnd(150,255),.58,.84);}
 }
-function crimsonFlameBurst(x,y,r=110,life=.54,power=1){
- effects.push({type:'crimsonFlameBurst',x,y,r,power,seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
+function crimsonFlameBurst(x,y,r=110,life=.54,power=1,density=1){
+ effects.push({type:'crimsonFlameBurst',x,y,r,power,density,seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
  crimsonAshPatch(x,y,r*.63,life*1.55);
- const n=options.quality==='low'?5:10;for(let j=0;j<n;j++){const a=rnd(-Math.PI,Math.PI);crimsonEmbers(x+Math.cos(a)*r*.34,y+Math.sin(a)*r*.34,a,1+Math.round(power),rnd(180,345),.78,.9);}
+ const n=Math.max(2,Math.ceil((options.quality==='low'?5:10)*density));for(let j=0;j<n;j++){const a=rnd(-Math.PI,Math.PI);crimsonEmbers(x+Math.cos(a)*r*.34,y+Math.sin(a)*r*.34,a,1+Math.round(power),rnd(180,345),.78,.9);}
 }
 function crimsonAshPatch(x,y,r=60,life=.8,a=0){
  effects.push({type:'crimsonAshPatch',x,y,r,a,seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
@@ -1181,9 +1181,9 @@ function crimsonSwordWake(x1,y1,x2,y2,scale=1){
  crimsonEmbers(x2,y2,a+Math.PI,options.quality==='low'?2:5,195,.82,.72*scale);
 }
 // Small broken flame tongues at the edge of a sword's real attack footprint.
-function crimsonEdgeFlames(x,y,a,r,arc,side=1,life=.43,power=1){
+function crimsonEdgeFlames(x,y,a,r,arc,side=1,life=.43,power=1,density=1){
  if(!Number.isFinite(x)||!Number.isFinite(y))return;
- effects.push({type:'crimsonEdgeFlames',x,y,a,r,arc,side,seed:Math.floor(rnd(1,2147483646)),power,t:life,max:life});
+ effects.push({type:'crimsonEdgeFlames',x,y,a,r,arc,side,seed:Math.floor(rnd(1,2147483646)),power,density,t:life,max:life});
 }
 function crimsonDashEdgeFire(x1,y1,x2,y2,width=47,life=.35,power=1,density=1){
  if(Math.hypot(x2-x1,y2-y1)<8)return;
@@ -1219,14 +1219,14 @@ const FLAME_FINALE_CUTS=Object.freeze([
 const FLAME_CLEAVE_START_RADIUS=190,FLAME_CLEAVE_LAND_RADIUS=245,FLAME_RISE_IMPACT_RADIUS=250;
 // Ring effects and the damage check intentionally share these exact radii.
 function flameBreathCleaveCircle(x,y,r,face=0,life=.57,power=1,density=1){
- crimsonBladeFire(x,y,face,r,TAU,1,life,.93*power);
- crimsonEdgeFlames(x,y,face,r,TAU,1,life*.89,.74*power);
+ crimsonBladeFire(x,y,face,r,TAU,1,life,.93*power,Math.max(.66,density));
+ crimsonEdgeFlames(x,y,face,r,TAU,1,life*.89,.74*power,Math.max(.63,density));
  const n=Math.max(3,Math.ceil((options.quality==='low'?6:10)*density));
  for(let j=0;j<n;j++){
   const a=face+TAU*(j+rnd(-.16,.16))/n,rr=r*rnd(.47,.70);
   flameBreathPlume(x+Math.cos(a)*rr,y+Math.sin(a)*rr,a,r*rnd(.36,.56),r*rnd(.19,.30),life*rnd(.68,1.07),power*rnd(.74,1.11),density);
  }
- crimsonFlameBurst(x,y,r*.42,Math.min(life,.51),.72*power);
+ crimsonFlameBurst(x,y,r*.42,Math.min(life,.51),.72*power,Math.max(.7,density));
  crimsonAshPatch(x,y,r*.73,life*1.46,face);
  ring(x,y,r,'#ff922f',Math.min(life,.34));
  crimsonEmbers(x,y,face+Math.PI,options.quality==='low'?7:13,245,.68,.77*power);
@@ -1236,11 +1236,11 @@ function flameBreathPlume(x,y,a,len=165,width=55,life=.39,power=1,density=1){
  if(!Number.isFinite(x+y+a+len+width))return;
  effects.push({type:'flameBreathPlume',x,y,a,len,width,power,density:clamp(density,.4,1),seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
 }
-function flameBreathStroke(x,y,a,r,arc,side=1,life=.46,power=1){
- crimsonBladeFire(x,y,a,r,arc,side,life,power);
- crimsonEdgeFlames(x,y,a,r,arc,side,life*.92,.72*power);
+function flameBreathStroke(x,y,a,r,arc,side=1,life=.46,power=1,density=1){
+ crimsonBladeFire(x,y,a,r,arc,side,life,power,density);
+ crimsonEdgeFlames(x,y,a,r,arc,side,life*.92,.72*power,density);
  const tipR=r*.72;
- for(let j=0;j<(options.quality==='low'?2:4);j++){
+ for(let j=0,n=Math.max(1,Math.ceil((options.quality==='low'?2:4)*density));j<n;j++){
   const aa=a+(j-1.5)*arc/4,rr=tipR*rnd(.77,1.08);
   crimsonEmbers(x+Math.cos(aa)*rr,y+Math.sin(aa)*rr,aa+Math.PI,2,140+power*65,.64,.75);
  }
@@ -1283,14 +1283,14 @@ function flameBreathSignature(id,index,final,ang,reach,actor=player,ctxInfo=null
    crimsonEmbers(x,y,look+Math.PI,3,185,.34,.56);
   }else{
    flameBreathCleaveCircle(x,y,FLAME_CLEAVE_LAND_RADIUS,look,.72,1.38,.45);
-   flameBreathStroke(x,y,look,345,1.58,-side,.62,1.41);
-   crimsonFlameBurst(x+Math.cos(look)*102,y+Math.sin(look)*102,70,.45,1.15);
+   flameBreathStroke(x,y,look,345,1.58,-side,.62,1.41,.73);
+   crimsonFlameBurst(x+Math.cos(look)*102,y+Math.sin(look)*102,70,.45,1.15,.72);
   }
  }else if(id==='ironJudgment'){
   const a=f+(index===0?-.58:index===1?1.18:-.28)*side;
-  flameBreathStroke(x,y,a,index===2?298:230,index===2?5.35:index===1?4.5:3.8,side,.53,index===2?1.38:1.04);
-  flameBreathPlume(x,y,a+side*Math.PI/2,120+index*39,58+index*16,.41,.88);
-  if(final)crimsonFlameBurst(x+Math.cos(look)*115,y+Math.sin(look)*115,116,.58,1.17);
+  flameBreathStroke(x,y,a,index===2?298:230,index===2?5.35:index===1?4.5:3.8,side,.53,index===2?1.38:1.04,.72);
+  flameBreathPlume(x,y,a+side*Math.PI/2,120+index*39,58+index*16,.36,.88,.68);
+  if(final)crimsonFlameBurst(x+Math.cos(look)*115,y+Math.sin(look)*115,116,.52,1.17,.73);
   }else if(id==='meteorBreaker'){
   if(index===0){
    flameBreathStroke(x,y,f,190,1.35,side,.39,1.20);
@@ -4573,7 +4573,7 @@ if(ground)continue;
  let seed=e.seed>>>0;const rand=()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};
  const palette=['#7e2218','#c94119','#f85920','#ff8d2e','#ffb650','#ffe19a'];
  for(let layer=0;layer<3;layer++){
-  const n=low?[12,8,5][layer]:[23,16,9][layer];
+  const n=Math.max(3,Math.ceil((low?[12,8,5][layer]:[23,16,9][layer])*(e.density||1)));
   for(let j=0;j<n;j++){
    const q=(j+.10+rand()*.84)/n,theta=-arc*.5+q*arc,jitter=(rand()-.5)*.15;
    const originR=r*(layer===0?.50:layer===1?.57:.63)+rand()*r*.065;
@@ -4592,7 +4592,7 @@ if(ground)continue;
   }
  }
  // Broken small warm cores; no continuous laser-white center.
- ctx.shadowBlur=0;for(let j=0,n=low?4:8;j<n;j++){
+ ctx.shadowBlur=0;for(let j=0,n=Math.max(2,Math.ceil((low?4:8)*(e.density||1)));j<n;j++){
   const th=-arc*.5+arc*rand(),rr=r*(.57+rand()*.13),x=Math.cos(th)*rr,y=Math.sin(th)*rr;
   ctx.globalAlpha=fade*(.39+rand()*.32);ctx.fillStyle=rand()<.25?'#ffe7a8':'#ffc16c';ctx.beginPath();ctx.ellipse(x,y,2+rand()*r*.016,1+rand()*r*.008,th,0,TAU);ctx.fill();
  }ctx.restore();continue;
@@ -4600,11 +4600,11 @@ if(ground)continue;
 if(e.type==='crimsonFlameBurst'){
  ctx.save();ctx.translate(e.x,e.y);const low=options.quality==='low',r=e.r,fade=clamp(e.t/e.max,0,1);
  let seed=e.seed>>>0;const rand=()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};
- for(let j=0,n=low?4:8;j<n;j++){
+ for(let j=0,n=Math.max(2,Math.ceil((low?4:8)*(e.density||1)));j<n;j++){
   const a=rand()*TAU,rr=r*(.07+rand()*.37),x=Math.cos(a)*rr,y=Math.sin(a)*rr,sz=r*(.17+rand()*.24);
   ctx.globalAlpha=fade*(.15+rand()*.16);ctx.fillStyle=j%2?'#611c2b':'#a32b2c';ctx.beginPath();ctx.ellipse(x,y,sz,sz*(.43+rand()*.4),a,0,TAU);ctx.fill();
  }
- const colors=['#a31e30','#db342d','#f55327','#ff832b','#ffa94f','#ffd184'],n=low?13:27;
+ const colors=['#a31e30','#db342d','#f55327','#ff832b','#ffa94f','#ffd184'],n=Math.max(5,Math.ceil((low?13:27)*(e.density||1)));
  for(let j=0;j<n;j++){
   const a=rand()*TAU,base=r*(.08+rand()*.37),extension=r*(.38+rand()*.80)*(1-.30*progress),w=r*(.055+rand()*.12);
   const bx=Math.cos(a)*base,by=Math.sin(a)*base,tanX=-Math.sin(a),tanY=Math.cos(a),tipA=a+(rand()-.5)*.42,tipX=Math.cos(tipA)*(base+extension),tipY=Math.sin(tipA)*(base+extension);
@@ -4621,7 +4621,7 @@ if(e.type==='crimsonEdgeFlames'){
  ctx.save();ctx.translate(e.x,e.y);ctx.rotate(e.a);
  const low=options.quality==='low',r=e.r,arc=e.arc,age=clamp(1-e.t/e.max,0,1),fade=clamp(e.t/e.max,0,1);
  let seed=e.seed>>>0;const rand=()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296;};
- const n=low?9:19,col=['#a92932','#d63530','#f5542b','#ff7430','#ffa250','#ffd18a'];
+ const n=Math.max(4,Math.ceil((low?9:19)*(e.density||1))),col=['#a92932','#d63530','#f5542b','#ff7430','#ffa250','#ffd18a'];
  for(let j=0;j<n;j++){
   if(j%5===3)continue;const theta=-arc*.5+arc*(j+.12+rand()*.77)/n;
   const rr=r*(.91+(rand()-.5)*.055),w=r*(.011+rand()*.016);
