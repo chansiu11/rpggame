@@ -96,6 +96,13 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 .combo-total-damage{font:700 10px/1.2 system-ui,sans-serif;color:#ff5959;letter-spacing:0;font-variant-numeric:tabular-nums}
 .pvp-health-summary{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;justify-content:space-between}
 #pvpCombo{left:7.5%;bottom:27%}
+.escape-hud{position:absolute;top:53%;right:8%;width:116px;text-align:center;pointer-events:none;z-index:8;transform:translateY(-50%);filter:drop-shadow(0 2px 5px #0009)}
+.escape-label{font:800 19px/1.3 system-ui,sans-serif;color:#f9b97f;letter-spacing:.06em;text-shadow:0 0 9px #f56d3a8a}
+.escape-hud.ready .escape-label{color:#ffdb95;text-shadow:0 0 12px #ff773a}
+.escape-hud.locked .escape-label{color:#a8b9ba;font-size:12px;letter-spacing:0}
+.escape-meter{height:5px;margin-top:7px;overflow:hidden;border-radius:4px;background:#42505a8a}
+.escape-meter i{display:block;width:0;height:100%;transform-origin:left;transform:scaleX(0);background:linear-gradient(90deg,#ff684d,#ffcd77);box-shadow:0 0 7px #ff6e47}
+@media(max-width:600px){.escape-hud{right:5%;top:49%;width:88px}.escape-label{font-size:16px}}
 @media(max-width:600px){.combat-combo{left:5%;bottom:30%;font-size:32px}.combo-time-line{width:56px}.pvp-health-summary{gap:4px}.combo-total-damage{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.combo-spark{display:none}}
 
@@ -107,6 +114,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
  <div id="brand">ECHOES OF THE WILD</div>
  <div class="vitals"><div class="level"><span id="level">1</span></div><div class="meters"><div class="meter-title"><span id="playerName">방랑 기사</span><span class="hp-combo-readout"><span id="hpText">100 / 100</span><span id="worldTotalDamage" class="combo-total-damage">총 피해 0</span></span></div><div class="bar hp"><i id="hpBar"></i></div><div class="bar stam"><i id="stamBar"></i></div><div class="bar xp"><i id="xpBar"></i></div><div class="shield-readout"><span id="shieldText">쉴드 100 / 100</span><div class="bar"><i id="shieldBar"></i></div></div></div></div>
  <div id="worldCombo" class="combat-combo hidden" aria-live="off"><div id="worldComboNumber" class="combo-count">0</div><div class="combo-time-line"><i id="worldComboTimer"></i></div></div>
+ <div id="worldEscapeHud" class="escape-hud hidden" aria-live="off"><div id="worldEscapeLabel" class="escape-label">대쉬</div><div class="escape-meter"><i id="worldEscapeFill"></i></div></div>
  <div id="questHud"></div>
  <div class="top-nav"><span class="nav-line"></span><span>N</span><span>◇</span><span id="dayTime">DAY 01 · 새벽</span><span>◇</span><span class="nav-line"></span></div>
  <div id="minimapBox"><canvas id="minimap" width="312" height="260"></canvas><div class="map-caption"><span id="miniRegion">이끼빛 마을</span><span>M · 지도 ↗</span></div><button id="mapBtn" title="전체 지도 (M)" aria-label="전체 지도 열기"></button></div>
@@ -142,6 +150,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
  <div id="pvpStage">
   <canvas id="pvpCanvas" width="1200" height="700" aria-label="온라인 PVP 아레나"></canvas>
   <div id="pvpCombo" class="combat-combo hidden" aria-live="off"><div id="pvpComboNumber" class="combo-count">0</div><div class="combo-time-line"><i id="pvpComboTimer"></i></div></div>
+  <div id="pvpEscapeHud" class="escape-hud hidden" aria-live="off"><div id="pvpEscapeLabel" class="escape-label">대쉬</div><div class="escape-meter"><i id="pvpEscapeFill"></i></div></div>
   <div class="pvp-hud hidden" id="pvpHud"><div class="pvp-side"><b id="pvpMeName">나</b><div class="pvp-health-summary"><span id="pvpMeHpText"></span><span id="pvpTotalDamage" class="combo-total-damage">총 피해 0</span></div><div id="pvpMeInfo"></div><div class="pvp-bar"><i id="pvpMeHp"></i></div><div class="pvp-bar shield"><i id="pvpMeShield"></i></div><div class="pvp-bar stam"><i id="pvpMeStam"></i></div></div><div class="pvp-side right hidden"><b id="pvpEnemyName">상대</b><div id="pvpEnemyInfo"></div><div class="pvp-bar"><i id="pvpEnemyHp"></i></div><div class="pvp-bar shield"><i id="pvpEnemyShield"></i></div><div class="pvp-bar stam"><i id="pvpEnemyStam"></i></div></div></div>
   <div class="pvp-center hidden" id="pvpScore"></div>
   <div class="pvp-cooldowns hidden" id="pvpCooldowns"></div>
@@ -1006,6 +1015,45 @@ function animateCombatComboHit(id){
 }
 window.EchoesComboFx={hit:animateCombatComboHit};
 const worldCombo={hits:0,total:0,last:0};
+const worldEscape={damage:0,lastHit:-Infinity,pending:false,pendingAt:0,pvpRecent:-Infinity,guaranteedUntil:0};
+const ESCAPE_WINDOW=2.5,ESCAPE_RATIO=.40;
+function resetWorldEscape(){worldEscape.damage=0;worldEscape.lastHit=-Infinity;worldEscape.pending=false;worldEscape.pendingAt=0;worldEscape.pvpRecent=-Infinity;}
+function recordWorldEscapeDamage(damage){
+ if(!player||player.hp<=0||damage<=0)return;
+ if(realTime-worldEscape.lastHit>=ESCAPE_WINDOW)worldEscape.damage=0;
+ worldEscape.damage=Math.min(player.maxHp*ESCAPE_RATIO,worldEscape.damage+damage);
+ worldEscape.lastHit=realTime;
+}
+function worldEscapeReady(){return !!player&&player.hp>0&&worldEscape.damage>=player.maxHp*ESCAPE_RATIO&&realTime-worldEscape.lastHit<ESCAPE_WINDOW;}
+function worldEscapeLocked(){return realTime<worldEscape.guaranteedUntil;}
+function updateWorldEscapeHud(){
+ if(worldEscape.damage&&realTime-worldEscape.lastHit>=ESCAPE_WINDOW)resetWorldEscape();
+ if(worldEscape.pending&&realTime-worldEscape.pendingAt>.9)worldEscape.pending=false;
+ const node=$('worldEscapeHud');if(!node)return;
+ const visible=mode==='play'&&player?.hp>0&&worldEscape.damage>0;
+ node.classList.toggle('hidden',!visible);if(!visible)return;
+ const ready=worldEscapeReady(),locked=ready&&worldEscapeLocked();
+ node.classList.toggle('ready',ready&&!locked);node.classList.toggle('locked',locked);
+ $('worldEscapeLabel').textContent=locked?'확정 연계 중':ready?'대쉬 · 탈출':'대쉬';
+ $('worldEscapeFill').style.transform='scaleX('+Math.min(1,worldEscape.damage/Math.max(1,player.maxHp*ESCAPE_RATIO))+')';
+}
+function performWorldEscapeDash(){
+ const a=(()=>{let x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y;const d=Math.hypot(x,y);return d>0?Math.atan2(y,x):player.facing;})();
+ player.stun=player.galeRoot=player.moveLock=player.postSkillLockTimer=0;player.dx=Math.cos(a);player.dy=Math.sin(a);player.dodge=.2;player.dodgeCd=.55;
+ player.invuln=Math.max(player.invuln,1);player.attackAnim=player.attackCd=0;player.parry=player.perfectWindow=0;
+ bufferedAction=null;pendingAttack=false;worldForce=null;worldControlUntil=0;player.facing=a;
+ resetWorldEscape();ring(player.x,player.y,60,'#ffd79c',.38);sound('dash');updateWorldEscapeHud();
+ if(multiplayerMode&&window.EchoesMulti?.connected)syncInstantPlayerMove(450);
+}
+function requestWorldEscape(){
+ if(!worldEscapeReady()||worldEscapeLocked()||worldEscape.pending)return false;
+ const controlled=multiplayerMode&&window.EchoesMulti?.connected&&(worldForce||performance.now()<worldControlUntil||performance.now()-worldEscape.pvpRecent<ESCAPE_WINDOW*1000);
+ if(controlled){
+  worldEscape.pending=true;worldEscape.pendingAt=realTime;
+  window.EchoesMulti.combatEvent({kind:'escape'});window.EchoesMulti.flushCombat();
+ }else performWorldEscapeDash();
+ return true;
+}
 function updateWorldComboHud(){
  const now=performance.now(),active=mode==='play'&&worldCombo.hits>0&&now-worldCombo.last<COMBO_WINDOW_MS;
  const node=$('worldCombo');if(!node)return;node.classList.toggle('hidden',!active);
@@ -1492,7 +1540,14 @@ function applyWorldCombatResult(msg){
  if(msg.attackerId===m.state.selfId&&msg.damage>0&&activeSwordSkill?.skillId===msg.skillId)confirmSwordCarryHit(worldPlayerTargets.get(msg.targetId));if(msg.attackerId===m.state.selfId&&msg.procId&&worldHitProcs.has(msg.procId)){const cb=worldHitProcs.get(msg.procId);worldHitProcs.delete(msg.procId);if(typeof cb==='function'){if(msg.damage>0&&!void3State)cb(msg);}else{cb.onResult?.(msg);if(msg.damage>0&&!void3State)cb.onHit?.(msg);}}if(msg.attackerId===m.state.selfId&&msg.damage>0){recordWorldCombo(msg.damage);window.EchoesCombat.markPrismTarget(activeSwordSkill,msg.prismCast,msg.targetId);if(msg.skillId==='starRush'){const v=galeVortices.find(q=>q.t>0&&!q.caught.has(msg.targetId)&&Math.hypot(p.x-q.x,p.y-q.y)<GALE_VORTEX.radius+82);if(v){v.caught.set(msg.targetId,{angle:Math.atan2(p.y-v.y,p.x-v.x)});ring(p.x,p.y,35,'#eafffa',.18);}}}if(msg.damage>0)floating(p.x,p.y-54,'-'+Math.round(msg.damage),'#ff554f',true);return;}
  if(worldCombatSession!==m.state.selfId){worldCombatSession=m.state.selfId;worldCombatRevision=0;worldForce=null;worldControlUntil=0;}
  if(p.combatRevision<=worldCombatRevision)return;worldCombatRevision=p.combatRevision;
- player.hp=clamp(p.hp,0,player.maxHp);player.shield=clamp(p.shield,0,player.maxShield);player.stam=clamp(p.stam,0,player.maxStam);if(player.shield<=0&&shieldHeld()){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
+ player.hp=clamp(p.hp,0,player.maxHp);player.shield=clamp(p.shield,0,player.maxShield);player.stam=clamp(p.stam,0,player.maxStam);
+ if(msg.outcome==='escape'){performWorldEscapeDash();return;}
+ if(msg.outcome==='escapeRejected'){worldEscape.pending=false;}
+ if(msg.damage>0){
+  recordWorldEscapeDamage(msg.damage);worldEscape.pvpRecent=performance.now();
+  if(msg.skillId==='meteorBreaker')worldEscape.guaranteedUntil=Math.max(worldEscape.guaranteedUntil,realTime+3.8);
+  else if(['thunderDrive','voidDance'].includes(msg.skillId))worldEscape.guaranteedUntil=Math.max(worldEscape.guaranteedUntil,realTime+.45);
+ }if(player.shield<=0&&shieldHeld()){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
  for(const [to,from] of [['invuln','invuln'],['shieldBroken','shieldBroken'],['shieldDelay','shieldDelay'],['perfectWindow','parryWindow']])player[to]=Number(p[from])||0;
  if(msg.outcome==='void3Evade'){
   const q=void3State;
@@ -3184,7 +3239,7 @@ function defeatEnemy(e,serverConfirmed=false){
   syncStoryProgress(true);player.hp=player.maxHp;player.shield=player.maxShield;player.shieldBroken=player.shieldDelay=player.perfectWindow=0;player.parry=0;player.stam=player.maxStam;ring(e.x,e.y,250,'#e6cd8c',1.8);sound('reward');saveGame(false);
  }else if(!e.riftId&&player.stats.kills%4===0)dropMonsterLoot(e.x,e.y+20,'ore',1,serverConfirmed);checkQuestNotices();
 }
-function dash(){if(performance.now()<basicAttackLockUntil)return;if(standardSkillHold&&!standardSkillHold.continuous)return;if(!canAct()||(!void3State&&player.cast>0))return;if(player.dodgeCd>0||player.dodge>0){if(Math.max(player.dodgeCd,player.dodge)<.17)queueAction('dash');return;}if(!useStam(20-4*player.perks.flow))return;let x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y;const n=Math.hypot(x,y);if(n){x/=n;y/=n;}else{x=Math.cos(player.facing);y=Math.sin(player.facing);}player.dx=x;player.dy=y;player.dodge=.2;player.dodgeCd=.55;player.invuln=Math.max(player.invuln,.16);player.attackAnim=0;player.parry=0;player.perfectWindow=0;player.training.dodge=true;player.stats.dodges++;ring(player.x,player.y,33,'#b7dec9',.3);sound('dodge');}
+function dash(){if(worldEscapeReady()){if(worldEscapeLocked())return;requestWorldEscape();return;}if(performance.now()<basicAttackLockUntil)return;if(standardSkillHold&&!standardSkillHold.continuous)return;if(!canAct()||(!void3State&&player.cast>0))return;if(player.dodgeCd>0||player.dodge>0){if(Math.max(player.dodgeCd,player.dodge)<.17)queueAction('dash');return;}if(!useStam(20-4*player.perks.flow))return;let x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x,y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+joy.y;const n=Math.hypot(x,y);if(n){x/=n;y/=n;}else{x=Math.cos(player.facing);y=Math.sin(player.facing);}player.dx=x;player.dy=y;player.dodge=.2;player.dodgeCd=.55;player.invuln=Math.max(player.invuln,.16);player.attackAnim=0;player.parry=0;player.perfectWindow=0;player.training.dodge=true;player.stats.dodges++;ring(player.x,player.y,33,'#b7dec9',.3);sound('dodge');}
 let desktopShield=false,shieldKeyLatched=false;
 function shieldHeld(){return performance.now()>=basicAttackLockUntil&&(desktopShield||keys.has('KeyC')||[...touchPointers.values()].some(v=>v.action==='parry'));}
 function releaseShield(){if(!shieldHeld()){const wasRaised=player.parry>0||player.perfectWindow>0||player.shieldNeedsRelease||player.shield<player.maxShield;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=false;if(wasRaised)player.shieldRearm=Math.max(player.shieldRearm||0,.5);}}
@@ -3204,7 +3259,7 @@ function updateShield(dt){
 function hitPlayer(damage,source,parryable=true){if(mode!=='play'||(modal&&!source?.pvp)||player.hp<=0||admin.god)return 'ignored';const a=Math.atan2(source.y-player.y,source.x-player.x);
  if(player.invuln>0){if(player.dodge>0&&!source.perfectDodged){source.perfectDodged=true;player.stam=Math.min(player.maxStam,player.stam+6+(player.rune==='cycle'?14:0));floating(player.x,player.y-54,'완벽한 대쉬','#abe0cb',true);}return 'dodged';}if(void3State&&beginVoid3WorldEvade(source))return 'dodged';
  if(shieldHeld()&&player.shield>0&&player.shieldBroken<=0&&parryable){const perfect=player.perfectWindow>0;player.perfectWindow=0;player.shieldDelay=1.4;if(perfect){player.shield=Math.max(0,player.shield-4);if(player.shield===0){player.parry=0;player.shieldBroken=0;player.shieldNeedsRelease=true;}player.stam=clamp(player.stam+28,0,player.maxStam);player.invuln=.28;player.parryCd=.22;player.stats.parries++;if(player.rune==='echo')player.riposte=4;player.training.parry=true;floating(player.x,player.y-64,'PERFECT PARRY','#b3e6e0',true);ring(player.x,player.y,100,'#b8f2e5',.5);burst(player.x,player.y,'#d6f5e7',24,190);sound('parry');hitstop=.11;if(options.shake)shake=6;if(source.kind){source.stun=source.kind==='boss'?1.5:2.0;source.state='stunned';source.poise=0;}return 'parried';}const cost=window.EchoesCombat.shieldCost(damage),before=player.shield;player.shield=Math.max(0,before-cost);ring(player.x,player.y,29,'#a4d8e1',.18);if(player.shield>0){sound('block');floating(player.x,player.y-48,'쉴드 −'+Math.ceil(cost),'#adc7ca');return 'blocked';}player.parry=0;player.shieldBroken=0;player.shieldDelay=0;player.shieldNeedsRelease=true;sound('break');floating(player.x,player.y-48,'쉴드 소진','#edc28a');damage*=Math.max(0,1-before/cost);if(damage<=0)return 'blocked';}
- damage=window.EchoesCombat.damageAfterArmor(damage,armorReduction());if(damage>0){if(void3State)endVoid3World();player.hp=Math.max(0,player.hp-damage);if(damage>=player.maxHp*.30)damageFlash=.24;player.hurt=.25;player.invuln=.65;player.comboTimer=0;player.stun=Math.max(player.stun||0,damage>=player.maxHp*.18?.55:.35);cancelSkillPreparationOnStun();player.dodge=0;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;desktopShield=false;bufferedAction=null;pendingAttack=false;touchSprint=false;damageFloating(player.x,player.y-35,damage,source?Math.atan2(player.y-source.y,player.x-source.x):player.facing,true);burst(player.x,player.y,'#ebbd8d',8,90);sound('hurt');if(options.shake)shake=4;}if(player.hp<=0)showDefeat();return 'hit';}
+ damage=window.EchoesCombat.damageAfterArmor(damage,armorReduction());if(damage>0){if(void3State)endVoid3World();player.hp=Math.max(0,player.hp-damage);recordWorldEscapeDamage(damage);if(['meteorBreaker','thunderDrive','voidDance'].includes(source?.styleSkillId)){const t=source.styleSkillId==='meteorBreaker'?3.8:.45;worldEscape.guaranteedUntil=Math.max(worldEscape.guaranteedUntil,realTime+t);}if(damage>=player.maxHp*.30)damageFlash=.24;player.hurt=.25;player.invuln=.65;player.comboTimer=0;player.stun=Math.max(player.stun||0,damage>=player.maxHp*.18?.55:.35);cancelSkillPreparationOnStun();player.dodge=0;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;desktopShield=false;bufferedAction=null;pendingAttack=false;touchSprint=false;damageFloating(player.x,player.y-35,damage,source?Math.atan2(player.y-source.y,player.x-source.x):player.facing,true);burst(player.x,player.y,'#ebbd8d',8,90);sound('hurt');if(options.shake)shake=4;}if(player.hp<=0)showDefeat();return 'hit';}
 const shieldSlot=document.querySelector('[data-act="parry"]');
 shieldSlot.addEventListener('pointerdown',e=>{if(!canAct())return;e.preventDefault();desktopShield=true;captureTouch(shieldSlot,e);parry();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])shieldSlot.addEventListener(event,()=>{desktopShield=false;releaseShield();});
@@ -3656,7 +3711,7 @@ function showMessage(title,msg){openPanel('message',header('ECHOES OF THE WILD',
 function openDefeatPanel(){if(mode!=='play'||player.hp>0||modal)return;openPanel('defeat',header('TAKE A BREATH','불빛은 아직 꺼지지 않았습니다',false)+`<p class="lede">잠시 숨을 고르고, 다시 도전하세요.<br>공격 직후의 빈틈과 기력 관리가 승부를 바꿉니다.</p><div class="tip">골드·장비·경험치는 유지됩니다.<br>마지막 야영지에서 체력과 회복약을 보충하고 시작합니다.</div>`+footer('적색 원형 공격은 패링할 수 없습니다.','<button class="primary" data-action="respawn">야영지에서 다시 시작 →</button>'));}
 function showDefeat(){
  if(player.deathPending)return;
- cleanupRift();lockedTarget=null;player.hp=0;player.deathPending=true;player.deathAnimStart=realTime;player.deathHidden=false;multiDeathSeq++;resetInputs();
+ cleanupRift();lockedTarget=null;player.hp=0;resetWorldEscape();player.deathPending=true;player.deathAnimStart=realTime;player.deathHidden=false;multiDeathSeq++;resetInputs();
  burst(player.x,player.y,'#d7c7b0',12,75);sound('hurt');
  setTimeout(()=>{if(mode!=='play'||player.hp>0||!player.deathPending)return;player.deathHidden=true;openDefeatPanel();},1050);
 }
@@ -5077,7 +5132,7 @@ function recoverGameLoop(error){
  }catch(recoveryError){console.error('Game loop recovery error',recoveryError);}
  if(gameLoopErrorCount===1||now-(player?.lastLoopRecoveryToastAt||0)>2500){if(player)player.lastLoopRecoveryToastAt=now;toast('일시적인 전투 오류를 자동 복구했습니다.');}
 }
-function frame(stamp){requestAnimationFrame(frame);const elapsed=Math.max(0,(stamp-lastStamp)/1000);let dt=Math.min(.1,elapsed);lastStamp=stamp;realTime+=dt;updateWorldComboHud();frameMs=frameMs*.96+elapsed*1000*.04;if(mode==='title'&&!$('pvpLayer').classList.contains('hidden'))return;
+function frame(stamp){requestAnimationFrame(frame);const elapsed=Math.max(0,(stamp-lastStamp)/1000);let dt=Math.min(.1,elapsed);lastStamp=stamp;realTime+=dt;updateWorldComboHud();updateWorldEscapeHud();frameMs=frameMs*.96+elapsed*1000*.04;if(mode==='title'&&!$('pvpLayer').classList.contains('hidden'))return;
  try{if(multiplayerMode){updateWorldForce();flushWorldCombat();}updateAudio();if(mode==='title'){camera.x=860+Math.sin(realTime*.045)*70;camera.y=2960+Math.cos(realTime*.04)*45;player.facing=-.7;}if(mode==='play'&&!modal){if(hitstop>0&&!multiplayerMode)hitstop=Math.max(0,hitstop-dt);else{hitstop=0;const steps=Math.max(1,Math.ceil(dt/.033));for(let i=0;i<steps&&mode==='play'&&!modal;i++)update(dt/steps);}}if(!touchMode||options.quality!=='low'||stamp-lastDrawStamp>=32){lastDrawStamp=stamp;render();}}
  catch(error){recoverGameLoop(error);}
 }
