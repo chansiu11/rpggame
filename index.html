@@ -154,7 +154,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
   <div class="pvp-hud hidden" id="pvpHud"><div class="pvp-side"><b id="pvpMeName">나</b><div class="pvp-health-summary"><span id="pvpMeHpText"></span><span id="pvpTotalDamage" class="combo-total-damage">총 피해 0</span></div><div id="pvpMeInfo"></div><div class="pvp-bar"><i id="pvpMeHp"></i></div><div class="pvp-bar shield"><i id="pvpMeShield"></i></div><div class="pvp-bar stam"><i id="pvpMeStam"></i></div></div><div class="pvp-side right hidden"><b id="pvpEnemyName">상대</b><div id="pvpEnemyInfo"></div><div class="pvp-bar"><i id="pvpEnemyHp"></i></div><div class="pvp-bar shield"><i id="pvpEnemyShield"></i></div><div class="pvp-bar stam"><i id="pvpEnemyStam"></i></div></div></div>
   <div class="pvp-center hidden" id="pvpScore"></div>
   <div class="pvp-cooldowns hidden" id="pvpCooldowns"></div>
-  <div id="pvpLobby"><div class="pvp-card"><div class="eyebrow">PVP ONLY AREA · ONLINE DUEL</div><h2>결투 아레나 · 1:1 PVP</h2><p class="lede">일반 월드와 분리된 PVP 전용 장소입니다. 현재 계정의 레벨·무기·강화·방어구·방패 능력치를 전투용 수치로만 사용하며, PVP 결과는 원본 세이브와 퀘스트 진행도를 변경하지 않습니다.</p><div class="pvp-loadout" id="pvpLoadout"></div><div class="pvp-actions"><button class="primary" id="pvpMatch">매칭 시작</button><button id="pvpAiMatch">AI 매치</button><select id="pvpAiStyle" aria-label="AI 유파"><option value="random">무작위 유파</option><option value="gale">질풍</option><option value="void">이형</option><option value="dawn">여명</option><option value="break">홍련</option></select><select id="pvpAiDifficulty" aria-label="AI 난이도"><option value="1">1단계 · 매우 쉬움</option><option value="2">2단계 · 쉬움</option><option value="3" selected>3단계 · 보통</option><option value="4">4단계 · 어려움</option><option value="5">5단계 · 매우 어려움</option></select><button class="quiet" id="pvpCancelMatch" disabled>매칭 취소</button></div><p class="pvp-help">매칭 시작을 누르면 자동 대기열에 들어갑니다. 다른 플레이어가 매칭을 시작하면 자동으로 상대를 찾아 1:1 전투가 시작됩니다. 조작은 여정의 컴퓨터 키 설정을 그대로 사용하며, PVP 결과는 일반 진행 저장을 변경하지 않습니다.</p><div id="pvpRoomView" class="tip hidden"></div></div></div>
+  <div id="pvpLobby"><div class="pvp-card"><div class="eyebrow">PVP ONLY AREA · ONLINE DUEL</div><h2>결투 아레나 · 1:1 PVP</h2><p class="lede">일반 월드와 분리된 PVP 전용 장소입니다. 현재 계정의 레벨·무기·강화·방어구·방패 능력치를 전투용 수치로만 사용하며, PVP 결과는 원본 세이브와 퀘스트 진행도를 변경하지 않습니다.</p><div class="pvp-loadout" id="pvpLoadout"></div><div class="pvp-actions"><button class="primary" id="pvpMatch">매칭 시작</button><button id="pvpAiMatch">AI 매치</button><select id="pvpAiStyle" aria-label="AI 유파"><option value="random">무작위 유파</option><option value="gale">질풍</option><option value="moon">흑월</option><option value="void">이형</option><option value="dawn">여명</option><option value="break">홍련</option></select><select id="pvpAiDifficulty" aria-label="AI 난이도"><option value="1">1단계 · 매우 쉬움</option><option value="2">2단계 · 쉬움</option><option value="3" selected>3단계 · 보통</option><option value="4">4단계 · 어려움</option><option value="5">5단계 · 매우 어려움</option></select><button class="quiet" id="pvpCancelMatch" disabled>매칭 취소</button></div><p class="pvp-help">매칭 시작을 누르면 자동 대기열에 들어갑니다. 다른 플레이어가 매칭을 시작하면 자동으로 상대를 찾아 1:1 전투가 시작됩니다. 조작은 여정의 컴퓨터 키 설정을 그대로 사용하며, PVP 결과는 일반 진행 저장을 변경하지 않습니다.</p><div id="pvpRoomView" class="tip hidden"></div></div></div>
   <div class="pvp-result hidden" id="pvpResult"><div class="pvp-card"><h2 id="pvpResultTitle">승리</h2><p id="pvpResultText"></p><div class="pvp-actions" style="justify-content:center"><button class="primary" id="pvpRematch">재대결</button><button id="pvpResultExit">나가기</button></div></div></div>
  </div>
 </div>
@@ -606,7 +606,7 @@ function acceptSideQuest(id){const q=sideQuestById(id);if(!q||player.acceptedSid
 function claimSideQuest(id){const q=sideQuestById(id);if(!q||!player.acceptedSideQuests.includes(id)||player.claimedSideQuests.includes(id)||sideQuestProgress(q)<q.target)return;player.claimedSideQuests.push(id);player.gold+=q.gold;addXp(q.xp);if(q.reward==='potion')player.potions=Math.min(8,player.potions+2);if(q.reward==='ore')player.ore+=5;toast('<b>서브퀘스트 완료 · '+q.name+'</b><br>'+q.gold+' G · 경험치 '+q.xp+(q.reward==='potion'?' · 회복약 2':q.reward==='ore'?' · 광석 5':''));sound('reward');saveGame(false);showQuests('side',true);}
 const STYLE_ADEPT_STYLES=[
  {id:'gale',name:'질풍',main:'#61f0c7',sub:'#eafff8',accent:'#2ec9ff',skills:['windSlash','flashRush','galeOrbit','starRush','thunderDrive']},
- {id:'moon',name:'월영',main:'#b88cff',sub:'#f4efff',accent:'#7fa7ff',skills:['moonSpin','mirrorStep','crossBloom','crescent','lunarBind']},
+ {id:'moon',name:'흑월',main:'#111116',sub:'#2a2634',accent:'#3a3148',skills:['moonSpin','mirrorStep','crossBloom','crescent','lunarBind']},
  {id:'break',name:'홍련',main:'#ff344d',sub:'#ffd0c8',accent:'#ff7a3d',skills:['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker']},
  {id:'dawn',name:'여명',main:'#ffd95c',sub:'#fffbe8',accent:'#fff29a',skills:['dawnArc','tempest','skyFall','solarReturn','prismLance']},
  {id:'void',name:'이형',main:'#a76cff',sub:'#f1e6ff',accent:'#ff63d8',skills:['chainReap','phantomSwap','gravityCut','bladeRain','voidDance']}
@@ -615,6 +615,7 @@ function styleAdeptCastRange(cfg,slot=0){
  if(!cfg)return 180;const mode=cfg.mode,maxReach=Math.max(0,...(cfg.reach||[0]));
  if(['windShot','dawnWave','fanLances'].includes(mode))return slot===4?760:650;
  if(['galeBlink','galePursuit','mirrorBackstab','singularityRush'].includes(mode))return 760;
+ if(['blackMoonCrescent','lunarMistStep','lunarSpiralBind','lunarWildAngles','lunarEclipseChain'].includes(mode))return slot===4?840:slot===3?780:720;
  if(['eventHorizonShear','bladeRain'].includes(mode))return 460;
  if(['fracturePrison','galeCrescendo','skyFall'].includes(mode))return 390;
  if(['holdVortex','holdShadow','void3Trigger'].includes(mode))return 430;
@@ -1625,10 +1626,10 @@ const SKILLS=[
 const SWORD_SKILL_LIBRARY=[
  {id:'windSlash',name:'삼렬 풍도',level:1,price:0,cost:20,cool:3.3,color:'#61f0c7',desc:'길쭉한 검풍 세 개를 좌우로 나란히 발사합니다. 기존보다 약 50% 더 멀리 날아가며 세 검풍이 같은 방향으로 평행하게 전진합니다.',cfg:{duration:.44,hits:[.18],mult:[1.0],arc:[1.4],reach:[0],step:[0],mode:'windShot'}},
  {id:'flashRush',name:'질풍 점멸',level:4,price:180,cost:29,cool:5.2,color:'#61f0c7',desc:'조준 방향 또는 표적을 향해 한 번에 점멸 돌진합니다. 기존보다 약 50% 더 긴 거리를 돌진하며, 경로에 닿은 적을 진행 방향으로 밀어냅니다.',cfg:{duration:.48,hits:[.16],mult:[2.05],arc:[1.35],reach:[0],step:[0],mode:'galeBlink'}},
- {id:'moonSpin',name:'달빛 회전',level:7,price:260,cost:32,cool:3.6,color:'#b88cff',desc:'가까운 적의 옆을 반원으로 돌며 적들을 중심 쪽으로 끌어당긴 뒤 한 번에 베어냅니다.',cfg:{duration:.62,hits:[.26],mult:[1.75],arc:[TAU],reach:[46],step:[0],mode:'moonBurst'}},
+ {id:'moonSpin',name:'흑월 · 초승',level:7,price:260,cost:24,cool:3.2,color:'#111116',desc:'짧게 비껴 파고들며 넓은 초승 베기를 두 번 잇습니다. 첫 베기로 진입하고 두 번째 역베기로 범위를 크게 쓸어냅니다.',cfg:{duration:.58,hits:[.16,.40],mult:[.78,1.18],arc:[2.15,2.85],reach:[175,215],step:[0,0],mode:'blackMoonCrescent'}},
  {id:'starRush',name:'풍압 연파',level:18,price:0,cost:49,cool:9.6,color:'#61f0c7',desc:'두 번째 풍압 원을 앞으로 발사합니다. 소용돌이는 5초 동안 천천히 이동하며 적을 반시계방향으로 회전시키고 지속 피해를 줍니다. 사라질 때 바깥으로 날리며 발사 직후 시전자가 자유롭게 행동합니다.',cfg:{duration:.30,hits:[.12],mult:[1],arc:[TAU],reach:[0],step:[0],mode:'galeCrescendo'}},
- {id:'crossBloom',name:'연속 교차 베기',level:13,price:420,cost:40,cool:7.4,color:'#b88cff',desc:'표적의 좌우를 번갈아 밟으며 위치를 바꾸고 일곱 번의 교차 베기를 한 대상 주변에 집중합니다.',cfg:{duration:1.42,hits:[.10,.26,.42,.58,.76,.96,1.20],mult:[.43,.45,.48,.52,.56,.66,1.08],arc:[1.20,1.25,1.30,1.35,1.40,1.50,1.85],reach:[20,20,22,22,24,26,30],step:[0,0,0,0,0,0,4],mode:'stationaryFlurry'}},
- {id:'crescent',name:'초승달 이연참',level:16,price:520,cost:34,cool:9,color:'#b88cff',desc:'뒤로 크게 빠지면서 서로 다른 각도의 초승달 검압 두 개를 연속 발사합니다.',cfg:{duration:.80,hits:[.16,.52],mult:[.90,1.18],arc:[2.4,2.7],reach:[18,22],step:[2,4],mode:'crescentRetreat'}},
+ {id:'crossBloom',name:'흑월 · 나선결',level:13,price:420,cost:39,cool:6.4,color:'#111116',desc:'크게 움직이지 않고 두 번의 나선 검격으로 주변 적을 중심으로 끌어당긴 뒤 넓은 역베기로 마무리합니다.',cfg:{duration:.94,hits:[.18,.46,.78],mult:[.54,.66,1.20],arc:[TAU,TAU,2.95],reach:[205,225,255],step:[0,0,0],mode:'lunarSpiralBind'}},
+ {id:'crescent',name:'흑월 · 난각',level:16,price:520,cost:46,cool:7.8,color:'#111116',desc:'좌우 각도를 빠르게 꺾으며 다섯 번 근접 베기를 이어갑니다. 한 방향으로만 달리지 않고 매 타격마다 접근 각도가 달라집니다.',cfg:{duration:1.06,hits:[.14,.34,.54,.74,.94],mult:[.36,.42,.48,.58,1.12],arc:[1.80,1.95,2.05,2.20,2.85],reach:[180,190,200,215,245],step:[0,0,0,0,0],mode:'lunarWildAngles'}},
  {id:'guardBreak',name:'홍염 횡참',level:20,price:650,cost:28,cool:4.8,color:'#ff782e',desc:'검을 크게 휘둘러 전방에 두 겹의 화염 호를 남기는 2단 발도.',cfg:{duration:.72,hits:[.24,.48],mult:[1.15,.92],arc:[2.12,2.18],reach:[150,166],step:[0,0],mode:'flameBreathSweep'}},
  {id:'tempest',name:'폭풍 검무',level:24,price:780,cost:48,cool:5.4,color:'#ffd95c',desc:'작은 나선 궤도를 직접 돌면서 여섯 번 회전 베기해 주변 적을 휩쓸어갑니다.',cfg:{duration:1.28,hits:[.08,.25,.42,.59,.78,1.02],mult:[.42,.45,.48,.52,.58,.92],arc:[TAU,TAU,TAU,TAU,TAU,TAU],reach:[18,22,26,30,34,42],step:[0,0,0,0,0,0],mode:'tempest'}},
  {id:'earthRend',name:'승염 비상',level:30,price:920,cost:43,cool:7.4,color:'#ff782e',desc:'직선으로 328만큼 빠르게 돌진하며 점차 감속한다. 발동 0.5초 후 도착 지점의 원형 화염과 지나온 직선 경로에 동시에 피해를 주며 방패를 관통한다.',cfg:{duration:.78,hits:[.50],mult:[2.61],arc:[TAU],reach:[250],step:[0],mode:'flameBreathRise'}},
@@ -1636,8 +1637,8 @@ const SWORD_SKILL_LIBRARY=[
  {id:'thunderDrive',name:'천풍 추살',level:44,price:1280,cost:74,cool:15.8,color:'#61f0c7',desc:'질풍 유파의 궁극기. 장거리 초고속 돌진에 맞는 순간 2번 질풍 점멸처럼 돌진 방향으로 강하게 날아가며, 이후 0.05초마다 총 30회의 추살 연계를 합니다. Lv.100 기준 일반 타격 100, 마지막 타격 200 피해입니다.',cfg:{duration:2.35,hits:Array.from({length:30},(_,i)=>.70+i*.05),mult:Array.from({length:30},(_,i)=>i===29?.38:.20),arc:Array(30).fill(TAU),reach:Array(30).fill(0),step:Array(30).fill(0),mode:'galePursuit'}},
  {id:'meteorBreaker',name:'극홍 · 염화일천',level:52,price:1520,cost:78,cool:19.5,color:'#ff782e',desc:'주변에 원형 화염을 피워 0.5초 예열한 뒤 기존보다 절반 속도의 넓어진 화염 돌진을 시작한다. 적중하면 즉시 멈추지 않고 적을 짧게 함께 밀고 전진한 뒤 열세 차례의 검격 연계를 시작하며 폭염 참격으로 마무리한다. 빗나가면 돌진 후 즉시 종료된다.',cfg:{duration:1.65,hits:[],mult:[],arc:[TAU],reach:[0],step:[0],mode:'flameBreathFinale'}},
  {id:'galeOrbit',name:'풍환 폭발',level:10,price:340,cost:39,cool:8,color:'#61f0c7',desc:'0.5초 동안 넓은 풍환으로 주변 적의 이동을 봉쇄하고 부드럽게 중심으로 끌어당깁니다. 적은 스킬을 사용할 수 있으며, 이후 회전하는 원형 폭발로 타격합니다.',cfg:{duration:.78,hits:[.50],mult:[6.45],arc:[TAU],reach:[0],step:[0],mode:'galePulse'}},
- {id:'mirrorStep',name:'거울 걸음',level:8,price:0,cost:30,cool:5,color:'#b88cff',desc:'멀리 있는 적을 포착해 반대편까지 단숨에 파고든 뒤 뒤쪽에서 베는 장거리 추격 돌진기입니다.',cfg:{duration:.55,hits:[.32],mult:[2.25],arc:[1.1],reach:[36],step:[0],mode:'mirrorBackstab'}},
- {id:'lunarBind',name:'월인 결박',level:26,price:0,cost:46,cool:14.8,color:'#b88cff',desc:'표적의 좌우와 뒤로 세 번 순간이동하며 달빛 결계를 이동시켜 적을 구속하고, 마지막 위치에서 월륜 참격으로 마무리합니다.',cfg:{duration:.82,hits:[.50],mult:[2.05],arc:[TAU],reach:[84],step:[0],mode:'lunarPull'}},
+ {id:'mirrorStep',name:'흑월 · 무흔',level:8,price:0,cost:30,cool:4.6,color:'#111116',desc:'빠르게 사선으로 파고들어 첫 검격을 적중시키면 그 대상 뒤로 전이한 뒤 즉시 역베기합니다. 첫 타가 빗나가면 전이하지 않습니다.',cfg:{duration:.78,hits:[.18,.56],mult:[.72,1.30],arc:[2.05,2.70],reach:[185,230],step:[0,0],mode:'lunarMistStep'}},
+ {id:'lunarBind',name:'흑월 · 월식연참',level:26,price:0,cost:72,cool:14.5,color:'#111116',desc:'흑월 유파의 궁극기. 빠른 접근·측면 이동·다각 베기를 열 번 이어가며 먹빛 초승 흔적과 겹월 검흔이 단계마다 커지고 마지막 타격으로 적을 강하게 밀어냅니다.',cfg:{duration:1.82,hits:[.12,.27,.42,.57,.72,.88,1.04,1.20,1.38,1.60],mult:[.24,.27,.30,.33,.36,.40,.44,.50,.62,1.52],arc:[2.0,2.1,2.2,2.3,2.4,2.5,2.6,2.7,2.85,TAU],reach:[190,195,200,205,210,220,225,235,245,285],step:[0,0,0,0,0,0,0,0,0,0],mode:'lunarEclipseChain'}},
  {id:'quakeRush',name:'열하 단공',level:12,price:0,cost:39,cool:7.8,color:'#ff782e',desc:'발동과 동시에 주변 화염 원으로 공격하고 바로 도약해 적을 내려찍는다. 원형 타격 직후 끊김 없이 앞으로 이동하며 착지 지점에서 추가 화염 피해를 준다.',cfg:{duration:.86,hits:[.10,.65],mult:[.73,1.52],arc:[TAU,TAU],reach:[190,245],step:[0,0],mode:'flameBreathCleave'}},
  {id:'ironJudgment',name:'유염 회천',level:36,price:0,cost:52,cool:10,color:'#ff782e',desc:'몸을 비틀며 회전 화염으로 앞쪽으로 돌진하고 세 번 베어 주변 적을 밀어낸다.',cfg:{duration:.75,hits:[.18,.375,.58],mult:[.65,.82,1.55],arc:[3.85,4.75,5.55],reach:[64,93,120],step:[0,0,0],mode:'flameBreathWheel'}},
  {id:'solarReturn',name:'태양 회귀',level:14,price:0,cost:36,cool:9.4,color:'#ffd95c',desc:'조준 방향으로 빠르게 대시하며 전후방으로 검압을 발사합니다. 적중한 적을 시전자 쪽으로 끌어당깁니다.',cfg:{duration:.66,hits:[.24,.46],mult:[1.0,1.0],arc:[1.5,1.5],reach:[18,18],step:[0,0],dashDistance:360,dashDuration:.30,mode:'boomerangWave'}},
@@ -1652,10 +1653,10 @@ const SWORD_SKILL_LIBRARY=[
 const SWORD_SKILL_IDENTITY={
  windSlash:{trait:'3열 · 짧은 사거리 · 평행 장검풍',fx:'나란한 3개의 긴 청록 검풍'},
  flashRush:{trait:'점멸 돌진 · 이동거리 동일 넉백',fx:'청록 점멸선/풍압 폭발'},
- moonSpin:{trait:'반원 궤도 · 흡인 단타',fx:'보랏빛 만월 궤도'},
+ moonSpin:{trait:'사선 진입 · 2연 초승 근접검',fx:'짙은 먹빛 초승 2겹/비껴가는 잔흔'},
  starRush:{trait:'5초 이동형 소용돌이 · 반시계 회전과 지속 피해 · 종료 방출',fx:'청록 나선 풍압륜'},
- crossBloom:{trait:'좌우 위치전환 · 7연 집중',fx:'금빛 잔상 X자 검화'},
- crescent:{trait:'후퇴 사격형 · 쌍검압',fx:'하늘빛 역류 초승달'},
+ crossBloom:{trait:'제자리 나선 흡인 · 넓은 역베기',fx:'서로 반대 방향의 겹월 나선/수축 검흔'},
+ crescent:{trait:'다각 고속 보법 · 5연 근접검',fx:'서로 다른 각도의 검은 초승 잔흔/끊긴 먹선'},
  guardBreak:{trait:'단일 강타 · 긴 경직',fx:'주황 관통 균열'},
  tempest:{trait:'6연 광역 · 회전 폭풍',fx:'민트 소용돌이 층'},
  earthRend:{trait:'도약 착지 · 지면 폭발',fx:'황금 낙하 충격진'},
@@ -1663,8 +1664,8 @@ const SWORD_SKILL_IDENTITY={
  thunderDrive:{trait:'궁극기 · 장거리 돌진 적중 시 즉시 당김 + 30연타 추살',fx:'장거리 풍속 돌진/0.05초 간격 교차 추살/확정 피니시'},
  meteorBreaker:{trait:'누르는 동안 유지 · 이동형 흡인 검진',fx:'주홍 회전 검진/내부 별궤도'},
  galeOrbit:{trait:'0.5초 부드러운 흡입 · 적중 후 이동만 봉쇄',fx:'바깥 공기 흡입/중심 압축/원형 폭발'},
- mirrorStep:{trait:'반대편 순간이동 · 후방 단타',fx:'보랏빛 거울 잔상'},
- lunarBind:{trait:'광역 흡인 · 축소 원참',fx:'달빛 수축 고리'},
+ mirrorStep:{trait:'첫타 적중 확인 후 후방 전이 · 역베기',fx:'출발 먹빛 잔상/도착 초승 절흔'},
+ lunarBind:{trait:'궁극기 · 10연 접근/측면/다각 근접검',fx:'겹월·먹선·초승 잔흔이 단계별로 중첩'},
  quakeRush:{trait:'전진 · 연속 지면 폭발',fx:'주황 파열 흔적'},
  ironJudgment:{trait:'지연형 구속 · 3단 감옥 붕괴 · 방어 파괴',fx:'사방 파쇄 기둥/수축 균열/중앙 붕괴'},
  solarReturn:{trait:'전방 대시 · 양방향 검압',fx:'금빛 대시 잔상과 전후 광파'},
@@ -1678,7 +1679,7 @@ const SWORD_SKILL_IDENTITY={
 };
 const SWORD_STYLE_GROUPS=[
  {id:'gale',name:'질풍 유파',desc:'3열 단거리 검풍·점멸 압송·지연 원폭·전방 파문·적중 연계형 추살 궁극기 중심',skills:['windSlash','flashRush','galeOrbit','starRush','thunderDrive']},
- {id:'moon',name:'월영 유파',desc:'위치 교환·흡인·후퇴 검압·교차 난무 중심',skills:['moonSpin','mirrorStep','crossBloom','crescent','lunarBind']},
+ {id:'moon',name:'흑월 유파',desc:'적중 후 후방 전이·나선 흡인·다각 고속 보법·겹월 연속검을 사용하는 근접 검술 유파',skills:['moonSpin','mirrorStep','crossBloom','crescent','lunarBind']},
  {id:'break',name:'홍련 유파',desc:'홍염 횡참·승염 비상·열하 단공·유염 회천·극홍 염화일천으로 이어지는 다섯 화염 검형.',skills:['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker']},
  {id:'dawn',name:'여명 유파',desc:'원거리 검압·회전·다중 발사·낙하 중심',skills:['dawnArc','tempest','skyFall','solarReturn','prismLance']},
  {id:'void',name:'이형 유파',desc:'중력 편향 이동·특이점 돌진·지속 압착·공간 접기·공허 난무 중심',skills:['chainReap','phantomSwap','gravityCut','bladeRain','voidDance']}
@@ -1686,7 +1687,7 @@ const SWORD_STYLE_GROUPS=[
 const SWORD_DAMAGE_BALANCE=Object.freeze({
  // 1번: 짧은 쿨/기본기, 2번: 이동·연계, 3번: 핵심기, 4번: 상급기, 5번: 궁극기
  windSlash:.85,flashRush:.90,galeOrbit:.52,starRush:1.05,thunderDrive:.90,
- moonSpin:1.05,mirrorStep:.95,crossBloom:.95,crescent:1.25,lunarBind:.95,
+ moonSpin:1.00,mirrorStep:1.00,crossBloom:1.00,crescent:1.00,lunarBind:1.00,
  guardBreak:.75,earthRend:.90,quakeRush:1.05,ironJudgment:1.05,meteorBreaker:.82,
  dawnArc:1.45,tempest:.75,skyFall:.95,solarReturn:1.15,prismLance:.58,
  chainReap:1.00,phantomSwap:.65,gravityCut:.75,bladeRain:1.15,voidDance:.32
@@ -1695,7 +1696,7 @@ window.EchoesSwordBalance=SWORD_DAMAGE_BALANCE;
 
 const SWORD_STYLE_FX={
  gale:{main:'#61f0c7',sub:'#eafff8',accent:'#2ec9ff',dark:'#168f86'},
- moon:{main:'#b88cff',sub:'#f4efff',accent:'#7fa7ff',dark:'#7153ba'},
+ moon:{main:'#111116',sub:'#2a2634',accent:'#3a3148',dark:'#050505'},
  break:{main:'#ff344d',sub:'#ffd0c8',accent:'#ff7a3d',dark:'#8b1027'},
  dawn:{main:'#ffd95c',sub:'#fffbe8',accent:'#fff29a',dark:'#c59c2b'},
  void:{main:'#a76cff',sub:'#f1e6ff',accent:'#ff63d8',dark:'#5e35a5'}
@@ -1743,9 +1744,32 @@ function showSwordStyleChoice(){
  const cards=SWORD_STYLE_GROUPS.map((g,i)=>'<div class="card"><div class="icon">'+['≋','☾','◆','✦','◈'][i]+'</div><h3>'+g.name+'</h3><p>'+g.desc+'</p>'+g.skills.map((id,n)=>'<div class="stat-row"><span>'+['Q','R','T','G','V'][n]+' · Lv.'+SKILL_UNLOCK_LEVELS[n]+'</span><b>'+swordSkillById(id).name+'</b></div>').join('')+'<button class="primary" data-action="chooseSwordStyle" data-value="'+g.id+'">'+g.name+' 선택</button></div>').join('');
  openPanel('swordStyle',header('SWORD MASTER · LEVEL 5','세린에게 전수받을 유파를 선택하세요',false)+'<p class="lede">첫 여정을 통해 기본기를 익힌 모험가만 유파를 선택할 수 있습니다. <b>한 번 선택하면 일반 플레이에서는 다른 유파로 바꿀 수 없습니다.</b><br>선택 즉시 해당 유파의 첫 검술을 전수받고, 이후 검술도 세린에게 배웁니다.</p><div class="grid two">'+cards+'</div>'+footer('검술 사범 세린과 대화 중 · 선택 후 변경할 수 없습니다.',''),true);
 }
-function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color,actor=player,context=null){
+const BLACK_MOON_SKILL_IDS=new Set(['moonSpin','mirrorStep','crossBloom','crescent','lunarBind']);
+const BLACK_MOON_MODES=new Set(['blackMoonCrescent','lunarMistStep','lunarSpiralBind','lunarWildAngles','lunarEclipseChain']);
+function blackMoonSignatureFx(actor,id,k,finalHit,a,reach){
+ const x=actor.x,y=actor.y,main='#111116',sub='#2a2634',accent='#3a3148',heavy=finalHit||id==='lunarBind'&&k>=8;
+ if(id==='moonSpin'){
+  for(let j=0;j<3;j++)effects.push({type:'slash',x,y,a:a+(k?-.38:.42)+(j-1)*.12,arc:1.75+j*.24,r:118+j*30,color:j===1?sub:main,t:.24+j*.025,max:.38});
+  effects.push({type:'riftCut',x:x+Math.cos(a)*100,y:y+Math.sin(a)*100,a:a+(k?-.55:.55),len:260+k*45,width:34+k*8,color:accent,t:.30,max:.30});
+ }else if(id==='mirrorStep'){
+  effects.push({type:'line',x:x-Math.cos(a)*95,y:y-Math.sin(a)*95,x2:x+Math.cos(a)*125,y2:y+Math.sin(a)*125,color:sub,t:.22,max:.22});
+  for(let j=0;j<4;j++)effects.push({type:'slash',x:x+Math.cos(a)*j*10,y:y+Math.sin(a)*j*10,a:a+(k?-.50:.55)+(j-1.5)*.12,arc:1.35+j*.22,r:105+j*29,color:j%2?accent:main,t:.23+j*.02,max:.36});
+  if(k===1)effects.push({type:'starSeal',x,y,r:135,color:main,t:.38,max:.38});
+ }else if(id==='crossBloom'){
+  const count=k===2?8:6;for(let j=0;j<count;j++){const aa=a+(j-count/2)*.28+(k%2?.35:-.35);effects.push({type:'slash',x,y,a:aa,arc:1.15+(j%3)*.20,r:105+j*17,color:j%2?sub:main,t:.22+j*.012,max:.38});}
+  ring(x,y,120+k*42,k===2?accent:main,.34);ring(x,y,82+k*32,sub,.30);
+ }else if(id==='crescent'){
+  for(let j=0;j<4;j++){const aa=a+(k%2?1:-1)*(.32+j*.16);effects.push({type:'riftCut',x:x+Math.cos(aa)*35,y:y+Math.sin(aa)*35,a:aa,len:195+j*28+(finalHit?65:0),width:24+j*5,color:j%2?accent:main,t:.22+j*.018,max:.34});}
+  effects.push({type:'slash',x,y,a:a+(k%2?.62:-.62),arc:2.0,r:150+k*8,color:sub,t:.28,max:.28});
+ }else if(id==='lunarBind'){
+  const phase=k/9,count=6+Math.min(8,k);for(let j=0;j<count;j++){const aa=a+j*TAU/count+(k%2?.24:-.24);effects.push({type:'slash',x,y,a:aa,arc:.75+(j%3)*.18,r:92+j*(8+phase*4),color:j%3===0?accent:j%2?sub:main,t:.20+j*.008,max:.34});}
+  ring(x,y,105+k*12,k%2?sub:main,.30);if(k>=5)ring(x,y,155+(k-5)*18,accent,.32);
+  if(heavy){effects.push({type:'nova',x,y,r:k===9?285:205,color:main,t:.48,max:.48});effects.push({type:'starSeal',x,y,r:k===9?250:185,color:sub,t:.46,max:.46});}
+ }
+}function swordSignatureFx(id,hitIndex,finalHit,ang,reach,color,actor=player,context=null){
  if(FLAME_BREATH_MODES.has(swordSkillById(id)?.cfg?.mode)){flameBreathSignature(id,hitIndex,finalHit,ang,reach,actor,context);return;}
  const theme=swordStyleFxForSkill(id);color=theme.main;const sub=theme.sub,accent=theme.accent,dark=theme.dark;
+ if(BLACK_MOON_SKILL_IDS.has(id)){blackMoonSignatureFx(actor,id,hitIndex,finalHit,ang,reach);return;}
  const x=actor.x+Math.cos(ang)*Math.min(Math.max(reach*.45,28),85),y=actor.y+Math.sin(ang)*Math.min(Math.max(reach*.45,28),85);
  if(CRIMSON_SKILLS.has(id)){
   const slot=['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'].indexOf(id),ax=Number.isFinite(context?.anchorX)?context.anchorX:actor.x+Math.cos(ang)*145,ay=Number.isFinite(context?.anchorY)?context.anchorY:actor.y+Math.sin(ang)*145;
@@ -2305,21 +2329,8 @@ function updateUltimateCinematic(seq,sk,dt){
   player.skillLift=2+Math.sin(realTime*20)*2;if(seq.ultFx<=0){seq.ultFx=.055;const target=seq.galePursuitTargetId?swordSeqTarget(seq):null;if(target){const a=realTime*9,r=72+Math.sin(realTime*13)*12;effects.push({type:'riftCut',x:target.x+Math.cos(a)*r,y:target.y+Math.sin(a)*r,a:a+Math.PI/2,len:105,width:16,color:th.accent,t:.14,max:.14});ring(target.x,target.y,92,th.main,.13);}else{effects.push({type:'line',x:player.x-Math.cos(seq.facing)*90,y:player.y-Math.sin(seq.facing)*90,x2:player.x,y2:player.y,color:th.main,t:.14,max:.14});}}
   if(seq.galePursuitHit&&seq.ultPhase===0){seq.ultPhase=1;ring(player.x,player.y,145,th.sub,.28);shake=Math.max(shake,7);}
  }else if(sk.id==='lunarBind'){
-  const t=swordSeqTarget(seq);
-  if(t&&seq.ultMovePhase===0&&p>=.12){
-   seq.ultMovePhase=1;const ta=Math.atan2(player.y-t.y,player.x-t.x)+Math.PI/2,tx=t.x+Math.cos(ta)*120,ty=t.y+Math.sin(ta)*120;
-   effects.push({type:'line',x:player.x,y:player.y,x2:tx,y2:ty,color:th.sub,t:.22,max:.22});moveBody(player,clamp(tx-player.x,-420,420),clamp(ty-player.y,-420,420));player.facing=Math.atan2(t.y-player.y,t.x-player.x);
-  }
-  if(t&&seq.ultMovePhase===1&&p>=.46){
-   seq.ultMovePhase=2;const ta=Math.atan2(player.y-t.y,player.x-t.x)-Math.PI/2,tx=t.x+Math.cos(ta)*95,ty=t.y+Math.sin(ta)*95;
-   effects.push({type:'riftCut',x:(player.x+tx)/2,y:(player.y+ty)/2,a:Math.atan2(ty-player.y,tx-player.x),len:250,width:24,color:th.main,t:.24,max:.24});moveBody(player,clamp(tx-player.x,-420,420),clamp(ty-player.y,-420,420));player.facing=Math.atan2(t.y-player.y,t.x-player.x);
-  }
-  if(t&&seq.ultMovePhase===2&&p>=.76){
-   seq.ultMovePhase=3;const ta=Math.atan2(player.y-t.y,player.x-t.x),tx=t.x+Math.cos(ta)*70,ty=t.y+Math.sin(ta)*70;moveBody(player,clamp(tx-player.x,-360,360),clamp(ty-player.y,-360,360));player.facing=Math.atan2(t.y-player.y,t.x-player.x);
-  }
-  if(seq.ultFx<=0){seq.ultFx=.075;const r=100+p*220;ring(player.x,player.y,r,th.main,.20);effects.push({type:'starSeal',x:player.x,y:player.y,r:r*.82,color:p>.66?th.sub:th.main,t:.20,max:.20});}
-  if(seq.ultPhase===0&&p>=.26){seq.ultPhase=1;effects.push({type:'nova',x:player.x,y:player.y,r:210,color:th.main,t:.48,max:.48});shake=Math.max(shake,8);}
-  if(seq.ultPhase===1&&p>=.70){seq.ultPhase=2;for(let j=0;j<8;j++){const a=j*TAU/8;effects.push({type:'slash',x:player.x,y:player.y,a,arc:1.15,r:190,color:j%2?th.sub:th.main,t:.28,max:.28});}shake=Math.max(shake,12);}
+  if(seq.ultFx<=0){seq.ultFx=.065;const k=Math.min(9,Math.floor(p*10)),r=90+k*14;ring(player.x,player.y,r,k%2?th.sub:th.main,.20);if(k>=4)effects.push({type:'slash',x:player.x,y:player.y,a:realTime*5+k*.4,arc:1.25,r:r+45,color:th.accent,t:.18,max:.18});}
+  if(options.shake)shake=Math.max(shake,4+p*9);
  }else if(sk.id==='meteorBreaker'){
   const target=swordSeqTarget(seq),cx=target?.x??seq.anchorX??player.x+Math.cos(seq.facing)*190,cy=target?.y??seq.anchorY??player.y+Math.sin(seq.facing)*190;const u=p;
   if(u<.30){shake=Math.max(shake,6);if(seq.ultFx<=0){seq.ultFx=.060;crimsonEmbers(player.x,player.y,seq.facing+Math.PI,9,280,.70,1.0);crimsonOutside(player.x,player.y,130,265,5,false);}}
@@ -2341,7 +2352,9 @@ function ultimateFinishFx(seq,sk){
  if(sk.id==='thunderDrive'){
   const target=seq.galePursuitTargetId?combatTargets().find(e=>e.id===seq.galePursuitTargetId):null,cx=target?.x??player.x,cy=target?.y??player.y;for(let j=0;j<10;j++){const a=j*TAU/10;effects.push({type:'riftCut',x:cx+Math.cos(a)*105,y:cy+Math.sin(a)*105,a:a+Math.PI/2,len:245,width:42,color:j%2?th.sub:th.main,t:.62,max:.62});}effects.push({type:'nova',x:cx,y:cy,r:305,color:th.accent,t:.78,max:.78});effects.push({type:'starSeal',x:cx,y:cy,r:255,color:th.sub,t:.72,max:.72});
  }else if(sk.id==='lunarBind'){
-  effects.push({type:'starSeal',x:player.x,y:player.y,r:320,color:th.sub,t:.72,max:.72});for(let j=0;j<12;j++){const a=j*TAU/12;effects.push({type:'slash',x:player.x,y:player.y,a,arc:.9,r:280,color:j%2?th.main:th.sub,t:.42,max:.42});}
+  effects.push({type:'starSeal',x:player.x,y:player.y,r:310,color:th.dark,t:.72,max:.72});
+  effects.push({type:'nova',x:player.x,y:player.y,r:335,color:th.main,t:.62,max:.62});
+  for(let j=0;j<16;j++){const aa=j*TAU/16+(j%2?.16:-.16);effects.push({type:'slash',x:player.x,y:player.y,a:aa,arc:.72+(j%4)*.16,r:150+j*9,color:j%3===0?th.accent:j%2?th.sub:th.main,t:.34+j*.008,max:.50});}
  }else if(sk.id==='meteorBreaker'){
   const target=swordSeqTarget(seq),cx=target?.x??seq.anchorX??player.x+Math.cos(seq.facing)*190,cy=target?.y??seq.anchorY??player.y+Math.sin(seq.facing)*190,a=seq.facing;crimsonImpact(cx,cy,a,3.75);crimsonOutside(cx,cy,245,590,56,false);
   for(let j=0;j<12;j++){const aa=a+j*TAU/12;crimsonEmbers(cx,cy,aa,20,720,1.12,1.55);if(j%2===0)effects.push({type:'riftCut',x:cx+Math.cos(aa)*78,y:cy+Math.sin(aa)*78,a:aa+.55,len:245+j*9,width:24+j%3*6,color:j%4===0?'#ffe0b0':'#ff4a32',t:.44,max:.44});}shake=Math.max(shake,26);
@@ -2410,12 +2423,13 @@ function startSwordSkill(slot){
  if(activeSwordSkill||player.exhaust>0||player.cast>0||player.attackCd>0||player.parry>0||player.dodge>0||player.skillCds[slot]>0)return false;
  if(!useStam(sk.cost))return false;aim();
  player.skillCds[slot]=sk.cool*(player.rune==='dawn'?.8:1)*skillCooldownScale();player.skillCd=player.skillCds[0];player.skillPose=slot;player.cast=cfg.duration;player.attackDuration=cfg.duration;player.attackAnim=cfg.duration;player.attackAngle=player.facing;player.attackArc=cfg.arc[0];player.heavy=true;player.attackCd=cfg.duration;player.combo=0;player.comboTimer=0;const crimsonFree=false;if(!crimsonFree)queuePostSkillMoveLock(cfg.duration);
- const dashCatch=SWORD_DASH_SKILLS.has(sk.id),voidRange=sk.id==='chainReap'?360:sk.id==='phantomSwap'?620:sk.id==='bladeRain'?540:0,crimsonRange=sk.id==='guardBreak'?330:sk.id==='earthRend'?440:sk.id==='quakeRush'?330:sk.id==='ironJudgment'?480:sk.id==='meteorBreaker'?1150:0,targetRange=voidRange||crimsonRange||(slot===4?820:(GALE_SKILLS.has(sk.id)?560:(dashCatch?720:300)));
+ const dashCatch=SWORD_DASH_SKILLS.has(sk.id),voidRange=sk.id==='chainReap'?360:sk.id==='phantomSwap'?620:sk.id==='bladeRain'?540:0,crimsonRange=sk.id==='guardBreak'?330:sk.id==='earthRend'?440:sk.id==='quakeRush'?330:sk.id==='ironJudgment'?480:sk.id==='meteorBreaker'?1150:0,moonRange=BLACK_MOON_SKILL_IDS.has(sk.id)?[620,840,700,780,900][slot]:0,targetRange=moonRange||voidRange||crimsonRange||(slot===4?820:(GALE_SKILLS.has(sk.id)?560:(dashCatch?720:300)));
  const motionTarget=(lockedTarget&&combatTargets().includes(lockedTarget)&&!lockedTarget.dead&&distance(lockedTarget,player)<=targetRange?lockedTarget:combatTargets().filter(e=>!e.dead&&!e.riftSleeping&&!(e.type==='finalBoss'&&!e.alert)&&distance(e,player)<targetRange).sort((a,b)=>distance(a,player)-distance(b,player))[0])||null;
  if((dashCatch||CRIMSON_SKILLS.has(sk.id))&&motionTarget)player.facing=Math.atan2(motionTarget.y-player.y,motionTarget.x-player.x);
  {const anchorMode=['fracturePrison','furnaceBloom','flameBreathFinale'].includes(cfg.mode),anchorDist=cfg.mode==='flameBreathFinale'?360:cfg.mode==='furnaceBloom'?210:170;
  activeSwordSkill={slot,skillId:sk.id,elapsed:0,nextHit:0,facing:player.facing,duration:cfg.duration,originX:player.x,originY:player.y,targetId:motionTarget?.id||null,side:crimsonStrafeSide(player.facing,Math.random()<.5?-1:1),fx:0,carryIds:new Set(),dashCatch,ultimate:slot===4,ultPhase:0,ultFx:0,ultMovePhase:0,anchorX:anchorMode?(motionTarget?.x??player.x+Math.cos(player.facing)*anchorDist):null,anchorY:anchorMode?(motionTarget?.y??player.y+Math.sin(player.facing)*anchorDist):null,lastEchoX:player.x,lastEchoY:player.y};}
  sendSharedSkillFx(slot,cfg.mode==='galePulse'?'galeCharge':sk.id,player.weapon,player.facing);
+ if(BLACK_MOON_SKILL_IDS.has(sk.id))multiSkillCaptureUntil=Math.max(multiSkillCaptureUntil,realTime+cfg.duration+.45);
  swordSkillStartVisuals(player,sk,slot,player.facing);if(slot===4)shake=Math.max(shake,9);
  if(slot===4&&sk.id==='prismLance')performSwordSkillHit(activeSwordSkill,activeSwordSkill.nextHit++);
  if(cfg.mode==='galePulse'){player.skillPose=-1;player.attackAnim=0;player.heavy=false;}else sound('swing');updateSkillTray();return true;
@@ -2598,9 +2612,8 @@ function performSwordSkillHit(seq,hitIndex){
  const px0=player.x,py0=player.y,step=cfg.step[hitIndex]||0;if(step)moveBody(player,Math.cos(ang)*step,Math.sin(ang)*step);
  if(FLAME_BREATH_MODES.has(mode))flameBreathHit(seq,sk,hitIndex,damage,finalHit);
  else if(seq.ultimate&&sk.id==='lunarBind'){
-  const r=[190,245,315][Math.min(hitIndex,2)]||315;
-  for(const e of combatTargets()){if(e.dead||e.riftSleeping||combatDistance(e,player)>r+combatRadius(e))continue;hitEnemyConfirmed(e,damage,hitIndex===2,player,()=>{if(e.kind!=='boss'){const pull=Math.max(18,58-hitIndex*12),aa=Math.atan2(player.y-e.y,player.x-e.x);moveBody(e,Math.cos(aa)*pull,Math.sin(aa)*pull);}applyEnemyStun(e,e.kind==='boss'?.18:.45+hitIndex*.2);});}
-  for(let j=0;j<5+hitIndex*3;j++){const aa=j*TAU/(5+hitIndex*3)+hitIndex*.3;effects.push({type:'slash',x:player.x,y:player.y,a:aa,arc:1.25,r:r*.72,color:j%2?swordStyleFxForSkill(sk.id).sub:sk.color,t:.26,max:.26});}
+  const off=[-.36,.30,.62,-.66,.48,-.42,.72,-.58,.24,0][hitIndex]||0,rr=reach+(hitIndex===9?70:20);
+  blackMoonArcHit(seq,rr,cfg.arc[hitIndex]||2.4,damage,finalHit,off,(_e,aa)=>hitIndex===9?{stun:.72,dx:Math.cos(aa)*138,dy:Math.sin(aa)*138,duration:.34,skillId:sk.id}:{stun:.16,dx:0,dy:0,skillId:sk.id});
  }else if(seq.ultimate&&sk.id==='prismLance'){
   if(hitIndex===0){for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.12,720,damageValue(1.2825,'dawnArc'),'player','wave',3);}
   else if(hitIndex===1){for(let j=-4;j<=4;j++)fireProjectile(player.x,player.y,ang+j*.10,780,damageValue(1.2825,'dawnArc'),'player','wave',3);}
@@ -2608,6 +2621,16 @@ function performSwordSkillHit(seq,hitIndex){
    for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const c=combatCenter(e);if(segmentDistance(c.x,c.y,[x1,y1],[x2,y2])<=f.width+combatRadius(e)){hitEnemyConfirmed(e,damageValue(f.mult),true,player,()=>applyEnemyStun(e,f.stun));}}
    for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.065,920,damageValue(1.2825,'dawnArc'),'player','wave',6);
   }
+ }else if(mode==='blackMoonCrescent'){
+  const off=hitIndex===0?.42:-.38;blackMoonArcHit(seq,reach,cfg.arc[hitIndex],damage,finalHit,off,(_e,aa)=>finalHit?{stun:.34,dx:Math.cos(aa)*72,dy:Math.sin(aa)*72,duration:.22,skillId:sk.id}:{stun:.16,dx:0,dy:0,skillId:sk.id});
+ }else if(mode==='lunarMistStep'){
+  const off=hitIndex===0?.52:-.46;blackMoonArcHit(seq,reach,cfg.arc[hitIndex],damage,finalHit,off,(_e,aa)=>finalHit?{stun:.42,dx:Math.cos(aa)*42,dy:Math.sin(aa)*42,duration:.18,skillId:sk.id}:{stun:.18,dx:0,dy:0,skillId:sk.id},hitIndex===0?e=>blackMoonTeleportBehind(seq,e):null);
+ }else if(mode==='lunarSpiralBind'){
+  const r=hitIndex===0?300:hitIndex===1?325:reach;
+  if(hitIndex<2){for(const e of combatTargets()){if(e.dead||e.riftSleeping||combatDistance(e,player)>r+combatRadius(e))continue;const cc=combatCenter(e),dx=player.x-cc.x,dy=player.y-cc.y,d=Math.hypot(dx,dy)||1,pull=hitIndex===0?105:135;hitEnemy(e,damage,false,player,{stun:.22,dx:dx/d*pull,dy:dy/d*pull,duration:.22,skillId:sk.id});}}
+  else blackMoonArcHit(seq,reach,cfg.arc[hitIndex],damage,true,-.18,(_e,aa)=>({stun:.52,dx:Math.cos(aa)*58,dy:Math.sin(aa)*58,duration:.20,skillId:sk.id}));
+ }else if(mode==='lunarWildAngles'){
+  const off=[-.78,.56,-.48,.74,-.16][hitIndex]||0;blackMoonArcHit(seq,reach,cfg.arc[hitIndex],damage,finalHit,off,(_e,aa)=>finalHit?{stun:.55,dx:Math.cos(aa)*92,dy:Math.sin(aa)*92,duration:.24,skillId:sk.id}:{stun:.13,dx:0,dy:0,skillId:sk.id});
  }else if(mode==='windShot'){const nx=-Math.sin(ang),ny=Math.cos(ang);for(const off of [-58,0,58])fireProjectile(player.x+Math.cos(ang)*38+nx*off,player.y+Math.sin(ang)*38+ny*off,ang,470,damageValue(.72),'player','wave',3,.72,105);}
  else if(mode==='galeBlink'){const push=Math.max(0,seq.galeBlinkDistance||0),pa=seq.facing,dur=window.EchoesCombat.forceDuration(push);for(const id of seq.galeBlinkTargets||[]){const e=combatTargets().find(v=>v.id===id);if(e&&!e.dead&&!e.riftSleeping)hitEnemy(e,damage,true,player,{stun:.55,dx:Math.cos(pa)*push,dy:Math.sin(pa)*push,duration:dur});}}
  else if(mode==='galePulse'){player.skillPose=seq.slot;player.attackDuration=.18;player.attackAnim=.18;const r=GALE_PULSE_RADIUS;for(const e of combatTargets()){if(e.dead||e.riftSleeping||combatDistance(e,player)>r+combatRadius(e))continue;if(!e.networkPlayer)e.galeRoot=Math.max(e.galeRoot||0,.9);hitEnemy(e,damage,false,player,{stun:0,root:.9,dx:0,dy:0});}}
@@ -2864,10 +2887,59 @@ function flameBreathMotion(seq,sk,dt,t,target){
  if(Math.hypot(player.x-ox,player.y-oy)>7)syncSkillMoveIfNeeded(ox,oy,18,1450);
 }
 
+function blackMoonArcHit(seq,reach,arc,damage,heavy=false,offset=0,controlFactory=null,onHit=null){
+ const aa=seq.facing+offset;let hits=0;
+ for(const e of combatTargets()){
+  if(e.dead||e.riftSleeping||(e.type==='finalBoss'&&!e.alert))continue;
+  const d=combatDistance(e,player),er=combatRadius(e),ea=combatAngleFrom(player,e);
+  if(d>=reach+er||Math.abs(angleDiff(ea,aa))>=arc/2+er/Math.max(35,d))continue;
+  const ctl=typeof controlFactory==='function'?controlFactory(e,aa):null;
+  const cb=()=>{if(activeSwordSkill!==seq)return;onHit?.(e);};
+  const out=hitEnemy(e,damage,heavy,player,onHit?{...(ctl||{}),onHit:cb}:ctl);
+  if(out===true){hits++;onHit?.(e);}else if(out===null)hits++;
+ }
+ return hits;
+}
+function blackMoonTeleportBehind(seq,e){
+ if(!e||activeSwordSkill!==seq||seq.blackMoonTeleported)return false;
+ const c=combatCenter(e),a=Math.atan2(c.y-player.y,c.x-player.x),ox=player.x,oy=player.y,dist=78;
+ const tx=c.x+Math.cos(a)*dist,ty=c.y+Math.sin(a)*dist;
+ effects.push({type:'line',x:ox,y:oy,x2:tx,y2:ty,color:'#2a2634',t:.24,max:.24});
+ moveBody(player,clamp(tx-player.x,-900,900),clamp(ty-player.y,-900,900));
+ player.facing=player.attackAngle=seq.facing=Math.atan2(c.y-player.y,c.x-player.x);player.invuln=Math.max(player.invuln,.09);
+ seq.blackMoonTeleported=true;syncInstantPlayerMove(1050);sendSharedSkillFxFrame(seq.slot,seq.skillId,player.weapon,player.facing,.02);
+ ring(ox,oy,72,'#111116',.26);ring(player.x,player.y,92,'#2a2634',.30);return true;
+}
+function blackMoonMotion(seq,sk,dt,t,target){
+ const mode=sk.cfg.mode,tc=target?combatCenter(target):null,side=seq.side||1,base=seq.blackMoonFace??seq.facing;seq.blackMoonFace=base;
+ const face=tc?Math.atan2(tc.y-player.y,tc.x-player.x):base,ca=Math.cos(face),sa=Math.sin(face),nx=-sa,ny=ca;
+ const moveTo=(tx,ty,speed,stop=0)=>{const dx=tx-player.x,dy=ty-player.y,d=Math.hypot(dx,dy)||1;if(d<=stop)return;const st=Math.min(speed*dt,d-stop);moveBody(player,dx/d*st,dy/d*st);};
+ if(mode==='blackMoonCrescent'){
+  const p=Math.min(1,t/.72),lat=Math.sin(p*Math.PI)*310*side;
+  moveBody(player,(ca*(t<.42?900:420)+nx*lat)*dt,(sa*(t<.42?900:420)+ny*lat)*dt);player.skillLift=Math.sin(t*Math.PI)*5;
+ }else if(mode==='lunarMistStep'){
+  if(!seq.blackMoonTeleported&&t<.30)moveBody(player,(ca*1180+nx*side*470)*dt,(sa*1180+ny*side*470)*dt);
+  else if(!seq.blackMoonTeleported&&t<.42)moveBody(player,nx*side*360*dt,ny*side*360*dt);
+  player.invuln=Math.max(player.invuln,.035);player.skillLift=Math.sin(t*Math.PI)*5;
+ }else if(mode==='lunarSpiralBind'){
+  if(tc)moveTo(tc.x,tc.y,430,165);player.skillLift=2+Math.sin(t*Math.PI*3)*4;
+ }else if(mode==='lunarWildAngles'){
+  const p=Math.min(4,Math.floor(t*5)),u=t*5-p,sg=[1,-1,1,-1,0][p]*side,fwd=[620,360,720,390,620][p],lat=[760,900,820,940,0][p]*sg*Math.sin(Math.min(1,u)*Math.PI);
+  moveBody(player,(ca*fwd+nx*lat)*dt,(sa*fwd+ny*lat)*dt);player.invuln=Math.max(player.invuln,.032);player.skillLift=2+Math.sin(Math.min(1,u)*Math.PI)*6;
+ }else if(mode==='lunarEclipseChain'){
+  const p=Math.min(9,Math.floor(t*10)),u=t*10-p;
+  if(tc){const offs=[.62,-.68,1.18,-1.22,.42,-.48,1.52,-1.56,.24,0],rad=[118,112,104,102,96,94,88,86,78,70],oa=Math.atan2(player.y-tc.y,player.x-tc.x)+offs[p]*(side||1),tx=tc.x+Math.cos(oa)*rad[p],ty=tc.y+Math.sin(oa)*rad[p];moveTo(tx,ty,1180+p*45,18);}
+  else moveBody(player,ca*(720+p*25)*dt,sa*(720+p*25)*dt);
+  player.invuln=Math.max(player.invuln,.038);player.skillLift=2+Math.sin(Math.min(1,u)*Math.PI)*7;
+ }
+ seq.facing=player.facing=player.attackAngle=tc?Math.atan2(tc.y-player.y,tc.x-player.x):face;
+ if(multiplayerMode&&window.EchoesMulti?.connected)sendSharedSkillFxFrame(seq.slot,seq.skillId,player.weapon,player.facing,.10);
+}
 function updateSwordSkillMotion(seq,sk,dt){
  const cfg=sk.cfg,mode=cfg.mode,t=clamp(seq.elapsed/seq.duration,0,1),a=seq.facing,ca=Math.cos(a),sa=Math.sin(a),side=seq.side||1,target=swordSeqTarget(seq),px0=player.x,py0=player.y;
  player.skillLift=0;
- if(FLAME_BREATH_MODES.has(mode))flameBreathMotion(seq,sk,dt,t,target);
+ if(BLACK_MOON_MODES.has(mode))blackMoonMotion(seq,sk,dt,t,target);
+ else if(FLAME_BREATH_MODES.has(mode))flameBreathMotion(seq,sk,dt,t,target);
  else if(CRIMSON_SKILLS.has(sk.id)){
   const tc=target?combatCenter(target):null,baseFace=seq.crimsonFace??seq.facing;seq.crimsonFace=baseFace;let face=tc?Math.atan2(tc.y-player.y,tc.x-player.x):baseFace;
   if(mode==='flameMantle'){
