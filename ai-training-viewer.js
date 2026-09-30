@@ -13,9 +13,9 @@ function create(){
   const css=document.createElement('style');
   css.textContent='#aiSpectator{margin-top:16px;padding:12px;border:1px solid #476658;border-radius:9px;background:#0a1921}#aiSpectator .aiSplitHead{margin:10px 0 7px;color:#e9d9ab;font:700 13px/1.4 system-ui}#aiSpectator .aiSplitGrid{display:grid;grid-template-columns:repeat(var(--ai-cols,1),minmax(0,1fr));gap:8px;align-items:start;width:100%}#aiSpectator .aiBattlePane{min-width:0;padding:5px;background:#0d1d24;border:1px solid #3d5a52;border-radius:7px;overflow:hidden}#aiSpectator .aiBattlePane canvas{display:block;width:100%;height:auto;background:#101f25;border:1px solid #4b6c61;border-radius:5px}#aiSpectator .aiBattlePane p{margin:4px 0 0;color:#b6c9c0;font:10px/1.35 system-ui;white-space:normal;overflow-wrap:anywhere}#aiSpectator .aiBattlePane .aiBattleTitle{margin:0 0 5px;color:#f0dfb6;font-weight:700}#aiSpectator .aiSpectatorHint{margin:9px 0 0;color:#8fa99f;font:11px/1.5 system-ui}';
   document.head.appendChild(css);
-  const h1=document.createElement('p');h1.className='aiSplitHead';h1.textContent='자율 학습 전투 · 실제 동시 대전 관전';
+  const h1=document.createElement('p');h1.className='aiSplitHead';h1.textContent='훈련 전투(학습에 반영) · 실제 동시 대전 관전';
   trainGrid=document.createElement('div');trainGrid.className='aiSplitGrid';
-  const h2=document.createElement('p');h2.className='aiSplitHead';h2.textContent='성능 검증 전투 · 반복 분할 관전';
+  const h2=document.createElement('p');h2.className='aiSplitHead';h2.textContent='성능 검증 전투(학습에 미반영) · 동시 관전';
   evalGrid=document.createElement('div');evalGrid.className='aiSplitGrid';
   const hint=document.createElement('p');hint.className='aiSpectatorHint';hint.textContent='훈련 엔진에서 실제로 동시에 진행되는 대전을 최대 4개까지 각각 보여줍니다. 관전 시작 즉시 예정된 칸을 모두 표시하며, 각 칸의 전투가 같은 시간 흐름으로 함께 진행됩니다. 한 대전이 끝난 칸은 다음 대전이 오면 즉시 초기 상태로 바뀌어 재전투를 보여줍니다. 관전은 읽기 전용이라 학습 판정과 속도에는 영향을 주지 않습니다.';
   root.appendChild(h1);root.appendChild(trainGrid);root.appendChild(h2);root.appendChild(evalGrid);root.appendChild(hint);
@@ -40,7 +40,11 @@ function create(){
   const count=Math.max(1,Math.min(6,Number(frame?.laneCount)||1));
   const grid=phase==='evaluation'?evalGrid:trainGrid;
   setGridColumns(grid,count);
-  for(let lane=0;lane<count;lane++)ensurePane({...frame,phase,lane,_placeholder:true});
+  for(const pane of panes.values())if(pane.phase===phase)pane.box.hidden=pane.lane>=count;
+  for(let lane=0;lane<count;lane++){
+   const pane=ensurePane({...frame,phase,lane,_placeholder:true});
+   pane.box.hidden=false;
+  }
  }
  function ensurePane(frame){
   const phase=frame?.phase==='evaluation'?'evaluation':'train';
