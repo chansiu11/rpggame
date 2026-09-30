@@ -148,7 +148,17 @@ test('retraining cadence changes live without changing battle simulation speed',
  }finally{h.svc.close();}
 });
 
-test('continuous training accepts batches above 25 and keeps the configured burst',()=>{\n const h=harness();try{\n  h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainConfig',retrainDelayMs:0,matchesPerBurst:100});h.svc.handle(h.p,{type:'ai:trainStart'});\n  const policy=seedPolicy();policy.matches=30;\n  h.jobs[0].emit('message',{checkpoint:{schema:1,batch:100,completed:30,policy,baseline:seedPolicy()}});\n  const status=h.sent.filter(m=>m.type==='ai:trainStatus').at(-1);\n  assert.equal(status.batchSize,100);assert.equal(status.batchCompleted,30);assert.equal(status.settings.matchesPerBurst,100);\n }finally{h.svc.close();}\n});\n\ntest('training status includes the last duel and the next least-experienced pairing',()=>{
+test('continuous training accepts batches above 25 and keeps the configured burst',()=>{
+ const h=harness();try{
+  h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainConfig',retrainDelayMs:0,matchesPerBurst:100});h.svc.handle(h.p,{type:'ai:trainStart'});
+  const policy=seedPolicy();policy.matches=30;
+  h.jobs[0].emit('message',{checkpoint:{schema:1,batch:100,completed:30,policy,baseline:seedPolicy()}});
+  const status=h.sent.filter(m=>m.type==='ai:trainStatus').at(-1);
+  assert.equal(status.batchSize,100);assert.equal(status.batchCompleted,30);assert.equal(status.settings.matchesPerBurst,100);
+ }finally{h.svc.close();}
+});
+
+test('training status includes the last duel and the next least-experienced pairing',()=>{
  const h=harness();try{
   h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
   const job=h.jobs[0],policy=seedPolicy();policy.matches=1;policy.styles.gale.games=1;policy.styles.void.games=1;
