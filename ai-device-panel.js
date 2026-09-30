@@ -48,7 +48,7 @@ $('aiDeviceLogin').onsubmit=async e=>{
  tell('훈련 전용 계정에 로그인하고 있습니다…');
  await cloud.loginTraining(password);window.EchoesTrainingAccount?.clearGameSession();
  if(m.connected)m.disconnect();await m.connect({name:'AI Training',accountId:'ai-training:'+cloud.currentTrainingUid(),level:1,weapon:0,mode:'pvp'});
- if(m.state.deviceTrainingProtocol!==1)throw Error('서버에 새 훈련 기능이 아직 배포되지 않았습니다.');send('Auth',{password,manualLogin:true});
+ if(m.state.deviceTrainingProtocol!==2)throw Error('서버에 새 훈련 기능이 아직 배포되지 않았습니다.');send('Auth',{password,manualLogin:true});
  }catch(e){await cloud?.logoutTraining?.();password='';m?.disconnect();tell(cloud?.message?.(e)||e.message);}finally{connecting=false;}
 };
 m?.on('ai:trainAuth',async msg=>{if(!opened||replaced)return;if(!msg.ok){password='';autoResume=false;wantedRunning=false;reconnectAuth=false;await cloud?.logoutTraining?.();m?.disconnect();tell(msg.message);return;}authenticated=true;session=msg.session;$('aiDevicePassword').value='';$('aiDeviceLogin').hidden=true;$('aiDeviceControls').hidden=false;clearInterval(heartbeat);heartbeat=setInterval(()=>{if(opened&&authenticated)send('Beat')},10000);send('Beat');send('Config',tuningPayload());if(watchRequested)send('Watch',{enabled:true});tell('관리자 인증 완료 · 저장 기록 확인 중…');
