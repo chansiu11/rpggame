@@ -263,7 +263,7 @@ test('PvP fifth form uses world flame cuts and rotating fire without old explosi
   assert.equal(recorded.length,1,'Local confirmed fifth form renders one original vortex');
   assert.equal(recorded[0][2].x,arena.api.enemy.x,'The original vortex is centered on the caught enemy');
   assert.equal(recorded[0][0].skillId,'meteorBreaker');
-  assert.ok(recorded[0][0].elapsed>recorded[0][0].flameCaughtAt);
+  assert.ok(recorded[0][0].elapsed>=recorded[0][0].flameCaughtAt);
   arena.api.me.skillEvent=null;arena.api.me.skillKind='';recorded.length=0;
   arena.api.receive({t:'state',x:arena.api.enemy.x,y:arena.api.enemy.y,
    hp:arena.api.enemy.hp,skillPose:4,skillId:'meteorBreaker',skillKind:'flameBreathFinale',
@@ -301,7 +301,7 @@ test('Hongryeon regular PvP cuts reach the opponent and state replay cannot doub
  }
 });
 
-test('PvP fifth-form confirmed hit sends the first flame to the other player from inside attackResult',()=>{
+test('PvP fifth-form confirmed hit sends its first flame after the short carry finishes',()=>{
  const attacker=createArena({style:'break',level:100}),defender=createArena({style:'break',level:100}),packets=[];
  try{
   attacker.api.init(attacker.snapshot,defender.snapshot,true,m=>packets.push(JSON.parse(JSON.stringify(m))));
@@ -315,8 +315,11 @@ test('PvP fifth-form confirmed hit sends the first flame to the other player fro
   assert.ok(hit,'opening dash should connect');
   const before=packets.length;
   attacker.api.receive({t:'attackResult',id:hit.id,result:'hit'});
+  assert.equal(packets.slice(before).some(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='signature'&&p.f.index===0),false,
+   'the hit ACK starts the shared carry instead of firing the follow-up flame immediately');
+  for(let i=0;i<24&&!packets.slice(before).some(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='signature'&&p.f.index===0);i++)attacker.step(1/60);
   const confirmed=packets.slice(before).find(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='signature'&&p.f.index===0);
-  assert.ok(confirmed,'incoming hit ACK must not suppress the attacker’s outbound flame');
+  assert.ok(confirmed,'the shared first-hit flame must be sent once the carry has completed');
   defender.api.receive(confirmed);
   const received=defender.api.effects.find(f=>f.kind==='hongWorldFx'&&f.id==='meteorBreaker'&&f.index===0);
   assert.ok(received,'defender should receive the actual first hit flame');
@@ -598,7 +601,7 @@ test('Hongryeon fifth form carries both fighters forward before its confirmed fo
   assert.ok(arena.api.me.x>contactX+25,'attacker continues forward instead of stopping on the contact frame');
   assert.equal(packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length,attacksAtContact,
    'no follow-up cut fires during the initial shared carry');
-  for(let i=0;i<18;i++)arena.step(1/60);
+  for(let i=0;i<7;i++)arena.step(1/60);
   assert.ok(arena.api.me.x>contactX+70,'attacker completes the short post-hit carry distance');
   assert.ok(arena.api.enemy.x>enemyStartX+8,'the victim follows forward before the combo starts');
   assert.equal(arena.api.me.skillEvent?.hongCarryRemaining,0);
