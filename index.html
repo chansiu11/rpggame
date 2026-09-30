@@ -3048,28 +3048,35 @@ function updateFlameBreathFinale(seq,sk,dt){
    const e=collision.enemy,c=combatCenter(e);
    const confirmed=()=>{
     if(activeSwordSkill!==seq||seq.flameCaught)return;
-    seq.flamePending=false;seq.flameCaught=true;seq.flameCaughtAt=null;
+    seq.flamePending=false;seq.flameCaught=true;
     seq.flameTarget=e;seq.flameTargetId=e.id;seq.flameStage=0;
-    // Carry both bodies a short distance before the authored follow-up begins.
-    seq.flameCarryRemaining=e.kind==='boss'?54:92;seq.flameCarryFx=0;seq.flameCarrySyncAt=0;
-    seq.duration=seq.elapsed+.18+3.61;
+    // Dash contact goes straight into the authored follow-up; no extra carry delay.
+    seq.flameCarryRemaining=0;seq.flameCarryFx=0;seq.flameCarrySyncAt=0;
+    seq.flameCaughtAt=seq.elapsed-(FLAME_FINALE_CUTS[0]?.at||0);
+    seq.flameImpactPoint={x:c.x,y:c.y};
+    seq.duration=seq.elapsed+3.61;
     const followTime=seq.duration-seq.elapsed;
     player.cast=Math.max(player.cast,followTime);
     player.attackCd=Math.max(player.attackCd,followTime);
     player.attackAnim=Math.max(player.attackAnim,followTime);
     player.attackDuration=Math.max(player.attackDuration,followTime);
     player.moveLock=Math.max(player.moveLock||0,followTime);
-    player.skillLift=0;sound('hit');
+    player.skillLift=0;
+    flameBreathSignature(sk.id,0,false,f,185,{x:c.x,y:c.y},{side:seq.side||1,baseFacing:f});
+    shake=Math.max(shake,11);sound('hit');
     if(e.kind!=='boss'&&!e.networkPlayer)applyEnemyStun(e,1.55*HONGRYEON_STUN_SCALE*.5);
    };
+   // A physical dash collision is already a guaranteed Meteor Breaker contact.
+   // Start the follow-up immediately instead of waiting for a network round trip.
+   if(e.networkPlayer)confirmed();
    const landed=hitEnemy(e,damageValue(1.36),false,player,{
     stun:e.kind==='boss'?.19*HONGRYEON_STUN_SCALE*.5:1.55*HONGRYEON_STUN_SCALE*.5,dx:0,dy:0,duration:0,
     bypassShield:true,guaranteedContact:true,skillId:sk.id,shape:'circle',x:c.x,y:c.y,r:92+combatRadius(e),
-    onHit:e.networkPlayer?confirmed:null,
-    onResult:e.networkPlayer?result=>{if(activeSwordSkill===seq&&result?.outcome==='hit')confirmed();}:null
+    onHit:e.networkPlayer?null:confirmed,
+    onResult:e.networkPlayer?result=>{if(activeSwordSkill===seq&&result?.outcome!=='hit')finish();}:null
    });
    if(landed===true){confirmed();return;}
-   if(e.networkPlayer&&landed===null){seq.flamePending=true;seq.flamePendingAt=realTime;return;}
+   if(e.networkPlayer&&landed===null)return;
   }
   // On a miss there is no artificial finishing explosion or follow-up sequence.
   if(dashElapsed>=dashTime||traveledNow<1&&dashElapsed>.22||distanceToGo<1)finish();
@@ -6010,11 +6017,16 @@ function pvpHongryeonFinale(ev,dt){
   }
   me.x=ex;me.y=ey;me.a=a;me.skillLift=4+Math.sin(Math.PI*clamp(dashElapsed/dashTime,0,1))*7;
   ev.fx-=dt;if(ev.fx<=0){ev.fx=.060;pvpHongryeonTrail(ox,oy,me.x,me.y,1.82,ev);}
-  if(collision){ev.hongPending=true;ev.hongPendingAt=performance.now();net({t:'teleport',x:me.x,y:me.y,a});
-   sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:92,d:pvpSkillAttack(me)*1.36,stun:1.55,force:0,bypassShield:true,parryable:false,teleportHit:true,rapidHit:true,guaranteedContact:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
-    if(me.skillEvent!==ev||!enemy||enemy.hp<=0)return;
-    ev.hongPending=false;ev.hongCaught=true;ev.hongCaughtAt=null;ev.hongStage=0;ev.hongCarryRemaining=92;ev.hongCarryAt=0;ev.cfg.duration=ev.elapsed+.18+3.61;ev.anchorX=enemy.x;ev.anchorY=enemy.y;me.attackDuration=me.attackAnim=me.attackCd=me.moveLock=.18+3.61;
-   },()=>{if(me.skillEvent===ev)finish();});return;
+  if(collision){
+   ev.hongPending=false;ev.hongCaught=true;ev.hongStage=0;ev.hongCarryRemaining=0;ev.hongCarryAt=0;
+   ev.hongCaughtAt=ev.elapsed-(PVP_HONGRYEON_CUTS[0]?.at||0);
+   ev.cfg.duration=ev.elapsed+3.61;ev.anchorX=enemy.x;ev.anchorY=enemy.y;
+   me.attackDuration=me.attackAnim=me.attackCd=me.moveLock=3.61;
+   pvpHongryeonFx(enemy.x,enemy.y,a,190,0,1,ev);pvpCrimsonShake(11,true);
+   net({t:'teleport',x:me.x,y:me.y,a});
+   sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:92,d:pvpSkillAttack(me)*1.36,stun:1.55,force:0,bypassShield:true,parryable:false,teleportHit:true,rapidHit:true,guaranteedContact:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},
+    null,()=>{if(me.skillEvent===ev)finish();});
+   return;
   }
   if(dashElapsed>=dashTime||Math.hypot(ex-ox,ey-oy)<1&&dashElapsed>.22||traveled>=1020)finish();
   return;
