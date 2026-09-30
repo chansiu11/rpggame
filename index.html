@@ -2396,7 +2396,7 @@ function finishSwordCarryTargets(seq,interrupted=false){
  seq.carryIds?.clear();
 }
 function pullFlameWheelTargets(seq,dt,ox,oy){
- if(!seq.flameWheelCaught?.size)return;
+ if(seq.flameWheelReleased||!seq.flameWheelCaught?.size)return;
  const a=seq.flameFace??seq.facing,fx=Math.cos(a),fy=Math.sin(a),targets=combatTargets();
  for(const id of [...seq.flameWheelCaught]){
   const e=targets.find(t=>t.id===id);
@@ -2407,7 +2407,7 @@ function pullFlameWheelTargets(seq,dt,ox,oy){
    const times=seq.flameWheelSyncAt??=(Object.create(null));
    if(seq.elapsed>=(times[id]||0)){
     times[id]=seq.elapsed+.065;
-    worldTargetControl(e.id,{x:tx,y:ty,duration:.12,stun:.22,range:1100});
+    worldTargetControl(e.id,{x:tx,y:ty,duration:.12,stun:.22,range:1100,skillId:seq.skillId});
    }
   }else if(multiplayerMode&&window.EchoesMulti?.connected&&e.type!=='dummy'&&!e.riftId){
    const times=seq.flameWheelSyncAt??=(Object.create(null));
@@ -2431,6 +2431,11 @@ function pullFlameWheelTargets(seq,dt,ox,oy){
 function flameBreathHit(seq,sk,k,damage,finalHit){
  const mode=sk.cfg.mode,base=seq.flameFace??seq.facing,side=seq.side||1,
   leg=seq.flameLegs?.[k===4?3:k],impact=seq.flameFinalImpact||{x:player.x,y:player.y};
+ if(mode==='flameBreathWheel'&&k===2){
+  seq.flameWheelReleased=true;
+  // The final launch must not be overwritten by follow-control queued earlier this frame.
+  for(const id of seq.flameWheelCaught||[]){const pending=worldTargetControls.get(id);if(pending?.skillId===sk.id)worldTargetControls.delete(id);}
+ }
  for(const e of combatTargets()){
   if(e.dead||e.riftSleeping||(e.type==='finalBoss'&&!e.alert))continue;
   const c=combatCenter(e),er=combatRadius(e),dx=c.x-player.x,dy=c.y-player.y,
@@ -2463,7 +2468,7 @@ function flameBreathHit(seq,sk,k,damage,finalHit){
    const carried=seq.flameWheelCaught?.has(e.id);
    matched=!!carried||closeToFirst||(d<r+er&&Math.abs(angleDiff(a,face))<half+er/Math.max(35,d));
    stun=k===2?.47:.23;push=k===2?155:0;
-   pushA=Math.atan2(c.y-player.y,c.x-player.x);
+   pushA=k===2?base:Math.atan2(c.y-player.y,c.x-player.x);
   }else if(mode==='flameBreathFinale'){
    const nearPath=leg&&segmentDistance(c.x,c.y,[leg.from.x,leg.from.y],[k===3?player.x:leg.to.x,k===3?player.y:leg.to.y])<(k===3?108:93)+er;
    if(k<3){
@@ -2480,8 +2485,8 @@ function flameBreathHit(seq,sk,k,damage,finalHit){
    }
   }
   if(!matched)continue;
-  const boss=e.kind==='boss',stunSecs=boss?(mode==='flameBreathCleave'&&k===0?.68:Math.min(.40,stun*.38*HONGRYEON_STUN_SCALE)):stun*HONGRYEON_STUN_SCALE,
-   force=boss?0:push;
+  const boss=e.kind==='boss',stunBase=boss?(mode==='flameBreathCleave'&&k===0?.68:Math.min(.40,stun*.38*HONGRYEON_STUN_SCALE)):stun*HONGRYEON_STUN_SCALE,
+   stunSecs=mode==='flameBreathFinale'?stunBase*.5:stunBase,force=boss?0:push;
   const risePath=mode==='flameBreathRise'&&d>FLAME_RISE_IMPACT_RADIUS+er;
   const hitShape=risePath?{shape:'segment',x1:seq.originX,y1:seq.originY,x2:player.x,y2:player.y,r:76}:
    mode==='flameBreathRise'?{shape:'circle',x:player.x,y:player.y,r:FLAME_RISE_IMPACT_RADIUS}:
@@ -2495,7 +2500,7 @@ function flameBreathHit(seq,sk,k,damage,finalHit){
   };
   if(mode==='flameBreathWheel'){
    control.onHit=()=>{if(activeSwordSkill!==seq)return;
-    if(k<2)(seq.flameWheelCaught??=new Set()).add(e.id);
+    if(k<2){if(!seq.flameWheelReleased)(seq.flameWheelCaught??=new Set()).add(e.id);}
     else seq.flameWheelCaught?.delete(e.id);};
   }
   const outcome=hitEnemy(e,damage,finalHit,player,control);
@@ -2510,6 +2515,7 @@ function flameBreathHit(seq,sk,k,damage,finalHit){
    }
   }
  }
+ if(mode==='flameBreathWheel'&&k===2)seq.flameWheelCaught?.clear();
 }
 
 function performSwordSkillHit(seq,hitIndex){
@@ -2976,10 +2982,10 @@ function updateFlameBreathFinale(seq,sk,dt){
     player.skillLift=0;
     flameBreathSignature(sk.id,0,false,f,185,{x:c.x,y:c.y},{side:seq.side||1,baseFacing:f});
     shake=Math.max(shake,11);sound('hit');
-    if(e.kind!=='boss'&&!e.networkPlayer)applyEnemyStun(e,1.55*HONGRYEON_STUN_SCALE);
+    if(e.kind!=='boss'&&!e.networkPlayer)applyEnemyStun(e,1.55*HONGRYEON_STUN_SCALE*.5);
    };
    const landed=hitEnemy(e,damageValue(1.36),false,player,{
-    stun:e.kind==='boss'?.19*HONGRYEON_STUN_SCALE:1.55*HONGRYEON_STUN_SCALE,dx:0,dy:0,duration:0,
+    stun:e.kind==='boss'?.19*HONGRYEON_STUN_SCALE*.5:1.55*HONGRYEON_STUN_SCALE*.5,dx:0,dy:0,duration:0,
     bypassShield:true,skillId:sk.id,shape:'circle',x:c.x,y:c.y,r:79+combatRadius(e),
     onHit:e.networkPlayer?confirmed:null
    });
@@ -3026,7 +3032,7 @@ function updateFlameBreathFinale(seq,sk,dt){
    Math.abs(angleDiff(angle,player.facing))<=cut.arc*.5+radius/Math.max(40,d);
   const heavy=cut.kind==='overhead'||cut.kind==='rising';
   if(hit)hitEnemy(e,damageValue(cut.mult),heavy,player,{
-   stun:e.kind==='boss'?.21*HONGRYEON_STUN_SCALE:cut.stun*HONGRYEON_STUN_SCALE,
+   stun:e.kind==='boss'?.21*HONGRYEON_STUN_SCALE*.5:cut.stun*HONGRYEON_STUN_SCALE*.5,
    dx:0,dy:0,duration:0,bypassShield:true,skillId:sk.id,
    shape:'sector',x:player.x,y:player.y,a:player.facing,arc:cut.arc,r:cut.reach
   });
@@ -3053,7 +3059,7 @@ function updateFlameBreathFinale(seq,sk,dt){
    if(distanceFromImpact>r+combatRadius(v))continue;
    const main=v===e;
    hitEnemy(v,damageValue(main?cut.mult:.98),main,player,{
-    stun:v.kind==='boss'?.21*HONGRYEON_STUN_SCALE:(main?cut.stun:.38)*HONGRYEON_STUN_SCALE,
+    stun:v.kind==='boss'?.21*HONGRYEON_STUN_SCALE*.5:(main?cut.stun:.38)*HONGRYEON_STUN_SCALE*.5,
     dx:fx*(main?145:64),dy:fy*(main?145:64),
     duration:window.EchoesCombat.forceDuration(main?145:64),
     bypassShield:true,skillId:sk.id,shape:'circle',x:vc.x,y:vc.y,r:combatRadius(v)+18
@@ -3373,7 +3379,7 @@ function styleAdeptPerformHit(e,seq,k,dealDamage=true){
  if(!dealDamage)return;const flameCut=cfg.mode==='flameBreathFinale'?(k===0?{mult:1.36,stun:1.55}:FLAME_FINALE_CUTS[k-1]):null;
   const mult=(flameCut?.mult??cfg.mult?.[Math.min(k,(cfg.mult?.length||1)-1)]??(sk.id==='gravityCut'?(k===0?1.05:[.64,.70,.77,.86,.96][Math.min(4,k-1)]):sk.holdContinuous?.44:1))*(SWORD_DAMAGE_BALANCE[sk.id]||1),hit=styleAdeptHitTest(e,seq,k);
  if(hit){const bypass=cfg.mode==='flameBreathRise'||cfg.mode==='flameBreathFinale';const result=hitPlayer(Math.max(1,Math.round(e.damage*mult*.725)),e,!bypass&&(k===seq.hits.length-1||['galeBlink','guardPierce','singularityRush'].includes(cfg.mode)));
-  if(result==='hit'&&FLAME_BREATH_MODES.has(cfg.mode)){player.invuln=Math.min(player.invuln,.08);player.stun=Math.max(player.stun,(flameCut?.stun||.68)*HONGRYEON_STUN_SCALE);}
+  if(result==='hit'&&FLAME_BREATH_MODES.has(cfg.mode)){player.invuln=Math.min(player.invuln,.08);player.stun=Math.max(player.stun,(flameCut?.stun||.68)*HONGRYEON_STUN_SCALE*(cfg.mode==='flameBreathFinale'?.5:1));}
   if(cfg.mode==='flameBreathFinale'&&k===0&&result==='hit'){seq.hits=[.53,...FLAME_FINALE_CUTS.map(c=>.53+c.at)];seq.duration=.53+3.61;e.timer=seq.duration-seq.elapsed;seq.anchorX=player.x;seq.anchorY=player.y;}
   if(result==='parried'){e.stun=Math.max(e.stun,1.1);e.state='stunned';e.styleSeq=null;}}
 }
@@ -5498,7 +5504,7 @@ function processPvpData(m){if(!m||typeof m!=='object')return;
  if(m.t==='rulesetMismatch'){return;}
  if(m.t==='protocolMismatch'){matchPeerError('PVP 연결 방식이 갱신되었습니다. 페이지를 새로고침한 뒤 다시 매칭해 주세요.');return;}
  if(m.t==='hello'&&validSnap(m.s)){remoteSnap=m.s;net({t:'helloAck',v:3,ruleset:PVP_RULESET,s:pvpOwnSnapshot()});startMatchIfReady()}else if(m.t==='helloAck'&&validSnap(m.s)){remoteSnap=m.s;aiServerCountdown=conn?.ai&&m.aiCountdown===true;startMatchIfReady()}
- else if(m.t==='state'&&enemy){const controlNow=performance.now(),controlKey=String(m.controlKey||''),rushRenew=controlKey==='voidRush'&&m.skillKind==='singularityRush',controlAllowed=!!(me&&controlKey&&((me.controlLease?.key===controlKey&&controlNow<(me.controlLease?.until||0))||rushRenew));if(rushRenew&&me)me.controlLease={key:'voidRush',until:controlNow+650};if(controlAllowed){const seq=Math.max(0,Number(m.controlSeq)||0);if(seq>=(me.controlStateSeq||0)){me.controlStateSeq=seq;const tx=clamp(+m.controlX||me.x,25,ARENA_W-25),ty=clamp(+m.controlY||me.y,25,ARENA_H-25),ft=clamp(+m.controlTime||.18,.08,.8),st=clamp(+m.controlStun||0,0,1.5),final=!!m.controlFinal;if(me.forcedMove&&!me.forcedMove.priority)me.forcedMove=null;if(!me.forceTrack||me.forceTrack.source!=='stigmaState'){const keep=rushRenew?Math.max(ft,.16):ft;me.forceTrack={x:tx,y:ty,remaining:keep,max:keep,stun:st,seq,final,source:'stigmaState'}}else{me.forceTrack.x=tx;me.forceTrack.y=ty;me.forceTrack.remaining=Math.max(me.forceTrack.remaining||0,ft,rushRenew ? .16 : 0);me.forceTrack.max=Math.max(me.forceTrack.max||0,ft);me.forceTrack.stun=Math.max(me.forceTrack.stun||0,st);me.forceTrack.seq=seq;me.forceTrack.final=final}me.knockCameraHold=Math.max(me.knockCameraHold||0,ft+.14)}}const forceLocked=!!enemy.remoteForce||performance.now()<(enemy.remoteForceLockUntil||0);if(!forceLocked){enemy.netX=clamp(Number.isFinite(+m.x)?+m.x:enemy.netX,25,ARENA_W-25);enemy.netY=clamp(Number.isFinite(+m.y)?+m.y:enemy.netY,25,ARENA_H-25);}else if(enemy.remoteForce){enemy.netX=enemy.remoteForce.x;enemy.netY=enemy.remoteForce.y;}enemy.netVX=forceLocked?0:(Number.isFinite(+m.vx)?+m.vx:0);enemy.netVY=forceLocked?0:(Number.isFinite(+m.vy)?+m.vy:0);enemy.a=Number.isFinite(+m.a)?+m.a:enemy.a;enemy.hp=clamp(+m.hp||0,0,enemy.maxHp);enemy.shield=clamp(+m.shield||0,0,enemy.maxShield);enemy.stam=clamp(Number.isFinite(+m.stam)?+m.stam:enemy.stam,0,enemy.maxStam);enemy.block=!!m.block;enemy.dash=Math.max(enemy.dash,+m.dash||0);enemy.stun=Math.max(Number(enemy.stun)||0,Number(m.stun)||0);enemy.attackAnim=Math.max(enemy.attackAnim,+m.attackAnim||0);enemy.attackDuration=Math.max(.05,+m.attackDuration||enemy.attackDuration);enemy.combo=clamp(+m.combo||0,0,5);enemy.weapon=enemy.ownedWeapons.includes(+m.weapon)?+m.weapon:enemy.weapon;enemy.skillPose=Number.isFinite(+m.skillPose)?+m.skillPose:-1;enemy.skillLift=clamp(Number(m.skillLift)||0,0,150);enemy.skillKind=typeof m.skillKind==='string'?m.skillKind:'';enemy.skillId=(typeof m.skillId==='string'&&m.skillId)||PVP_HONGRYEON_IDS[String(m.skillKind||'')]||'';
+ else if(m.t==='state'&&enemy){const controlNow=performance.now(),controlKey=String(m.controlKey||''),rushRenew=controlKey==='voidRush'&&m.skillKind==='singularityRush',controlAllowed=!!(me&&controlKey&&!(controlKey==='hongWheel'&&controlNow<(me.hongWheelLaunchUntil||0))&&((me.controlLease?.key===controlKey&&controlNow<(me.controlLease?.until||0))||rushRenew));if(rushRenew&&me)me.controlLease={key:'voidRush',until:controlNow+650};if(controlAllowed){const seq=Math.max(0,Number(m.controlSeq)||0);if(seq>=(me.controlStateSeq||0)){me.controlStateSeq=seq;const tx=clamp(+m.controlX||me.x,25,ARENA_W-25),ty=clamp(+m.controlY||me.y,25,ARENA_H-25),ft=clamp(+m.controlTime||.18,.08,.8),st=clamp(+m.controlStun||0,0,1.5),final=!!m.controlFinal;if(me.forcedMove&&!me.forcedMove.priority)me.forcedMove=null;if(!me.forceTrack||me.forceTrack.source!=='stigmaState'){const keep=rushRenew?Math.max(ft,.16):ft;me.forceTrack={x:tx,y:ty,remaining:keep,max:keep,stun:st,seq,final,source:'stigmaState'}}else{me.forceTrack.x=tx;me.forceTrack.y=ty;me.forceTrack.remaining=Math.max(me.forceTrack.remaining||0,ft,rushRenew ? .16 : 0);me.forceTrack.max=Math.max(me.forceTrack.max||0,ft);me.forceTrack.stun=Math.max(me.forceTrack.stun||0,st);me.forceTrack.seq=seq;me.forceTrack.final=final}me.knockCameraHold=Math.max(me.knockCameraHold||0,ft+.14)}}const forceLocked=!!enemy.remoteForce||performance.now()<(enemy.remoteForceLockUntil||0);if(!forceLocked){enemy.netX=clamp(Number.isFinite(+m.x)?+m.x:enemy.netX,25,ARENA_W-25);enemy.netY=clamp(Number.isFinite(+m.y)?+m.y:enemy.netY,25,ARENA_H-25);}else if(enemy.remoteForce){enemy.netX=enemy.remoteForce.x;enemy.netY=enemy.remoteForce.y;}enemy.netVX=forceLocked?0:(Number.isFinite(+m.vx)?+m.vx:0);enemy.netVY=forceLocked?0:(Number.isFinite(+m.vy)?+m.vy:0);enemy.a=Number.isFinite(+m.a)?+m.a:enemy.a;enemy.hp=clamp(+m.hp||0,0,enemy.maxHp);enemy.shield=clamp(+m.shield||0,0,enemy.maxShield);enemy.stam=clamp(Number.isFinite(+m.stam)?+m.stam:enemy.stam,0,enemy.maxStam);enemy.block=!!m.block;enemy.dash=Math.max(enemy.dash,+m.dash||0);enemy.stun=Math.max(Number(enemy.stun)||0,Number(m.stun)||0);enemy.attackAnim=Math.max(enemy.attackAnim,+m.attackAnim||0);enemy.attackDuration=Math.max(.05,+m.attackDuration||enemy.attackDuration);enemy.combo=clamp(+m.combo||0,0,5);enemy.weapon=enemy.ownedWeapons.includes(+m.weapon)?+m.weapon:enemy.weapon;enemy.skillPose=Number.isFinite(+m.skillPose)?+m.skillPose:-1;enemy.skillLift=clamp(Number(m.skillLift)||0,0,150);enemy.skillKind=typeof m.skillKind==='string'?m.skillKind:'';enemy.skillId=(typeof m.skillId==='string'&&m.skillId)||PVP_HONGRYEON_IDS[String(m.skillKind||'')]||'';
 enemy.hongVortexActive=m.hongVortexActive===true&&enemy.hp>0&&enemy.skillId==='meteorBreaker';
 enemy.hongVortexSince=clamp(Number(m.hongVortexSince)||0,0,3.61);
 enemy.hongVortexSide=m.hongVortexSide===-1?-1:1;
@@ -5565,8 +5571,8 @@ function updateAiCountdown(dt){
  return true;
 }
 function startMatchIfReady(){if(running)return;if(!remoteSnap||!conn?.open)return;const snap=pvpOwnSnapshot();if(!snap)return;resetPvpCombo();resetPvpCriticalHits();resetPvpHongFx();const left=ARENA_W*.5-350,right=ARENA_W*.5+350,midY=ARENA_H*.5;me=createFighter(snap,host?left:right,midY,host?0:Math.PI);enemy=createFighter(remoteSnap,host?right:left,midY,host?Math.PI:0);pvpCamera.x=me.x;pvpCamera.y=me.y;myWins=theirWins=0;pvpHudTimer=0;sendAt=pingAt=0;running=true;roundLocked=false;rematchMine=rematchTheirs=false;$('pvpLobby').classList.add('hidden');$('pvpHud').classList.remove('hidden');$('pvpCooldowns').classList.remove('hidden');$('pvpScore').classList.remove('hidden');$('pvpResult').classList.add('hidden');$('pvpStatus').textContent=spectating?'AI 대 AI · 실제 PVP 관전':'여정 전투 시스템 PVP · 연결됨';if(spectating){layer.classList.add('spectating');$('pvpHud').querySelector('.pvp-side.right')?.classList.remove('hidden');$('pvpMeName').textContent=snap.name;$('pvpEnemyName').textContent=remoteSnap.name;pvpSpectator?.setActive(true);}updateScore();last=performance.now();beginAiCountdown()}
-function createFighter(s,x,y,a){return {...s,x,y,a,skillBasicGraceUntil:0,skillBasicGraceUsed:false,basicAttackLockUntil:0,basicAttackStartedAt:0,skillLift:0,netX:x,netY:y,netVX:0,netVY:0,hp:s.maxHp,shield:s.maxShield,stam:s.maxStam,r:18,block:false,parryWindow:0,parryCd:0,galeRoot:0,galeVortexAnchor:null,shieldDelay:0,shieldBroken:0,shieldRearm:0,shieldNeedsRelease:false,dash:0,dashCd:0,inv:0,hitInv:0,attackCd:0,attackAnim:0,attackDuration:.26,combo:0,comboTimer:0,exhaust:0,basicMoveSlow:0,moveLock:0,postSkillLock:0,cool:[0,0,0,0,0],stun:0,vx:0,vy:0,hurt:0,void3DodgeRemaining:0,void3DodgeUntil:0,skillHold:null,skillEvent:null,skillPose:-1,skillKind:'',followUntil:0,followMarked:false,stigmaMarkUntil:0,forcedMove:null,forceTrack:null,forceTrackSeq:0,controlLease:null,controlStateSeq:0,outgoingControl:null,forcePriority:0,knockCameraHold:0,remoteForceLockUntil:0,remoteTrackSeq:0,potionCd:0,riposte:0,stamDelay:0,lastMoveA:a,motion:{x,y,phase:0,walk:0,facing:a,lean:0}}}
-function resetFighterMotion(f){if(!f)return;f.skillBasicGraceUntil=0;f.skillBasicGraceUsed=false;f.basicAttackLockUntil=0;f.basicAttackStartedAt=0;f.skillLift=0;f.netX=f.x;f.netY=f.y;f.netVX=f.netVY=0;f.remoteForce=null;f.remoteForceLockUntil=0;f.vx=f.vy=0;f.attackAnim=f.hurt=0;f.combo=f.comboTimer=0;f.skillHold=f.skillEvent=null;f.skillPose=-1;f.skillKind='';f.stigmaMarkUntil=0;f.forcedMove=null;f.forceTrack=null;f.forceTrackSeq=0;f.controlLease=null;f.controlStateSeq=0;f.outgoingControl=null;f.forcePriority=0;f.knockCameraHold=0;f.remoteTrackSeq=0;f.motion={x:f.x,y:f.y,phase:0,walk:0,facing:f.a,lean:0}}
+function createFighter(s,x,y,a){return {...s,x,y,a,skillBasicGraceUntil:0,skillBasicGraceUsed:false,basicAttackLockUntil:0,basicAttackStartedAt:0,skillLift:0,netX:x,netY:y,netVX:0,netVY:0,hp:s.maxHp,shield:s.maxShield,stam:s.maxStam,r:18,block:false,parryWindow:0,parryCd:0,galeRoot:0,galeVortexAnchor:null,shieldDelay:0,shieldBroken:0,shieldRearm:0,shieldNeedsRelease:false,dash:0,dashCd:0,inv:0,hitInv:0,attackCd:0,attackAnim:0,attackDuration:.26,combo:0,comboTimer:0,exhaust:0,basicMoveSlow:0,moveLock:0,postSkillLock:0,cool:[0,0,0,0,0],stun:0,vx:0,vy:0,hurt:0,void3DodgeRemaining:0,void3DodgeUntil:0,skillHold:null,skillEvent:null,skillPose:-1,skillKind:'',followUntil:0,followMarked:false,stigmaMarkUntil:0,forcedMove:null,forceTrack:null,forceTrackSeq:0,controlLease:null,controlStateSeq:0,outgoingControl:null,hongWheelLaunchUntil:0,forcePriority:0,knockCameraHold:0,remoteForceLockUntil:0,remoteTrackSeq:0,potionCd:0,riposte:0,stamDelay:0,lastMoveA:a,motion:{x,y,phase:0,walk:0,facing:a,lean:0}}}
+function resetFighterMotion(f){if(!f)return;f.skillBasicGraceUntil=0;f.skillBasicGraceUsed=false;f.basicAttackLockUntil=0;f.basicAttackStartedAt=0;f.skillLift=0;f.netX=f.x;f.netY=f.y;f.netVX=f.netVY=0;f.remoteForce=null;f.remoteForceLockUntil=0;f.vx=f.vy=0;f.attackAnim=f.hurt=0;f.combo=f.comboTimer=0;f.skillHold=f.skillEvent=null;f.skillPose=-1;f.skillKind='';f.stigmaMarkUntil=0;f.forcedMove=null;f.forceTrack=null;f.forceTrackSeq=0;f.controlLease=null;f.controlStateSeq=0;f.outgoingControl=null;f.hongWheelLaunchUntil=0;f.forcePriority=0;f.knockCameraHold=0;f.remoteTrackSeq=0;f.motion={x:f.x,y:f.y,phase:0,walk:0,facing:f.a,lean:0}}
 function resetRound(){if(!me||!enemy)return;pvpHitProcs.clear();void3Pvp=null;resetPvpCombo();resetPvpCriticalHits();resetPvpHongFx();const left=ARENA_W*.5-350,right=ARENA_W*.5+350,midY=ARENA_H*.5;me.x=host?left:right;me.y=midY;me.a=host?0:Math.PI;me.hp=me.maxHp;me.shield=me.maxShield;me.stam=me.maxStam;me.stun=me.inv=me.hitInv=me.dash=me.dashCd=me.exhaust=me.moveLock=me.postSkillLock=me.forcePriority=me.knockCameraHold=me.galeRoot=0;me.cool.fill(0);me.block=false;me.parryWindow=0;me.shieldRearm=0;me.shieldNeedsRelease=false;pvpShieldKeyLatched=false;enemy.x=host?right:left;enemy.y=midY;enemy.a=host?Math.PI:0;enemy.hp=enemy.maxHp;enemy.shield=enemy.maxShield;enemy.stam=enemy.maxStam;enemy.stun=enemy.inv=enemy.dash=enemy.dashCd=enemy.exhaust=enemy.galeRoot=0;resetFighterMotion(me);resetFighterMotion(enemy);me.galePull=null;me.galeVortexAnchor=null;pvpCamera.x=me.x;pvpCamera.y=me.y;projectiles=[];pvpVortices=[];fx=[];pvpShake=0;roundLocked=false;beginAiCountdown()}
 function infoText(f){return `Lv.${f.level} · ${weaponData[f.weapon].name} +${f.upgrades[f.weapon]} · 회복 ${f.potions}`}
 function updateScore(){$('pvpScore').textContent=`${myWins}  —  ${theirWins} · 3선승`;if(me&&enemy){$('pvpMeHpText').textContent=`HP ${Math.ceil(me.hp)} / ${me.maxHp}`;$('pvpMeInfo').textContent=`쉴드 ${Math.ceil(me.shield)} / ${me.maxShield} · 마나 ${Math.ceil(me.stam)} / ${me.maxStam}`;$('pvpEnemyInfo').textContent=spectating?'HP '+Math.ceil(enemy.hp)+' / '+enemy.maxHp+' · 쉴드 '+Math.ceil(enemy.shield):infoText(enemy);$('pvpMeHp').style.width=(me.hp/me.maxHp*100)+'%';$('pvpMeShield').style.width=(me.shield/me.maxShield*100)+'%';$('pvpEnemyHp').style.width=(enemy.hp/enemy.maxHp*100)+'%';$('pvpEnemyShield').style.width=(enemy.shield/enemy.maxShield*100)+'%';$('pvpMeStam').style.width=(me.stam/me.maxStam*100)+'%';$('pvpEnemyStam').style.width=(enemy.stam/enemy.maxStam*100)+'%'}}
@@ -5577,7 +5583,11 @@ function hurt(raw,opts={}){if(!me||me.inv>0||(!opts.rapidHit&&me.hitInv>0)||roun
  if(force>0){const a=Number.isFinite(forceA)?forceA:Math.atan2(me.y-sy,me.x-sx),dist=clamp(force,0,720),kt=window.EchoesCombat.forceDuration(dist,forceTime),ox=me.x,oy=me.y,tx=clamp(ox+Math.cos(a)*dist,25,ARENA_W-25),ty=clamp(oy+Math.sin(a)*dist,25,ARENA_H-25);me.vx=me.vy=0;me.forcePriority=Math.max(me.forcePriority||0,kt+.14);me.knockCameraHold=Math.max(me.knockCameraHold||0,kt+.18);me.forcedMove={x:tx,y:ty,t:kt,max:kt,elapsed:0,startX:ox,startY:oy,stun,priority:true};net({t:'hitForce',x:tx,y:ty,time:kt,stun,fromX:ox,fromY:oy,teleportHit:!!teleportHit});}
  me.hitInv=.10;me.hurt=.24;me.shieldDelay=1.4;me.galeRoot=Math.max(me.galeRoot||0,clamp(Number(opts.root)||0,0,3));pvpDamagePop(me.x,me.y,d,true);net({t:'damagePop',d,vortexId:String(opts.vortexId||'').slice(0,32)});pvpImpactShake(d);burst(me.x,me.y,'#f0aa9b',12,130);if(me.hp<=0)roundEnd(false);return 'hit'}
 function pointSegmentDistance(px,py,x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,l=dx*dx+dy*dy;if(l<.001)return Math.hypot(px-x1,py-y1);const t=clamp(((px-x1)*dx+(py-y1)*dy)/l,0,1);return Math.hypot(px-(x1+dx*t),py-(y1+dy*t))}
-function receiveAttack(m){if(!me||!running||roundLocked)return;let hit=!!m.teleportHit||window.EchoesCombat.contains(m,me),sx=Number.isFinite(+m.sx)?+m.sx:(+m.x||enemy?.x||0),sy=Number.isFinite(+m.sy)?+m.sy:(+m.y||enemy?.y||0);if(!hit){net({t:'attackResult',id:m.id,result:'miss'});return;}const result=hurt(clamp(+m.d||1,1,5000),{stun:Number.isFinite(+m.stun)?clamp(+m.stun,0,String(m.skillId||'').startsWith('meteorBreaker')?3.2:1.5):.08,force:clamp(+m.force||0,0,1000),forceA:Number.isFinite(+m.forceA)?+m.forceA:null,forceTime:Number.isFinite(+m.forceTime)?+m.forceTime:null,sx,sy,parryable:m.parryable!==false,breakShield:!!m.breakShield,bypassShield:!!m.bypassShield,teleportHit:!!m.teleportHit,rapidHit:!!m.rapidHit,root:clamp(Number(m.root)||0,0,3),vortexId:String(m.vortexId||'').slice(0,32)});if(result==='hit'&&m.vortexId&&String(m.skillId||'')==='starRush'){const v=pvpVortices.find(q=>q.remote&&q.id===String(m.vortexId)&&q.t>0);if(v&&!v.caught){v.caught={angle:Math.atan2(me.y-v.y,me.x-v.x)};ring(me.x,me.y,48,'#d7fff4',.24,false);}}if(m.stigmaMarkMs&&result==='hit')me.stigmaMarkUntil=performance.now()+clamp(+m.stigmaMarkMs,250,5000);if(result==='hit'&&m.controlLease){const key=String(m.controlLease).slice(0,24);if(key)me.controlLease={key,until:performance.now()+clamp(+m.controlLeaseMs||700,180,1400)}}net({t:'attackResult',id:m.id,result});}
+function receiveAttack(m){if(!me||!running||roundLocked)return;let hit=!!m.teleportHit||window.EchoesCombat.contains(m,me),sx=Number.isFinite(+m.sx)?+m.sx:(+m.x||enemy?.x||0),sy=Number.isFinite(+m.sy)?+m.sy:(+m.y||enemy?.y||0);if(!hit){net({t:'attackResult',id:m.id,result:'miss'});return;}const result=hurt(clamp(+m.d||1,1,5000),{stun:Number.isFinite(+m.stun)?clamp(+m.stun,0,String(m.skillId||'').startsWith('meteorBreaker')?3.2:1.5):.08,force:clamp(+m.force||0,0,1000),forceA:Number.isFinite(+m.forceA)?+m.forceA:null,forceTime:Number.isFinite(+m.forceTime)?+m.forceTime:null,sx,sy,parryable:m.parryable!==false,breakShield:!!m.breakShield,bypassShield:!!m.bypassShield,teleportHit:!!m.teleportHit,rapidHit:!!m.rapidHit,root:clamp(Number(m.root)||0,0,3),vortexId:String(m.vortexId||'').slice(0,32)});if(result==='hit'&&m.vortexId&&String(m.skillId||'')==='starRush'){const v=pvpVortices.find(q=>q.remote&&q.id===String(m.vortexId)&&q.t>0);if(v&&!v.caught){v.caught={angle:Math.atan2(me.y-v.y,me.x-v.x)};ring(me.x,me.y,48,'#d7fff4',.24,false);}}if(result==='hit'&&m.skillId==='ironJudgment'&&Number(m.force)>=150){
+ me.hongWheelLaunchUntil=performance.now()+1050;
+ if(me.forceTrack?.source==='stigmaState')me.forceTrack=null;
+ if(me.controlLease?.key==='hongWheel')me.controlLease=null;
+ }if(m.stigmaMarkMs&&result==='hit')me.stigmaMarkUntil=performance.now()+clamp(+m.stigmaMarkMs,250,5000);if(result==='hit'&&m.controlLease&&!(m.skillId==='ironJudgment'&&Number(m.force)>=150)){const key=String(m.controlLease).slice(0,24);if(key)me.controlLease={key,until:performance.now()+clamp(+m.controlLeaseMs||700,180,1400)}}net({t:'attackResult',id:m.id,result});}
 function sendAttack(data,onHit=null){const id=++attackSerial;if(typeof onHit==='function'){pvpHitProcs.set(id,onHit);if(pvpHitProcs.size>256)pvpHitProcs.delete(pvpHitProcs.keys().next().value);}net({t:'atk',id,sx:me.x,sy:me.y,...data});return id;}
 function forceEnemyTo(x,y,t=.28,stun=0){if(!enemy)return;x=clamp(Number(x)||enemy.x,25,ARENA_W-25);y=clamp(Number(y)||enemy.y,25,ARENA_H-25);t=clamp(Number(t)||.28,.08,.8);stun=clamp(Number(stun)||0,0,1.5);const sx=enemy.x,sy=enemy.y,dx=clamp(x-sx,-720,720),dy=clamp(y-sy,-720,720),tx=clamp(sx+dx,25,ARENA_W-25),ty=clamp(sy+dy,25,ARENA_H-25);enemy.remoteForce={x:tx,y:ty,max:t,elapsed:0,startX:sx,startY:sy,stun};enemy.netX=tx;enemy.netY=ty;enemy.netVX=enemy.netVY=0;enemy.stun=Math.max(enemy.stun||0,stun);net({t:'forceDelta',dx,dy,t,stun})}
 function queueStigmaControl(key,x,y,t=.18,stun=.14,hold=.45,final=false){if(!me||!enemy)return;const tx=clamp(Number(x)||enemy.x,25,ARENA_W-25),ty=clamp(Number(y)||enemy.y,25,ARENA_H-25),ft=clamp(Number(t)||.18,.08,.8),st=clamp(Number(stun)||0,0,1.5),seq=++forceSyncSerial,sx=enemy.x,sy=enemy.y;me.outgoingControl={key:String(key),x:tx,y:ty,time:ft,stun:st,seq,final:!!final,until:performance.now()+Math.max(180,hold*1000)};enemy.remoteForce={x:tx,y:ty,max:ft,elapsed:0,startX:sx,startY:sy,stun:st};enemy.netX=tx;enemy.netY=ty;enemy.netVX=enemy.netVY=0;enemy.remoteForceLockUntil=Math.max(enemy.remoteForceLockUntil||0,performance.now()+(final?650:280));enemy.stun=Math.max(enemy.stun||0,st)}
@@ -5810,7 +5820,7 @@ function pvpHongryeonMotion(ev,dt){
   move(ev.originX+fx*f+nx*lateral,ev.originY+fy*f+ny*lateral,4600);
   me.a=a+side*Math.PI*2.1*(first+third);me.skillLift=4+Math.sin(Math.PI*first)*10+Math.sin(Math.PI*third)*7;
   if((first>.05&&first<.96)||(third>.04&&third<.97))me.inv=Math.max(me.inv,.055);
-  if(ev.hongWheelCaught&&enemy&&enemy.hp>0){ev.hongCarryAt=(ev.hongCarryAt||0)-dt;if(ev.hongCarryAt<=0){const fa=Math.atan2(enemy.y-me.y,enemy.x-me.x),dist=me.r+enemy.r+34,tx=me.x+Math.cos(fa)*dist,ty=me.y+Math.sin(fa)*dist;queueStigmaControl('hongWheel',tx,ty,.12,.20,.38,false);ev.hongCarryAt=.065;}}
+  if(ev.hongWheelCaught&&!ev.hongWheelReleased&&enemy&&enemy.hp>0){ev.hongCarryAt=(ev.hongCarryAt||0)-dt;if(ev.hongCarryAt<=0){const fa=Math.atan2(enemy.y-me.y,enemy.x-me.x),dist=me.r+enemy.r+34,tx=me.x+Math.cos(fa)*dist,ty=me.y+Math.sin(fa)*dist;queueStigmaControl('hongWheel',tx,ty,.12,.20,.38,false);ev.hongCarryAt=.065;}}
  }
  if(mode!=='flameBreathWheel')me.a=a;
  if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.047:mode==='flameBreathWheel'?.060:.066;pvpHongryeonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05,ev);}}
@@ -5831,10 +5841,9 @@ function pvpHongryeonHit(ev,k){
   sendAttack({...common,shape:'circle',x,y,r,forceA:enemyNear?Math.atan2(enemy.y-y,enemy.x-x):a,teleportHit:!!confirmed});pvpHongryeonFx(x,y,a,r,k);
  }
  if(mode==='flameBreathWheel'){const face=a+(ev.side||1)*k*.72,arc=[4.04,5,6.10][k],close=k===0&&enemyNear&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=205+enemy.r,hit=!!enemyNear&&(close||ev.hongWheelCaught||(Math.hypot(enemy.x-me.x,enemy.y-me.y)<=r+enemy.r&&Math.abs(Math.atan2(Math.sin(Math.atan2(enemy.y-me.y,enemy.x-me.x)-face),Math.cos(Math.atan2(enemy.y-me.y,enemy.x-me.x)-face)))<=arc/2));
-  const onHit=()=>{if(me.skillEvent!==ev)return;if(k<2){ev.hongWheelCaught=true;return;}ev.hongWheelCaught=false;
-   if(enemy&&enemy.hp>0){const angle=ev.hongFace??ev.a;queueStigmaControl('hongWheel',enemy.x+Math.cos(angle)*155,enemy.y+Math.sin(angle)*155,.26,.94,.45,true);}};
-  sendAttack({...common,shape:close?'circle':'arc',x:me.x,y:me.y,a:face,range:r,arc,r:205,forceA:enemyNear?Math.atan2(enemy.y-me.y,enemy.x-me.x):a,teleportHit:hit,controlLease:'hongWheel',controlLeaseMs:920},onHit);
-  if(k===2)ev.hongWheelCaught=false;
+  const onHit=()=>{if(me.skillEvent!==ev)return;if(k<2){if(!ev.hongWheelReleased)ev.hongWheelCaught=true;return;}ev.hongWheelCaught=false;};
+  if(k===2){ev.hongWheelReleased=true;ev.hongWheelCaught=false;if(me.outgoingControl?.key==='hongWheel')me.outgoingControl=null;}
+  sendAttack({...common,shape:close?'circle':'arc',x:me.x,y:me.y,a:face,range:r,arc,r:205,forceA:k===2?a:(enemyNear?Math.atan2(enemy.y-me.y,enemy.x-me.x):a),teleportHit:hit,controlLease:'hongWheel',controlLeaseMs:920},onHit);
   pvpHongryeonFx(me.x,me.y,face,r,k);
  }
  triggerPvpShake(ev.index,.65,false);
@@ -5856,7 +5865,7 @@ function pvpHongryeonFinale(ev,dt){
   me.x=ex;me.y=ey;me.a=a;me.skillLift=4+Math.sin(Math.PI*clamp(ev.elapsed/.53,0,1))*7;
   ev.fx-=dt;if(ev.fx<=0){ev.fx=.085;pvpHongryeonTrail(ox,oy,me.x,me.y,1.55,ev);}
   if(collision){ev.hongPending=true;ev.hongPendingAt=performance.now();net({t:'teleport',x:me.x,y:me.y,a});
-   sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:79,d:pvpSkillAttack(me)*1.36,stun:3.1,force:0,bypassShield:true,parryable:false,teleportHit:true,rapidHit:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
+   sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:79,d:pvpSkillAttack(me)*1.36,stun:1.55,force:0,bypassShield:true,parryable:false,teleportHit:true,rapidHit:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
     if(me.skillEvent!==ev||!enemy||enemy.hp<=0)return;
     ev.hongPending=false;ev.hongCaught=true;ev.hongCaughtAt=ev.elapsed;ev.hongStage=0;ev.cfg.duration=ev.elapsed+3.61;ev.anchorX=enemy.x;ev.anchorY=enemy.y;me.attackDuration=me.attackAnim=me.attackCd=me.moveLock=3.61;
     pvpHongryeonFx(enemy.x,enemy.y,a,190,0,1,ev);pvpCrimsonShake(11,true);
@@ -5873,7 +5882,7 @@ function pvpHongryeonFinale(ev,dt){
   me.a=Math.atan2(cy-me.y,cx-me.x);net({t:'teleport',x:me.x,y:me.y,a:me.a});
   const near=enemy&&enemy.hp>0&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=cut.reach+enemy.r;
   const centerX=enemy&&enemy.hp>0?enemy.x:cx,centerY=enemy&&enemy.hp>0?enemy.y:cy;
-  sendPvpUltimateHit({shape:cut.kind==='finisher'?'circle':'arc',x:cut.kind==='finisher'?centerX:me.x,y:cut.kind==='finisher'?centerY:me.y,r:cut.reach,range:cut.reach,a:me.a,arc:cut.arc,d:pvpSkillAttack(me)*cut.mult,stun:Math.min(3.1,cut.stun*2),force:cut.kind==='finisher'?145:0,forceA:a,bypassShield:true,parryable:false,teleportHit:!!near,controlLease:'hongFinale',controlLeaseMs:1400,skillId:'meteorBreaker'});
+  sendPvpUltimateHit({shape:cut.kind==='finisher'?'circle':'arc',x:cut.kind==='finisher'?centerX:me.x,y:cut.kind==='finisher'?centerY:me.y,r:cut.reach,range:cut.reach,a:me.a,arc:cut.arc,d:pvpSkillAttack(me)*cut.mult,stun:Math.min(1.55,cut.stun),force:cut.kind==='finisher'?145:0,forceA:a,bypassShield:true,parryable:false,teleportHit:!!near,controlLease:'hongFinale',controlLeaseMs:1400,skillId:'meteorBreaker'});
   // 0 = confirmed opening hit; 1..N = the exact world-authored flame sword cuts.
   pvpHongryeonFx(cut.kind==='finisher'?centerX:me.x,cut.kind==='finisher'?centerY:me.y,me.a,cut.reach,k+1,1,ev);
   if(cut.kind==='finisher')pvpCrimsonShake(19,true);
