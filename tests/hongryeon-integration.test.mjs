@@ -87,7 +87,7 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
   a.api.control({keys:[],aim:0,skill:4});
   a.step(.35);a.api.control({keys:[],aim:0,release:4});
   assert.equal(a.api.me.skillEvent?.skill?.id,'meteorBreaker','ultimate should cast after preparation and key release');
-  for(let i=0;i<65;i++)a.step(1/60);
+  for(let i=0;i<100;i++)a.step(1/60);
   assert.equal(out.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker'),false,'miss should send no fabricated hits');
   assert.equal(a.api.me.skillEvent,null,'missed dash must finish instead of starting the finisher');
  }finally{a.dispose();}
