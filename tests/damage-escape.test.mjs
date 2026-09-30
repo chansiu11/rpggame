@@ -40,8 +40,8 @@ test('damage escape is usable with the dash input while stunned and grants one s
   assert.equal(me.hp,hp,'the first incoming hit after escape is ignored');
   const beforeX=me.x,beforeY=me.y;
   f.arena.api.receive({t:'forceTrack',x:beforeX+300,y:beforeY,time:.4,seq:300,stun:.5});
-  f.arena.api.receive({t:'forceDelta',dx:200,dy:90,t:.4,stun:.5});
-  f.arena.api.receive({t:'forceMove',x:beforeX+170,y:beforeY+60,t:.4,stun:.5});
+  f.arena.api.receive({t:'forceDelta',dx:200,dy:90,stun:.5});
+  f.arena.api.receive({t:'forceMove',x:beforeX+170,y:beforeY+60,stun:.5});
   assert.equal(me.forceTrack,null,'delayed attacker snapshots must not reapply the previous carry');
   assert.equal(me.forcedMove,null,'new force packets are ignored throughout escape immunity');
  }finally{f.arena.dispose();}
