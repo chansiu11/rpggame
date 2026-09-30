@@ -13,26 +13,26 @@ function prepareVoidArena(){
  const opening=sent.find(p=>p.t==='atk');
  assert.ok(opening,'Void 3 must send its opening attack after preparation');
  arena.api.receive({t:'attackResult',id:opening.id,result:'hit'});
- assert.equal(arena.api.me.void3DodgeRemaining,5);
+ assert.equal(arena.api.me.void3DodgeRemaining,1);
  return {arena,sent};
 }
-test('Void 3 PVP automatically counters five times after the 50ms disappearance delay',()=>{
+test('Void 3 PVP automatically counters once after the 50ms disappearance delay',()=>{
  const {arena,sent}=prepareVoidArena();
  try{
   const me=arena.api.me,hp=me.hp;
   arena.api.control({keys:[],aim:0,release:2});
-  assert.equal(me.void3DodgeRemaining,5,'releasing the key must not end the stance');
-  for(let n=1;n<=5;n++){
-   arena.step(.2);
-   arena.api.receive({t:'atk',id:300+n,shape:'circle',x:me.x,y:me.y,r:90,d:24,stun:.5});
-   assert.equal(me.hp,hp,'marked attacker hit must be dodged');
-   assert.equal(me.void3DodgeRemaining,5-n);
-   const counters=()=>sent.filter(p=>p.t==='atk').length-1;
-   const before=counters();
-   arena.step(.03);assert.equal(counters(),before,'no counter may happen before 50ms');
-   arena.step(.03);assert.ok(counters()>before,'counter must appear after 50ms');
-  }
-  assert.ok(me.cool[2]>0,'normal cooldown starts when fifth evade is spent');
+  assert.equal(me.void3DodgeRemaining,1,'releasing the key must not end the one-use stance');
+  arena.step(.2);
+  arena.api.receive({t:'atk',id:301,shape:'circle',x:me.x,y:me.y,r:90,d:24,stun:.5});
+  assert.equal(me.hp,hp,'the marked attacker first hit must be dodged');
+  assert.equal(me.void3DodgeRemaining,0);
+  const counters=()=>sent.filter(p=>p.t==='atk').length-1,before=counters();
+  arena.step(.03);assert.equal(counters(),before,'no counter may happen before 50ms');
+  arena.step(.03);assert.ok(counters()>before,'counter must appear after 50ms');
+  assert.ok(me.cool[2]>0,'normal cooldown starts when the single evade is spent');
+  me.inv=me.hitInv=0;
+  arena.api.receive({t:'atk',id:302,shape:'circle',x:me.x,y:me.y,r:90,d:24,stun:.5});
+  assert.ok(me.hp<hp,'a second incoming hit is no longer auto-evaded');
  }finally{arena.dispose();}
 });
 test('Void 3 PVP expiry restores original cooldown without a hit',()=>{
@@ -54,19 +54,19 @@ function worldFixture(){
   combat.handle(b,{seq:++attacks,events:[{kind:'attack',targetId:a.id,shape:'circle',x:a.x,y:a.y,r:75,damage:90,skillId:'basic'}]});
  }};
 }
-test('shared world PvP enforces five marked dodges and authoritative knockback',()=>{
+test('shared world PvP enforces one marked dodge and authoritative knockback',()=>{
  const w=worldFixture();w.arm();const original=w.a.hp;
- for(let n=1;n<=5;n++){
-  w.step(800);w.attack(); // The marked attacker must recover from the previous .75s stun.
-  assert.equal(w.a.hp,original,'marked attacks cannot damage the dodging player');
-  assert.equal(w.a.void3Mark.remaining,5-n);
-  assert.equal(w.broadcasts.at(-1).outcome,'void3Evade');
-  w.step(55);
-  assert.equal(w.broadcasts.filter(m=>m.outcome==='void3Counter').length,n);
-  assert.ok(w.b.forceMove,'counter must apply server-owned knockback');
-  assert.ok(w.b.stunUntil>0,'counter must stun');
- }
- assert.equal(w.a.void3Mark,null,'fifth counter closes stance');
+ w.step(800);w.attack();
+ assert.equal(w.a.hp,original,'the first marked attack cannot damage the dodging player');
+ assert.equal(w.a.void3Mark.remaining,0);
+ assert.equal(w.broadcasts.at(-1).outcome,'void3Evade');
+ w.step(55);
+ assert.equal(w.broadcasts.filter(m=>m.outcome==='void3Counter').length,1);
+ assert.ok(w.b.forceMove,'counter must apply server-owned knockback');
+ assert.ok(w.b.stunUntil>0,'counter must stun');
+ assert.equal(w.a.void3Mark,null,'the single counter closes the stance');
+ w.step(800);w.attack();
+ assert.ok(w.a.hp<original,'the next marked-player attack damages normally after the one evade is spent');
 });
 test('shared world PvP expires unused stance after ten seconds',()=>{
  const w=worldFixture();w.arm();w.step(10001);
