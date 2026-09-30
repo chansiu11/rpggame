@@ -4,7 +4,7 @@ import {seedPolicy,leastTrainedPair} from './brain.js';
 import {validatePolicy} from './store.js';
 // One authenticated device leases training on the existing web service.
 // No extra Render instance. Dropped heartbeat or a failed save pauses work.
-export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWorker=(data)=>new Worker(new URL('./train-worker.js',import.meta.url),{workerData:data,resourceLimits:{maxOldGenerationSizeMb:144}}),passwordHash=process.env.AI_DEVICE_PASSWORD_SHA256||''}){
+export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWorker=(data)=>new Worker(new URL('./train-worker.js',import.meta.url),{workerData:data,resourceLimits:{maxOldGenerationSizeMb:256}}),passwordHash=process.env.AI_DEVICE_PASSWORD_SHA256||''}){
  let owner=null,lease=0,running=false,worker=null,checkpoint=null,revision=0,savedRevision=0,error='',loaded=false,lastPair=null,pendingStart=false;
  const control=new Int32Array(new SharedArrayBuffer(4)),watchControl=new Int32Array(new SharedArrayBuffer(4)),tuningControl=new Int32Array(new SharedArrayBuffer(8)),session=randomUUID();let lastSave=now(),lastSaveMatches=0,watchEnabled=false,saveInFlight=false,saveRequestedRevision=0,saveRequestedMatches=0,nextSaveRetryAt=0;
  Atomics.store(tuningControl,0,1000);Atomics.store(tuningControl,1,3);
@@ -54,7 +54,7 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
   h.timer=setTimeout(()=>finishTakeover(h,false),6500);h.timer.unref?.();
  }
  const valid=c=>{if(!c||c.schema!==1||!Number.isInteger(c.batch)||c.batch<25||c.batch>100||!Number.isInteger(c.completed)||c.completed<0||c.completed>c.batch)throw Error('잘못된 학습 기록입니다.');validatePolicy(c.policy);validatePolicy(c.baseline);if(c.evaluation&&(!Number.isInteger(c.evaluation.completed)||c.evaluation.completed<0||c.evaluation.completed>32))throw Error('잘못된 평가 기록입니다.');return c;};
- function status(){if(owner)send(owner.ws,{type:'ai:trainStatus',session,running,pendingStart,paused:!running?'stopped':isBusy(owner)?'players':now()>lease?'disconnected':'',matches:checkpoint?.policy.matches||0,generation:checkpoint?.policy.generation||0,batchCompleted:checkpoint?.completed||0,batchSize:checkpoint?.batch||25,settings:tuning(),lastPair,nextPair:checkpoint?leastTrainedPair(checkpoint.policy):null,revision,savedRevision,error,saveInFlight,saveRequestedMatches});}
+ function status(){if(owner)send(owner.ws,{type:'ai:trainStatus',session,running,pendingStart,paused:!running?'stopped':isBusy(owner)?'players':now()>lease?'disconnected':'',matches:checkpoint?.policy.matches||0,generation:checkpoint?.policy.generation||0,batchCompleted:checkpoint?.completed||0,batchSize:checkpoint?.batch||25,settings:tuning(),parallelBattles:Math.min(4,tuning().matchesPerBurst),lastPair,nextPair:checkpoint?leastTrainedPair(checkpoint.policy):null,revision,savedRevision,error,saveInFlight,saveRequestedMatches});}
  function exportCheckpoint(force=false){
   if(!owner||!checkpoint)return;
   const due=force||checkpoint.policy.matches-lastSaveMatches>=25||now()-lastSave>=300000;
