@@ -5,7 +5,7 @@ import {validatePolicy} from './store.js';
 // One authenticated device leases training on the existing web service.
 // No extra Render instance. Dropped heartbeat or a failed save pauses work.
 export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWorker=(data)=>new Worker(new URL('./train-worker.js',import.meta.url),{workerData:data,resourceLimits:{maxOldGenerationSizeMb:144}}),passwordHash=process.env.AI_DEVICE_PASSWORD_SHA256||''}){
- let owner=null,lease=0,running=false,worker=null,checkpoint=null,revision=0,savedRevision=0,error='',loaded=false,lastPair=null;
+ let owner=null,lease=0,running=false,worker=null,checkpoint=null,revision=0,savedRevision=0,error='',loaded=false,lastPair=null,pendingStart=false;
  const control=new Int32Array(new SharedArrayBuffer(4)),watchControl=new Int32Array(new SharedArrayBuffer(4)),tuningControl=new Int32Array(new SharedArrayBuffer(8)),session=randomUUID();let lastSave=now(),lastSaveMatches=0,watchEnabled=false,saveInFlight=false,saveRequestedRevision=0,saveRequestedMatches=0,nextSaveRetryAt=0;
  Atomics.store(tuningControl,0,1000);Atomics.store(tuningControl,1,3);
  const tuning=()=>({retrainDelayMs:Atomics.load(tuningControl,0),matchesPerBurst:Atomics.load(tuningControl,1)});
@@ -15,6 +15,9 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
  const revokedSessions=new Set();let pendingTakeover=null;
  function grant(p){
   watchEnabled=false;Atomics.store(watchControl,0,0);
+  // A save request belongs to the browser that received it. If that browser
+  // disconnected, never keep waiting for its acknowledgement on a new login.
+  saveInFlight=false;saveRequestedRevision=0;saveRequestedMatches=0;nextSaveRetryAt=0;pendingStart=false;
   owner=p;p.trainingAdmin=true;p.trainingReplaced=false;lease=now()+45000;
   send(p.ws,{type:'ai:trainAuth',ok:true,session,loaded});status();if(loaded)exportCheckpoint(true);
  }
@@ -51,7 +54,7 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
   h.timer=setTimeout(()=>finishTakeover(h,false),6500);h.timer.unref?.();
  }
  const valid=c=>{if(!c||c.schema!==1||!Number.isInteger(c.batch)||c.batch<25||c.batch>100||!Number.isInteger(c.completed)||c.completed<0||c.completed>c.batch)throw Error('잘못된 학습 기록입니다.');validatePolicy(c.policy);validatePolicy(c.baseline);if(c.evaluation&&(!Number.isInteger(c.evaluation.completed)||c.evaluation.completed<0||c.evaluation.completed>32))throw Error('잘못된 평가 기록입니다.');return c;};
- function status(){if(owner)send(owner.ws,{type:'ai:trainStatus',session,running,paused:!running?'stopped':isBusy(owner)?'players':now()>lease?'disconnected':'',matches:checkpoint?.policy.matches||0,generation:checkpoint?.policy.generation||0,batchCompleted:checkpoint?.completed||0,batchSize:checkpoint?.batch||25,settings:tuning(),lastPair,nextPair:checkpoint?leastTrainedPair(checkpoint.policy):null,revision,savedRevision,error,saveInFlight,saveRequestedMatches});}
+ function status(){if(owner)send(owner.ws,{type:'ai:trainStatus',session,running,pendingStart,paused:!running?'stopped':isBusy(owner)?'players':now()>lease?'disconnected':'',matches:checkpoint?.policy.matches||0,generation:checkpoint?.policy.generation||0,batchCompleted:checkpoint?.completed||0,batchSize:checkpoint?.batch||25,settings:tuning(),lastPair,nextPair:checkpoint?leastTrainedPair(checkpoint.policy):null,revision,savedRevision,error,saveInFlight,saveRequestedMatches});}
  function exportCheckpoint(force=false){
   if(!owner||!checkpoint)return;
   const due=force||checkpoint.policy.matches-lastSaveMatches>=25||now()-lastSave>=300000;
@@ -74,13 +77,25 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
  w.on('error',e=>{if(worker!==w)return;error='훈련 실행 오류';running=false;status();});
  w.on('exit',()=>{if(worker!==w)return;worker=null;status();});
  }
- function tick(){if(!owner||!running||now()>lease||isBusy(owner)){pause();return;}if(!worker)launch();else{Atomics.store(control,0,1);Atomics.notify(control,0);}if(checkpoint&&(now()-lastSave>=300000||(!saveInFlight&&now()>=nextSaveRetryAt&&checkpoint.policy.matches-lastSaveMatches>=25)))exportCheckpoint(now()-lastSave>=300000);}
+ function tick(){
+  if(!owner){pause();return;}
+  // A queued start must also be able to retry its Firebase save while the
+  // worker is still stopped.
+  if(pendingStart&&!running){
+   if(loaded&&savedRevision===revision){pendingStart=false;running=true;error='';}
+   else if(checkpoint&&!saveInFlight&&now()>=nextSaveRetryAt)exportCheckpoint(true);
+  }
+  if(!running||now()>lease||isBusy(owner)){pause();return;}
+  if(!worker)launch();else{Atomics.store(control,0,1);Atomics.notify(control,0);}
+  if(checkpoint&&(now()-lastSave>=300000||(!saveInFlight&&now()>=nextSaveRetryAt&&checkpoint.policy.matches-lastSaveMatches>=25)))exportCheckpoint(now()-lastSave>=300000);
+ }
  const timer=setInterval(tick,1000);timer.unref?.();
  function leave(p){
   if(pendingTakeover?.next===p){clearTimeout(pendingTakeover.timer);pendingTakeover=null;}
   if(pendingTakeover?.old===p)finishTakeover(pendingTakeover,false);
   if(owner!==p)return;
-  pause();running=false;watchEnabled=false;Atomics.store(watchControl,0,0);owner.trainingAdmin=false;owner=null;
+  pause();running=false;pendingStart=false;watchEnabled=false;Atomics.store(watchControl,0,0);owner.trainingAdmin=false;owner=null;
+  saveInFlight=false;saveRequestedRevision=0;saveRequestedMatches=0;nextSaveRetryAt=0;
   if(worker){const w=worker;worker=null;w.terminate();}
  }
  function handle(p,m,bytes=0){if(!String(m?.type||'').startsWith('ai:train'))return false;
@@ -120,15 +135,25 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
  else if(m.type==='ai:trainLoad'){
  if(running||worker)throw Error('중지 후 현재 작업이 끝날 때까지 기다려 주세요.');
  checkpoint=m.checkpoint?valid(structuredClone(m.checkpoint)):{schema:1,batch:25,completed:0,policy:seedPolicy(),baseline:seedPolicy()};lastPair=null;loaded=true;revision++;error='';saveInFlight=false;saveRequestedRevision=0;saveRequestedMatches=0;nextSaveRetryAt=0;onPolicy(checkpoint.baseline);exportCheckpoint(true);status();
- }else if(m.type==='ai:trainStart'){if(!loaded||savedRevision!==revision)throw Error('Firebase 저장 확인 후 시작할 수 있습니다.');running=true;error='';tick();status();}
- else if(m.type==='ai:trainStop'){running=false;pause();if(worker){Atomics.store(control,0,2);Atomics.notify(control,0);const w=worker;worker=null;w.terminate();}exportCheckpoint(true);status();}
+ }else if(m.type==='ai:trainStart'){
+  if(!loaded)throw Error('학습 기록을 먼저 불러와야 합니다.');
+  if(savedRevision!==revision){
+   pendingStart=true;running=false;error='Firebase 저장 확인 중 · 완료되면 자동으로 훈련을 시작합니다.';
+   exportCheckpoint(true);status();return true;
+  }
+  pendingStart=false;running=true;error='';tick();status();
+ }
+ else if(m.type==='ai:trainStop'){running=false;pendingStart=false;pause();if(worker){Atomics.store(control,0,2);Atomics.notify(control,0);const w=worker;worker=null;w.terminate();}exportCheckpoint(true);status();}
  else if(m.type==='ai:trainSaved'){
   if(m.session!==session||!Number.isInteger(m.revision)||m.revision>revision||m.revision<savedRevision)return true;
   savedRevision=m.revision;lastSave=now();lastSaveMatches=Math.max(lastSaveMatches,Number(m.matches)||0);error='';nextSaveRetryAt=0;
   if(saveInFlight&&m.revision>=saveRequestedRevision){saveInFlight=false;saveRequestedRevision=0;saveRequestedMatches=0;}
   // If training advanced by another 25+ bouts while Firebase was saving, save
   // only the newest checkpoint now instead of replaying every intermediate one.
-  if(checkpoint&&checkpoint.policy.matches-lastSaveMatches>=25)exportCheckpoint(false);
+  if(pendingStart){
+   if(savedRevision===revision){pendingStart=false;running=true;error='';tick();}
+   else exportCheckpoint(true);
+  }else if(checkpoint&&checkpoint.policy.matches-lastSaveMatches>=25)exportCheckpoint(false);
   status();
  }
  else if(m.type==='ai:trainSaveFailed'){
