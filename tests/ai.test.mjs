@@ -41,8 +41,8 @@ test('neural AI learns ten combat behaviors while dodge stays fixed and resource
  assert.equal(p.learning.fixedDodge,true);assert.equal(p.learning.resourceManagement,false);assert.equal(networkParameterCount(),934);
  const brain=createBrain('void',p,()=>.5,3,{training:true});
  const me={x:1000,y:1000,stam:100,maxStam:100,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,void3DodgeRemaining:0};
- const enemy={x:1120,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:.2,skillPose:-1,block:false,combo:0};
- const command=brain.step(1/60,me,enemy);assert.equal(command.dash,true,'reactive dodge remains a fixed code path instead of a learned output');
+ const enemy={x:1120,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:.2,skillPose:0,block:false,combo:0};
+ const command=brain.step(1/60,me,enemy);assert.equal(command.dash,true,'close skill dodge remains a fixed code path instead of a learned output');
 });
 test('neural learning changes bounded network parameters and survives serialization',()=>{
  const p=seedPolicy(),before=p.styles.gale.network.w1.slice();
