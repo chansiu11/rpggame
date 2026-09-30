@@ -1192,6 +1192,16 @@ function crimsonDashEdgeFire(x1,y1,x2,y2,width=47,life=.35,power=1,density=1){
 function crimsonChargeFlames(x,y,r=90,life=.95,power=1){
  effects.push({type:'crimsonChargeFlames',x,y,r,power,seed:Math.floor(rnd(1,2147483646)),t:life,max:life});
 }
+function flameBreathIgnitionCircle(x,y,face=0,life=.55,power=1){
+ const count=options.quality==='low'?8:14,r=118;
+ for(let j=0;j<count;j++){
+  const a=face+TAU*(j+rnd(-.18,.18))/count,rr=r+rnd(-12,12),px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;
+  flameBreathPlume(px,py,a+Math.PI/2*rnd(-1,1),rnd(46,76),rnd(20,34),life*rnd(.62,1),power*rnd(.72,1.08),.55);
+  if(j%2===0)crimsonEmbers(px,py,a+Math.PI+rnd(-.28,.28),1,rnd(95,155),.42,.58);
+ }
+ crimsonAshPatch(x,y,r*.72,life*1.25,face);
+ crimsonChargeFlames(x,y,72,Math.min(.34,life),.72*power);
+}
 
 /* Hongryeon sword-forms: original flame effects driven by the real hitbox, not sprites or beams. */
 const FLAME_BREATH_MODES=new Set(['flameBreathSweep','flameBreathRise','flameBreathCleave','flameBreathWheel','flameBreathFinale']);
@@ -1330,11 +1340,10 @@ window.EchoesBuildHongryeonFx=function(p){
   const x=Number(p.x)||0,y=Number(p.y)||0,a=Number(p.a)||0,side=p.side===-1?-1:1,
    id=String(p.id||''),phase=p.phase||'signature';
   if(phase==='trail'){
-   flameBreathTrail(x,y,Number.isFinite(p.x2)?p.x2:x,Number.isFinite(p.y2)?p.y2:y,Number(p.power)||1,id==='quakeRush'?.5:id==='earthRend'?.62:id==='ironJudgment'?.68:1);
+   flameBreathTrail(x,y,Number.isFinite(p.x2)?p.x2:x,Number.isFinite(p.y2)?p.y2:y,Number(p.power)||1,id==='quakeRush'?.5:id==='earthRend'?.62:id==='ironJudgment'?.68:id==='meteorBreaker'?1.12:1);
   }else if(phase==='startup'){
    if(id==='quakeRush')flameBreathCleaveCircle(x,y,FLAME_CLEAVE_START_RADIUS,a,.42,1.15,.45);
-   crimsonChargeFlames(x,y,id==='meteorBreaker'?83:27,id==='meteorBreaker'?.29:.21,id==='meteorBreaker'?1.16:.46);
-   crimsonEmbers(x,y,a+Math.PI,id==='meteorBreaker'?10:3,id==='meteorBreaker'?188:83,.64,.62);
+   if(id==='meteorBreaker'){flameBreathIgnitionCircle(x,y,a,.55,1.18);crimsonEmbers(x,y,a+Math.PI,6,165,.55,.62);}else{crimsonChargeFlames(x,y,27,.21,.46);crimsonEmbers(x,y,a+Math.PI,3,83,.64,.62);}
   }else{
    flameBreathSignature(id,Number(p.index)||0,!!p.final,a,Number(p.reach)||190,{x,y},{side,baseFacing:a});
    // The rising slash also lights up every section of its already-traveled dash.
@@ -1625,7 +1634,7 @@ const SWORD_SKILL_LIBRARY=[
  {id:'earthRend',name:'승염 비상',level:30,price:920,cost:43,cool:7.4,color:'#ff782e',desc:'직선으로 328만큼 빠르게 돌진하며 점차 감속한다. 발동 0.5초 후 도착 지점의 원형 화염과 지나온 직선 경로에 동시에 피해를 주며 방패를 관통한다.',cfg:{duration:.78,hits:[.50],mult:[2.61],arc:[TAU],reach:[250],step:[0],mode:'flameBreathRise'}},
  {id:'dawnArc',name:'여명 검파',level:38,price:1100,cost:58,cool:3.5,color:'#ffd95c',desc:'강한 검압 하나를 발사한 반동으로 몸이 뒤로 밀리는 초장거리 단발기입니다.',cfg:{duration:.72,hits:[.28],mult:[1.15],arc:[1.7],reach:[20],step:[0],mode:'dawnWave'}},
  {id:'thunderDrive',name:'천풍 추살',level:44,price:1280,cost:74,cool:15.8,color:'#61f0c7',desc:'질풍 유파의 궁극기. 장거리 초고속 돌진에 맞는 순간 2번 질풍 점멸처럼 돌진 방향으로 강하게 날아가며, 이후 0.05초마다 총 30회의 추살 연계를 합니다. Lv.100 기준 일반 타격 100, 마지막 타격 200 피해입니다.',cfg:{duration:2.35,hits:Array.from({length:30},(_,i)=>.70+i*.05),mult:Array.from({length:30},(_,i)=>i===29?.38:.20),arc:Array(30).fill(TAU),reach:Array(30).fill(0),step:Array(30).fill(0),mode:'galePursuit'}},
- {id:'meteorBreaker',name:'극홍 · 염화일천',level:52,price:1520,cost:78,cool:19.5,color:'#ff782e',desc:'0.5초 차지 후 초고속 화염 돌진. 적중하면 멈춰 기절시키고 횡베기·역베기·찌르기·교차 베기·내려베기·올려베기 등 열세 차례의 검격을 빠르게 연계한 뒤, 검을 높이 들어 폭염 참격으로 마무리한다. 빗나가면 돌진 후 즉시 종료된다.',cfg:{duration:1.65,hits:[],mult:[],arc:[TAU],reach:[0],step:[0],mode:'flameBreathFinale'}},
+ {id:'meteorBreaker',name:'극홍 · 염화일천',level:52,price:1520,cost:78,cool:19.5,color:'#ff782e',desc:'주변에 원형 화염을 피워 0.5초 예열한 뒤 기존보다 절반 속도의 화염 돌진을 시작한다. 적중하면 멈춰 기절시키고 횡베기·역베기·찌르기·교차 베기·내려베기·올려베기 등 열세 차례의 검격을 빠르게 연계한 뒤 폭염 참격으로 마무리한다. 빗나가면 돌진 후 즉시 종료된다.',cfg:{duration:1.65,hits:[],mult:[],arc:[TAU],reach:[0],step:[0],mode:'flameBreathFinale'}},
  {id:'galeOrbit',name:'풍환 폭발',level:10,price:340,cost:39,cool:8,color:'#61f0c7',desc:'0.5초 동안 넓은 풍환으로 주변 적의 이동을 봉쇄하고 부드럽게 중심으로 끌어당깁니다. 적은 스킬을 사용할 수 있으며, 이후 회전하는 원형 폭발로 타격합니다.',cfg:{duration:.78,hits:[.50],mult:[6.45],arc:[TAU],reach:[0],step:[0],mode:'galePulse'}},
  {id:'mirrorStep',name:'거울 걸음',level:8,price:0,cost:30,cool:5,color:'#b88cff',desc:'멀리 있는 적을 포착해 반대편까지 단숨에 파고든 뒤 뒤쪽에서 베는 장거리 추격 돌진기입니다.',cfg:{duration:.55,hits:[.32],mult:[2.25],arc:[1.1],reach:[36],step:[0],mode:'mirrorBackstab'}},
  {id:'lunarBind',name:'월인 결박',level:26,price:0,cost:46,cool:14.8,color:'#b88cff',desc:'표적의 좌우와 뒤로 세 번 순간이동하며 달빛 결계를 이동시켜 적을 구속하고, 마지막 위치에서 월륜 참격으로 마무리합니다.',cfg:{duration:.82,hits:[.50],mult:[2.05],arc:[TAU],reach:[84],step:[0],mode:'lunarPull'}},
@@ -2237,7 +2246,7 @@ function heldSwordInputAngle(fallback){
 }
 function swordSkillStartVisuals(actor,sk,slot,facing){
  if(!actor||!sk)return;
- if(FLAME_BREATH_MODES.has(sk.cfg?.mode)){if(sk.cfg.mode==='flameBreathCleave'){flameBreathCleaveCircle(actor.x,actor.y,FLAME_CLEAVE_START_RADIUS,facing,.42,1.15,.45);if(actor===player)shake=Math.max(shake,7);}crimsonChargeFlames(actor.x,actor.y,sk.id==='meteorBreaker'?83:27,sk.id==='meteorBreaker'?.29:.21,sk.id==='meteorBreaker'?1.16:.46);crimsonEmbers(actor.x,actor.y,facing+Math.PI,sk.id==='meteorBreaker'?10:3,sk.id==='meteorBreaker'?188:83,.64,.62);return;}const cfg=sk.cfg||{},theme=swordStyleFxForSkill(sk.id),x=actor.x,y=actor.y;
+ if(FLAME_BREATH_MODES.has(sk.cfg?.mode)){if(sk.cfg.mode==='flameBreathCleave'){flameBreathCleaveCircle(actor.x,actor.y,FLAME_CLEAVE_START_RADIUS,facing,.42,1.15,.45);if(actor===player)shake=Math.max(shake,7);}if(sk.id==='meteorBreaker'){flameBreathIgnitionCircle(actor.x,actor.y,facing,.55,1.18);crimsonEmbers(actor.x,actor.y,facing+Math.PI,6,165,.55,.62);}else{crimsonChargeFlames(actor.x,actor.y,27,.21,.46);crimsonEmbers(actor.x,actor.y,facing+Math.PI,3,83,.64,.62);}return;}const cfg=sk.cfg||{},theme=swordStyleFxForSkill(sk.id),x=actor.x,y=actor.y;
  if(sk.holdContinuous){
   if(sk.id==='gravityCut'){effects.push({type:'riftCut',x:x+Math.cos(facing)*65,y:y+Math.sin(facing)*65,a:facing+.55,len:145,width:18,color:theme.main,t:.28,max:.28});effects.push({type:'line',x:x-Math.cos(facing)*35,y:y-Math.sin(facing)*35,x2:x+Math.cos(facing)*105,y2:y+Math.sin(facing)*105,color:theme.sub,t:.24,max:.24});}
   else ring(x,y,38,theme.main,.28);
@@ -2994,7 +3003,8 @@ function updateFlameBreathFinale(seq,sk,dt){
   // In world PvP hitEnemy returns null until the authoritative server accepts the hit.
   // Do not manufacture a 14-cut follow-up from speculative client-side contact.
   if(seq.flamePending){if(realTime-(seq.flamePendingAt||realTime)>.9)finish();return;}
-  const ox=player.x,oy=player.y,dashLength=1020,dashSpeed=2350,dashTime=.53;
+  const startup=.50,dashElapsed=seq.elapsed-startup;if(dashElapsed<0){player.skillLift=0;player.facing=seq.facing=f;return;}
+  const ox=player.x,oy=player.y,dashLength=1020,dashSpeed=1175,dashTime=dashLength/dashSpeed;
   const traveled=Math.hypot(ox-seq.originX,oy-seq.originY);
   const distanceToGo=Math.max(0,dashLength-traveled);
   const step=Math.min(dashSpeed*dt,distanceToGo);
@@ -3012,19 +3022,19 @@ function updateFlameBreathFinale(seq,sk,dt){
   if(advance>0)moveBody(player,fx*advance,fy*advance);
   player.facing=seq.facing=f;
   const traveledNow=Math.hypot(player.x-ox,player.y-oy);
-  player.skillLift=Math.sin(Math.PI*clamp(seq.elapsed/dashTime,0,1))*7+4;
+  player.skillLift=Math.sin(Math.PI*clamp(dashElapsed/dashTime,0,1))*7+4;
   seq.flameFX=(seq.flameFX||0)-dt;
   if(seq.flameFX<=0){
-   seq.flameFX=.085; // 2 fewer-lived plumes per tick instead of 3 every .042s.
-   const theta=seq.elapsed*19,orbit=45,px=player.x,py=player.y;
-   for(const a of [theta,theta+Math.PI]){
+   seq.flameFX=.060;
+   const theta=dashElapsed*20,orbit=49,px=player.x,py=player.y;
+   for(const a of [theta,theta+TAU/3,theta+TAU*2/3]){
     const xx=px+nx*Math.cos(a)*orbit+fx*Math.sin(a)*orbit*.48;
     const yy=py+ny*Math.cos(a)*orbit+fy*Math.sin(a)*orbit*.48;
     flameBreathPlume(xx-fx*35,yy-fy*35,f,165,81,.23,1.05,.63);
    }
    crimsonChargeFlames(px,py,63,.17,.83);
    crimsonEmbers(px,py,f+Math.PI,options.quality==='low'?2:3,235,.31,.62);
-   if(traveledNow>4)flameBreathTrail(ox,oy,px,py,1.55);
+   if(traveledNow>4)flameBreathTrail(ox,oy,px,py,1.78,1);
   }
   if(traveledNow>7)syncSkillMoveIfNeeded(ox,oy,18,2500);
   if(collision&&Math.hypot(player.x-ox,player.y-oy)+2>=advance){
@@ -3056,7 +3066,7 @@ function updateFlameBreathFinale(seq,sk,dt){
    if(e.networkPlayer&&landed===null){seq.flamePending=true;seq.flamePendingAt=realTime;return;}
   }
   // On a miss there is no artificial finishing explosion or follow-up sequence.
-  if(seq.elapsed>=dashTime||traveledNow<1&&seq.elapsed>.22||distanceToGo<1)finish();
+  if(dashElapsed>=dashTime||traveledNow<1&&dashElapsed>.22||distanceToGo<1)finish();
   return;
  }
  const since=seq.elapsed-seq.flameCaughtAt;
@@ -5963,7 +5973,8 @@ function pvpHongryeonFinale(ev,dt){
  if(ev.hongCaught&&(!enemy||enemy.hp<=0)){finish();return;}
  if(!ev.hongCaught){
   if(ev.hongPending){if(!enemy||enemy.hp<=0||performance.now()-ev.hongPendingAt>900)finish();return;}
-  const ox=me.x,oy=me.y,traveled=Math.hypot(me.x-ev.originX,me.y-ev.originY),step=Math.min(2350*dt,Math.max(0,1020-traveled));
+  const startup=.50,dashElapsed=ev.elapsed-startup;if(dashElapsed<0){me.skillLift=0;me.a=a;return;}
+  const ox=me.x,oy=me.y,traveled=Math.hypot(me.x-ev.originX,me.y-ev.originY),dashSpeed=1175,dashTime=1020/dashSpeed,step=Math.min(dashSpeed*dt,Math.max(0,1020-traveled));
   const x=clamp(ox+fx*step,25,ARENA_W-25),y=clamp(oy+fy*step,25,ARENA_H-25);
   let collision=false,ex=x,ey=y;
   if(enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,ox,oy,x,y)<=79+enemy.r){
@@ -5971,8 +5982,8 @@ function pvpHongryeonFinale(ev,dt){
    const adv=Math.min(step,Math.max(0,along-(79+enemy.r)));
    ex=clamp(ox+fx*adv,25,ARENA_W-25);ey=clamp(oy+fy*adv,25,ARENA_H-25);collision=true;
   }
-  me.x=ex;me.y=ey;me.a=a;me.skillLift=4+Math.sin(Math.PI*clamp(ev.elapsed/.53,0,1))*7;
-  ev.fx-=dt;if(ev.fx<=0){ev.fx=.085;pvpHongryeonTrail(ox,oy,me.x,me.y,1.55,ev);}
+  me.x=ex;me.y=ey;me.a=a;me.skillLift=4+Math.sin(Math.PI*clamp(dashElapsed/dashTime,0,1))*7;
+  ev.fx-=dt;if(ev.fx<=0){ev.fx=.060;pvpHongryeonTrail(ox,oy,me.x,me.y,1.82,ev);}
   if(collision){ev.hongPending=true;ev.hongPendingAt=performance.now();net({t:'teleport',x:me.x,y:me.y,a});
    sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:79,d:pvpSkillAttack(me)*1.36,stun:1.55,force:0,bypassShield:false,parryable:true,teleportHit:true,rapidHit:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
     if(me.skillEvent!==ev||!enemy||enemy.hp<=0)return;
@@ -5980,7 +5991,7 @@ function pvpHongryeonFinale(ev,dt){
     pvpHongryeonFx(enemy.x,enemy.y,a,190,0,1,ev);pvpCrimsonShake(11,true);
    },()=>{if(me.skillEvent===ev)finish();});return;
   }
-  if(ev.elapsed>=.53||Math.hypot(ex-ox,ey-oy)<1&&ev.elapsed>.22||traveled>=1020)finish();
+  if(dashElapsed>=dashTime||Math.hypot(ex-ox,ey-oy)<1&&dashElapsed>.22||traveled>=1020)finish();
   return;
  }
  const since=ev.elapsed-ev.hongCaughtAt,cx=enemy&&enemy.hp>0?enemy.x:ev.anchorX,cy=enemy&&enemy.hp>0?enemy.y:ev.anchorY,stances=[[-96,-80],[-104,99],[69,-79],[92,75],[-88,-106],[76,96],[-105,-42],[-97,81],[78,-91],[-112,-62],[91,68],[-84,100],[82,-81],[-103,73],[-117,0]];
