@@ -5397,12 +5397,15 @@ function pvpCrimsonStrokeLine(x1,y1,x2,y2,a,power=1){
 function pvpCrimsonShake(power=7,send=true){pvpShake=Math.max(pvpShake,power);if(send&&!receivingPvpVisual)net({t:'crimsonShake',p:clamp(power,2,26)});}
 // A skill confirmed by an incoming damage ACK is still OUR attack. Do not
 // let the generic inbound-FX echo guard suppress that authoritative flame event.
-let pvpHongFxSerial=0,pvpHongFxRecent=[],pvpHongFxSeen=new Set();
-function resetPvpHongFx(){pvpHongFxRecent=[];pvpHongFxSeen.clear();}
+let pvpHongFxSerial=0,pvpHongFxRecent=[],pvpHongFxTrail=null,pvpHongFxSeen=new Set();
+function resetPvpHongFx(){pvpHongFxRecent=[];pvpHongFxTrail=null;pvpHongFxSeen.clear();}
 function pvpHongFxReplay(){
  const now=performance.now();
- pvpHongFxRecent=pvpHongFxRecent.filter(e=>now-e.at<440);
- return pvpHongFxRecent.slice(-2).map(e=>({...e.packet,ageMs:Math.max(0,now-e.at)}));
+ // Normal player-state snapshots recover visuals missed by the dedicated FX channel.
+ pvpHongFxRecent=pvpHongFxRecent.filter(e=>now-e.at<1250);
+ const events=pvpHongFxRecent.slice(-3);
+ if(pvpHongFxTrail&&now-pvpHongFxTrail.at<210)events.push(pvpHongFxTrail);
+ return events.map(e=>({...e.packet,ageMs:Math.max(0,now-e.at)}));
 }
 let pvpVisualQueue=[],pvpVisualScheduled=false;
 function queuePvpVisual(f){if(receivingPvpVisual)return;pvpVisualQueue.push({...f});if(pvpVisualScheduled)return;pvpVisualScheduled=true;const active=conn;queueMicrotask(()=>{pvpVisualScheduled=false;const batch=pvpVisualQueue;pvpVisualQueue=[];if(conn!==active||!conn?.open)return;for(let i=0;i<batch.length;i+=64)net({t:'fxBatch',effects:batch.slice(i,i+64)});});}
@@ -5415,7 +5418,8 @@ function sanitizeRemoteFx(f){if(!f||typeof f!=='object')return;
    pvpHongFxSeen.add(seq);
    if(pvpHongFxSeen.size>256)pvpHongFxSeen.delete(pvpHongFxSeen.values().next().value);
   }
-  const age=clamp(Number(f.ageMs)||0,0,2000)/1000;
+  // A delayed network replay must remain visible for its first local frame.
+  const age=Math.min(.12,clamp(Number(f.ageMs)||0,0,2000)/1000);
   const allowed=['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'],
    id=String(f.id||''),phase=String(f.phase||'signature');
   if(!allowed.includes(id)||!['signature','startup','trail'].includes(phase))return;
@@ -5425,9 +5429,66 @@ function sanitizeRemoteFx(f){if(!f||typeof f!=='object')return;
     a:clamp(Number(f.a)||0,-100,100),reach:clamp(Number(f.reach)||190,10,1000),
     side:f.side===-1?-1:1,power:clamp(Number(f.power)||1,.2,4),t:Math.max(.01,life-age),max:life};
   for(const k of ['x2','y2','originX','originY'])if(Number.isFinite(f[k]))g[k]=clamp(Number(f[k]),-100,Math.max(ARENA_W,ARENA_H)+100);
+  const recovery=enemy?._hongFxRecovery;
+  if(recovery?.id===id){
+   const key=phase+':'+g.index,now=performance.now();
+   if(recovery.synthetic.has(key)&&now-recovery.synthetic.get(key)<320)return;
+   recovery.done.add(key);
+  }
   fx.push(g);trimFx();return;
  }
  if(f.kind==='burst'){burst(clamp(+f.x||0,-100,ARENA_W+100),clamp(+f.y||0,-100,ARENA_H+100),String(f.c||'#fff').slice(0,20),clamp(+f.n||0,0,80),clamp(+f.speed||0,0,1500),Number(f.seed)>>>0,false);return;}const allowed=new Set(['particle','ember','ring','nova','rift','riftCut','slash','star','starSeal','line']);if(!allowed.has(f.kind))return;const g={kind:f.kind,x:clamp(+f.x||0,-100,ARENA_W+100),y:clamp(+f.y||0,-100,ARENA_H+100),c:String(f.c||'#fff').slice(0,20),t:clamp(+f.t||.2,.05,10),max:clamp(+f.max||+f.t||.2,.05,10)};for(const k of ['r','rx','ry','a','arc','len','width','x2','y2','vx','vy'])if(Number.isFinite(+f[k]))g[k]=+f[k];fx.push(g);trimFx()}
+
+function recoverOpponentHongryeonFx(m){
+ if(!enemy||enemy.hp<=0)return;
+ const id=PVP_HONGRYEON_IDS[String(m.skillKind||'')];
+ if(!id){enemy._hongFxRecovery=null;return;}
+ const remaining=Number(m.attackAnim),duration=Number(m.attackDuration);
+ if(!Number.isFinite(remaining)||remaining<=0||!Number.isFinite(duration)||duration<=0)return;
+ const now=performance.now(),elapsed=Math.max(0,duration-remaining);
+ let rec=enemy._hongFxRecovery;
+ if(!rec||rec.id!==id||(remaining>rec.remaining+.13&&elapsed<.2)){
+  rec={id,remaining,done:new Set(),synthetic:new Map(),x:Number(m.x)||enemy.x,y:Number(m.y)||enemy.y,trailAt:0};
+  enemy._hongFxRecovery=rec;
+ }
+ const x=Number.isFinite(m.x)?m.x:enemy.x,y=Number.isFinite(m.y)?m.y:enemy.y,
+  a=Number.isFinite(m.a)?m.a:enemy.a,side=m.hongVortexSide===-1?-1:1;
+ const restore=(phase,index,reach,px=x,py=y,extra={})=>{
+  const key=phase+':'+index;
+  if(rec.done.has(key))return;
+  rec.done.add(key);
+  // If a regular FX packet or its replay already arrived, it owns this frame.
+  if(fx.some(f=>f.kind==='hongWorldFx'&&f.id===id&&f.phase===phase&&f.index===index&&f.t>0))return;
+  sanitizeRemoteFx({kind:'hongWorldFx',id,phase,index,x:px,y:py,a,reach,side,...extra});
+  rec.synthetic.set(key,now);
+ };
+ if(elapsed<.28)restore('startup',0,190,rec.x,rec.y);
+ const hits=id==='guardBreak'?[.24,.48]:id==='earthRend'?[.50]:
+  id==='quakeRush'?[.10,.65]:id==='ironJudgment'?[.18,.375,.58]:[];
+ for(let i=0;i<hits.length;i++){
+  if(elapsed<hits[i]||elapsed-hits[i]>=.19)continue;
+  const reach=id==='guardBreak'?(i===0?292:316):id==='earthRend'?250:
+   id==='quakeRush'?(i===0?190:245):[265,230,270][i];
+  restore('signature',i,reach,id==='quakeRush'&&i===0?rec.x:x,
+   id==='quakeRush'&&i===0?rec.y:y,id==='earthRend'?{originX:rec.x,originY:rec.y}:{});
+ }
+ if(id==='meteorBreaker'&&m.hongVortexActive===true){
+  const since=Number(m.hongVortexSince)||0;
+  if(since<.19)restore('signature',0,190,me.x,me.y);
+  for(let i=0;i<PVP_HONGRYEON_CUTS.length;i++){
+   const cut=PVP_HONGRYEON_CUTS[i];
+   if(since>=cut.at&&since-cut.at<.15)
+    restore('signature',i+1,cut.reach,cut.kind==='finisher'?me.x:x,cut.kind==='finisher'?me.y:y);
+  }
+ }
+ if(['earthRend','quakeRush','ironJudgment','meteorBreaker'].includes(id)&&
+    Math.hypot(x-rec.x,y-rec.y)>8&&now-rec.trailAt>110){
+  const present=fx.some(f=>f.kind==='hongWorldFx'&&f.id===id&&f.phase==='trail'&&f.t>.07);
+  if(!present)sanitizeRemoteFx({kind:'hongWorldFx',id,phase:'trail',x:rec.x,y:rec.y,x2:x,y2:y,a,power:1.1});
+  rec.trailAt=now;
+ }
+ rec.x=x;rec.y=y;rec.remaining=remaining;
+}
 function onData(m){const previous=receivingPvpVisual;receivingPvpVisual=true;try{processPvpData(m);}finally{receivingPvpVisual=previous;}}
 function processPvpData(m){if(!m||typeof m!=='object')return;
  if(conn?.ai&&!window.__AI_LIVE__&&m.t==='aiCountdown'){aiServerCountdown=true;beginAiCountdown();return;}
@@ -5437,12 +5498,13 @@ function processPvpData(m){if(!m||typeof m!=='object')return;
  if(m.t==='rulesetMismatch'){return;}
  if(m.t==='protocolMismatch'){matchPeerError('PVP 연결 방식이 갱신되었습니다. 페이지를 새로고침한 뒤 다시 매칭해 주세요.');return;}
  if(m.t==='hello'&&validSnap(m.s)){remoteSnap=m.s;net({t:'helloAck',v:3,ruleset:PVP_RULESET,s:pvpOwnSnapshot()});startMatchIfReady()}else if(m.t==='helloAck'&&validSnap(m.s)){remoteSnap=m.s;aiServerCountdown=conn?.ai&&m.aiCountdown===true;startMatchIfReady()}
- else if(m.t==='state'&&enemy){const controlNow=performance.now(),controlKey=String(m.controlKey||''),rushRenew=controlKey==='voidRush'&&m.skillKind==='singularityRush',controlAllowed=!!(me&&controlKey&&((me.controlLease?.key===controlKey&&controlNow<(me.controlLease?.until||0))||rushRenew));if(rushRenew&&me)me.controlLease={key:'voidRush',until:controlNow+650};if(controlAllowed){const seq=Math.max(0,Number(m.controlSeq)||0);if(seq>=(me.controlStateSeq||0)){me.controlStateSeq=seq;const tx=clamp(+m.controlX||me.x,25,ARENA_W-25),ty=clamp(+m.controlY||me.y,25,ARENA_H-25),ft=clamp(+m.controlTime||.18,.08,.8),st=clamp(+m.controlStun||0,0,1.5),final=!!m.controlFinal;if(me.forcedMove&&!me.forcedMove.priority)me.forcedMove=null;if(!me.forceTrack||me.forceTrack.source!=='stigmaState'){const keep=rushRenew?Math.max(ft,.16):ft;me.forceTrack={x:tx,y:ty,remaining:keep,max:keep,stun:st,seq,final,source:'stigmaState'}}else{me.forceTrack.x=tx;me.forceTrack.y=ty;me.forceTrack.remaining=Math.max(me.forceTrack.remaining||0,ft,rushRenew ? .16 : 0);me.forceTrack.max=Math.max(me.forceTrack.max||0,ft);me.forceTrack.stun=Math.max(me.forceTrack.stun||0,st);me.forceTrack.seq=seq;me.forceTrack.final=final}me.knockCameraHold=Math.max(me.knockCameraHold||0,ft+.14)}}const forceLocked=!!enemy.remoteForce||performance.now()<(enemy.remoteForceLockUntil||0);if(!forceLocked){enemy.netX=clamp(Number.isFinite(+m.x)?+m.x:enemy.netX,25,ARENA_W-25);enemy.netY=clamp(Number.isFinite(+m.y)?+m.y:enemy.netY,25,ARENA_H-25);}else if(enemy.remoteForce){enemy.netX=enemy.remoteForce.x;enemy.netY=enemy.remoteForce.y;}enemy.netVX=forceLocked?0:(Number.isFinite(+m.vx)?+m.vx:0);enemy.netVY=forceLocked?0:(Number.isFinite(+m.vy)?+m.vy:0);enemy.a=Number.isFinite(+m.a)?+m.a:enemy.a;enemy.hp=clamp(+m.hp||0,0,enemy.maxHp);enemy.shield=clamp(+m.shield||0,0,enemy.maxShield);enemy.stam=clamp(Number.isFinite(+m.stam)?+m.stam:enemy.stam,0,enemy.maxStam);enemy.block=!!m.block;enemy.dash=Math.max(enemy.dash,+m.dash||0);enemy.stun=Math.max(Number(enemy.stun)||0,Number(m.stun)||0);enemy.attackAnim=Math.max(enemy.attackAnim,+m.attackAnim||0);enemy.attackDuration=Math.max(.05,+m.attackDuration||enemy.attackDuration);enemy.combo=clamp(+m.combo||0,0,5);enemy.weapon=enemy.ownedWeapons.includes(+m.weapon)?+m.weapon:enemy.weapon;enemy.skillPose=Number.isFinite(+m.skillPose)?+m.skillPose:-1;enemy.skillLift=clamp(Number(m.skillLift)||0,0,150);enemy.skillKind=typeof m.skillKind==='string'?m.skillKind:'';enemy.skillId=typeof m.skillId==='string'?m.skillId:'';
+ else if(m.t==='state'&&enemy){const controlNow=performance.now(),controlKey=String(m.controlKey||''),rushRenew=controlKey==='voidRush'&&m.skillKind==='singularityRush',controlAllowed=!!(me&&controlKey&&((me.controlLease?.key===controlKey&&controlNow<(me.controlLease?.until||0))||rushRenew));if(rushRenew&&me)me.controlLease={key:'voidRush',until:controlNow+650};if(controlAllowed){const seq=Math.max(0,Number(m.controlSeq)||0);if(seq>=(me.controlStateSeq||0)){me.controlStateSeq=seq;const tx=clamp(+m.controlX||me.x,25,ARENA_W-25),ty=clamp(+m.controlY||me.y,25,ARENA_H-25),ft=clamp(+m.controlTime||.18,.08,.8),st=clamp(+m.controlStun||0,0,1.5),final=!!m.controlFinal;if(me.forcedMove&&!me.forcedMove.priority)me.forcedMove=null;if(!me.forceTrack||me.forceTrack.source!=='stigmaState'){const keep=rushRenew?Math.max(ft,.16):ft;me.forceTrack={x:tx,y:ty,remaining:keep,max:keep,stun:st,seq,final,source:'stigmaState'}}else{me.forceTrack.x=tx;me.forceTrack.y=ty;me.forceTrack.remaining=Math.max(me.forceTrack.remaining||0,ft,rushRenew ? .16 : 0);me.forceTrack.max=Math.max(me.forceTrack.max||0,ft);me.forceTrack.stun=Math.max(me.forceTrack.stun||0,st);me.forceTrack.seq=seq;me.forceTrack.final=final}me.knockCameraHold=Math.max(me.knockCameraHold||0,ft+.14)}}const forceLocked=!!enemy.remoteForce||performance.now()<(enemy.remoteForceLockUntil||0);if(!forceLocked){enemy.netX=clamp(Number.isFinite(+m.x)?+m.x:enemy.netX,25,ARENA_W-25);enemy.netY=clamp(Number.isFinite(+m.y)?+m.y:enemy.netY,25,ARENA_H-25);}else if(enemy.remoteForce){enemy.netX=enemy.remoteForce.x;enemy.netY=enemy.remoteForce.y;}enemy.netVX=forceLocked?0:(Number.isFinite(+m.vx)?+m.vx:0);enemy.netVY=forceLocked?0:(Number.isFinite(+m.vy)?+m.vy:0);enemy.a=Number.isFinite(+m.a)?+m.a:enemy.a;enemy.hp=clamp(+m.hp||0,0,enemy.maxHp);enemy.shield=clamp(+m.shield||0,0,enemy.maxShield);enemy.stam=clamp(Number.isFinite(+m.stam)?+m.stam:enemy.stam,0,enemy.maxStam);enemy.block=!!m.block;enemy.dash=Math.max(enemy.dash,+m.dash||0);enemy.stun=Math.max(Number(enemy.stun)||0,Number(m.stun)||0);enemy.attackAnim=Math.max(enemy.attackAnim,+m.attackAnim||0);enemy.attackDuration=Math.max(.05,+m.attackDuration||enemy.attackDuration);enemy.combo=clamp(+m.combo||0,0,5);enemy.weapon=enemy.ownedWeapons.includes(+m.weapon)?+m.weapon:enemy.weapon;enemy.skillPose=Number.isFinite(+m.skillPose)?+m.skillPose:-1;enemy.skillLift=clamp(Number(m.skillLift)||0,0,150);enemy.skillKind=typeof m.skillKind==='string'?m.skillKind:'';enemy.skillId=(typeof m.skillId==='string'&&m.skillId)||PVP_HONGRYEON_IDS[String(m.skillKind||'')]||'';
 enemy.hongVortexActive=m.hongVortexActive===true&&enemy.hp>0&&enemy.skillId==='meteorBreaker';
 enemy.hongVortexSince=clamp(Number(m.hongVortexSince)||0,0,3.61);
 enemy.hongVortexSide=m.hongVortexSide===-1?-1:1;
 enemy.hongVortexStateSeen=true;
- if(Array.isArray(m.hongFxReplay))for(const p of m.hongFxReplay.slice(0,2))sanitizeRemoteFx(p);
+ if(Array.isArray(m.hongFxReplay))for(const p of m.hongFxReplay.slice(0,4))sanitizeRemoteFx(p);
+ recoverOpponentHongryeonFx(m);
  }
  else if(m.t==='crimsonShake'&&me&&running&&!roundLocked){pvpShake=Math.max(pvpShake,clamp(Number(m.p)||7,2,26));}
  else if(m.t==='galePulseShake'&&me&&running&&!roundLocked){pvpShake=Math.max(pvpShake,clamp(Number(m.s)||7.5,3,10));}
@@ -5680,6 +5742,7 @@ function pvpWorldSwordTarget(ev=null){if(!enemy||enemy.hp<=0)return null;if(ev?.
 const PVP_GALE_PULSE_RADIUS=window.EchoesGalePulse.radius,PVP_GALE_PULSE_PULL_SPEED=window.EchoesGalePulse.pullSpeed;
 
 const PVP_HONGRYEON_MODES=new Set(['flameBreathSweep','flameBreathRise','flameBreathCleave','flameBreathWheel','flameBreathFinale']);
+const PVP_HONGRYEON_IDS={flameBreathSweep:'guardBreak',flameBreathRise:'earthRend',flameBreathCleave:'quakeRush',flameBreathWheel:'ironJudgment',flameBreathFinale:'meteorBreaker'};
 const PVP_HONGRYEON_CUTS=Object.freeze([
  // Thirteen uneven, physically animated sword cuts in the existing 3.61s follow-up.
  {at:0.17,windup:0.11,kind:'wide',mult:0.55,stun:1.1,reach:190,arc:2.6,offset:-0.18},
@@ -5716,10 +5779,10 @@ function pvpHongryeonPacket(p){
  // with continuously generated dash trails.
  if(phase!=='trail'){
   const now=performance.now();
-  pvpHongFxRecent=pvpHongFxRecent.filter(e=>now-e.at<440);
+  pvpHongFxRecent=pvpHongFxRecent.filter(e=>now-e.at<1250);
   pvpHongFxRecent.push({packet,at:now});
-  if(pvpHongFxRecent.length>3)pvpHongFxRecent.shift();
- }
+  if(pvpHongFxRecent.length>5)pvpHongFxRecent.shift();
+ }else pvpHongFxTrail={packet,at:performance.now()};
 }
 function pvpHongryeonStartup(sk,x,y,a){
  pvpHongryeonPacket({id:sk.id,phase:'startup',x,y,a});
@@ -6224,7 +6287,7 @@ function update(dt){if(!me||!enemy)return;if(updateAiCountdown(dt))return;if(spe
  if((keys.has(pkey('KeyZ'))||mouse.down)&&me.attackCd<=0&&!me.skillHold&&!me.skillEvent)basic();animatePvpFighter(me,dt);
  if(enemy.remoteForce){const f=enemy.remoteForce;f.elapsed+=dt;const u=clamp(f.elapsed/f.max,0,1),ease=1-Math.pow(1-u,3);enemy.x=f.startX+(f.x-f.startX)*ease;enemy.y=f.startY+(f.y-f.startY)*ease;enemy.stun=Math.max(enemy.stun||0,Math.min(f.stun||0,Math.max(0,f.max-f.elapsed)));if(u>=1){enemy.x=f.x;enemy.y=f.y;enemy.netX=f.x;enemy.netY=f.y;enemy.netVX=enemy.netVY=0;enemy.remoteForce=null;enemy.remoteForceLockUntil=performance.now()+140}}else{const predictX=clamp(enemy.netX+enemy.netVX*.020,25,ARENA_W-25),predictY=clamp(enemy.netY+enemy.netVY*.020,25,ARENA_H-25),lerp=1-Math.exp(-dt*25);enemy.x+=(predictX-enemy.x)*lerp;enemy.y+=(predictY-enemy.y)*lerp}enemy.attackAnim=Math.max(0,enemy.attackAnim-dt);enemy.hurt=Math.max(0,enemy.hurt-dt);enemy.dash=Math.max(0,enemy.dash-dt);enemy.stun=Math.max(0,(enemy.stun||0)-dt);animatePvpFighter(enemy,dt);
  for(const p of projectiles){p.life-=dt;const step=window.EchoesCombat.projectileTime(p,dt);if(!step){p.life=0;continue;}p.x+=p.vx*step;p.y+=p.vy*step;if(p.owner==='enemy'&&Math.hypot(p.x-me.x,p.y-me.y)<p.r+me.r&&p.life>0){const f=window.EchoesCombat.projectileForce(p,me,enemy,p.force);const res=hurt(p.d,{stun:p.stun,force:f.force,forceA:f.a,sx:p.x-p.vx*.02,sy:p.y-p.vy*.02,parryable:p.parryable});if(res==='hit'&&p.prismCast&&me.prismAckCast!==p.prismCast){me.prismAckCast=p.prismCast;net({t:'prismHit',cast:p.prismCast});}if(res==='parried'){p.pullToCaster=false;p.prismCast='';p.owner='me';p.vx*=-1.5;p.vy*=-1.5;p.d*=2;p.life=1.2}else if(res!=='ignored'){p.pierce--;if(p.pierce<=0)p.life=0}}if(p.distanceTravelled>=window.EchoesCombat.projectileRange)p.life=0;}projectiles=projectiles.filter(p=>p.life>0&&p.x>-50&&p.x<ARENA_W+50&&p.y>-50&&p.y<ARENA_H+50);
- for(const f of fx){f.t-=dt;if(f.vx){f.x+=f.vx*dt;f.y+=f.vy*dt;if(f.kind==='damage'){f.vx*=Math.pow(.12,dt);f.vy+=150*dt;f.rot=(f.rot||0)*Math.pow(.2,dt)}else if(f.kind==='ember'){f.vx*=Math.pow(.42,dt);f.vy*=Math.pow(.42,dt);f.a=Math.atan2(f.vy||0,f.vx||1);}}}fx=fx.filter(f=>f.t>0);pvpShake=Math.max(0,pvpShake-dt*28);if(spectating&&pvpSpectator){pvpSpectator.update(pvpCamera,me,enemy,dt,W,H,ARENA_W,ARENA_H);}else{const camRate=(me.forcedMove||me.forceTrack||me.knockCameraHold>0)?2.2:14,camLerp=1-Math.exp(-dt*camRate),enemyDx=enemy?enemy.x-me.x:0,enemyDy=enemy?enemy.y-me.y:0,tx=clamp(me.x+clamp(enemyDx*.18,-W*.12,W*.12),W*.5,ARENA_W-W*.5),ty=clamp(me.y+clamp(enemyDy*.14,-H*.10,H*.10),H*.5,ARENA_H-H*.5);pvpCamera.x+=(tx-pvpCamera.x)*camLerp;pvpCamera.y+=(ty-pvpCamera.y)*camLerp}sendAt-=dt;pingAt-=dt;if(sendAt<=0&&conn?.open){sendAt=Math.max(0,sendAt+.02);{const oc=me.outgoingControl&&performance.now()<(me.outgoingControl.until||0)?me.outgoingControl:null;if(me.outgoingControl&&!oc)me.outgoingControl=null;net({t:'state',x:me.x,y:me.y,vx:(me.x-beforeX)/Math.max(dt,.001),vy:(me.y-beforeY)/Math.max(dt,.001),a:me.a,hp:me.hp,shield:me.shield,stam:me.stam,block:me.block,dash:me.dash,stun:me.stun,attackAnim:me.attackAnim,attackDuration:me.attackDuration,skillLift:clamp(me.skillLift||0,0,150),combo:me.combo,weapon:me.weapon,skillPose:me.skillPose,skillKind:me.skillKind,skillId:me.weapon<2&&me.skillPose>=0?pvpSwordSkillId(me.skillPose,me):'',
+ for(const f of fx){f.t-=dt;if(f.vx){f.x+=f.vx*dt;f.y+=f.vy*dt;if(f.kind==='damage'){f.vx*=Math.pow(.12,dt);f.vy+=150*dt;f.rot=(f.rot||0)*Math.pow(.2,dt)}else if(f.kind==='ember'){f.vx*=Math.pow(.42,dt);f.vy*=Math.pow(.42,dt);f.a=Math.atan2(f.vy||0,f.vx||1);}}}fx=fx.filter(f=>f.t>0);pvpShake=Math.max(0,pvpShake-dt*28);if(spectating&&pvpSpectator){pvpSpectator.update(pvpCamera,me,enemy,dt,W,H,ARENA_W,ARENA_H);}else{const camRate=(me.forcedMove||me.forceTrack||me.knockCameraHold>0)?2.2:14,camLerp=1-Math.exp(-dt*camRate),enemyDx=enemy?enemy.x-me.x:0,enemyDy=enemy?enemy.y-me.y:0,tx=clamp(me.x+clamp(enemyDx*.18,-W*.12,W*.12),W*.5,ARENA_W-W*.5),ty=clamp(me.y+clamp(enemyDy*.14,-H*.10,H*.10),H*.5,ARENA_H-H*.5);pvpCamera.x+=(tx-pvpCamera.x)*camLerp;pvpCamera.y+=(ty-pvpCamera.y)*camLerp}sendAt-=dt;pingAt-=dt;if(sendAt<=0&&conn?.open){sendAt=Math.max(0,sendAt+.02);{const oc=me.outgoingControl&&performance.now()<(me.outgoingControl.until||0)?me.outgoingControl:null;if(me.outgoingControl&&!oc)me.outgoingControl=null;net({t:'state',x:me.x,y:me.y,vx:(me.x-beforeX)/Math.max(dt,.001),vy:(me.y-beforeY)/Math.max(dt,.001),a:me.a,hp:me.hp,shield:me.shield,stam:me.stam,block:me.block,dash:me.dash,stun:me.stun,attackAnim:me.attackAnim,attackDuration:me.attackDuration,skillLift:clamp(me.skillLift||0,0,150),combo:me.combo,weapon:me.weapon,skillPose:me.skillPose,skillKind:me.skillKind,skillId:me.skillEvent?.skill?.id&&PVP_HONGRYEON_MODES.has(me.skillEvent.cfg?.mode)?me.skillEvent.skill.id:(me.weapon<2&&me.skillPose>=0?pvpSwordSkillId(me.skillPose,me):''),
 hongVortexActive:me.skillEvent?.skill?.id==='meteorBreaker'&&me.skillEvent.hongCaught===true&&enemy?.hp>0,
 hongVortexSince:me.skillEvent?.skill?.id==='meteorBreaker'&&me.skillEvent.hongCaught===true?clamp(me.skillEvent.elapsed-me.skillEvent.hongCaughtAt,0,3.61):0,
 hongVortexSide:me.skillEvent?.side||1,hongFxReplay:pvpHongFxReplay(),controlKey:oc?.key||'',controlX:oc?.x,controlY:oc?.y,controlTime:oc?.time,controlStun:oc?.stun,controlSeq:oc?.seq||0,controlFinal:!!oc?.final})}}if(pingAt<=0&&conn?.open){pingAt=1;net({t:'ping',n:performance.now()})}pvpHudTimer-=dt;if(pvpHudTimer<=0){pvpHudTimer=.1;updateScore();$('pvpPing').textContent=pvpRoute+' · PING '+(ping||'--')+'ms';const names=[0,1,2,3,4].map(i=>pvpSkillName(i,me));const cooldownHtml=me.cool.map((v,i)=>`<span title="${names[i]}"><b>${pvpKeyLabel(pkey(['KeyQ','KeyR','KeyT','KeyG','KeyV'][i]))}</b>${i===2&&void3Pvp?'회피 '+void3Pvp.remaining+'/5 · '+Math.max(0,(void3Pvp.until-performance.now())/1000).toFixed(1)+'초':me.weapon===3&&i===1&&me.followMarked&&performance.now()<me.followUntil?'FOLLOW':v>0?v.toFixed(1):'READY'}</span>`).join('');const tray=$('pvpCooldowns');if(tray._lastHTML!==cooldownHtml){tray.innerHTML=cooldownHtml;tray._lastHTML=cooldownHtml;}}}
