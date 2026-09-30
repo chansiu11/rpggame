@@ -1,5 +1,5 @@
 import {parentPort,workerData} from 'node:worker_threads';
-import {duel} from './self-play.js';
+import {createDuelSession} from './self-play.js';
 import {learn,styles,leastTrainedPair} from './brain.js';
 
 let saved=workerData.checkpoint||null;
@@ -19,10 +19,9 @@ function permit(){
 }
 function burstSize(){return Math.max(1,Math.min(100,tuning?Atomics.load(tuning,1):3));}
 function batchTarget(){return Math.max(25,burstSize());}
-// The configured burst can be 100, but 100 spectator panes would make each pane
-// wait almost an entire generation before fighting again. Reuse a small lane pool
-// so every real bout is still shown while each pane keeps receiving rematches.
-function spectatorLaneCount(){return Math.max(1,Math.min(6,burstSize()));}
+// Four simultaneous bouts keeps the free server within a practical memory
+// budget while making the spectator show several genuinely active fights.
+function parallelBattles(){return Math.max(1,Math.min(4,burstSize()));}
 function cool(){
  if(!workerData.device)return;
  const delay=Math.max(0,Math.min(60000,tuning?Atomics.load(tuning,0):1000));
@@ -39,12 +38,34 @@ function checkpoint(batch,completed,evaluation){
 function spectator(phase,match,styles,lane,laneCount){
  const emit=frame=>{
   if(!emit.enabled())return;
-  // self-play already snapshots every 8 simulation frames. Keep those frames so
-  // the browser can replay every training bout in its own split spectator lane.
   if(frame.final||Number(frame.step)%24===0)parentPort.postMessage({preview:{phase,match,styles,lane,laneCount,cycle,...frame}});
  };
  emit.enabled=()=>!!workerData.device&&!!watch&&Atomics.load(watch,0)===1;
  return emit;
+}
+function plannedPair(planner){
+ const [a,b]=leastTrainedPair(planner);
+ planner.styles[a].games++;
+ planner.styles[b].games++;
+ planner.matches++;
+ return [a,b];
+}
+function runConcurrent(configs){
+ const active=configs.map(c=>({...c,session:createDuelSession(c.a,c.b,c.policyA,c.policyB,c.seed,90,()=>{},c.watch),result:null}));
+ let remaining=active.length;
+ try{
+  while(remaining>0){
+   permit();
+   for(const item of active){
+    if(item.result)continue;
+    item.session.step();
+    if(item.session.done){item.result=item.session.result;remaining--;}
+   }
+  }
+  return active;
+ }finally{
+  for(const item of active)item.session.dispose();
+ }
 }
 
 for(;;){
@@ -52,34 +73,51 @@ for(;;){
  let batch=saved?.batch||batchTarget();
  let completed=saved?.completed||0;
 
- for(let i=completed;i<batch;i++){
+ while(completed<batch){
   permit();
-  // If the user raises "continuous training" while a cycle is running, extend
-  // this cycle immediately instead of waiting for a worker restart.
   batch=Math.max(batch,batchTarget());
-  const lanes=spectatorLaneCount();
-  const n=policy.matches,[a,b]=leastTrainedPair(policy);
-  const lane=n%lanes;
-  const r=duel(a,b,policy,policy,n+7,90,permit,spectator('train',n+1,[a,b],lane,lanes));
-  learn(policy,a,r.results[0].tactic,r.results[0]);
-  learn(policy,b,r.results[1].tactic,r.results[1]);
-  policy.matches++;
-  parentPort.postMessage({progress:policy.matches,pair:[a,b]});
-  checkpoint(batch,i+1,null);
-  cool();
+  const lanes=parallelBattles(),count=Math.min(lanes,batch-completed);
+  const planner=structuredClone(policy),wavePolicy=structuredClone(policy),startMatch=policy.matches;
+  const configs=[];
+  for(let j=0;j<count;j++){
+   const [a,b]=plannedPair(planner),match=startMatch+j+1;
+   configs.push({a,b,policyA:wavePolicy,policyB:wavePolicy,seed:startMatch+j+7,watch:spectator('train',match,[a,b],j,lanes)});
+  }
+  const finished=runConcurrent(configs);
+  for(const item of finished){
+   const {a,b,result:r}=item;
+   learn(policy,a,r.results[0].tactic,r.results[0]);
+   learn(policy,b,r.results[1].tactic,r.results[1]);
+   policy.matches++;
+   completed++;
+   parentPort.postMessage({progress:policy.matches,pair:[a,b],parallel:lanes});
+   checkpoint(batch,completed,null);
+   cool();
+  }
  }
 
  let {wins=0,losses=0,draws=0,completed:evalCompleted=0}=saved?.evaluation||{};
  const rounds=32;
- for(let i=evalCompleted;i<rounds;i++){
+ while(evalCompleted<rounds){
   permit();
-  const a=ids[i%ids.length],b=ids[Math.floor(i/ids.length)%ids.length],swap=i>=16;
-  const pair=swap?[b,a]:[a,b],evalLanes=Math.min(6,rounds),lane=i%evalLanes;
-  const r=swap
-   ?duel(b,a,baseline,policy,10000+i%16,90,permit,spectator('evaluation',i+1,pair,lane,evalLanes))
-   :duel(a,b,policy,baseline,10000+i%16,90,permit,spectator('evaluation',i+1,pair,lane,evalLanes));
-  if(r.winner<0)draws++;else if(r.winner===(swap?1:0))wins++;else losses++;
-  checkpoint(batch,batch,{wins,losses,draws,completed:i+1});
+  const lanes=parallelBattles(),count=Math.min(lanes,rounds-evalCompleted),configs=[];
+  for(let j=0;j<count;j++){
+   const i=evalCompleted+j,a=ids[i%ids.length],b=ids[Math.floor(i/ids.length)%ids.length],swap=i>=16;
+   const pair=swap?[b,a]:[a,b];
+   configs.push({
+    a:pair[0],b:pair[1],
+    policyA:swap?baseline:policy,policyB:swap?policy:baseline,
+    seed:10000+i%16,swap,
+    watch:spectator('evaluation',i+1,pair,j,lanes)
+   });
+  }
+  const finished=runConcurrent(configs);
+  for(const item of finished){
+   const r=item.result,swap=item.swap;
+   if(r.winner<0)draws++;else if(r.winner===(swap?1:0))wins++;else losses++;
+   evalCompleted++;
+   checkpoint(batch,batch,{wins,losses,draws,completed:evalCompleted});
+  }
  }
 
  const accepted=wins>=losses;
@@ -88,9 +126,6 @@ for(;;){
  policy.evaluation={wins,losses,draws,rounds,accepted,againstGeneration:baseline.generation,at:new Date().toISOString()};
  parentPort.postMessage({policy:structuredClone(policy),batch});
 
- // Keep this worker alive and continue straight into the next generation.
- // This removes the old stop/recreate gap that made "continuous training"
- // appear not to work.
  baseline=structuredClone(policy);
  saved=null;
  cycle++;
