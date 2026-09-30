@@ -9,7 +9,7 @@ function launch(){if(!running||worker||!ready)return;worker=new Worker(new URL('
  worker.on('message',async m=>{if(m.progress)progress=m.progress;if(Array.isArray(m.pair))lastPair=[...m.pair];if(m.policy){busy=true;try{policy=m.policy;policy.autorun=running||resumeAfterShutdown;version=await store.save(policy);savedMatches=policy.matches;error='';}catch(e){error=e.message;running=false;}finally{busy=false;}}});
  worker.on('error',e=>{error=e.message;running=false;});worker.on('exit',()=>{worker=null;const next=()=>{if(busy)setTimeout(next,100);else if(running)launch();};setTimeout(next,1000)});
 }
-async function initialize(){try{if(!store.enabled)throw Error('FIREBASE_SERVICE_ACCOUNT_JSON is required');policy=await store.load()||seedPolicy();progress=savedMatches=policy.matches;ready=true;running=policy.autorun===true;launch();}catch(e){error=e.message;}}
+async function initialize(){try{if(!store.enabled)throw Error('FIREBASE_SERVICE_ACCOUNT_JSON is required');policy=await store.ensureResetEpoch(seedPolicy());progress=savedMatches=policy.matches;ready=true;running=policy.autorun===true;launch();}catch(e){error=e.message;}}
 await initialize();
 const allowedOrigin=process.env.AI_ADMIN_ORIGIN||'https://chansiu11.github.io';
 function authorized(req){const expected=process.env.AI_ADMIN_TOKEN||'',provided=String(req.headers.authorization||'').replace(/^Bearer /,'');const a=Buffer.from(provided),b=Buffer.from(expected);return b.length>=24&&a.length===b.length&&timingSafeEqual(a,b);}
