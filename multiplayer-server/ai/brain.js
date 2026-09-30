@@ -114,9 +114,9 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   // Dodge is intentionally NOT learned. It is a fixed reactive movement rule.
   // Stamina is only checked for action feasibility; resource management is not
   // an observation, reward, or learned objective.
-  const enemyThreat=(Number(enemy?.attackAnim)>0||Number(enemy?.skillPose)>=0)&&d<270;
+  const fixedSkillDodge=Number(enemy?.skillPose)>=0&&d<235;
   const canDash=(Number(me?.dash)||0)<=0&&(me?.stam===undefined||Number(me.stam)>6);
-  if(enemyThreat&&canDash&&dodgeLock<=0){
+  if(fixedSkillDodge&&canDash&&dodgeLock<=0){
    dodgeLock=.42;side=state.skillEma>.35?-side:side;stats.dodges++;
    const dodgeKeys=side>0
     ?[Math.sin(a)>-.2?'KeyS':'KeyW',Math.cos(a)>.2?'KeyA':'KeyD']
