@@ -6025,7 +6025,7 @@ function pvpHongryeonFinale(ev,dt){
    pvpHongryeonFx(enemy.x,enemy.y,a,190,0,1,ev);pvpCrimsonShake(11,true);
    net({t:'teleport',x:me.x,y:me.y,a});
    sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:92,d:pvpSkillAttack(me)*1.36,stun:1.55,force:0,bypassShield:true,parryable:false,teleportHit:true,rapidHit:true,guaranteedContact:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},
-    null,()=>{if(me.skillEvent===ev)finish();});
+    ()=>{},()=>{if(me.skillEvent===ev)finish();});
    return;
   }
   if(dashElapsed>=dashTime||Math.hypot(ex-ox,ey-oy)<1&&dashElapsed>.22||traveled>=1020)finish();
