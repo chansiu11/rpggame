@@ -480,6 +480,6 @@ test('Hongryeon fifth-form world opening waits for actual unshielded damage',()=
  assert.ok(fn.length>1000,'world finale should remain present');
  assert.match(fn,/bypassShield:false,skillId:sk\.id,shape:'circle'/,
   'opening damage must be processed by the world shield rather than bypassing it');
- assert.match(fn,/onResult:e\.networkPlayer\?result=>\{if\(activeSwordSkill===seq&&!!\(result\.damage>0\)\)finish\(\);\}:null/.source.replace('!!\\(', '!?\\('),
+ assert.match(fn,/onResult:e\.networkPlayer\?result=>\{if\(activeSwordSkill===seq&&!\(result\.damage>0\)\)finish\(\);\}:null/,
   'shielded world hits should resolve without arming the follow-up');
 });
