@@ -111,7 +111,7 @@ test('world fifth-form target death ends the active combo without leftover attac
  assert.equal(state.player.attackCd,0);
  assert.equal(state.player.moveLock,0);
  assert.ok(fn.includes('if(e.dead||Number(e.hp)<=0){finish();return;}'),'Death on the current strike should stop additional hits');
- assert.ok(fn.includes("const theta=seq.elapsed*19,orbit=45,px=player.x,py=player.y;"),'Keep the original test opening-dash plumes');
+ assert.ok(fn.includes("const theta=dashElapsed*20,orbit=49,px=player.x,py=player.y;"),'Keep the richer opening-dash flame plumes after the 0.5 second ignition');
  const pvp=section('function pvpHongryeonFinale(', 'function pvpWorldSwordMotion(');
  assert.ok(pvp.includes('if(ev.hongCaught&&(!enemy||enemy.hp<=0)){finish();return;}'),'PVP fifth form should stop when caught opponent dies');
 });
