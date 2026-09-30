@@ -192,6 +192,42 @@ test('continuous training accepts batches above 25 and keeps the configured burs
  }finally{h.svc.close();}
 });
 
+test('training count continues beyond 1050 while Firebase save requests are coalesced',()=>{
+ const h=harness();try{
+  h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
+  const job=h.jobs[0],base=seedPolicy();
+  for(let matches=1025;matches<=1100;matches+=25){
+   const policy=structuredClone(base);policy.matches=matches;
+   job.emit('message',{checkpoint:{schema:1,batch:25,completed:25,policy,baseline:seedPolicy()}});
+  }
+  const checkpoints=h.sent.filter(m=>m.type==='ai:trainCheckpoint');
+  assert.equal(checkpoints.filter(m=>m.save===true).length,1,'Only one Firebase save may be in flight');
+  const status=h.sent.filter(m=>m.type==='ai:trainStatus').at(-1);
+  assert.equal(status.matches,1100,'Training counter must not stop at 1050');
+  const requested=checkpoints.findLast(m=>m.save===true);
+  h.svc.handle(h.p,{type:'ai:trainSaved',session:requested.session,revision:requested.revision,matches:requested.checkpoint.policy.matches});
+  const after=h.sent.filter(m=>m.type==='ai:trainCheckpoint').at(-1);
+  assert.equal(after.checkpoint.policy.matches,1100);
+  assert.equal(after.save,true,'After the first save completes, only the newest unsaved checkpoint is requested');
+ }finally{h.svc.close();}
+});
+
+test('Firebase save failure retries without pausing AI training',()=>{
+ const h=harness();try{
+  h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
+  const gate=new Int32Array(h.jobs[0].data.control),policy=seedPolicy();policy.matches=25;
+  h.jobs[0].emit('message',{checkpoint:{schema:1,batch:25,completed:25,policy,baseline:seedPolicy()}});
+  h.svc.handle(h.p,{type:'ai:trainSaveFailed'});
+  h.svc.tick();
+  assert.equal(gate[0],1,'Save failure must not pause the worker');
+  const status=h.sent.filter(m=>m.type==='ai:trainStatus').at(-1);
+  assert.equal(status.running,true);
+  assert.match(status.error,/훈련은 계속/);
+  h.advance(10001);h.svc.tick();
+  assert.equal(h.sent.filter(m=>m.type==='ai:trainCheckpoint').at(-1).save,true,'Retry save after backoff');
+ }finally{h.svc.close();}
+});
+
 test('training status includes the last duel and the next least-experienced pairing',()=>{
  const h=harness();try{
   h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
