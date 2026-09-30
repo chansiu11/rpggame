@@ -1,0 +1,22 @@
+name: Neural AI smoke
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'multiplayer-server/ai/**'
+      - 'tests/neural-ai-smoke.test.mjs'
+      - '.github/workflows/neural-ai-smoke.yml'
+  workflow_dispatch:
+jobs:
+  neural-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: multiplayer-server/package-lock.json
+      - run: npm ci --prefix multiplayer-server
+      - run: node --test tests/neural-ai-smoke.test.mjs
