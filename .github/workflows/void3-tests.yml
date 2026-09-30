@@ -8,6 +8,8 @@ on:
       - 'tests/ai.test.mjs'
       - 'tests/device-training.test.mjs'
       - 'tests/hongryeon-integration.test.mjs'
+      - 'tests/damage-escape.test.mjs'
+      - 'tests/world-combat.test.mjs'
       - 'tests/skill-render-ghosting.test.mjs'
       - '.github/workflows/void3-tests.yml'
   pull_request:
@@ -18,6 +20,8 @@ on:
       - 'tests/ai.test.mjs'
       - 'tests/device-training.test.mjs'
       - 'tests/hongryeon-integration.test.mjs'
+      - 'tests/damage-escape.test.mjs'
+      - 'tests/world-combat.test.mjs'
       - 'tests/skill-render-ghosting.test.mjs'
   workflow_dispatch:
 jobs:
@@ -32,7 +36,7 @@ jobs:
           cache: npm
           cache-dependency-path: multiplayer-server/package-lock.json
       - run: npm ci --prefix multiplayer-server
-      - run: node --test tests/void3.test.mjs tests/ai.test.mjs tests/device-training.test.mjs tests/hongryeon-integration.test.mjs tests/skill-render-ghosting.test.mjs
+      - run: node --test tests/void3.test.mjs tests/ai.test.mjs tests/device-training.test.mjs tests/hongryeon-integration.test.mjs tests/damage-escape.test.mjs tests/world-combat.test.mjs tests/skill-render-ghosting.test.mjs
       # The unchanged main fails the same 47 legacy assertions: baseline run 36603121406.
       # Retain the full report without suppressing failures in the focused integration gate.
       - name: Full legacy regression audit (non-blocking baseline failures)
