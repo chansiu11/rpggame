@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {Worker} from 'node:worker_threads';
 import {createArena} from '../multiplayer-server/ai/arena-runtime.js';
-import {seedPolicy,learn,createBrain,leastTrainedPair} from '../multiplayer-server/ai/brain.js';
+import {seedPolicy,learn,createBrain,leastTrainedPair,NN_BEHAVIORS,networkParameterCount} from '../multiplayer-server/ai/brain.js';
 import {validatePolicy} from '../multiplayer-server/ai/store.js';
 import {duel} from '../multiplayer-server/ai/self-play.js';
 import {createAiService} from '../multiplayer-server/ai/live-service.js';
@@ -35,14 +35,23 @@ test('device trainer advances at least three watched battles concurrently',{time
  }
 });
 
-test('Void AI treats skill 3 as a reactive evade stance, not the old basic follow-up combo',()=>{
- const brain=createBrain('void',seedPolicy(),()=>.2,3),me={x:1000,y:1000,stam:100,maxStam:100,hp:100,maxHp:100,shield:100,stun:0,cool:[9,9,0,9,9],skillEvent:null,skillHold:null,void3DodgeRemaining:0},enemy={x:1100,y:1000,dash:0,attackAnim:0,skillPose:-1};
- let command;for(let i=0;i<8&&!Number.isInteger(command?.skill);i++)command=brain.step(.3,me,enemy);assert.equal(command.skill,2);
- const holding=brain.step(.05,me,enemy);assert.equal(holding.basic,false,'arming Void 3 must not issue the obsolete basic follow-up');
- let release;for(let i=0;i<12&&!Number.isInteger(release?.release);i++)release=brain.step(.1,me,enemy);assert.equal(release.release,2);
- me.void3DodgeRemaining=5;me.cool=[9,9,0,9,9];const active=brain.step(.5,me,enemy);assert.notEqual(active.skill,2,'AI must not recast Void 3 while evade charges are active');
+test('neural AI learns ten combat behaviors while dodge stays fixed and resource management is excluded',()=>{
+ const p=seedPolicy();
+ assert.equal(p.schema,2);assert.equal(p.model,'mlp-es-v1');assert.deepEqual(p.learning.behaviors,NN_BEHAVIORS);
+ assert.equal(p.learning.fixedDodge,true);assert.equal(p.learning.resourceManagement,false);assert.equal(networkParameterCount(),934);
+ const brain=createBrain('void',p,()=>.5,3,{training:true});
+ const me={x:1000,y:1000,stam:100,maxStam:100,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,void3DodgeRemaining:0};
+ const enemy={x:1120,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:.2,skillPose:-1,block:false,combo:0};
+ const command=brain.step(1/60,me,enemy);assert.equal(command.dash,true,'reactive dodge remains a fixed code path instead of a learned output');
 });
-test('learning is bounded and survives serialization; malformed policy rejected',()=>{const p=seedPolicy();for(let i=0;i<100;i++)learn(p,'gale',0,{win:true,reward:1,metrics:{hits:1}});assert.equal(validatePolicy(JSON.parse(JSON.stringify(p))).styles.gale.weights[0],5);assert.throws(()=>validatePolicy({...p,schema:2}));});
+test('neural learning changes bounded network parameters and survives serialization',()=>{
+ const p=seedPolicy(),before=p.styles.gale.network.w1.slice();
+ for(let i=0;i<40;i++)learn(p,'gale',{noiseSeed:1000+i},{win:i%2===0,reward:i%2===0?1.15:-.45,metrics:{hits:1}});
+ const checked=validatePolicy(JSON.parse(JSON.stringify(p)));
+ assert.notDeepEqual(checked.styles.gale.network.w1,before);
+ assert.ok(checked.styles.gale.network.w1.every(v=>Number.isFinite(v)&&Math.abs(v)<=8));
+ assert.throws(()=>validatePolicy({...p,schema:1}));
+});
 test('training pairs the least experienced two styles even after loading uneven progress',()=>{
  const policy=seedPolicy();policy.styles.gale.games=100;policy.styles.void.games=9;policy.styles.dawn.games=3;policy.styles.break.games=1;
  assert.deepEqual(leastTrainedPair(policy),['break','dawn']);
@@ -92,7 +101,7 @@ test('Firebase checkpoints reload with a new store and reject failed writes',asy
  const oldFetch=globalThis.fetch,oldEnv=process.env.FIREBASE_SERVICE_ACCOUNT_JSON,db=new Map();let fail=false;
  const {privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});process.env.FIREBASE_SERVICE_ACCOUNT_JSON=JSON.stringify({project_id:'test-only',client_email:'test@example.invalid',private_key:privateKey.export({type:'pkcs8',format:'pem'})});
  globalThis.fetch=async(url,options={})=>{if(url.includes('oauth2'))return new Response(JSON.stringify({access_token:'test'}));const id=url.split('/').at(-1);if(options.method==='PATCH'){if(fail)return new Response('{}',{status:403});db.set(id,JSON.parse(options.body));}return db.has(id)?new Response(JSON.stringify(db.get(id))):new Response('{}',{status:404});};
- try{const p=seedPolicy();p.matches=25;p.autorun=true;const id=await new FirebaseStore().save(p);assert.match(id,/^v0-/);const current=await new FirebaseStore().load(),version=await new FirebaseStore().load(id);assert.equal(current.matches,p.matches);assert.equal(version.matches,p.matches);assert.equal(current.resetEpoch,'2026-09-30-ai-reset-2');assert.equal(version.resetEpoch,'2026-09-30-ai-reset-2');fail=true;await assert.rejects(new FirebaseStore().save(p),/403/);}finally{globalThis.fetch=oldFetch;if(oldEnv===undefined)delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;else process.env.FIREBASE_SERVICE_ACCOUNT_JSON=oldEnv;}
+ try{const p=seedPolicy();p.matches=25;p.autorun=true;const id=await new FirebaseStore().save(p);assert.match(id,/^v0-/);const current=await new FirebaseStore().load(),version=await new FirebaseStore().load(id);assert.equal(current.matches,p.matches);assert.equal(version.matches,p.matches);assert.equal(current.resetEpoch,'2026-09-30-ai-neural-reset-3');assert.equal(version.resetEpoch,'2026-09-30-ai-neural-reset-3');fail=true;await assert.rejects(new FirebaseStore().save(p),/403/);}finally{globalThis.fetch=oldFetch;if(oldEnv===undefined)delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;else process.env.FIREBASE_SERVICE_ACCOUNT_JSON=oldEnv;}
 });
 
 
@@ -120,12 +129,12 @@ test('a stale Firestore read cannot overwrite a newer policy learned by the conn
  let resolveRead;const store={enabled:true,load:()=>new Promise(resolve=>{resolveRead=resolve;})};
  const service=createAiService(()=>{},{store,refreshIntervalMs:600000});
  try{
-  const device=seedPolicy();device.matches=175;device.generation=7;device.styles.break.games=91;device.styles.break.weights=[2.1,3.2,1.8];
+  const device=seedPolicy();device.matches=175;device.generation=7;device.styles.break.games=91;device.styles.break.network.w3[0]=2.1;
   service.setPolicy(device);
   const stale=seedPolicy();stale.matches=25;stale.generation=1;
   resolveRead(stale);
   await Promise.resolve();await Promise.resolve();
   assert.strictEqual(service.currentPolicy,device);
-  assert.deepEqual(service.currentPolicy.styles.break.weights,[2.1,3.2,1.8]);
+  assert.equal(service.currentPolicy.styles.break.network.w3[0],2.1);
  }finally{service.close();}
 });
