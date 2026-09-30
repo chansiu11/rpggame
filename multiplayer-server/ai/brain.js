@@ -9,10 +9,19 @@ export const styles={
 };
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const ratio=(a,b)=>clamp((Number(a)||0)/Math.max(1,Number(b)||1),0,1);
-const initialStyle=id=>({
- network:createNetwork(hashSeed('echoes-neural-'+id)),sigma:.055,learningRate:.0035,rewardMean:0,
- games:0,wins:0,reward:0,metrics:{}
-});
+const initialStyle=id=>{
+ const network=createNetwork(hashSeed('echoes-neural-'+id));
+ // These are trainable starting priors, not runtime rules. They only keep a
+ // fresh random policy from freezing in permanent block/feint behavior before
+ // self-play has produced its first useful gradients.
+ network.b3[2]=-.45; // block prior: do not turtle forever at generation 0
+ network.b3[3]=.25;  // basic attack prior
+ for(let i=4;i<=8;i++)network.b3[i]=.20; // five learnable skill logits
+ network.b3[10]=-.55; // feint starts conservative, then self-play can raise it
+ network.b3[11]=.12; // mild initiative
+ network.b3[13]=.10; // mild punish initiative
+ return {network,sigma:.055,learningRate:.0035,rewardMean:0,games:0,wins:0,reward:0,metrics:{}};
+};
 export function seedPolicy(){
  return {
   schema:2,model:'mlp-es-v1',generation:0,matches:0,
