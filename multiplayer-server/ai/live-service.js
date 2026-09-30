@@ -7,7 +7,7 @@ export function createAiService(send,{store=new FirebaseStore(),refreshIntervalM
  // The device trainer can publish a newer policy while an earlier Firestore
  // read is still in flight. Never let that stale read undo its learned weights.
  const useStored=p=>{if(p&&!devicePolicyInstalled)policy=p;};
- if(store.enabled)(typeof store.ensureResetEpoch==='function'?store.ensureResetEpoch(seedPolicy()):store.load()).then(useStored).catch(e=>console.error('[ai-policy-reset]',e.message));
+ if(store.enabled)(typeof store.ensureResetEpoch==='function'?store.ensureResetEpoch(seedPolicy()):store.load()).then(p=>{useStored(p);console.log('[ai-policy-reset]',p?.resetEpoch||'none','matches='+Number(p?.matches||0),'generation='+Number(p?.generation||0));}).catch(e=>console.error('[ai-policy-reset]',e.message));
  const refresh=setInterval(()=>{if(store.enabled&&!devicePolicyInstalled)store.load().then(useStored).catch(e=>console.error('[ai-policy-refresh]',e.message))},refreshIntervalMs);refresh.unref();
  function leave(p){const s=sessions.get(p.id);if(!s)return;sessions.delete(p.id);clearTimeout(s.timeout);s.worker.terminate();}
  function handle(p,m,bytes){if(!String(m?.type||'').startsWith('pvp:ai'))return false;
