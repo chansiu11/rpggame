@@ -1330,7 +1330,7 @@ window.EchoesBuildHongryeonFx=function(p){
   const x=Number(p.x)||0,y=Number(p.y)||0,a=Number(p.a)||0,side=p.side===-1?-1:1,
    id=String(p.id||''),phase=p.phase||'signature';
   if(phase==='trail'){
-   flameBreathTrail(x,y,Number.isFinite(p.x2)?p.x2:x,Number.isFinite(p.y2)?p.y2:y,Number(p.power)||1,id==='quakeRush'?.5:id==='earthRend'?.62:1);
+   flameBreathTrail(x,y,Number.isFinite(p.x2)?p.x2:x,Number.isFinite(p.y2)?p.y2:y,Number(p.power)||1,id==='quakeRush'?.5:id==='earthRend'?.62:id==='ironJudgment'?.68:1);
   }else if(phase==='startup'){
    if(id==='quakeRush')flameBreathCleaveCircle(x,y,FLAME_CLEAVE_START_RADIUS,a,.42,1.15,.45);
    crimsonChargeFlames(x,y,id==='meteorBreaker'?83:27,id==='meteorBreaker'?.29:.21,id==='meteorBreaker'?1.16:.46);
@@ -2453,9 +2453,11 @@ function finishSwordCarryTargets(seq,interrupted=false){
 }
 function pullFlameWheelTargets(seq,dt,ox,oy){
  if(seq.flameWheelReleased||!seq.flameWheelCaught?.size)return;
- const a=seq.flameFace??seq.facing,fx=Math.cos(a),fy=Math.sin(a),targets=combatTargets();
- for(const id of [...seq.flameWheelCaught]){
-  const e=targets.find(t=>t.id===id);
+ const a=seq.flameFace??seq.facing,fx=Math.cos(a),fy=Math.sin(a);
+ // All caught targets were resolved when their first cut landed. Avoid rebuilding
+ // every enemy + remote-player proxy list on every animation frame.
+ for(const id of seq.flameWheelCaught){
+  const e=worldPlayerTargets.get(id)||enemies.find(t=>t.id===id);
   if(!e||e.dead||e.riftSleeping){seq.flameWheelCaught.delete(id);continue;}
   if(e.kind==='boss')continue; // Bosses take later hits without forced body movement.
   const tx=player.x+fx*64,ty=player.y+fy*64;
@@ -2835,9 +2837,13 @@ function flameBreathMotion(seq,sk,dt,t,target){
   player.facing=f+side*Math.PI*2.1*(first+third);seq.facing=f;
   player.skillLift=4+Math.sin(Math.PI*first)*10+Math.sin(Math.PI*third)*7;
   if((first>.05&&first<.96)||(third>.04&&third<.97))player.invuln=Math.max(player.invuln,.055);
-  trail(.06,1.21);
-  if(seq.fx<=0&&((first>.03&&first<.94)||(third>.03&&third<.94)))
-   flameBreathPlume(player.x,player.y,player.facing+side*1.2,115,73,.31,.77);
+  trail(.084,1.21,.68);
+  // An independent, slow accent timer keeps the spinning blade readable without
+  // making the dash trail spawn a full new plume on every frame.
+  seq.flameAccentFx=(seq.flameAccentFx||0)-dt;
+  if(seq.flameAccentFx<=0&&((first>.03&&first<.94)||(third>.03&&third<.94))){
+   seq.flameAccentFx=.20;flameBreathPlume(player.x,player.y,player.facing+side*1.2,115,73,.25,.77,.64);
+  }
  }else if(mode==='flameBreathFinale'){
   // Handled entirely by updateFlameBreathFinale: collision determines whether follow-ups exist.
  }
@@ -5467,7 +5473,12 @@ function pvpHongFxReplay(){
  // Normal player-state snapshots recover visuals missed by the dedicated FX channel.
  pvpHongFxRecent=pvpHongFxRecent.filter(e=>now-e.at<1250);
  const events=pvpHongFxRecent.slice(-3);
- if(pvpHongFxTrail&&now-pvpHongFxTrail.at<210)events.push(pvpHongFxTrail);
+ if(pvpHongFxTrail&&now-pvpHongFxTrail.at<210){
+  const isLean=['earthRend','quakeRush','ironJudgment'].includes(pvpHongFxTrail.packet.id);
+  if(!isLean||!pvpHongFxTrail.replayedAt||now-pvpHongFxTrail.replayedAt>=120){
+   events.push(pvpHongFxTrail);pvpHongFxTrail.replayedAt=now||.001;
+  }
+ }
  return events.map(e=>({...e.packet,ageMs:Math.max(0,now-e.at)}));
 }
 let pvpVisualQueue=[],pvpVisualScheduled=false;
@@ -5486,7 +5497,7 @@ function sanitizeRemoteFx(f){if(!f||typeof f!=='object')return;
   const allowed=['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'],
    id=String(f.id||''),phase=String(f.phase||'signature');
   if(!allowed.includes(id)||!['signature','startup','trail'].includes(phase))return;
-  const life=phase==='trail'?(id==='earthRend'||id==='quakeRush'?.36:.68):phase==='startup'?.72:1.45,
+  const life=phase==='trail'?(id==='earthRend'||id==='quakeRush'?.36:id==='ironJudgment'?.38:.68):phase==='startup'?.72:1.45,
    g={kind:'hongWorldFx',id,phase,index:clamp(Number(f.index)||0,0,24)|0,final:f.final===true,
     x:clamp(Number(f.x)||0,-100,ARENA_W+100),y:clamp(Number(f.y)||0,-100,ARENA_H+100),
     a:clamp(Number(f.a)||0,-100,100),reach:clamp(Number(f.reach)||190,10,1000),
@@ -5545,7 +5556,7 @@ function recoverOpponentHongryeonFx(m){
   }
  }
  if(['earthRend','quakeRush','ironJudgment','meteorBreaker'].includes(id)&&
-    Math.hypot(x-rec.x,y-rec.y)>8&&now-rec.trailAt>110){
+    Math.hypot(x-rec.x,y-rec.y)>8&&now-rec.trailAt>(id==='ironJudgment'?145:110)){
   const present=fx.some(f=>f.kind==='hongWorldFx'&&f.id===id&&f.phase==='trail'&&f.t>.07);
   if(!present)sanitizeRemoteFx({kind:'hongWorldFx',id,phase:'trail',x:rec.x,y:rec.y,x2:x,y2:y,a,power:1.1});
   rec.trailAt=now;
@@ -5873,7 +5884,7 @@ const PVP_HONGRYEON_CUTS=Object.freeze([
 // Uses the existing bounded/relayed FX vocabulary. Only gameplay events and
 // a small visual sample cross the connection, never the full fire-particle field.
 function pvpHongryeonPacket(p){
- const phase=p.phase||'signature',leanTrail=phase==='trail'&&(p.id==='earthRend'||p.id==='quakeRush'),life=phase==='trail'?(leanTrail?.36:.68):phase==='startup'?.72:1.45;
+ const phase=p.phase||'signature',leanTrail=phase==='trail'&&['earthRend','quakeRush','ironJudgment'].includes(p.id),life=phase==='trail'?(leanTrail?(p.id==='ironJudgment'?.38:.36):.68):phase==='startup'?.72:1.45;
  const packet={kind:'hongWorldFx',seq:++pvpHongFxSerial,id:p.id||'',phase,index:p.index||0,final:!!p.final,
   x:p.x,y:p.y,x2:p.x2,y2:p.y2,originX:p.originX,originY:p.originY,a:p.a||0,reach:p.reach||190,
   side:p.side===-1?-1:1,power:p.power||1,t:life,max:life};
@@ -5921,7 +5932,7 @@ function pvpHongryeonMotion(ev,dt){
   if(ev.hongWheelCaught&&!ev.hongWheelReleased&&enemy&&enemy.hp>0){ev.hongCarryAt=(ev.hongCarryAt||0)-dt;if(ev.hongCarryAt<=0){const fa=Math.atan2(enemy.y-me.y,enemy.x-me.x),dist=me.r+enemy.r+34,tx=me.x+Math.cos(fa)*dist,ty=me.y+Math.sin(fa)*dist;queueStigmaControl('hongWheel',tx,ty,.12,.20,.38,false);ev.hongCarryAt=.065;}}
  }
  if(mode!=='flameBreathWheel')me.a=a;
- if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.082:mode==='flameBreathCleave'?.14:mode==='flameBreathWheel'?.060:.066;pvpHongryeonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05,ev);}}
+ if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.082:mode==='flameBreathCleave'?.14:mode==='flameBreathWheel'?.084:.066;pvpHongryeonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05,ev);}}
 }
 function pvpHongryeonHit(ev,k){
  const mode=ev.cfg.mode,a=ev.hongFace??ev.a,ca=Math.cos(a),sa=Math.sin(a),base=pvpSkillAttack(me),color=ev.skill.color||'#ff782e',enemyNear=enemy&&enemy.hp>0,r=mode==='flameBreathSweep'?(k===0?300:328):mode==='flameBreathRise'?250:mode==='flameBreathCleave'?(k===0?190:245):[265,230,270][k]||265;
