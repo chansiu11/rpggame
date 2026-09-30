@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 import {createArena} from '../multiplayer-server/ai/arena-runtime.js';
 import {createWorldCombat} from '../multiplayer-server/world-combat.js';
 
@@ -71,4 +73,23 @@ test('shared world PvP enforces one marked dodge and authoritative knockback',()
 test('shared world PvP expires unused stance after ten seconds',()=>{
  const w=worldFixture();w.arm();w.step(10001);
  assert.equal(w.a.void3Mark,null);
+});
+
+test('Void 5 renders a circular magic seal for 0.5 seconds before its existing movement and attacks',()=>{
+ assert.match(html,/sk\.id==='voidDance'\?\.5:0/,'world/PvP hold duration includes the startup delay');
+ assert.match(html,/if\(seq\.ultimate&&seq\.elapsed<\.5\)/,'world Void 5 waits inside its magic circle');
+ assert.match(html,/if\(ult&&h\.elapsed<\.5\)/,'PvP Void 5 waits inside its magic circle');
+ assert.match(html,/starSeal[^\n]+r:145[^\n]+\.55/,'the startup draws the large circular seal');
+});
+test('Gale 1 shield break and Gale 3 charge stun are wired through world and PvP hit paths',()=>{
+ assert.match(html,/seq\?\.skillId==='windSlash'\)\{p\.stunScale=\.5;p\.breakShield=true;\}/,
+  'world Gale 1 projectiles are tagged to break shields');
+ assert.match(html,/mode==='windShot'[^\n]+breakShield:true/,
+  'PvP Gale 1 projectiles carry the shield-break flag');
+ assert.match(html,/parryable:p\.parryable,breakShield:!!p\.breakShield/,
+  'received PvP projectiles apply shield break on contact');
+ assert.match(html,/skillId:'galeOrbit'[^\n]+stun:\.16,root:\.23/,
+  'world Gale 3 applies short stun throughout its charge pull');
+ assert.match(html,/me\.galeRoot=Math\.max\(me\.galeRoot\|\|0,\.25\);me\.stun=Math\.max\(me\.stun\|\|0,\.16\)/,
+  'PvP Gale 3 charge pull also renews short stun');
 });
