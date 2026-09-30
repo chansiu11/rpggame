@@ -21,7 +21,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v8-player-balance';
-const SERVER_BUILD = '2026-09-30-hongryeon-five-forms-1';
+const SERVER_BUILD = '2026-09-30-ai-reset-hongryeon-select-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const PLAYER_REFERENCE_BASE_HP = 100;
@@ -35,7 +35,7 @@ const MOB_BASE_HP = Object.freeze({
   crystalMage:125,abyssHound:154,bloodWisp:140,voidKnight:205,styleAdept:132
 });
 
-const WORLD_RESET_EPOCH = '2026-09-27-world-reset-2';
+const WORLD_RESET_EPOCH = '2026-09-30-world-reset-3';
 const MOB_TYPES = {
   sprout:{speed:77,damage:13,reach:66,wind:.8,kind:'melee',r:18},wolf:{speed:127,damage:18,reach:155,wind:.8,kind:'charge',r:18},
   sentry:{speed:65,damage:16,reach:360,wind:1.05,kind:'ranged',r:18},golem:{speed:55,damage:27,reach:116,wind:1.2,kind:'slam',r:26},
