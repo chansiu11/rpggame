@@ -34,6 +34,13 @@ jobs:
   ai-regressions:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - tests/neural-ai-smoke.test.mjs
+          - tests/ai.test.mjs
+          - tests/device-training.test.mjs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,7 +49,7 @@ jobs:
           cache: npm
           cache-dependency-path: multiplayer-server/package-lock.json
       - run: npm ci --prefix multiplayer-server
-      - run: node --test tests/neural-ai-smoke.test.mjs tests/ai.test.mjs tests/device-training.test.mjs
+      - run: node --test ${{ matrix.test }}
 
   combat-regressions:
     runs-on: ubuntu-latest
