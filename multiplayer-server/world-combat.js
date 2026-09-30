@@ -137,7 +137,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     }
     // Arm only from a confirmed opening hit; the server counters never submit another cast event.
     if(String(e.skillId||'')==='gravityCut'&&a.swordStyle==='void'&&!a.void3Mark)
-      a.void3Mark={targetId:b.id,until:t+10000,remaining:5,pending:null,damage:clamp(e.damage,1,5000)*.86};
+      a.void3Mark={targetId:b.id,until:t+10000,remaining:1,pending:null,damage:clamp(e.damage,1,5000)*.86};
     if(String(e.skillId||'')==='hidden:1')b.markUntil=Math.max(b.markUntil||0,t+3000);a.confirmedSkillHits??=new Map();a.confirmedSkillHits.set(b.id,{at:t,skillId:String(e.skillId||a.skillId||'')});if(a.confirmedSkillHits.size>64){for(const [id,h] of a.confirmedSkillHits)if(t-h.at>3000)a.confirmedSkillHits.delete(id);}}
    if(b.hp>0){lease(b,e,t);if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}if(e.mark)b.markUntil=t+clamp(e.mark,0,5)*1000;if(e.stun>0){b.block=false;b.dodgeUntil=0;}}
    if(b.hp<=0){b.forceMove=null;b.controlBy=null;}
