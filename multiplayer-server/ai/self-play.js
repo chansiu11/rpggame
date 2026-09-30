@@ -24,8 +24,8 @@ export function createDuelSession(styleA,styleB,policyA,policyB,seed=1,seconds=9
  ];
  const frame=f=>({x:f.x,y:f.y,a:f.a,hp:f.hp,maxHp:f.maxHp,shield:f.shield,maxShield:f.maxShield,stam:f.stam,maxStam:f.maxStam,skillPose:f.skillPose,skillKind:f.skillKind||'',block:!!f.block,dash:f.dash||0,stun:f.stun||0,attackAnim:f.attackAnim||0,attackDuration:f.attackDuration||0});
  const enabled=()=>!!onFrame&&(!onFrame.enabled||onFrame.enabled());
- const limit=Math.max(1,Math.round(seconds*60));
- let steps=0,done=false,result=null,disposed=false,finalSent=false;
+ const limit=Math.max(1,Math.round(seconds*60)),stallLimit=Math.round(18*60);
+ let steps=0,done=false,result=null,disposed=false,finalSent=false,lastDamageStep=0,lastHp=arenas.map(r=>r.api.me.hp);
 
  function emit(final=false){
   if(!enabled())return;
@@ -38,11 +38,13 @@ export function createDuelSession(styleA,styleB,policyA,policyB,seed=1,seconds=9
   if(!finalSent)emit(true);
   const fractions=arenas.map(r=>r.api.me.hp/r.api.me.maxHp),winner=Math.abs(fractions[0]-fractions[1])<.001?-1:fractions[0]>fractions[1]?0:1;
   metrics.forEach((m,i)=>{m.damage=arenas[1-i].api.me.maxHp-arenas[1-i].api.me.hp});
-  result={winner,timeout:steps>=limit,steps,results:metrics.map((m,i)=>{
+  const stalled=options.explore===true&&steps-lastDamageStep>=stallLimit&&steps>=stallLimit;
+  result={winner,timeout:steps>=limit,stalled,steps,results:metrics.map((m,i)=>{
    const dealt=m.damage/Math.max(1,arenas[1-i].api.me.maxHp),taken=metrics[1-i].damage/Math.max(1,arenas[i].api.me.maxHp);
    const accuracy=m.hits/Math.max(1,m.attempts),defense=(m.defenses+m.parries)/Math.max(1,m.defenses+m.parries+metrics[1-i].hits),combo=m.comboHits/Math.max(1,m.hits);
    const neural={...brains[i].stats};for(const [k,v] of Object.entries(neural))m['neural_'+k]=v;
-   return {win:winner===i,tactic:-1,training:brains[i].training,metrics:m,reward:(winner===i?1:winner===-1?0:-1)+.30*(dealt-taken)+.18*accuracy+.08*defense+.08*combo};
+   const activity=Math.min(1,m.attempts/10),inactive=m.attempts===0?.12:0;
+   return {win:winner===i,tactic:-1,training:brains[i].training,metrics:m,reward:(winner===i?1:winner===-1?0:-1)+.30*(dealt-taken)+.18*accuracy+.08*defense+.08*combo+.03*activity-inactive};
   })};
   return result;
  }
@@ -60,10 +62,12 @@ export function createDuelSession(styleA,styleB,policyA,policyB,seed=1,seconds=9
    if(++count>2000)throw Error('Combat message loop');
    const [i,m]=queue.shift();arenas[i].api.receive(m);
   }
+  for(let i=0;i<2;i++){const hp=Number(arenas[i].api.me.hp)||0;if(Math.abs(hp-lastHp[i])>.001){lastDamageStep=steps;lastHp[i]=hp;}}
   if(enabled()&&steps%8===0)emit(false);
   const ended=arenas.some(r=>r.api.locked||r.api.me.hp<=0);
   steps++;
-  if(ended||steps>=limit)return finish();
+  const stalled=options.explore===true&&steps>=stallLimit&&steps-lastDamageStep>=stallLimit;
+  if(ended||stalled||steps>=limit)return finish();
   return null;
  }
  function dispose(){
