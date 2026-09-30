@@ -1273,6 +1273,33 @@ function flameBreathSignature(id,index,final,ang,reach,actor=player,ctxInfo=null
  if(actor===player)triggerSkillShake(['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'].indexOf(id),id==='meteorBreaker'?(final?1.9:.78):final?1.11:.62);
 }
 
+ // Build the authored world flame primitives from a small, network-safe PvP recipe.
+ // No canvas textures or random PvP-only beam substitutes are needed.
+window.EchoesBuildHongryeonFx=function(p){
+ const original=effects;effects=[];
+ try{
+  const x=Number(p.x)||0,y=Number(p.y)||0,a=Number(p.a)||0,side=p.side===-1?-1:1,
+   id=String(p.id||''),phase=p.phase||'signature';
+  if(phase==='trail'){
+   flameBreathTrail(x,y,Number.isFinite(p.x2)?p.x2:x,Number.isFinite(p.y2)?p.y2:y,Number(p.power)||1);
+  }else if(phase==='startup'){
+   if(id==='quakeRush')flameBreathCleaveCircle(x,y,FLAME_CLEAVE_START_RADIUS,a,.42,1.15);
+   crimsonChargeFlames(x,y,id==='meteorBreaker'?83:27,id==='meteorBreaker'?.29:.21,id==='meteorBreaker'?1.16:.46);
+   crimsonEmbers(x,y,a+Math.PI,id==='meteorBreaker'?10:3,id==='meteorBreaker'?188:83,.64,.62);
+  }else{
+   flameBreathSignature(id,Number(p.index)||0,!!p.final,a,Number(p.reach)||190,{x,y},{side,baseFacing:a});
+   // The rising slash also lights up every section of its already-traveled dash.
+   if(id==='earthRend'&&Number.isFinite(p.originX)&&Number.isFinite(p.originY)){
+    const x1=p.originX,y1=p.originY,d=Math.hypot(x-x1,y-y1),dir=Math.atan2(y-y1,x-x1);
+    if(d>10){crimsonDashEdgeFire(x1,y1,x,y,76,.54,1.07);
+     const n=Math.max(2,Math.ceil(d/68));for(let j=0;j<n;j++){const q=(j+.5)/n;flameBreathPlume(x1+(x-x1)*q,y1+(y-y1)*q,dir,101,78,.47,1.04);}
+    }
+   }
+  }
+  return effects;
+ }finally{effects=original;}
+};
+
 function ring(x,y,r,color,t=.5){effects.push({type:'ring',x,y,r,color,t,max:t});}
 let prismCastSerial=0;
 function cancelSwordSkill(preserveFollow=false){activeSwordSkill=null;fourthSkillHold=null;fourthSkillField=null;secondSkillDash=null;secondSkillArmed=false;skillTrayPress=null;standardSkillHold=null;skill2Knocks=[];hiddenSkillEvents=[];hiddenSkillHold=null;if(!preserveFollow)hiddenSkillFollowup=null;if(void3State)endVoid3World();if(player){player.skillKind='';player.skillPose=-1;player.skillLift=0;player.pendingSlam=null;player.cast=0;player.pvpKnock=null;}}
@@ -4424,10 +4451,11 @@ const FLAME_FINALE_PARTICLES=Array.from({length:1100},(_,i)=>{
  }
 
 window.EchoesDrawFlameFinaleVortex=drawFlameFinaleVortex;
-function drawEffects(ground=false){
- // Cull visuals outside the camera, including off-screen dash trails. Collision is unchanged.
- const left=camera.x-VIEW_W/2-180,right=camera.x+VIEW_W/2+180,top=camera.y-VIEW_H/2-180,bottom=camera.y+VIEW_H/2+180;
- for(const e of effects){
+function drawEffects(ground=false, drawContext=ctx, fxList=effects, bounds=null){
+ const ctx=drawContext;
+ // Allow the arena to use the exact same flame painter with its own canvas and view.
+ const left=bounds?.left??camera.x-VIEW_W/2-180,right=bounds?.right??camera.x+VIEW_W/2+180,top=bounds?.top??camera.y-VIEW_H/2-180,bottom=bounds?.bottom??camera.y+VIEW_H/2+180;
+ for(const e of fxList){
   if(Number.isFinite(e.x)&&Number.isFinite(e.y)){
    const span=Math.max(45,Number(e.r)||0,Number(e.len)||0,Number(e.width)||0);
    const x2=Number.isFinite(e.x2)?e.x2:e.x,y2=Number.isFinite(e.y2)?e.y2:e.y;
@@ -4748,6 +4776,7 @@ if(e.type==='crimsonChargeFlames'){
  if(e.type==='meteor'){ctx.save();ctx.globalCompositeOperation='lighter';const fall=1-progress;line(ctx,e.x+65*fall,e.y-180*fall,e.x,e.y,e.color,18*(1-progress)+4);glow(ctx,e.x,e.y,e.r*.9,e.color+'55');circle(ctx,e.x,e.y,10+e.r*.08,'#fff4d0');ctx.restore();}
  if(e.type==='nova'){ctx.save();ctx.translate(e.x,e.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*.9);ctx.strokeStyle=e.color;for(let k=0;k<4;k++){ctx.lineWidth=5-k;ctx.beginPath();ctx.arc(0,0,e.r*(.15+progress*.85)*(1-k*.08),0,TAU);ctx.stroke();}for(let k=0;k<16;k++){const a=k*TAU/16+progress*.5,r=e.r*(.25+.72*progress);line(ctx,Math.cos(a)*e.r*.08,Math.sin(a)*e.r*.08,Math.cos(a)*r,Math.sin(a)*r,k%2?'#ffffff':e.color,3*(1-progress)+1);}glow(ctx,0,0,e.r*.55,e.color+'44');ctx.restore();}
  if(e.type==='slash'){ctx.strokeStyle=e.color;ctx.lineWidth=7;ctx.beginPath();ctx.arc(e.x,e.y,e.r,e.a-e.arc/2,e.a+e.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,e.r-7,e.a-e.arc/2+.1,e.a+e.arc/2-.1);ctx.stroke();}ctx.restore();}}
+window.EchoesDrawWorldFx=(drawContext,fxList,ground=false,bounds=null)=>drawEffects(ground,drawContext,fxList,bounds);
 function drawRemoteSkillOverlay(rp,x,y,a){
  if(String(rp.skillKind||'').startsWith('prepare:'))return;
  const livePose=Number(rp.skillPose),poseActive=Number.isFinite(livePose)&&livePose>=0,ttl=(Number(rp.remoteSkillVisualUntil)||0)>realTime;
@@ -5368,7 +5397,20 @@ function pvpCrimsonShake(power=7,send=true){pvpShake=Math.max(pvpShake,power);if
 let pvpVisualQueue=[],pvpVisualScheduled=false;
 function queuePvpVisual(f){if(receivingPvpVisual)return;pvpVisualQueue.push({...f});if(pvpVisualScheduled)return;pvpVisualScheduled=true;const active=conn;queueMicrotask(()=>{pvpVisualScheduled=false;const batch=pvpVisualQueue;pvpVisualQueue=[];if(conn!==active||!conn?.open)return;for(let i=0;i<batch.length;i+=64)net({t:'fxBatch',effects:batch.slice(i,i+64)});});}
 function burst(x,y,c,n=12,speed=150,seed=(Math.random()*4294967296)>>>0,replicate=true){let state=seed>>>0;const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};n=clamp(Math.floor(n),0,80);for(let i=0;i<n;i++){const a=random()*TAU,s=35+random()*speed;fx.push({kind:'particle',x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:1.8+random()*3.8,t:.28+random()*.35,max:.65,c})}trimFx();if(replicate&&!receivingPvpVisual)queuePvpVisual({kind:'burst',x,y,c,n,speed,seed});}
-function sanitizeRemoteFx(f){if(!f||typeof f!=='object')return;if(f.kind==='burst'){burst(clamp(+f.x||0,-100,ARENA_W+100),clamp(+f.y||0,-100,ARENA_H+100),String(f.c||'#fff').slice(0,20),clamp(+f.n||0,0,80),clamp(+f.speed||0,0,1500),Number(f.seed)>>>0,false);return;}const allowed=new Set(['particle','ember','ring','nova','rift','riftCut','slash','star','starSeal','line']);if(!allowed.has(f.kind))return;const g={kind:f.kind,x:clamp(+f.x||0,-100,ARENA_W+100),y:clamp(+f.y||0,-100,ARENA_H+100),c:String(f.c||'#fff').slice(0,20),t:clamp(+f.t||.2,.05,10),max:clamp(+f.max||+f.t||.2,.05,10)};for(const k of ['r','rx','ry','a','arc','len','width','x2','y2','vx','vy'])if(Number.isFinite(+f[k]))g[k]=+f[k];fx.push(g);trimFx()}
+function sanitizeRemoteFx(f){if(!f||typeof f!=='object')return;
+ if(f.kind==='hongWorldFx'){
+  const allowed=['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'],
+   id=String(f.id||''),phase=String(f.phase||'signature');
+  if(!allowed.includes(id)||!['signature','startup','trail'].includes(phase))return;
+  const life=phase==='trail'?.68:phase==='startup'?.72:1.45,
+   g={kind:'hongWorldFx',id,phase,index:clamp(Number(f.index)||0,0,24)|0,final:f.final===true,
+    x:clamp(Number(f.x)||0,-100,ARENA_W+100),y:clamp(Number(f.y)||0,-100,ARENA_H+100),
+    a:clamp(Number(f.a)||0,-100,100),reach:clamp(Number(f.reach)||190,10,1000),
+    side:f.side===-1?-1:1,power:clamp(Number(f.power)||1,.2,4),t:life,max:life};
+  for(const k of ['x2','y2','originX','originY'])if(Number.isFinite(f[k]))g[k]=clamp(Number(f[k]),-100,Math.max(ARENA_W,ARENA_H)+100);
+  fx.push(g);trimFx();return;
+ }
+ if(f.kind==='burst'){burst(clamp(+f.x||0,-100,ARENA_W+100),clamp(+f.y||0,-100,ARENA_H+100),String(f.c||'#fff').slice(0,20),clamp(+f.n||0,0,80),clamp(+f.speed||0,0,1500),Number(f.seed)>>>0,false);return;}const allowed=new Set(['particle','ember','ring','nova','rift','riftCut','slash','star','starSeal','line']);if(!allowed.has(f.kind))return;const g={kind:f.kind,x:clamp(+f.x||0,-100,ARENA_W+100),y:clamp(+f.y||0,-100,ARENA_H+100),c:String(f.c||'#fff').slice(0,20),t:clamp(+f.t||.2,.05,10),max:clamp(+f.max||+f.t||.2,.05,10)};for(const k of ['r','rx','ry','a','arc','len','width','x2','y2','vx','vy'])if(Number.isFinite(+f[k]))g[k]=+f[k];fx.push(g);trimFx()}
 function onData(m){const previous=receivingPvpVisual;receivingPvpVisual=true;try{processPvpData(m);}finally{receivingPvpVisual=previous;}}
 function processPvpData(m){if(!m||typeof m!=='object')return;
  if(conn?.ai&&!window.__AI_LIVE__&&m.t==='aiCountdown'){aiServerCountdown=true;beginAiCountdown();return;}
@@ -5493,7 +5535,7 @@ function stopWorldSwordHold(i,interrupted=false){const h=me?.skillHold;if(!h||h.
  if(h.carry&&enemy){if(mode==='holdShadow'){queueStigmaControl('voidDance',enemy.x,enemy.y,.20,interrupted?.35:1,.85,true)}else if(interrupted)forceEnemyTo(enemy.x,enemy.y,.18,.35);else forceEnemyTo(enemy.x,enemy.y,.18,1)}me.skillHold=null;me.skillPose=-1;me.skillKind='';me.skillLift=0;me.attackAnim=interrupted?0:.12;me.attackDuration=.12;me.attackCd=interrupted?0:.12;me.moveLock=Math.max(me.moveLock||0,.06);me.postSkillLock=interrupted?0:.06;if(!interrupted&&sk)ring(me.x,me.y,34,sk.color||'#d7c181',.18,true)}
 function pvpUltimateFinishFx(seq,sk){if(!seq?.ultimate||!sk)return;const main=sk.color||'#d7c181',sub=sk.sub||'#fff',accent=sk.accent||sub,a=seq.a||me.a;if(sk.id==='thunderDrive'){const cx=enemy?.x??me.x,cy=enemy?.y??me.y;for(let j=0;j<10;j++){const aa=j*TAU/10;riftCutFx(cx+Math.cos(aa)*105,cy+Math.sin(aa)*105,aa+Math.PI/2,245,42,j%2?sub:main,.62,true)}nova(cx,cy,305,accent,.78,true);sealFx(cx,cy,255,sub,.72,true)}else if(sk.id==='lunarBind'){sealFx(me.x,me.y,320,sub,.72,true);for(let j=0;j<12;j++){const aa=j*TAU/12;slashFx(me.x,me.y,aa,.9,280,j%2?main:sub,.42,true)}}else if(sk.id==='meteorBreaker'){const cx=enemy?.x??seq.anchorX??me.x+Math.cos(a)*190,cy=enemy?.y??seq.anchorY??me.y+Math.sin(a)*190;pvpCrimsonImpact(cx,cy,a,3.75);pvpCrimsonOutside(cx,cy,245,590,56,false);for(let j=0;j<12;j++){const aa=a+j*TAU/12;pvpCrimsonEmbers(cx,cy,aa,20,730,1.12,1.55);if(j%2===0)riftCutFx(cx+Math.cos(aa)*78,cy+Math.sin(aa)*78,aa+.55,245+j*9,24+j%3*6,j%4===0?'#ffe0b0':'#ff4a32',.44,true)}pvpCrimsonShake(26,true);}else if(sk.id==='prismLance'){riftCutFx(me.x+Math.cos(a)*260,me.y+Math.sin(a)*260,a,760,92,sub,.66,true);for(let j=-3;j<=3;j++){const aa=a+j*.13;beamFx(me.x,me.y,me.x+Math.cos(aa)*520,me.y+Math.sin(aa)*520,j===0?sub:main,.44,true)}}else if(sk.id==='voidDance'){nova(me.x,me.y,300,accent,.68,true);sealFx(me.x,me.y,285,sub,.62,true);for(let j=0;j<8;j++){const aa=j*TAU/8;riftCutFx(me.x+Math.cos(aa)*115,me.y+Math.sin(aa)*115,aa+Math.PI/2,230,32,main,.42,true)}}burst(me.x,me.y,main,42,285);pvpShake=Math.max(pvpShake,18)}
 function startSwordSequence(i,preparedA=null){if(!skillReady(i))return false;const sk=pvpSwordSkillAt(i);if(!sk?.cfg)return false;if(sk.holdContinuous)return startWorldSwordHold(i,sk);const cfg=sk.cfg;if(!commitSkill(i,sk.cost,sk.cool))return false;let a=Number.isFinite(preparedA)?preparedA:combatAimAngle(),dashCatch=['flashRush','mirrorStep','skyFall','phantomSwap'].includes(sk.id),gale=['windSlash','flashRush','starRush','galeOrbit','thunderDrive'].includes(sk.id),crimson=['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'].includes(sk.id),voidRange=sk.id==='chainReap'?360:sk.id==='phantomSwap'?620:sk.id==='bladeRain'?540:0,crimsonRange=sk.id==='guardBreak'?330:sk.id==='earthRend'?440:sk.id==='quakeRush'?330:sk.id==='ironJudgment'?900:sk.id==='meteorBreaker'?1150:0,targetRange=sk.id==='flashRush'?720:(voidRange||(crimsonRange||(i===4?820:(gale?560:(dashCatch?720:300))))),hasTarget=enemy&&enemy.hp>0&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=targetRange;if((dashCatch||crimson)&&hasTarget)a=Math.atan2(enemy.y-me.y,enemy.x-me.x);me.a=a;me.skillLift=0;{const anchorMode=['fracturePrison','furnaceBloom','flameBreathFinale'].includes(cfg.mode),anchorDist=cfg.mode==='flameBreathFinale'?360:cfg.mode==='furnaceBloom'?210:170;
- me.skillEvent={kind:'swordSeq',index:i,elapsed:0,next:0,cfg,skill:sk,a,side:Math.random()<.5?-1:1,fx:0,ultimate:i===4,dashCatch,targetRange,carry:false,carryDX:0,carryDY:0,carryAt:0,originX:me.x,originY:me.y,anchorX:anchorMode?(hasTarget?enemy.x:me.x+Math.cos(a)*anchorDist):null,anchorY:anchorMode?(hasTarget?enemy.y:me.y+Math.sin(a)*anchorDist):null,lastEchoX:me.x,lastEchoY:me.y};}me.skillKind=cfg.mode||'swordSeq';me.attackDuration=cfg.duration;me.attackAnim=cfg.duration;me.attackCd=cfg.duration;const crimsonFree=false;me.moveLock=cfg.duration;me.combo=0;me.comboTimer=0;if(cfg.mode==='galePulse'){me.skillPose=i;net({t:'teleport',x:me.x,y:me.y,a:me.a});}queuePostSkillLock(cfg.duration);const main=sk.color||'#d7c181',sub=sk.sub||'#fff',accent=sk.accent||sub;if(i===4){if(sk.id==='lunarBind')sealFx(me.x,me.y,150,main,.55,true);else if(sk.id==='prismLance')for(let j=-2;j<=2;j++){const aa=a+j*.18;beamFx(me.x,me.y,me.x+Math.cos(aa)*180,me.y+Math.sin(aa)*180,j===0?sub:main,.28,true)}else if(sk.id==='thunderDrive'){for(let j=-3;j<=3;j++){const aa=a+j*.11;beamFx(me.x-Math.cos(aa)*55,me.y-Math.sin(aa)*55,me.x+Math.cos(aa)*235,me.y+Math.sin(aa)*235,j===0?sub:main,.30,true)}riftCutFx(me.x+Math.cos(a)*95,me.y+Math.sin(a)*95,a,300,48,accent,.34,true)}else if(sk.id==='meteorBreaker'){pvpCrimsonEmbers(me.x+Math.cos(a)*55,me.y+Math.sin(a)*55,a,6,185,.36,.85);pvpCrimsonShake(5,true);}else if(sk.id==='voidDance')riftCutFx(me.x,me.y,a,180,26,accent,.30,true);burst(me.x,me.y,main,18,160);pvpShake=Math.max(pvpShake,9)}if(cfg.mode!=='galePulse'){if(crimson){if(sk.id==='guardBreak'){}else if(sk.id==='earthRend'){pvpCrimsonFlare(me.x,me.y,a,1.0,false);pvpCrimsonOutside(me.x,me.y,110,230,7,false);}else if(sk.id==='quakeRush'){pvpCrimsonOutside(me.x,me.y,255,360,12,true);pvpCrimsonEmbers(me.x,me.y,a+Math.PI,8,260,.8,1);}else if(sk.id==='ironJudgment'){pvpCrimsonFlare(me.x,me.y,a,1.35,true);pvpCrimsonOutside(me.x,me.y,130,260,9,false);}else{pvpCrimsonEmbers(me.x,me.y,a,12,300,.9,1.05);pvpCrimsonOutside(me.x,me.y,150,300,10,false);}}else if(!['chainReap','phantomSwap','gravityCut','bladeRain'].includes(sk.id))ring(me.x,me.y,i===4?64:24,main,i===4?.38:.22,true);else beamFx(me.x-Math.sin(a)*30,me.y+Math.cos(a)*30,me.x+Math.cos(a)*125+Math.sin(a)*30,me.y+Math.sin(a)*125-Math.cos(a)*30,main,.22,true);triggerPvpShake(i,1,true)}if(i===4&&sk.id==='prismLance')pvpWorldSwordHit(me.skillEvent,me.skillEvent.next++);return true}
+ me.skillEvent={kind:'swordSeq',index:i,elapsed:0,next:0,cfg,skill:sk,a,side:Math.random()<.5?-1:1,fx:0,ultimate:i===4,dashCatch,targetRange,carry:false,carryDX:0,carryDY:0,carryAt:0,originX:me.x,originY:me.y,anchorX:anchorMode?(hasTarget?enemy.x:me.x+Math.cos(a)*anchorDist):null,anchorY:anchorMode?(hasTarget?enemy.y:me.y+Math.sin(a)*anchorDist):null,lastEchoX:me.x,lastEchoY:me.y};}me.skillKind=cfg.mode||'swordSeq';me.attackDuration=cfg.duration;me.attackAnim=cfg.duration;me.attackCd=cfg.duration;const crimsonFree=false;me.moveLock=cfg.duration;me.combo=0;me.comboTimer=0;if(cfg.mode==='galePulse'){me.skillPose=i;net({t:'teleport',x:me.x,y:me.y,a:me.a});}queuePostSkillLock(cfg.duration);const main=sk.color||'#d7c181',sub=sk.sub||'#fff',accent=sk.accent||sub;if(i===4){if(sk.id==='lunarBind')sealFx(me.x,me.y,150,main,.55,true);else if(sk.id==='prismLance')for(let j=-2;j<=2;j++){const aa=a+j*.18;beamFx(me.x,me.y,me.x+Math.cos(aa)*180,me.y+Math.sin(aa)*180,j===0?sub:main,.28,true)}else if(sk.id==='thunderDrive'){for(let j=-3;j<=3;j++){const aa=a+j*.11;beamFx(me.x-Math.cos(aa)*55,me.y-Math.sin(aa)*55,me.x+Math.cos(aa)*235,me.y+Math.sin(aa)*235,j===0?sub:main,.30,true)}riftCutFx(me.x+Math.cos(a)*95,me.y+Math.sin(a)*95,a,300,48,accent,.34,true)}else if(sk.id==='meteorBreaker'){pvpCrimsonShake(5,true);}else if(sk.id==='voidDance')riftCutFx(me.x,me.y,a,180,26,accent,.30,true);if(sk.id!=='meteorBreaker')burst(me.x,me.y,main,18,160);pvpShake=Math.max(pvpShake,9)}if(cfg.mode!=='galePulse'){if(crimson){pvpHongryeonStartup(sk,me.x,me.y,a);}else if(!['chainReap','phantomSwap','gravityCut','bladeRain'].includes(sk.id))ring(me.x,me.y,i===4?64:24,main,i===4?.38:.22,true);else beamFx(me.x-Math.sin(a)*30,me.y+Math.cos(a)*30,me.x+Math.cos(a)*125+Math.sin(a)*30,me.y+Math.sin(a)*125-Math.cos(a)*30,main,.22,true);triggerPvpShake(i,1,true)}if(i===4&&sk.id==='prismLance')pvpWorldSwordHit(me.skillEvent,me.skillEvent.next++);return true}
 function startSwordRPrepare(){if(!skillReady(1))return false;me.skillHold={kind:'swordRPrepare',index:1,a:combatAimAngle()};me.skillPose=1;me.skillKind='prepare';me.moveLock=.12;ring(me.x,me.y,34,'#9ddfff',.2,true);return true}
 function releaseSwordR(){const h=me.skillHold;if(!h||h.kind!=='swordRPrepare')return;me.skillHold=null;if(!commitSkill(1))return;me.skillEvent={kind:'swordRDash',index:1,elapsed:0,max:.5,a:combatAimAngle(h.a),hit:false};me.skillKind='swordRDash';me.attackDuration=.5;me.attackAnim=.5;me.attackCd=.58;me.inv=.12;queuePostSkillLock(.5);triggerPvpShake(1,1,true)}
 function startSwordGPrepare(){if(!skillReady(3))return false;me.skillHold={kind:'swordGPrepare',index:3,elapsed:0,a:combatAimAngle(),committed:false,tick:0};me.skillPose=3;me.skillKind='prepare';ring(me.x,me.y,36,'#ffd18b',.2,true);return true}
@@ -5639,30 +5681,25 @@ const PVP_HONGRYEON_CUTS=Object.freeze([
 
 // Uses the existing bounded/relayed FX vocabulary. Only gameplay events and
 // a small visual sample cross the connection, never the full fire-particle field.
-function pvpHongryeonFx(x,y,a,reach,stage=0,power=1){
- const low=window.EchoesOptions?.quality==='low',n=low?3:6,color=stage%3===0?'#ff612a':stage%3===1?'#ffb34f':'#ef3525';
- slashFx(x,y,a+(stage%2?.16:-.16),stage%3===2?1.2:2.45,reach,color,.26,true);
- for(let j=0;j<n;j++){const aa=a+(j/n-.5)*(stage%3===2?1.5:2.8),rr=reach*(.52+.38*Math.random());
-  pushFx({kind:'particle',x:x+Math.cos(aa)*rr,y:y+Math.sin(aa)*rr,vx:Math.cos(aa)*(88+Math.random()*100),vy:Math.sin(aa)*(88+Math.random()*100),r:(low?2.8:3.9)*power,t:.24,max:.24,c:j%2?'#ffd273':color},false);
- }
- // Only this seeded visual event and the slash are sent: clients generate the remaining fire locally.
- burst(x,y,color,low?3:7,135+reach*.2,undefined,true);
- if(stage===0||stage===13)ring(x,y,reach,'#ff9639',stage===13?.52:.26,true);
+function pvpHongryeonPacket(p){
+ const life=p.phase==='trail'?.68:p.phase==='startup'?.72:1.45;
+ pushFx({kind:'hongWorldFx',id:p.id||'',phase:p.phase||'signature',index:p.index||0,final:!!p.final,
+  x:p.x,y:p.y,x2:p.x2,y2:p.y2,originX:p.originX,originY:p.originY,a:p.a||0,reach:p.reach||190,
+  side:p.side===-1?-1:1,power:p.power||1,t:life,max:life},true);
 }
-
+function pvpHongryeonStartup(sk,x,y,a){
+ pvpHongryeonPacket({id:sk.id,phase:'startup',x,y,a});
+}
+function pvpHongryeonFx(x,y,a,reach,stage=0,power=1,ev=me?.skillEvent){
+ const id=ev?.skill?.id;if(!id)return;
+ pvpHongryeonPacket({id,phase:'signature',x,y,a,reach,index:stage,
+  final:id==='meteorBreaker'?stage===PVP_HONGRYEON_CUTS.length:stage===(ev?.cfg?.hits?.length||0)-1,
+  side:ev?.side||1,originX:id==='earthRend'?ev?.originX:undefined,originY:id==='earthRend'?ev?.originY:undefined,power});
+}
 function pvpHongryeonTrail(x1,y1,x2,y2,power=1,ev=null){
- const dx=x2-x1,dy=y2-y1,d=Math.hypot(dx,dy);if(d<=1)return;
- const a=Math.atan2(dy,dx),low=window.EchoesOptions?.quality==='low',n=low?2:4;
- for(let k=0;k<n;k++){const t=(k+.5)/n,px=x1+dx*t,py=y1+dy*t,speed=140+power*52;
-  const fa=a+Math.PI+(Math.random()-.5)*1.2;
-  pushFx({kind:'ember',x:px,y:py,vx:Math.cos(fa)*speed,vy:Math.sin(fa)*speed,rx:(low?4:7)*power,ry:1.7*power,a:fa,c:k%2?'#ffb34f':'#ff4a32',t:.24,max:.24},false);
- }
- // Position and one line are replicated; seeded burst creates the distant player's
- // flame impression without serializing dozens of randomly positioned embers.
- beamFx(x1,y1,x2,y2,power>1.5?'#ffb04a':'#ff314d',.10,true);
- if(ev){const now=performance.now();if(now-(ev.hongTrailBroadcastAt||0)>140){ev.hongTrailBroadcastAt=now;burst(x2,y2,'#ff7532',low?3:6,105+power*55,undefined,true);}}
+ if(Math.hypot(x2-x1,y2-y1)<5)return;
+ pvpHongryeonPacket({id:ev?.skill?.id||me?.skillEvent?.skill?.id,phase:'trail',x:x1,y:y1,x2,y2,a:Math.atan2(y2-y1,x2-x1),power});
 }
-
 function pvpHongryeonMotion(ev,dt){
  const mode=ev.cfg.mode,a=ev.hongFace??ev.a,fx=Math.cos(a),fy=Math.sin(a),nx=-fy,ny=fx,side=ev.side||1,t=ev.elapsed,ox=me.x,oy=me.y;
  ev.hongFace=a;const move=(x,y,maxSpeed=4600)=>{const dx=x-me.x,dy=y-me.y,dist=Math.hypot(dx,dy);if(dist>.0001){const step=Math.min(dist,maxSpeed*dt);me.x=clamp(me.x+dx/dist*step,25,ARENA_W-25);me.y=clamp(me.y+dy/dist*step,25,ARENA_H-25)}};
@@ -5679,7 +5716,7 @@ function pvpHongryeonMotion(ev,dt){
   if(ev.hongWheelCaught&&enemy&&enemy.hp>0){ev.hongCarryAt=(ev.hongCarryAt||0)-dt;if(ev.hongCarryAt<=0){const fa=Math.atan2(enemy.y-me.y,enemy.x-me.x),dist=me.r+enemy.r+34,tx=me.x+Math.cos(fa)*dist,ty=me.y+Math.sin(fa)*dist;queueStigmaControl('hongWheel',tx,ty,.12,.20,.38,false);ev.hongCarryAt=.065;}}
  }
  if(mode!=='flameBreathWheel')me.a=a;
- if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.047:mode==='flameBreathWheel'?.060:.066;pvpHongryeonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05,ev);pvpCrimsonEmbers(me.x,me.y,a+Math.PI,3,180,.30,.65);}}
+ if(Math.hypot(me.x-ox,me.y-oy)>4){ev.fx-=dt;if(ev.fx<=0){ev.fx=mode==='flameBreathRise'?.047:mode==='flameBreathWheel'?.060:.066;pvpHongryeonTrail(ox,oy,me.x,me.y,mode==='flameBreathWheel'?1.21:1.05,ev);}}
 }
 function pvpHongryeonHit(ev,k){
  const mode=ev.cfg.mode,a=ev.hongFace??ev.a,ca=Math.cos(a),sa=Math.sin(a),base=pvpSkillAttack(me),color=ev.skill.color||'#ff782e',enemyNear=enemy&&enemy.hp>0,r=mode==='flameBreathSweep'?(k===0?300:328):mode==='flameBreathRise'?250:mode==='flameBreathCleave'?(k===0?190:245):[265,230,270][k]||265;
@@ -5691,10 +5728,10 @@ function pvpHongryeonHit(ev,k){
   const corridor=enemyNear&&pointSegmentDistance(enemy.x,enemy.y,ev.originX,ev.originY,me.x,me.y)<=76+enemy.r;
   const landing=enemyNear&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=r+enemy.r;
   sendAttack({...common,shape:corridor&&!landing?'segment':'circle',x:me.x,y:me.y,r:corridor&&!landing?76:r,x1:ev.originX,y1:ev.originY,x2:me.x,y2:me.y,bypassShield:true,parryable:false,teleportHit:!!(landing||corridor)});
-  pvpHongryeonFx(me.x,me.y,a,r,k);nova(me.x,me.y,r,'#ff812c',.40,true);
+  pvpHongryeonFx(me.x,me.y,a,r,k);
  }
  if(mode==='flameBreathCleave'){const x=k===0?ev.originX:me.x,y=k===0?ev.originY:me.y,confirmed=enemyNear&&Math.hypot(enemy.x-x,enemy.y-y)<=r+enemy.r;
-  sendAttack({...common,shape:'circle',x,y,r,forceA:enemyNear?Math.atan2(enemy.y-y,enemy.x-x):a,teleportHit:!!confirmed});pvpHongryeonFx(x,y,a,r,k);nova(x,y,r,'#ff7a2c',.38,true);
+  sendAttack({...common,shape:'circle',x,y,r,forceA:enemyNear?Math.atan2(enemy.y-y,enemy.x-x):a,teleportHit:!!confirmed});pvpHongryeonFx(x,y,a,r,k);
  }
  if(mode==='flameBreathWheel'){const face=a+(ev.side||1)*k*.72,arc=[4.04,5,6.10][k],close=k===0&&enemyNear&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=205+enemy.r,hit=!!enemyNear&&(close||ev.hongWheelCaught||(Math.hypot(enemy.x-me.x,enemy.y-me.y)<=r+enemy.r&&Math.abs(Math.atan2(Math.sin(Math.atan2(enemy.y-me.y,enemy.x-me.x)-face),Math.cos(Math.atan2(enemy.y-me.y,enemy.x-me.x)-face)))<=arc/2));
   const onHit=()=>{if(me.skillEvent!==ev)return;if(k<2){ev.hongWheelCaught=true;return;}ev.hongWheelCaught=false;
@@ -5720,12 +5757,12 @@ function pvpHongryeonFinale(ev,dt){
    ex=clamp(ox+fx*adv,25,ARENA_W-25);ey=clamp(oy+fy*adv,25,ARENA_H-25);collision=true;
   }
   me.x=ex;me.y=ey;me.a=a;me.skillLift=4+Math.sin(Math.PI*clamp(ev.elapsed/.53,0,1))*7;
-  ev.fx-=dt;if(ev.fx<=0){ev.fx=.085;pvpCrimsonEmbers(me.x,me.y,a+Math.PI,4,240,.25,.75);pvpHongryeonTrail(ox,oy,me.x,me.y,1.55,ev);}
+  ev.fx-=dt;if(ev.fx<=0){ev.fx=.085;pvpHongryeonTrail(ox,oy,me.x,me.y,1.55,ev);}
   if(collision){ev.hongPending=true;ev.hongPendingAt=performance.now();net({t:'teleport',x:me.x,y:me.y,a});
    sendAttack({shape:'segment',x1:ox,y1:oy,x2:me.x,y2:me.y,r:79,d:pvpSkillAttack(me)*1.36,stun:3.1,force:0,bypassShield:true,parryable:false,teleportHit:true,rapidHit:true,skillId:'meteorBreaker',controlLease:'hongFinale',controlLeaseMs:1400},()=>{
     if(me.skillEvent!==ev||!enemy||enemy.hp<=0)return;
     ev.hongPending=false;ev.hongCaught=true;ev.hongCaughtAt=ev.elapsed;ev.hongStage=0;ev.cfg.duration=ev.elapsed+3.61;ev.anchorX=enemy.x;ev.anchorY=enemy.y;me.attackDuration=me.attackAnim=me.attackCd=me.moveLock=3.61;
-    slashFx(enemy.x,enemy.y,a,1.35,190,'#ff832b',.32,true);pvpCrimsonShake(11,true);
+    pvpHongryeonFx(enemy.x,enemy.y,a,190,0,1,ev);pvpCrimsonShake(11,true);
    });return;
   }
   if(ev.elapsed>=.53||Math.hypot(ex-ox,ey-oy)<1&&ev.elapsed>.22||traveled>=1020)finish();
@@ -5740,15 +5777,9 @@ function pvpHongryeonFinale(ev,dt){
   const near=enemy&&enemy.hp>0&&Math.hypot(enemy.x-me.x,enemy.y-me.y)<=cut.reach+enemy.r;
   const centerX=enemy&&enemy.hp>0?enemy.x:cx,centerY=enemy&&enemy.hp>0?enemy.y:cy;
   sendPvpUltimateHit({shape:cut.kind==='finisher'?'circle':'arc',x:cut.kind==='finisher'?centerX:me.x,y:cut.kind==='finisher'?centerY:me.y,r:cut.reach,range:cut.reach,a:me.a,arc:cut.arc,d:pvpSkillAttack(me)*cut.mult,stun:Math.min(3.1,cut.stun*2),force:cut.kind==='finisher'?145:0,forceA:a,bypassShield:true,parryable:false,teleportHit:!!near,controlLease:'hongFinale',controlLeaseMs:1400,skillId:'meteorBreaker'});
-  // The world/test fifth form has one authored sword-shaped flame slash per
-  // cut. Its original victim-centered vortex supplies the surrounding fire.
-  // Do not overlay the old PvP-only explosions, rings and random ember clouds.
-  const swordAngleOffsets={wide:-.26,reverse:.37,thrust:0,overhead:0,backhand:-.34,rising:.23,cross:-.18};
-  const narrow=cut.kind==='thrust',heavy=cut.kind==='overhead'||cut.kind==='rising';
-  const dir=me.a+((swordAngleOffsets[cut.kind]||0)+(cut.offset||0))*(ev.side||1);
-  const visualReach=cut.reach*(narrow?1.37:heavy?1.57:1.54);
-  slashFx(cut.kind==='finisher'?centerX:me.x,cut.kind==='finisher'?centerY:me.y,dir,Math.min(TAU,cut.arc*(narrow?1.10:1.20)),visualReach,k%2?'#ffb24a':'#ff6d30',narrow?.30:heavy?.43:.35,true);
-  if(cut.kind==='finisher'){nova(centerX,centerY,211,'#ff812c',.55,true);pvpCrimsonShake(19,true);}
+  // 0 = confirmed opening hit; 1..N = the exact world-authored flame sword cuts.
+  pvpHongryeonFx(cut.kind==='finisher'?centerX:me.x,cut.kind==='finisher'?centerY:me.y,me.a,cut.reach,k+1,1,ev);
+  if(cut.kind==='finisher')pvpCrimsonShake(19,true);
  }
  if(since>=3.61)finish();
 }
@@ -6210,7 +6241,19 @@ function drawJourneyFighter(f,isMe){
  ctx.restore();
  const hpw=52,hph=6,hpr=clamp(f.hp/Math.max(1,f.maxHp),0,1),hy=f.y-79;ctx.save();ctx.fillStyle='#07141cdd';ctx.fillRect(f.x-hpw/2-1,hy-1,hpw+2,hph+2);ctx.fillStyle=isMe?'#69d78f':'#df756e';ctx.fillRect(f.x-hpw/2,hy,hpw*hpr,hph);ctx.restore();
 }
-function renderFx(f){const q=clamp(f.t/(f.max||f.t||1),0,1),progress=1-q;ctx.globalAlpha=f.kind==='damage'?clamp(f.t*1.7,0,1):q;if(f.kind==='damage'){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.rot||0);ctx.textAlign='center';ctx.font='900 '+(f.big?23:17)+'px system-ui';ctx.lineWidth=f.big?5:4;ctx.strokeStyle='#351316d9';ctx.strokeText(f.text,0,0);ctx.fillStyle=f.c;ctx.fillText(f.text,0,0);ctx.restore()}else if(f.kind==='particle'){pCircle(f.x,f.y,f.r,f.c)}else if(f.kind==='ember'){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(Number.isFinite(f.a)?f.a:Math.atan2(f.vy||0,f.vx||1));ctx.globalCompositeOperation='lighter';ctx.shadowColor=f.c;ctx.shadowBlur=10;pEllipse(0,0,f.rx||6,f.ry||2,f.c);ctx.shadowBlur=4;ctx.globalAlpha*=.72;pEllipse((f.rx||6)*.22,0,(f.rx||6)*.42,(f.ry||2)*.48,'#ffe4b8');ctx.restore()}else if(f.kind==='ring'){ctx.strokeStyle=f.c;ctx.lineWidth=2.5*(1-progress)+.5;ctx.beginPath();ctx.arc(f.x,f.y,f.r*(.35+.65*progress),0,TAU);ctx.stroke()}else if(f.kind==='line'){pLine(f.x,f.y,f.x2,f.y2,f.c,14*(1-progress)+2)}else if(f.kind==='starSeal'){ctx.save();ctx.translate(f.x,f.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*1.7);ctx.strokeStyle=f.c;ctx.lineWidth=3;for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(0,0,f.r*(.38+k*.22)*(1-.12*progress),0,TAU);ctx.stroke()}for(let k=0;k<12;k++){const a=k*TAU/12,r1=f.r*.22,r2=f.r*(.72+.12*Math.sin(progress*Math.PI));pLine(Math.cos(a)*r1,Math.sin(a)*r1,Math.cos(a)*r2,Math.sin(a)*r2,k%2?'#ffffff':f.c,2.2)}ctx.restore()}else if(f.kind==='riftCut'){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.a||0);ctx.globalCompositeOperation='lighter';ctx.strokeStyle=f.c;ctx.lineCap='round';ctx.lineWidth=18*(1-progress)+5;ctx.beginPath();ctx.moveTo(-(f.len||100)/2,0);ctx.lineTo((f.len||100)/2,0);ctx.stroke();ctx.strokeStyle='#ffffff';ctx.lineWidth=4*(1-progress)+1;ctx.beginPath();ctx.moveTo(-(f.len||100)/2,0);ctx.lineTo((f.len||100)/2,0);ctx.stroke();for(let k=-4;k<=4;k++)pCircle(k*(f.len||100)/10,Math.sin(k*2+progress*10)*8,3,f.c);ctx.restore()}else if(f.kind==='nova'){ctx.save();ctx.translate(f.x,f.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*.9);ctx.strokeStyle=f.c;for(let k=0;k<4;k++){ctx.lineWidth=5-k;ctx.beginPath();ctx.arc(0,0,f.r*(.15+progress*.85)*(1-k*.08),0,TAU);ctx.stroke()}for(let k=0;k<16;k++){const a=k*TAU/16+progress*.5,r=f.r*(.25+.72*progress);pLine(Math.cos(a)*f.r*.08,Math.sin(a)*f.r*.08,Math.cos(a)*r,Math.sin(a)*r,k%2?'#ffffff':f.c,3*(1-progress)+1)}ctx.restore()}else if(f.kind==='rift'){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.a||0);for(let k=0;k<3;k++){ctx.strokeStyle=k===1?'#ffffff':f.c;ctx.globalAlpha=q*(k===1?.8:.45);ctx.lineWidth=(f.width||20)*(k===1?.14:.35);ctx.beginPath();ctx.moveTo(-(f.len||100)/2,Math.sin(performance.now()*.03+k)*4);ctx.lineTo((f.len||100)/2,Math.cos(performance.now()*.025+k)*4);ctx.stroke()}ctx.restore()}else if(f.kind==='slash'){ctx.strokeStyle=f.c;ctx.lineWidth=7;ctx.beginPath();ctx.arc(f.x,f.y,f.r,f.a-f.arc/2,f.a+f.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(f.x,f.y,f.r-7,f.a-f.arc/2+.1,f.a+f.arc/2-.1);ctx.stroke()}else if(f.kind==='star'){ctx.strokeStyle=f.c;ctx.lineWidth=2+3*q;ctx.beginPath();for(let i=0;i<16;i++){const a=-Math.PI/2+i*Math.PI/8,r=i%2?(f.r||70)*.43:(f.r||70),x=f.x+Math.cos(a)*r,y=f.y+Math.sin(a)*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.stroke();ctx.beginPath();ctx.arc(f.x,f.y,(f.r||70)*.62,0,TAU);ctx.stroke()}ctx.globalAlpha=1}
+function renderFx(f){
+ if(f.kind==='hongWorldFx'){
+  const make=window.EchoesBuildHongryeonFx,draw=window.EchoesDrawWorldFx;
+  if(typeof make!=='function'||typeof draw!=='function')return;
+  if(!f.worldFx)f.worldFx=make(f);
+  const age=(f.max||0)-f.t,visible=f.worldFx.filter(e=>{e.t=Math.max(0,e.max-age);return e.t>0;});
+  if(visible.length){
+   const margin=600,bounds={left:pvpCamera.x-W*.5-margin,right:pvpCamera.x+W*.5+margin,
+    top:pvpCamera.y-H*.5-margin,bottom:pvpCamera.y+H*.5+margin};
+   ctx.save();ctx.globalAlpha=1;draw(ctx,visible,true,bounds);draw(ctx,visible,false,bounds);ctx.restore();
+  }return;
+ }
+ const q=clamp(f.t/(f.max||f.t||1),0,1),progress=1-q;ctx.globalAlpha=f.kind==='damage'?clamp(f.t*1.7,0,1):q;if(f.kind==='damage'){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.rot||0);ctx.textAlign='center';ctx.font='900 '+(f.big?23:17)+'px system-ui';ctx.lineWidth=f.big?5:4;ctx.strokeStyle='#351316d9';ctx.strokeText(f.text,0,0);ctx.fillStyle=f.c;ctx.fillText(f.text,0,0);ctx.restore()}else if(f.kind==='particle'){pCircle(f.x,f.y,f.r,f.c)}else if(f.kind==='ember'){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(Number.isFinite(f.a)?f.a:Math.atan2(f.vy||0,f.vx||1));ctx.globalCompositeOperation='lighter';ctx.shadowColor=f.c;ctx.shadowBlur=10;pEllipse(0,0,f.rx||6,f.ry||2,f.c);ctx.shadowBlur=4;ctx.globalAlpha*=.72;pEllipse((f.rx||6)*.22,0,(f.rx||6)*.42,(f.ry||2)*.48,'#ffe4b8');ctx.restore()}else if(f.kind==='ring'){ctx.strokeStyle=f.c;ctx.lineWidth=2.5*(1-progress)+.5;ctx.beginPath();ctx.arc(f.x,f.y,f.r*(.35+.65*progress),0,TAU);ctx.stroke()}else if(f.kind==='line'){pLine(f.x,f.y,f.x2,f.y2,f.c,14*(1-progress)+2)}else if(f.kind==='starSeal'){ctx.save();ctx.translate(f.x,f.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*1.7);ctx.strokeStyle=f.c;ctx.lineWidth=3;for(let k=0;k<3;k++){ctx.beginPath();ctx.arc(0,0,f.r*(.38+k*.22)*(1-.12*progress),0,TAU);ctx.stroke()}for(let k=0;k<12;k++){const a=k*TAU/12,r1=f.r*.22,r2=f.r*(.72+.12*Math.sin(progress*Math.PI));pLine(Math.cos(a)*r1,Math.sin(a)*r1,Math.cos(a)*r2,Math.sin(a)*r2,k%2?'#ffffff':f.c,2.2)}ctx.restore()}else if(f.kind==='riftCut'){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.a||0);ctx.globalCompositeOperation='lighter';ctx.strokeStyle=f.c;ctx.lineCap='round';ctx.lineWidth=18*(1-progress)+5;ctx.beginPath();ctx.moveTo(-(f.len||100)/2,0);ctx.lineTo((f.len||100)/2,0);ctx.stroke();ctx.strokeStyle='#ffffff';ctx.lineWidth=4*(1-progress)+1;ctx.beginPath();ctx.moveTo(-(f.len||100)/2,0);ctx.lineTo((f.len||100)/2,0);ctx.stroke();for(let k=-4;k<=4;k++)pCircle(k*(f.len||100)/10,Math.sin(k*2+progress*10)*8,3,f.c);ctx.restore()}else if(f.kind==='nova'){ctx.save();ctx.translate(f.x,f.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*.9);ctx.strokeStyle=f.c;for(let k=0;k<4;k++){ctx.lineWidth=5-k;ctx.beginPath();ctx.arc(0,0,f.r*(.15+progress*.85)*(1-k*.08),0,TAU);ctx.stroke()}for(let k=0;k<16;k++){const a=k*TAU/16+progress*.5,r=f.r*(.25+.72*progress);pLine(Math.cos(a)*f.r*.08,Math.sin(a)*f.r*.08,Math.cos(a)*r,Math.sin(a)*r,k%2?'#ffffff':f.c,3*(1-progress)+1)}ctx.restore()}else if(f.kind==='rift'){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.a||0);for(let k=0;k<3;k++){ctx.strokeStyle=k===1?'#ffffff':f.c;ctx.globalAlpha=q*(k===1?.8:.45);ctx.lineWidth=(f.width||20)*(k===1?.14:.35);ctx.beginPath();ctx.moveTo(-(f.len||100)/2,Math.sin(performance.now()*.03+k)*4);ctx.lineTo((f.len||100)/2,Math.cos(performance.now()*.025+k)*4);ctx.stroke()}ctx.restore()}else if(f.kind==='slash'){ctx.strokeStyle=f.c;ctx.lineWidth=7;ctx.beginPath();ctx.arc(f.x,f.y,f.r,f.a-f.arc/2,f.a+f.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(f.x,f.y,f.r-7,f.a-f.arc/2+.1,f.a+f.arc/2-.1);ctx.stroke()}else if(f.kind==='star'){ctx.strokeStyle=f.c;ctx.lineWidth=2+3*q;ctx.beginPath();for(let i=0;i<16;i++){const a=-Math.PI/2+i*Math.PI/8,r=i%2?(f.r||70)*.43:(f.r||70),x=f.x+Math.cos(a)*r,y=f.y+Math.sin(a)*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.stroke();ctx.beginPath();ctx.arc(f.x,f.y,(f.r||70)*.62,0,TAU);ctx.stroke()}ctx.globalAlpha=1}
 function drawEnemyDirectionArrow(){if(!me||!enemy||enemy.hp<=0)return;const spectatorZoom=spectating&&pvpSpectator?pvpSpectator.zoom():1,sx=(enemy.x-pvpCamera.x)*spectatorZoom+W*.5,sy=(enemy.y-pvpCamera.y)*spectatorZoom+H*.5,margin=46;if(sx>=margin&&sx<=W-margin&&sy>=margin&&sy<=H-margin)return;const cx=W*.5,cy=H*.5,dx=sx-cx,dy=sy-cy,a=Math.atan2(dy,dx),tx=(W*.5-margin)/Math.max(.001,Math.abs(dx)),ty=(H*.5-margin)/Math.max(.001,Math.abs(dy)),t=Math.min(tx,ty),x=cx+dx*t,y=cy+dy*t;ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle='#ff7d74';ctx.strokeStyle='#35181bdd';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-10,-9);ctx.lineTo(-5,0);ctx.lineTo(-10,9);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
 function drawPvpArenaDecor(){const cx=ARENA_W*.5,cy=ARENA_H*.5;ctx.save();pCircle(cx,cy,245,'#1c3032');pCircle(cx,cy,185,'#20383a');ctx.strokeStyle='#bfa96a55';ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,214,0,TAU);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,128,0,TAU);ctx.stroke();for(let i=0;i<8;i++){const a=i*TAU/8,x1=cx+Math.cos(a)*70,y1=cy+Math.sin(a)*70,x2=cx+Math.cos(a)*205,y2=cy+Math.sin(a)*205;pLine(x1,y1,x2,y2,i%2?'#76918322':'#d0bc7a22',5)}ctx.fillStyle='#31404455';ctx.fillRect(cx-620,cy-44,1240,88);ctx.fillRect(cx-44,cy-620,88,1240);for(let x=cx-600;x<=cx+600;x+=80)pLine(x,cy-38,x+24,cy+38,'#9aac9d18',2);for(let y=cy-600;y<=cy+600;y+=80)pLine(cx-38,y,cx+38,y+24,'#9aac9d18',2);const pillars=[[cx-430,cy-430],[cx+430,cy-430],[cx-430,cy+430],[cx+430,cy+430],[cx,cy-560],[cx,cy+560],[cx-560,cy],[cx+560,cy]];for(const [x,y] of pillars){pEllipse(x,y+10,17,7,'#07141766');ctx.fillStyle='#52605c';ctx.fillRect(x-8,y-24,16,34);pCircle(x,y-25,11,'#758078');ctx.globalAlpha=.13;pCircle(x,y-38,34,'#f3ca73');ctx.globalAlpha=1;pCircle(x,y-38,6,'#f0bf63')}for(let gy=180;gy<ARENA_H-160;gy+=330)for(let gx=180;gx<ARENA_W-160;gx+=390){if(Math.hypot(gx-cx,gy-cy)<760)continue;const n=((gx*13+gy*7)%37)/37;pEllipse(gx,gy,24+n*18,9+n*5,'#203b3444');pCircle(gx-9,gy-5,3+n*3,'#65746b');pCircle(gx+11,gy+2,2+n*2,'#56665e');pLine(gx-15,gy,gx-20,gy-11,'#466b55',2);pLine(gx+3,gy,gx+8,gy-13,'#466b55',2)}ctx.restore()}
 function render(){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.shadowBlur=0;ctx.filter='none';ctx.setLineDash([]);ctx.fillStyle='#111a1e';ctx.fillRect(0,0,W,H);ctx.save();const sx=Math.sin(performance.now()*.105)*pvpShake,sy=Math.cos(performance.now()*.129)*pvpShake*.68;const spectatorZoom=spectating&&pvpSpectator?pvpSpectator.zoom():1;ctx.translate(W*.5-pvpCamera.x*spectatorZoom+sx,H*.5-pvpCamera.y*spectatorZoom+sy);ctx.scale(spectatorZoom,spectatorZoom);ctx.fillStyle='#182529';ctx.fillRect(18,18,ARENA_W-36,ARENA_H-36);drawPvpArenaDecor();for(let x=60;x<ARENA_W;x+=80)pLine(x,20,x,ARENA_H-20,'#94ab9a10',1);for(let y=60;y<ARENA_H;y+=80)pLine(20,y,ARENA_W-20,y,'#94ab9a10',1);ctx.strokeStyle='#dfbf7b77';ctx.lineWidth=3;ctx.strokeRect(18,18,ARENA_W-36,ARENA_H-36);for(const p of projectiles){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.atan2(p.vy,p.vx));ctx.strokeStyle=p.color||'#efd792';ctx.lineWidth=p.r>9?5:2;ctx.beginPath();ctx.moveTo(-(p.visualLen||12),0);ctx.lineTo(10,0);ctx.stroke();ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(3,-4);ctx.lineTo(3,4);ctx.closePath();ctx.fillStyle=ctx.strokeStyle;ctx.fill();ctx.restore()}for(const v of pvpVortices)GALE_VORTEX_PVP.draw(ctx,v);
