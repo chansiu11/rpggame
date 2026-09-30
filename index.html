@@ -4451,7 +4451,9 @@ const FLAME_FINALE_PARTICLES=Array.from({length:1100},(_,i)=>{
  }
 
 window.EchoesDrawFlameFinaleVortex=drawFlameFinaleVortex;
-function drawEffects(ground=false, drawContext=ctx, fxList=effects, bounds=null){
+window.EchoesDrawWorldFx=(drawContext,fxList,ground=false,bounds=null)=>drawEffectsInto(ground,drawContext,fxList,bounds);
+function drawEffects(ground=false){return drawEffectsInto(ground,ctx,effects);}
+function drawEffectsInto(ground,drawContext,fxList,bounds=null){
  const ctx=drawContext;
  // Allow the arena to use the exact same flame painter with its own canvas and view.
  const left=bounds?.left??camera.x-VIEW_W/2-180,right=bounds?.right??camera.x+VIEW_W/2+180,top=bounds?.top??camera.y-VIEW_H/2-180,bottom=bounds?.bottom??camera.y+VIEW_H/2+180;
@@ -4776,7 +4778,6 @@ if(e.type==='crimsonChargeFlames'){
  if(e.type==='meteor'){ctx.save();ctx.globalCompositeOperation='lighter';const fall=1-progress;line(ctx,e.x+65*fall,e.y-180*fall,e.x,e.y,e.color,18*(1-progress)+4);glow(ctx,e.x,e.y,e.r*.9,e.color+'55');circle(ctx,e.x,e.y,10+e.r*.08,'#fff4d0');ctx.restore();}
  if(e.type==='nova'){ctx.save();ctx.translate(e.x,e.y);ctx.globalCompositeOperation='lighter';ctx.rotate(progress*.9);ctx.strokeStyle=e.color;for(let k=0;k<4;k++){ctx.lineWidth=5-k;ctx.beginPath();ctx.arc(0,0,e.r*(.15+progress*.85)*(1-k*.08),0,TAU);ctx.stroke();}for(let k=0;k<16;k++){const a=k*TAU/16+progress*.5,r=e.r*(.25+.72*progress);line(ctx,Math.cos(a)*e.r*.08,Math.sin(a)*e.r*.08,Math.cos(a)*r,Math.sin(a)*r,k%2?'#ffffff':e.color,3*(1-progress)+1);}glow(ctx,0,0,e.r*.55,e.color+'44');ctx.restore();}
  if(e.type==='slash'){ctx.strokeStyle=e.color;ctx.lineWidth=7;ctx.beginPath();ctx.arc(e.x,e.y,e.r,e.a-e.arc/2,e.a+e.arc/2);ctx.stroke();ctx.strokeStyle='#fff5d8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(e.x,e.y,e.r-7,e.a-e.arc/2+.1,e.a+e.arc/2-.1);ctx.stroke();}ctx.restore();}}
-window.EchoesDrawWorldFx=(drawContext,fxList,ground=false,bounds=null)=>drawEffects(ground,drawContext,fxList,bounds);
 function drawRemoteSkillOverlay(rp,x,y,a){
  if(String(rp.skillKind||'').startsWith('prepare:'))return;
  const livePose=Number(rp.skillPose),poseActive=Number.isFinite(livePose)&&livePose>=0,ttl=(Number(rp.remoteSkillVisualUntil)||0)>realTime;
