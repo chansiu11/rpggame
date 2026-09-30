@@ -1017,7 +1017,7 @@ window.EchoesComboFx={hit:animateCombatComboHit};
 const worldCombo={hits:0,total:0,last:0};
 const worldEscape={damage:0,lastHit:-Infinity,pending:false,pendingAt:0,pvpRecent:-Infinity,guaranteedUntil:0};
 const ESCAPE_WINDOW=2.5,ESCAPE_RATIO=.40;
-function resetWorldEscape(){worldEscape.damage=0;worldEscape.lastHit=-Infinity;worldEscape.pending=false;worldEscape.pendingAt=0;worldEscape.pvpRecent=-Infinity;}
+function resetWorldEscape(){worldEscape.damage=0;worldEscape.lastHit=-Infinity;worldEscape.pending=false;worldEscape.pendingAt=0;worldEscape.pvpRecent=-Infinity;worldEscape.guaranteedUntil=0;}
 function recordWorldEscapeDamage(damage){
  if(!player||player.hp<=0||damage<=0)return;
  if(realTime-worldEscape.lastHit>=ESCAPE_WINDOW)worldEscape.damage=0;
@@ -1541,12 +1541,12 @@ function applyWorldCombatResult(msg){
  if(worldCombatSession!==m.state.selfId){worldCombatSession=m.state.selfId;worldCombatRevision=0;worldForce=null;worldControlUntil=0;}
  if(p.combatRevision<=worldCombatRevision)return;worldCombatRevision=p.combatRevision;
  player.hp=clamp(p.hp,0,player.maxHp);player.shield=clamp(p.shield,0,player.maxShield);player.stam=clamp(p.stam,0,player.maxStam);
- if(msg.outcome==='escape'){performWorldEscapeDash();return;}
+ if(msg.outcome==='escape'){player.x=p.x;player.y=p.y;performWorldEscapeDash();return;}
  if(msg.outcome==='escapeRejected'){worldEscape.pending=false;}
  if(msg.damage>0){
   recordWorldEscapeDamage(msg.damage);worldEscape.pvpRecent=performance.now();
-  if(msg.skillId==='meteorBreaker')worldEscape.guaranteedUntil=Math.max(worldEscape.guaranteedUntil,realTime+3.8);
-  else if(['thunderDrive','voidDance'].includes(msg.skillId))worldEscape.guaranteedUntil=Math.max(worldEscape.guaranteedUntil,realTime+.45);
+  if(msg.skillId==='meteorBreaker'){if(realTime>=worldEscape.guaranteedUntil)worldEscape.guaranteedUntil=realTime+3.8;}
+  else if(['thunderDrive','lunarBind','prismLance','voidDance','starRush'].includes(msg.skillId))worldEscape.guaranteedUntil=Math.max(worldEscape.guaranteedUntil,realTime+.45);
  }if(player.shield<=0&&shieldHeld()){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;}
  for(const [to,from] of [['invuln','invuln'],['shieldBroken','shieldBroken'],['shieldDelay','shieldDelay'],['perfectWindow','parryWindow']])player[to]=Number(p[from])||0;
  if(msg.outcome==='void3Evade'){
@@ -3259,7 +3259,7 @@ function updateShield(dt){
 function hitPlayer(damage,source,parryable=true){if(mode!=='play'||(modal&&!source?.pvp)||player.hp<=0||admin.god)return 'ignored';const a=Math.atan2(source.y-player.y,source.x-player.x);
  if(player.invuln>0){if(player.dodge>0&&!source.perfectDodged){source.perfectDodged=true;player.stam=Math.min(player.maxStam,player.stam+6+(player.rune==='cycle'?14:0));floating(player.x,player.y-54,'완벽한 대쉬','#abe0cb',true);}return 'dodged';}if(void3State&&beginVoid3WorldEvade(source))return 'dodged';
  if(shieldHeld()&&player.shield>0&&player.shieldBroken<=0&&parryable){const perfect=player.perfectWindow>0;player.perfectWindow=0;player.shieldDelay=1.4;if(perfect){player.shield=Math.max(0,player.shield-4);if(player.shield===0){player.parry=0;player.shieldBroken=0;player.shieldNeedsRelease=true;}player.stam=clamp(player.stam+28,0,player.maxStam);player.invuln=.28;player.parryCd=.22;player.stats.parries++;if(player.rune==='echo')player.riposte=4;player.training.parry=true;floating(player.x,player.y-64,'PERFECT PARRY','#b3e6e0',true);ring(player.x,player.y,100,'#b8f2e5',.5);burst(player.x,player.y,'#d6f5e7',24,190);sound('parry');hitstop=.11;if(options.shake)shake=6;if(source.kind){source.stun=source.kind==='boss'?1.5:2.0;source.state='stunned';source.poise=0;}return 'parried';}const cost=window.EchoesCombat.shieldCost(damage),before=player.shield;player.shield=Math.max(0,before-cost);ring(player.x,player.y,29,'#a4d8e1',.18);if(player.shield>0){sound('block');floating(player.x,player.y-48,'쉴드 −'+Math.ceil(cost),'#adc7ca');return 'blocked';}player.parry=0;player.shieldBroken=0;player.shieldDelay=0;player.shieldNeedsRelease=true;sound('break');floating(player.x,player.y-48,'쉴드 소진','#edc28a');damage*=Math.max(0,1-before/cost);if(damage<=0)return 'blocked';}
- damage=window.EchoesCombat.damageAfterArmor(damage,armorReduction());if(damage>0){if(void3State)endVoid3World();player.hp=Math.max(0,player.hp-damage);recordWorldEscapeDamage(damage);if(['meteorBreaker','thunderDrive','voidDance'].includes(source?.styleSkillId)){const t=source.styleSkillId==='meteorBreaker'?3.8:.45;worldEscape.guaranteedUntil=Math.max(worldEscape.guaranteedUntil,realTime+t);}if(damage>=player.maxHp*.30)damageFlash=.24;player.hurt=.25;player.invuln=.65;player.comboTimer=0;player.stun=Math.max(player.stun||0,damage>=player.maxHp*.18?.55:.35);cancelSkillPreparationOnStun();player.dodge=0;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;desktopShield=false;bufferedAction=null;pendingAttack=false;touchSprint=false;damageFloating(player.x,player.y-35,damage,source?Math.atan2(player.y-source.y,player.x-source.x):player.facing,true);burst(player.x,player.y,'#ebbd8d',8,90);sound('hurt');if(options.shake)shake=4;}if(player.hp<=0)showDefeat();return 'hit';}
+ damage=window.EchoesCombat.damageAfterArmor(damage,armorReduction());if(damage>0){if(void3State)endVoid3World();player.hp=Math.max(0,player.hp-damage);recordWorldEscapeDamage(damage);if(source?.styleSkillId==='meteorBreaker'){if(realTime>=worldEscape.guaranteedUntil)worldEscape.guaranteedUntil=realTime+3.8;}else if(['thunderDrive','lunarBind','prismLance','voidDance','starRush'].includes(source?.styleSkillId))worldEscape.guaranteedUntil=Math.max(worldEscape.guaranteedUntil,realTime+.45);if(damage>=player.maxHp*.30)damageFlash=.24;player.hurt=.25;player.invuln=.65;player.comboTimer=0;player.stun=Math.max(player.stun||0,damage>=player.maxHp*.18?.55:.35);cancelSkillPreparationOnStun();player.dodge=0;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;desktopShield=false;bufferedAction=null;pendingAttack=false;touchSprint=false;damageFloating(player.x,player.y-35,damage,source?Math.atan2(player.y-source.y,player.x-source.x):player.facing,true);burst(player.x,player.y,'#ebbd8d',8,90);sound('hurt');if(options.shake)shake=4;}if(player.hp<=0)showDefeat();return 'hit';}
 const shieldSlot=document.querySelector('[data-act="parry"]');
 shieldSlot.addEventListener('pointerdown',e=>{if(!canAct())return;e.preventDefault();desktopShield=true;captureTouch(shieldSlot,e);parry();});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])shieldSlot.addEventListener(event,()=>{desktopShield=false;releaseShield();});
@@ -5657,7 +5657,7 @@ function markPvpGuaranteedHit(m){
  if(!me||!m)return;const now=performance.now(),id=String(m.skillId||'');
  if(id==='meteorBreaker'){
   if(now>=(me.escapeGuaranteedUntil||0))me.escapeGuaranteedUntil=now+3800;
- }else if(['thunderDrive','voidDance','prismLance'].includes(id)||['hongWheel','voidRush'].includes(m.controlLease)){
+ }else if(['thunderDrive','lunarBind','prismLance','voidDance','starRush'].includes(id)||['hongWheel','voidRush'].includes(m.controlLease)){
   me.escapeGuaranteedUntil=Math.max(me.escapeGuaranteedUntil||0,now+450);
  }
 }
