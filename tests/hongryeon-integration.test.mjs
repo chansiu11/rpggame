@@ -55,6 +55,18 @@ test('Hongryeon AI supports all five skill indices without changing old style en
  assert.ok(actions.every(i=>i>=0&&i<=4));
 });
 
+test('PvP sends the shared world Hongryeon startup, strike and trail recipes to the opponent',()=>{
+ assert.match(html,/window\.EchoesDrawWorldFx=\(drawContext,fxList,ground=false,bounds=null\)/);
+ assert.match(html,/function pvpHongryeonPacket\(p\)/);
+ assert.match(html,/function pvpHongryeonStartup\(sk,x,y,a\)/);
+ assert.match(html,/function pvpHongryeonTrail\(x1,y1,x2,y2,power=1,ev=null\)/);
+ assert.match(html,/if\(f\.kind==='hongWorldFx'\)/,'the local arena renders the world primitives');
+ assert.match(html,/const allowed=\['guardBreak','earthRend','quakeRush','ironJudgment','meteorBreaker'\]/,
+  'incoming PvP flame packets must support all five current skills');
+ assert.match(html,/draw\(ctx,visible,true,bounds\);draw\(ctx,visible,false,bounds\)/,
+  'the world ground scorch and airborne flames must both be rendered');
+});
+
 test('Hongryeon arena boots with original saved character data, costs and five equipped slots',()=>{
  const arena=createArena({style:'break',level:100});
  try{
@@ -216,14 +228,18 @@ test('PVP draws the actual test-version vortex for both fighters from confirmed 
  }finally{arena.dispose();}
 });
 
-test('PvP fifth form retains test-world rotating fire without stacked legacy explosions',()=>{
+test('PvP fifth form uses world flame cuts and rotating fire without old explosion overlays',()=>{
  const start=html.indexOf('function pvpHongryeonFinale(ev,dt)'),end=html.indexOf('function pvpWorldSwordMotion(',start);
  assert.ok(start>0&&end>start);
  const pvp=html.slice(start,end);
- assert.doesNotMatch(pvp,/pvpCrimsonImpact\(|pvpHongryeonFx\(|pvpCrimsonOutside\(/,
-   'Old PvP-only explosions must not cover the original TEST vortex');
- assert.match(pvp,/const swordAngleOffsets=\{wide:-\.26,reverse:\.37/,
-   'PvP blade arcs must follow the original fifth-form authored sword angles');
+ assert.doesNotMatch(pvp,/pvpCrimsonImpact\(|pvpCrimsonOutside\(|slashFx\(/,
+   'Old PvP-only explosions and line slashes must not cover the original TEST vortex');
+ assert.match(pvp,/pvpHongryeonFx\(cut\.kind==='finisher'/,
+   'The confirmed final combo must emit the shared world sword-flame recipe');
+ assert.match(html,/const angles=\{wide:-\.26,reverse:\.37/,
+   'The shared world factory must keep the authored original fifth-form sword angles');
+ assert.match(html,/window\.EchoesBuildHongryeonFx=function\(p\)/,
+   'PvP must construct the exact world flame primitives');
  assert.match(html,/const drawVortex=window\.EchoesDrawFlameFinaleVortex/,
    'The PvP canvas must use the exact original TEST vortex renderer');
  assert.match(html,/hongVortexActive:me\.skillEvent\?\.skill\?\.id==='meteorBreaker'/,
