@@ -78,7 +78,7 @@ test('Hongryeon arena boots with original saved character data, costs and five e
  }finally{arena.dispose();}
 });
 
-test('Hongryeon ultimate ends after missed dash and follows up only on confirmed hit',()=>{
+test('Hongryeon ultimate keeps dash invulnerability through immediate follow-up and clears it on finish or miss',()=>{
  const a=createArena({style:'break',level:100}),out=[];
  try{
   a.api.init(a.snapshot,a.snapshot,true,m=>out.push(m));
@@ -90,6 +90,7 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
   for(let i=0;i<100;i++)a.step(1/60);
   assert.equal(out.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker'),false,'miss should send no fabricated hits');
   assert.equal(a.api.me.skillEvent,null,'missed dash must finish instead of starting the finisher');
+  assert.equal(a.api.me.inv,0,'a missed dash must release Meteor Breaker invulnerability when it ends');
  }finally{a.dispose();}
  const b=createArena({style:'break',level:100}),hits=[];
  try{
@@ -102,11 +103,17 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
   for(let i=0;i<110&&!hits.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)b.step(1/60);
   const first=hits.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
   assert.ok(first,'short dash must produce an opening hit packet');
+  assert.equal(b.api.me.skillEvent?.hongCaught,true,'physical dash contact must start the follow-up immediately without waiting for an ACK');
+  assert.ok(b.api.me.inv>0,'Meteor Breaker must remain invulnerable after the dash has entered its follow-up');
   b.api.receive({t:'attackResult',id:first.id,result:'hit'});
-  assert.equal(b.api.me.skillEvent?.hongCaught,true,'only confirmed damage can start the 14-cut follow-up');
-  for(let i=0;i<260;i++)b.step(1/60);
+  for(let i=0;i<80;i++)b.step(1/60);
+  assert.ok(b.api.me.skillEvent?.hongCaught,'the authored follow-up should still be active partway through its sequence');
+  assert.ok(b.api.me.inv>0,'invulnerability must stay active for the whole follow-up sequence');
+  for(let i=0;i<220;i++)b.step(1/60);
   const combos=hits.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
   assert.ok(combos.length>=15,'opening hit plus all 14 authored cuts must be emitted');
+  assert.equal(b.api.me.skillEvent,null,'the skill ends after the authored follow-up finishes');
+  assert.equal(b.api.me.inv,0,'Meteor Breaker invulnerability must clear when the follow-up ends');
  }finally{b.dispose();}
 });
 
@@ -301,7 +308,7 @@ test('Hongryeon regular PvP cuts reach the opponent and state replay cannot doub
  }
 });
 
-test('PvP fifth-form confirmed hit sends its first flame after the short carry finishes',()=>{
+test('PvP fifth-form dash contact sends its first follow-up flame immediately',()=>{
  const attacker=createArena({style:'break',level:100}),defender=createArena({style:'break',level:100}),packets=[];
  try{
   attacker.api.init(attacker.snapshot,defender.snapshot,true,m=>packets.push(JSON.parse(JSON.stringify(m))));
@@ -313,14 +320,10 @@ test('PvP fifth-form confirmed hit sends its first flame after the short carry f
   for(let i=0;i<110&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)attacker.step(1/60);
   const hit=packets.find(p=>p.t==='atk'&&p.skillId==='meteorBreaker');
   assert.ok(hit,'opening dash should connect');
-  const before=packets.length;
-  attacker.api.receive({t:'attackResult',id:hit.id,result:'hit'});
-  assert.equal(packets.slice(before).some(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='signature'&&p.f.index===0),false,
-   'the hit ACK starts the shared carry instead of firing the follow-up flame immediately');
-  for(let i=0;i<24&&!packets.slice(before).some(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='signature'&&p.f.index===0);i++)attacker.step(1/60);
-  const confirmed=packets.slice(before).find(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='signature'&&p.f.index===0);
-  assert.ok(confirmed,'the shared first-hit flame must be sent once the carry has completed');
-  defender.api.receive(confirmed);
+  assert.equal(attacker.api.me.skillEvent?.hongCaught,true,'dash contact immediately arms the follow-up');
+  const firstFlame=packets.find(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='signature'&&p.f.index===0);
+  assert.ok(firstFlame,'the first follow-up flame is emitted on contact without a carry or ACK wait');
+  defender.api.receive(firstFlame);
   const received=defender.api.effects.find(f=>f.kind==='hongWorldFx'&&f.id==='meteorBreaker'&&f.index===0);
   assert.ok(received,'defender should receive the actual first hit flame');
   assert.doesNotThrow(()=>defender.api.render());
@@ -453,38 +456,28 @@ test('Hongryeon second and third form PvP dash trails send fewer packets with st
  }
 });
 
-test('Hongryeon fifth-form PvP shield blocks and perfect parries end the cast without follow-up strikes',()=>{
- for(const result of ['blocked','parried']){
-  const a=createArena({style:'break',level:100}),packets=[];
-  try{
-   a.api.init(a.snapshot,a.snapshot,true,m=>packets.push(m));
-   a.api.enemy.x=a.api.me.x+350;a.api.enemy.y=a.api.me.y;
-   a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
-   a.api.control({keys:[],aim:0,skill:4});a.step(.35);
-   a.api.control({keys:[],aim:0,release:4});
-   for(let i=0;i<110&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)a.step(1/60);
-   const opening=packets.find(p=>p.t==='atk'&&p.skillId==='meteorBreaker');
-   assert.ok(opening,'the opening dash should reach the defender');
-   assert.equal(opening.bypassShield,false,'the opening dash must be blockable');
-   assert.equal(opening.parryable,true,'the opening dash must allow a perfect parry');
-   a.api.receive({t:'attackResult',id:opening.id,result});
-   assert.equal(a.api.me.skillEvent,null,result+' should immediately end the ultimate');
-   assert.equal(a.api.me.attackCd,0,'a shielded cast should release movement and action lock');
-   assert.equal(a.api.me.moveLock,0);
-   for(let i=0;i<260;i++)a.step(1/60);
-   assert.equal(packets.filter(p=>p.t==='atk'&&p.skillId==='meteorBreaker').length,1,
-    result+' must not create a phantom follow-up cut');
-  }finally{a.dispose();}
- }
-});
-
-test('Hongryeon fifth-form world opening waits for actual unshielded damage',()=>{
+test('Hongryeon fifth-form opening contact is guaranteed in PvP and shared world',()=>{
+ const a=createArena({style:'break',level:100}),packets=[];
+ try{
+  a.api.init(a.snapshot,a.snapshot,true,m=>packets.push(m));
+  a.api.enemy.x=a.api.me.x+350;a.api.enemy.y=a.api.me.y;
+  a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
+  a.api.control({keys:[],aim:0,skill:4});a.step(.35);
+  a.api.control({keys:[],aim:0,release:4});
+  for(let i=0;i<110&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)a.step(1/60);
+  const opening=packets.find(p=>p.t==='atk'&&p.skillId==='meteorBreaker');
+  assert.ok(opening,'the opening dash should reach the defender');
+  assert.equal(opening.bypassShield,true);
+  assert.equal(opening.parryable,false);
+  assert.equal(opening.guaranteedContact,true);
+  assert.equal(a.api.me.skillEvent?.hongCaught,true,'contact immediately starts the follow-up instead of waiting for a block/parry result');
+ }finally{a.dispose();}
  const fn=html.slice(html.indexOf('function updateFlameBreathFinale('),html.indexOf('function updateSwordSkill(dt)'));
  assert.ok(fn.length>1000,'world finale should remain present');
- assert.match(fn,/bypassShield:false,skillId:sk\.id,shape:'circle'/,
-  'opening damage must be processed by the world shield rather than bypassing it');
- assert.match(fn,/onResult:e\.networkPlayer\?result=>\{if\(activeSwordSkill===seq&&!\(result\.damage>0\)\)finish\(\);\}:null/,
-  'shielded world hits should resolve without arming the follow-up');
+ assert.match(fn,/bypassShield:true,guaranteedContact:true,skillId:sk\.id,shape:'circle'/,
+  'shared-world opening contact is authoritative and cannot be canceled by transient defense state');
+ assert.match(fn,/if\(e\.networkPlayer\)confirmed\(\);/,
+  'shared-world PvP contact starts the follow-up immediately instead of waiting for the network ACK');
 });
 
 test('Hongryeon fourth-form visual geometry stays bounded in shared world and PvP',()=>{
@@ -580,42 +573,39 @@ test('Hongryeon fifth form uses a natural fire-circle startup and begins its hal
  assert.match(pvp,/dashSpeed=1175/);
 });
 
-test('Hongryeon fifth form carries both fighters forward before its confirmed follow-up',()=>{
+test('Hongryeon fifth form starts its authored follow-up immediately at dash contact',()=>{
  const arena=createArena({style:'break',level:100}),packets=[];
  try{
   arena.api.init(arena.snapshot,arena.snapshot,true,m=>packets.push(m));
-  const startX=arena.api.me.x,enemyStartX=startX+350;
-  arena.api.enemy.x=enemyStartX;arena.api.enemy.y=arena.api.me.y;
+  arena.api.enemy.x=arena.api.me.x+350;arena.api.enemy.y=arena.api.me.y;
   arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
   arena.api.control({keys:[],aim:0,skill:4});arena.step(.35);
   arena.api.control({keys:[],aim:0,release:4});
   for(let i=0;i<150&&!packets.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)arena.step(1/60);
   const opening=packets.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
-  assert.ok(opening,'the widened opening dash should still produce exactly one confirmed contact attempt');
-  assert.equal(opening.r,92,'fifth-form dash collision width is slightly wider than the previous 79px radius');
-  const contactX=arena.api.me.x,attacksAtContact=packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length;
-  arena.api.receive({t:'attackResult',id:opening.id,result:'hit'});
-  assert.equal(arena.api.me.skillEvent?.hongCarryRemaining,92);
-  assert.equal(arena.api.me.skillEvent?.hongCaughtAt,null,'authored cuts wait until the short carry finishes');
-  for(let i=0;i<4;i++)arena.step(1/60);
-  assert.ok(arena.api.me.x>contactX+25,'attacker continues forward instead of stopping on the contact frame');
-  assert.equal(packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length,attacksAtContact,
-   'no follow-up cut fires during the initial shared carry');
-  for(let i=0;i<7;i++)arena.step(1/60);
-  assert.ok(arena.api.me.x>contactX+70,'attacker completes the short post-hit carry distance');
-  assert.ok(arena.api.enemy.x>enemyStartX+8,'the victim follows forward before the combo starts');
-  assert.equal(arena.api.me.skillEvent?.hongCarryRemaining,0);
-  assert.ok(Number.isFinite(arena.api.me.skillEvent?.hongCaughtAt),'follow-up timing starts only after carry completion');
+  assert.ok(opening,'the widened opening dash should still produce one contact attack');
+  assert.equal(opening.r,92,'fifth-form dash collision width stays at 92px');
+  assert.equal(opening.guaranteedContact,true,'physical Meteor Breaker contact is guaranteed');
+  assert.equal(opening.bypassShield,true,'the guaranteed contact cannot be canceled by a shield');
+  assert.equal(opening.parryable,false,'the guaranteed contact cannot be canceled by a perfect parry');
+  assert.equal(arena.api.me.skillEvent?.hongCaught,true,'follow-up state starts on the contact frame');
+  assert.equal(arena.api.me.skillEvent?.hongCarryRemaining,0,'there is no post-hit carry delay');
+  assert.ok(Number.isFinite(arena.api.me.skillEvent?.hongCaughtAt),'follow-up timing is armed immediately');
+  const attacksAtContact=packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length;
+  for(let i=0;i<3;i++)arena.step(1/60);
+  assert.ok(packets.filter(m=>m.t==='atk'&&m.skillId==='meteorBreaker').length>attacksAtContact,
+   'the first authored follow-up cut starts immediately after contact');
+  assert.ok(arena.api.me.inv>0,'the attacker stays invulnerable while follow-up cuts are active');
  }finally{arena.dispose();}
 });
 
-test('world Hongryeon fifth-form source mirrors the wider carry-through opening',()=>{
+test('world Hongryeon fifth-form source mirrors immediate guaranteed contact without carry delay',()=>{
  const start=html.indexOf('function updateFlameBreathFinale('),end=html.indexOf('function updateSwordSkill(dt)',start);
  assert.ok(start>0&&end>start);
  const world=html.slice(start,end);
  assert.match(world,/rr=92\+combatRadius\(e\)/);
  assert.match(world,/r:92\+combatRadius\(e\)/);
- assert.match(world,/seq\.flameCarryRemaining=e\.kind==='boss'\?54:92/);
- assert.match(world,/worldTargetControl\(e\.id,\{kind:'control'/,
-  'shared-world PvP victim follows the attacker through authoritative target control');
+ assert.match(world,/guaranteedContact:true/);
+ assert.match(world,/seq\.flameCarryRemaining=0/);
+ assert.match(world,/seq\.flameCaughtAt=seq\.elapsed-\(FLAME_FINALE_CUTS\[0\]\?\.at\|\|0\)/);
 });
