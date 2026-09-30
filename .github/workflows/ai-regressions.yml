@@ -1,0 +1,34 @@
+name: AI regressions
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'multiplayer-server/ai/**'
+      - 'tests/ai.test.mjs'
+      - 'tests/device-training.test.mjs'
+      - 'tests/neural-ai-smoke.test.mjs'
+      - '.github/workflows/ai-regressions.yml'
+  workflow_dispatch:
+concurrency:
+  group: ai-regressions-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ai-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - tests/neural-ai-smoke.test.mjs
+          - tests/ai.test.mjs
+          - tests/device-training.test.mjs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: multiplayer-server/package-lock.json
+      - run: npm ci --prefix multiplayer-server
+      - run: node --test ${{ matrix.test }}
