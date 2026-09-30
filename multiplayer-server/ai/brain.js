@@ -125,11 +125,24 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   }
 
   const predictedAttack=out[15],predictedBlock=out[16];
+  const busy=!!me?.skillEvent||!!me?.skillHold||Number(me?.attackAnim)>0;
+
+  // Training-only exploration prevents an untrained random network from
+  // getting trapped in "never attack" behavior. This is never used by live AI
+  // or evaluation; timing and action choice in real matches remain neural.
+  if(options.training===true&&noiseSeed!==null&&!busy&&random()<.025){
+   const readyIds=[];for(let i=0;i<5;i++)if(ready[i])readyIds.push(i);
+   if(readyIds.length){
+    const i=readyIds[Math.floor(random()*readyIds.length)];hold=i;holdAge=0;stats.skills++;
+    current={keys,aim,block:false,dash:false,basic:false,skill:i};return current;
+   }
+   if(d<220){stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;}
+  }
+
   const blockScore=out[2]+predictedAttack*.18;
   const block=Number(me?.shield)>0&&blockScore>.18;
   if(block){stats.blocks++;current={keys,aim,block:true,dash:false,basic:false};return current;}
 
-  const busy=!!me?.skillEvent||!!me?.skillHold||Number(me?.attackAnim)>0;
   const feintScore=out[10]+Math.max(0,predictedBlock)*.22;
   const feint=feintScore>.34&&!busy;
   const stopAttack=out[9]<-.22&&(Number(me?.combo)||0)>0;
