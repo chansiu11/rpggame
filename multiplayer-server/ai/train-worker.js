@@ -19,6 +19,10 @@ function permit(){
 }
 function burstSize(){return Math.max(1,Math.min(100,tuning?Atomics.load(tuning,1):3));}
 function batchTarget(){return Math.max(25,burstSize());}
+// The configured burst can be 100, but 100 spectator panes would make each pane
+// wait almost an entire generation before fighting again. Reuse a small lane pool
+// so every real bout is still shown while each pane keeps receiving rematches.
+function spectatorLaneCount(){return Math.max(1,Math.min(6,burstSize()));}
 function cool(){
  if(!workerData.device)return;
  const delay=Math.max(0,Math.min(60000,tuning?Atomics.load(tuning,0):1000));
@@ -53,10 +57,10 @@ for(;;){
   // If the user raises "continuous training" while a cycle is running, extend
   // this cycle immediately instead of waiting for a worker restart.
   batch=Math.max(batch,batchTarget());
-  const burst=burstSize();
+  const lanes=spectatorLaneCount();
   const n=policy.matches,[a,b]=leastTrainedPair(policy);
-  const lane=i%burst;
-  const r=duel(a,b,policy,policy,n+7,90,permit,spectator('train',n+1,[a,b],lane,burst));
+  const lane=n%lanes;
+  const r=duel(a,b,policy,policy,n+7,90,permit,spectator('train',n+1,[a,b],lane,lanes));
   learn(policy,a,r.results[0].tactic,r.results[0]);
   learn(policy,b,r.results[1].tactic,r.results[1]);
   policy.matches++;
@@ -70,10 +74,10 @@ for(;;){
  for(let i=evalCompleted;i<rounds;i++){
   permit();
   const a=ids[i%ids.length],b=ids[Math.floor(i/ids.length)%ids.length],swap=i>=16;
-  const pair=swap?[b,a]:[a,b];
+  const pair=swap?[b,a]:[a,b],evalLanes=Math.min(6,rounds),lane=i%evalLanes;
   const r=swap
-   ?duel(b,a,baseline,policy,10000+i%16,90,permit,spectator('evaluation',i+1,pair,i,rounds))
-   :duel(a,b,policy,baseline,10000+i%16,90,permit,spectator('evaluation',i+1,pair,i,rounds));
+   ?duel(b,a,baseline,policy,10000+i%16,90,permit,spectator('evaluation',i+1,pair,lane,evalLanes))
+   :duel(a,b,policy,baseline,10000+i%16,90,permit,spectator('evaluation',i+1,pair,lane,evalLanes));
   if(r.winner<0)draws++;else if(r.winner===(swap?1:0))wins++;else losses++;
   checkpoint(batch,batch,{wins,losses,draws,completed:i+1});
  }
