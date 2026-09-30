@@ -1,15 +1,26 @@
-// Declarative profiles: add a style without changing the combat engine.
+import {NN_BEHAVIORS,NN_SHAPE,createNetwork,validateNetwork,forward,perturbNetwork,esUpdateNetwork,hashSeed,networkParameterCount} from './neural-policy.js';
+export {NN_BEHAVIORS,NN_SHAPE,networkParameterCount};
+
 export const styles={
- gale:{name:'질풍',distance:115,combos:[[1,2,3,4],[0,1,4]],aggression:.8},
- void:{name:'이형',distance:155,combos:[[1,2,4],[0,3,1]],aggression:.65},
- dawn:{name:'여명',distance:330,combos:[[0,3,4],[2,1,0]],aggression:.45},
- break:{name:'홍련',distance:230,combos:[[1,2,3,4,0],[0,1,4,2,3],[3,0,2,1,4]],aggression:.73}
+ gale:{name:'질풍'},
+ void:{name:'이형'},
+ dawn:{name:'여명'},
+ break:{name:'홍련'}
 };
-export function seedPolicy(){return {schema:1,generation:0,matches:0,styles:Object.fromEntries(Object.keys(styles).map(s=>[s,{weights:[1,1,1],games:0,wins:0,reward:0,metrics:{}}]))};}
-// Always select the two least-trained styles. When their experience is tied,
-// rotate the deterministic tie order every two bouts. Across three balanced
-// rounds this covers all six distinct style pairings instead of indefinitely
-// training the same two opponents against each other.
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const ratio=(a,b)=>clamp((Number(a)||0)/Math.max(1,Number(b)||1),0,1);
+const initialStyle=id=>({
+ network:createNetwork(hashSeed('echoes-neural-'+id)),sigma:.055,learningRate:.0035,rewardMean:0,
+ games:0,wins:0,reward:0,metrics:{}
+});
+export function seedPolicy(){
+ return {
+  schema:2,model:'mlp-es-v1',generation:0,matches:0,
+  learning:{behaviors:[...NN_BEHAVIORS],fixedDodge:true,resourceManagement:false},
+  styles:Object.fromEntries(Object.keys(styles).map(id=>[id,initialStyle(id)]))
+ };
+}
+// Always train the two least-experienced styles first so all six matchups rotate.
 const trainingTieOrders=[
  ['gale','void','dawn','break'],
  ['gale','dawn','void','break'],
@@ -19,49 +30,137 @@ export function leastTrainedPair(policy){
  const round=Math.floor((Number(policy?.matches)||0)/2)%trainingTieOrders.length;
  const order=trainingTieOrders[round],priority=Object.fromEntries(order.map((id,i)=>[id,i]));
  return Object.keys(styles).sort((a,b)=>
-  (policy.styles[a].games-policy.styles[b].games)||(priority[a]-priority[b])
+  ((policy.styles?.[a]?.games||0)-(policy.styles?.[b]?.games||0))||(priority[a]-priority[b])
  ).slice(0,2);
 }
 export function rng(seed=1){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};}
 export const difficulties={
- 1:{name:'매우 쉬움',delay:.50,jitter:.30,mistake:.38,block:.22,dash:.10,attack:.42},
- 2:{name:'쉬움',delay:.30,jitter:.23,mistake:.23,block:.42,dash:.21,attack:.70},
- 3:{name:'보통',delay:.13,jitter:.17,mistake:.09,block:.65,dash:.33,attack:1},
- 4:{name:'어려움',delay:.10,jitter:.10,mistake:.045,block:.78,dash:.46,attack:1.15},
- 5:{name:'매우 어려움',delay:.075,jitter:.075,mistake:.02,block:.88,dash:.58,attack:1.3}
+ 1:{name:'매우 쉬움',outputNoise:.34,mistake:.32,attackThreshold:.22},
+ 2:{name:'쉬움',outputNoise:.22,mistake:.20,attackThreshold:.13},
+ 3:{name:'보통',outputNoise:.11,mistake:.09,attackThreshold:.06},
+ 4:{name:'어려움',outputNoise:.055,mistake:.035,attackThreshold:.015},
+ 5:{name:'매우 어려움',outputNoise:.018,mistake:.012,attackThreshold:-.025}
 };
 export function normalizeDifficulty(value){const n=Number(value);return Number.isInteger(n)&&n>=1&&n<=5?n:3;}
-export function createBrain(style,policy=seedPolicy(),random=Math.random,difficulty=3){
- const settings=difficulties[normalizeDifficulty(difficulty)];
- const profile=styles[style];if(!profile)throw Error('Unsupported AI style');
- const weights=(policy.styles[style]||seedPolicy().styles[style]).weights;let pick=random()*weights.reduce((a,b)=>a+b,0),tactic=0;
- while(tactic<2&&pick>weights[tactic])pick-=weights[tactic++];if(random()<.12)tactic=Math.floor(random()*3);
- let wait=0,hold=-1,releaseAt=0,time=0,combo=0,side=random()<.5?-1:1,previous=null,dodgeBias=0;
- const chain=profile.combos[tactic%profile.combos.length];let current={keys:[],aim:0};
- return {tactic,step(dt,me,enemy){time+=dt;wait-=dt;
- if(hold>=0&&time>=releaseAt){const release=hold;hold=-1;return {...current,release,basic:false,skill:undefined,dash:false};}
- if(wait>0)return {...current,basic:false,skill:undefined,dash:false};
- wait=settings.delay+random()*settings.jitter; // Observation/action delay; no future inputs or hidden cooldowns.
- const dx=enemy.x-me.x,dy=enemy.y-me.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx),resources=me.stam/Math.max(1,me.maxStam),hp=me.hp/me.maxHp;
- if(previous&&enemy.dash>0)dodgeBias=dodgeBias*.8+Math.sign((enemy.x-previous.x)*-Math.sin(a)+(enemy.y-previous.y)*Math.cos(a))*.2;
- previous={x:enemy.x,y:enemy.y};if(random()<.13)side*=-1;
- const threat=d<310&&(enemy.attackAnim>0||enemy.skillPose>=0),mistake=random()<settings.mistake;
- const desired=profile.distance+(tactic===1?100:tactic===2?-45:0)+(resources<.22||hp<.25?210:0);
- const radial=d>desired+40?1:d<desired-35?-1:0,strafe=side*(radial? .35:1);
- let mx=Math.cos(a)*radial-Math.sin(a)*strafe,my=Math.sin(a)*radial+Math.cos(a)*strafe;
- if(me.x<130)mx=1;if(me.x>3470)mx=-1;if(me.y<130)my=1;if(me.y>1970)my=-1;
- const keys=[];if(mx>.22)keys.push('KeyD');if(mx<-.22)keys.push('KeyA');if(my>.22)keys.push('KeyS');if(my<-.22)keys.push('KeyW');if(d>500&&resources>.55)keys.push('ShiftLeft');
- current={keys,aim:a+dodgeBias*.06,block:!mistake&&threat&&random()<settings.block&&me.shield>0,dash:!mistake&&threat&&resources>.2&&random()<settings.dash,basic:false};
- if(current.block||current.dash||me.stun>0)return current;
- if(hold>=0){current.basic=false;return current;}
- const ready=i=>me.cool[i]<=0&&!(style==='void'&&i===2&&me.void3DodgeRemaining>0),available=chain.filter(ready),busy=me.skillEvent||me.skillHold;
- if(!busy&&resources>.18&&d<650&&!mistake&&available.length&&random()<Math.min(1,(profile.aggression+.15)*settings.attack)){
- const i=ready(chain[combo%chain.length])?chain[combo++%chain.length]:available[0];current.skill=i;hold=i;releaseAt=time+.2+random()*.45;
- }else if(d<130&&!busy&&!mistake)current.basic=true;
- return current;
+
+function readySkills(me,style){
+ const cool=Array.isArray(me?.cool)?me.cool:[0,0,0,0,0];
+ return Array.from({length:5},(_,i)=>Number(cool[i]||0)<=0&&!(style==='void'&&i===2&&Number(me?.void3DodgeRemaining)>0));
+}
+function makeFeatures(state,me,enemy,holdAge,ready,dt){
+ const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
+ const prev=state.previous,edx=prev?((Number(enemy?.x)||0)-prev.ex):0,edy=prev?((Number(enemy?.y)||0)-prev.ey):0;
+ const invDt=1/Math.max(.001,dt),rv=prev?clamp(((d-prev.d)*invDt)/520,-1,1):0;
+ const lateral=prev?clamp(((-Math.sin(a)*edx+Math.cos(a)*edy)*invDt)/520,-1,1):0;
+ const alpha=clamp(dt*3.5,.02,.3),enemyAttack=(Number(enemy?.attackAnim)>0||Number(enemy?.skillPose)>=0)?1:0,enemySkill=Number(enemy?.skillPose)>=0?1:0;
+ state.attackEma+=(enemyAttack-state.attackEma)*alpha;
+ state.blockEma+=((enemy?.block?1:0)-state.blockEma)*alpha;
+ state.dashEma+=((Number(enemy?.dash)>0?1:0)-state.dashEma)*alpha;
+ state.skillEma+=(enemySkill-state.skillEma)*alpha;
+ state.previous={ex:Number(enemy?.x)||0,ey:Number(enemy?.y)||0,d};
+ const selfAction=(Number(me?.attackAnim)>0||Number(me?.skillPose)>=0)?1:0;
+ return [
+  clamp(dx/700,-1,1),clamp(dy/700,-1,1),clamp(d/800,0,1.5),Math.sin(a),Math.cos(a),
+  ratio(me?.hp,me?.maxHp),ratio(enemy?.hp,enemy?.maxHp),clamp(ratio(me?.hp,me?.maxHp)-ratio(enemy?.hp,enemy?.maxHp),-1,1),
+  ratio(me?.shield,me?.maxShield),ratio(enemy?.shield,enemy?.maxShield),
+  selfAction,enemyAttack,clamp(Number(me?.stun)||0,0,1),clamp(Number(enemy?.stun)||0,0,1),enemy?.block?1:0,
+  rv,lateral,state.attackEma,state.blockEma,state.dashEma,state.skillEma,clamp(holdAge/1.5,0,1),clamp((Number(me?.combo)||0)/5,0,1),
+  ready[0]?1:0,ready[1]?1:0,ready[2]?1:0,ready[3]?1:0,ready[4]?1:0,clamp((Number(enemy?.combo)||0)/5,0,1),
+  selfAction?1:-1
+ ];
+}
+function addDifficultyNoise(out,settings,random,training){
+ if(training)return out;
+ for(let i=0;i<out.length;i++)out[i]=clamp(out[i]+(random()*2-1)*settings.outputNoise,-1,1);
+ return out;
+}
+
+export function createBrain(style,policy=seedPolicy(),random=Math.random,difficulty=3,options={}){
+ const settings=difficulties[normalizeDifficulty(difficulty)],profile=policy?.styles?.[style],fallback=initialStyle(style);
+ const base=profile&&validateNetwork(profile.network)?profile:fallback;
+ const noiseSeed=Number.isInteger(options.noiseSeed)?options.noiseSeed>>>0:null;
+ const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
+ const training={noiseSeed,sigma:base.sigma};
+ const state={previous:null,attackEma:0,blockEma:0,dashEma:0,skillEma:0};
+ let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1;
+ const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0};
+ let current={keys:[],aim:0,block:false,dash:false,basic:false};
+ return {tactic:-1,training,stats,step(dt,me,enemy){
+  dt=clamp(Number(dt)||1/60,1/240,.08);stats.decisions++;dodgeLock=Math.max(0,dodgeLock-dt);
+  const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
+  const ready=readySkills(me,style),features=makeFeatures(state,me,enemy,holdAge,ready,dt),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
+  const aggression=out[11],desired=clamp(330+out[0]*250-aggression*75,70,650);
+  let radial=d>desired+24?1:d<desired-24?-1:out[14]*.35,lateral=clamp(out[1],-1,1);
+  if(Math.abs(lateral)<.08)lateral=side*.16;
+  let mx=Math.cos(a)*radial-Math.sin(a)*lateral,my=Math.sin(a)*radial+Math.cos(a)*lateral;
+  if((Number(me?.x)||0)<130)mx=Math.max(mx,.8);if((Number(me?.x)||0)>3470)mx=Math.min(mx,-.8);
+  if((Number(me?.y)||0)<130)my=Math.max(my,.8);if((Number(me?.y)||0)>1970)my=Math.min(my,-.8);
+  const keys=[];if(mx>.22)keys.push('KeyD');if(mx<-.22)keys.push('KeyA');if(my>.22)keys.push('KeyS');if(my<-.22)keys.push('KeyW');
+  const aim=a+out[12]*.62;
+  if(Number(me?.stun)>0){hold=-1;holdAge=0;current={keys:[],aim,block:false,dash:false,basic:false};return current;}
+
+  // Skill press duration is learned. The 1.6 s release is only a safety ceiling
+  // so a malformed early network can never hold an input forever.
+  if(hold>=0){
+   holdAge+=dt;
+   const continueHold=out[9]+out[17]*.22;
+   if(continueHold<0||holdAge>=1.6){
+    const release=hold;hold=-1;holdAge=0;stats.releases++;
+    current={keys,aim,block:false,dash:false,basic:false,release};return current;
+   }
+   current={keys,aim,block:false,dash:false,basic:false};return current;
+  }
+
+  // Dodge is intentionally NOT learned. It is a fixed reactive movement rule.
+  // Stamina is only checked for action feasibility; resource management is not
+  // an observation, reward, or learned objective.
+  const enemyThreat=(Number(enemy?.attackAnim)>0||Number(enemy?.skillPose)>=0)&&d<270;
+  const canDash=(Number(me?.dash)||0)<=0&&(me?.stam===undefined||Number(me.stam)>6);
+  if(enemyThreat&&canDash&&dodgeLock<=0){
+   dodgeLock=.42;side=state.skillEma>.35?-side:side;stats.dodges++;
+   const dodgeKeys=side>0
+    ?[Math.sin(a)>-.2?'KeyS':'KeyW',Math.cos(a)>.2?'KeyA':'KeyD']
+    :[Math.sin(a)>.2?'KeyW':'KeyS',Math.cos(a)>-.2?'KeyD':'KeyA'];
+   current={keys:[...new Set(dodgeKeys)],aim,block:false,dash:true,basic:false};return current;
+  }
+
+  const predictedAttack=out[15],predictedBlock=out[16];
+  const blockScore=out[2]+predictedAttack*.18;
+  const block=Number(me?.shield)>0&&blockScore>.18;
+  if(block){stats.blocks++;current={keys,aim,block:true,dash:false,basic:false};return current;}
+
+  const busy=!!me?.skillEvent||!!me?.skillHold||Number(me?.attackAnim)>0;
+  const feintScore=out[10]+Math.max(0,predictedBlock)*.22;
+  const feint=feintScore>.34&&!busy;
+  const stopAttack=out[9]<-.22&&(Number(me?.combo)||0)>0;
+  const comboDrive=(Number(me?.combo)||0)>0?out[17]*.20:0;
+  const attackDrive=aggression*.18+out[13]*.20+comboDrive-(feint?.38:0);
+  const mistake=!options.training&&random()<settings.mistake;
+  if(!busy&&!stopAttack&&!mistake){
+   let bestType='none',best=-Infinity,bestSkill=-1;
+   const basicScore=out[3]+attackDrive;
+   if(d<190&&basicScore>best){best=basicScore;bestType='basic';}
+   for(let i=0;i<5;i++)if(ready[i]){
+    const score=out[4+i]+attackDrive;
+    if(score>best){best=score;bestType='skill';bestSkill=i;}
+   }
+   if(!feint&&best>settings.attackThreshold){
+    if(bestType==='skill'&&bestSkill>=0){hold=bestSkill;holdAge=0;stats.skills++;current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
+    if(bestType==='basic'){stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;}
+   }else if(feint&&best>settings.attackThreshold){stats.feints++;}
+  }
+  current={keys,aim,block:false,dash:false,basic:false};return current;
  }};
 }
-export function learn(policy,style,tactic,result){const s=policy.styles[style];s.games++;s.wins+=result.win?1:0;s.reward+=result.reward;
- s.weights[tactic]=Math.max(.2,Math.min(5,s.weights[tactic]*Math.exp(.04*result.reward)));
- for(const [k,v] of Object.entries(result.metrics||{}))s.metrics[k]=(s.metrics[k]||0)+v;
+
+export function learn(policy,style,training,result){
+ if(typeof training==='number'){result=arguments[3];training=null;}
+ const s=policy.styles[style],reward=Number(result?.reward)||0;s.games++;s.wins+=result?.win?1:0;s.reward+=reward;
+ const previous=Number(s.rewardMean)||0,advantage=clamp(reward-previous,-2,2);
+ s.rewardMean=previous*.95+reward*.05;
+ if(Number.isInteger(training?.noiseSeed)&&validateNetwork(s.network)){
+  esUpdateNetwork(s.network,training.noiseSeed,(Number(s.learningRate)||.0035)*advantage);
+  s.sigma=clamp((Number(s.sigma)||.055)*(advantage>0?.9995:1.00025),.025,.11);
+ }
+ for(const [k,v] of Object.entries(result?.metrics||{}))if(Number.isFinite(Number(v)))s.metrics[k]=(s.metrics[k]||0)+Number(v);
 }
