@@ -274,3 +274,53 @@ test('PvP fifth form uses world flame cuts and rotating fire without old explosi
   assert.equal(recorded[0][0].side,-1);
  }finally{arena.dispose();}
 });
+
+
+test('Hongryeon regular PvP cuts reach the opponent and state replay cannot double-render them',()=>{
+ for(let slot=0;slot<4;slot++){
+  const attacker=createArena({style:'break',level:100}),defender=createArena({style:'gale',level:100}),packets=[];
+  try{
+   attacker.api.init(attacker.snapshot,defender.snapshot,true,m=>packets.push(JSON.parse(JSON.stringify(m))));
+   defender.api.init(defender.snapshot,attacker.snapshot,false,()=>{});
+   attacker.api.control({keys:[],aim:0,skill:slot});
+   attacker.step(.35);
+   attacker.api.control({keys:[],aim:0,release:slot});
+   for(let j=0;j<85;j++)attacker.step(1/60);
+   const id=skills[slot][0],direct=packets.find(p=>p.t==='hongFx'&&p.f.id===id&&p.f.phase==='signature');
+   assert.ok(direct,'skill '+(slot+1)+' needs an explicit remote flame event');
+   const fallback=packets.find(p=>p.t==='state'&&p.hongFxReplay?.some(e=>e.seq===direct.f.seq));
+   assert.ok(fallback,'skill '+(slot+1)+' should survive a dropped fire packet using state replay');
+   defender.api.receive(direct);
+   defender.api.receive({t:'fxBatch',effects:[direct.f]});
+   defender.api.receive(fallback);
+   const fire=defender.api.effects.filter(f=>f.kind==='hongWorldFx'&&f.id===id&&f.phase==='signature');
+   assert.equal(fire.length,1,'direct, batch and state must draw one copy on defender');
+   assert.doesNotThrow(()=>defender.api.render());
+   assert.ok(fire[0].worldFx?.length>0,'defender must create and render actual shared world flame primitives');
+  }finally{attacker.dispose();defender.dispose();}
+ }
+});
+
+test('PvP fifth-form confirmed hit sends the first flame to the other player from inside attackResult',()=>{
+ const attacker=createArena({style:'break',level:100}),defender=createArena({style:'break',level:100}),packets=[];
+ try{
+  attacker.api.init(attacker.snapshot,defender.snapshot,true,m=>packets.push(JSON.parse(JSON.stringify(m))));
+  defender.api.init(defender.snapshot,attacker.snapshot,false,()=>{});
+  attacker.api.enemy.x=attacker.api.me.x+350;attacker.api.enemy.y=attacker.api.me.y;
+  attacker.api.enemy.netX=attacker.api.enemy.x;attacker.api.enemy.netY=attacker.api.enemy.y;
+  attacker.api.control({keys:[],aim:0,skill:4});attacker.step(.35);
+  attacker.api.control({keys:[],aim:0,release:4});
+  for(let i=0;i<32&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)attacker.step(1/60);
+  const hit=packets.find(p=>p.t==='atk'&&p.skillId==='meteorBreaker');
+  assert.ok(hit,'opening dash should connect');
+  const before=packets.length;
+  attacker.api.receive({t:'attackResult',id:hit.id,result:'hit'});
+  const confirmed=packets.slice(before).find(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='signature'&&p.f.index===0);
+  assert.ok(confirmed,'incoming hit ACK must not suppress the attacker’s outbound flame');
+  defender.api.receive(confirmed);
+  const received=defender.api.effects.find(f=>f.kind==='hongWorldFx'&&f.id==='meteorBreaker'&&f.index===0);
+  assert.ok(received,'defender should receive the actual first hit flame');
+  assert.doesNotThrow(()=>defender.api.render());
+  assert.ok(received.worldFx?.length>0,'defender renders the same authored world first-hit flames');
+ }finally{attacker.dispose();defender.dispose();}
+});
