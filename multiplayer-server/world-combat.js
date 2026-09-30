@@ -125,7 +125,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     // Mark scripted follow-up sequences; other attacks still allow a stun escape.
     if(String(e.skillId||'')==='meteorBreaker'){
      if(t>=(b.escapeGuaranteedUntil||0))b.escapeGuaranteedUntil=t+3800;
-    }else if(['thunderDrive','voidDance'].includes(String(e.skillId||''))){
+    }else if(['thunderDrive','lunarBind','prismLance','voidDance','starRush'].includes(String(e.skillId||''))){
      b.escapeGuaranteedUntil=Math.max(b.escapeGuaranteedUntil||0,t+450);
     }
     // Arm only from a confirmed opening hit; the server counters never submit another cast event.
