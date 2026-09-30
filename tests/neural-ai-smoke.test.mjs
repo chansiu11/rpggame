@@ -62,6 +62,20 @@ test('fresh neural policy acts without training-only exploration',()=>{
  assert.ok(result.results.some(r=>r.metrics.damage>0),'fresh live/evaluation policy must be capable of dealing damage');
 });
 
+test('every fresh style can choose an attack without training exploration',()=>{
+ for(const style of ['gale','void','dawn','break']){
+  const p=seedPolicy(),brain=createBrain(style,p,()=>.5,3,{training:true});
+  const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:100,maxStam:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,void3DodgeRemaining:0};
+  const enemy={x:1160,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:0,skillPose:-1,block:false,combo:0};
+  let attacked=false;
+  for(let i=0;i<600&&!attacked;i++){
+   const a=brain.step(1/60,me,enemy);
+   attacked=!!a.basic||Number.isInteger(a.skill);
+  }
+  assert.equal(attacked,true,style+' fresh neural policy must be able to initiate combat');
+ }
+});
+
 test('learning updates the network and never learns resource management',()=>{
  const p=seedPolicy(),before=p.styles.break.network.w1.slice();
  learn(p,'break',{noiseSeed:123456,sigma:p.styles.break.sigma},{win:true,reward:1.2,metrics:{hits:3}});
