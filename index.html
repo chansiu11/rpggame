@@ -1360,7 +1360,7 @@ window.EchoesBuildHongryeonFx=function(p){
 
 function ring(x,y,r,color,t=.5){effects.push({type:'ring',x,y,r,color,t,max:t});}
 let prismCastSerial=0;
-function cancelSwordSkill(preserveFollow=false){activeSwordSkill=null;fourthSkillHold=null;fourthSkillField=null;secondSkillDash=null;secondSkillArmed=false;skillTrayPress=null;standardSkillHold=null;skill2Knocks=[];hiddenSkillEvents=[];hiddenSkillHold=null;if(!preserveFollow)hiddenSkillFollowup=null;if(void3State)endVoid3World();if(player){player.skillKind='';player.skillPose=-1;player.skillLift=0;player.pendingSlam=null;player.cast=0;player.pvpKnock=null;}}
+function cancelSwordSkill(preserveFollow=false){const releaseMeteorInvuln=activeSwordSkill?.skillId==='meteorBreaker'&&activeSwordSkill?.meteorInvulnActive;activeSwordSkill=null;fourthSkillHold=null;fourthSkillField=null;secondSkillDash=null;secondSkillArmed=false;skillTrayPress=null;standardSkillHold=null;skill2Knocks=[];hiddenSkillEvents=[];hiddenSkillHold=null;if(!preserveFollow)hiddenSkillFollowup=null;if(void3State)endVoid3World();if(player){player.skillKind='';player.skillPose=-1;player.skillLift=0;player.pendingSlam=null;player.cast=0;player.pvpKnock=null;if(releaseMeteorInvuln)player.invuln=0;}}
 function resetInputs(){heldPhysical.clear();if($('skillTray'))$('skillTray').classList.add('hidden');desktopShield=false;shieldKeyLatched=false;if(player){player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=false;}resetTouchInputs();bufferedAction=null;skillBasicGraceUntil=0;skillBasicGraceUsed=false;basicAttackLockUntil=0;basicAttackStartedAt=0;cancelSwordSkill();keys.clear();mouse.down=false;mouse.right=false;joy.x=joy.y=0;joy.active=false;pendingAttack=false;$('stickKnob').style.transform='';}
 function xpNeed(){const lv=Math.max(1,player.level);return Math.round(70+lv*42+lv*lv*1.8);}
 function addXp(n){if(player.level>=MAX_LEVEL){player.level=MAX_LEVEL;player.xp=0;return;}player.xp+=n;while(player.xp>=xpNeed()&&player.level<MAX_LEVEL){player.xp-=xpNeed();player.level++;player.perkPoints++;recalculateEquipment(false);const unlocked=SWORD_SKILL_LIBRARY.find(sk=>sk.level===player.level);if(unlocked)toast('새 검술 습득 가능 · '+unlocked.name+' · 검술 사범 세린에게 말을 걸어 배울 수 있습니다.');player.hp=Math.min(player.maxHp,player.hp+30);player.stam=player.maxStam;ring(player.x,player.y,115,'#eed390',.9);burst(player.x,player.y,'#e9cf8d',30);toast('<b>LEVEL '+player.level+'</b> · 특성 포인트 +1 <kbd>I</kbd>');sound('reward');}if(player.level>=MAX_LEVEL){player.level=MAX_LEVEL;player.xp=0;}}
@@ -3000,8 +3000,10 @@ function updateFlameBreathFinale(seq,sk,dt){
   activeSwordSkill=null;player.skillPose=-1;player.skillLift=0;
   player.cast=0;player.attackCd=0;player.attackAnim=0;
   player.moveLock=0;player.postSkillLockTimer=0;
+  if(seq.meteorInvulnActive){player.invuln=0;seq.meteorInvulnActive=false;}
   if(far)syncInstantPlayerMove(620);
  };
+ if(seq.flameCaught||seq.elapsed>=.50){seq.meteorInvulnActive=true;player.invuln=Math.max(player.invuln,.12);}
  if(seq.flameCaught&&(!seq.flameTarget||seq.flameTarget.dead||Number(seq.flameTarget.hp)<=0)){finish();return;}
  emit();
  if(!seq.flameCaught){
@@ -5992,7 +5994,8 @@ function pvpHongryeonHit(ev,k){
 }
 function pvpHongryeonFinale(ev,dt){
  const a=ev.hongFace??ev.a,fx=Math.cos(a),fy=Math.sin(a),nx=-fy,ny=fx;ev.hongFace=a;
- const finish=()=>{ev.endedAt=performance.now();me.skillEvent=null;me.skillKind='';me.skillPose=-1;me.skillLift=0;me.attackCd=me.attackAnim=me.moveLock=0;me.postSkillLock=.05;net({t:'teleport',x:me.x,y:me.y,a:me.a});};
+ const finish=()=>{ev.endedAt=performance.now();me.skillEvent=null;me.skillKind='';me.skillPose=-1;me.skillLift=0;me.attackCd=me.attackAnim=me.moveLock=0;me.postSkillLock=.05;if(ev.hongInvulnActive){me.inv=0;ev.hongInvulnActive=false;}net({t:'teleport',x:me.x,y:me.y,a:me.a});};
+ if(ev.hongCaught||ev.elapsed>=.50){ev.hongInvulnActive=true;me.inv=Math.max(me.inv,.12);}
  if(ev.hongCaught&&(!enemy||enemy.hp<=0)){finish();return;}
  if(!ev.hongCaught){
   if(ev.hongPending){if(!enemy||enemy.hp<=0||performance.now()-ev.hongPendingAt>900)finish();return;}
