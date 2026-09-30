@@ -4,7 +4,7 @@ import {seedPolicy} from '../multiplayer-server/ai/brain.js';
 const pass='test-admin-password-not-production';
 function harness(){let time=100000,busy=false,jobs=[],sent=[],applied;const svc=createDeviceTraining({send:(ws,m)=>sent.push(m),isBusy:()=>busy,onPolicy:p=>applied=p,now:()=>time,passwordHash:createHash('sha256').update(pass).digest('hex'),makeWorker:data=>{const w=new EventEmitter();w.data=data;w.terminate=()=>w.emit('exit');jobs.push(w);return w}});const p={clientMode:'pvp',clientSessionId:'training-device-old',ws:{readyState:1,_socket:{remoteAddress:'local'},close(){this.readyState=3}}};return {svc,p,jobs,sent,setBusy:v=>busy=v,advance:n=>time+=n,auth:()=>svc.handle(p,{type:'ai:trainAuth',password:pass}),load:()=>svc.handle(p,{type:'ai:trainLoad'}),ack(){const m=sent.filter(x=>x.type==='ai:trainCheckpoint').at(-1);svc.handle(p,{type:'ai:trainSaved',session:m.session,revision:m.revision,matches:m.checkpoint.policy.matches})}}}
 test('hidden entry never substitutes for server password; saved checkpoint required to start',()=>{const h=harness();try{h.svc.handle(h.p,{type:'ai:trainStart'});assert.equal(h.jobs.length,0);h.svc.handle(h.p,{type:'ai:trainAuth',password:'wrong'});assert.equal(h.sent.at(-1).ok,false);h.auth();assert.equal(h.p.trainingAdmin,true);h.load();h.svc.handle(h.p,{type:'ai:trainStart'});assert.equal(h.jobs.length,0);h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});assert.equal(h.jobs.length,1);}finally{h.svc.close()}});
-test('player activity, missing heartbeat, save failures and logout pause the worker',()=>{const h=harness();try{h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});const gate=new Int32Array(h.jobs[0].data.control);assert.equal(gate[0],1);h.setBusy(true);h.svc.tick();assert.equal(gate[0],0);h.setBusy(false);h.svc.tick();assert.equal(gate[0],1);h.advance(46000);h.svc.tick();assert.equal(gate[0],0);h.svc.handle(h.p,{type:'ai:trainBeat'});assert.equal(gate[0],1);h.svc.handle(h.p,{type:'ai:trainSaveFailed'});h.svc.tick();assert.equal(gate[0],0);h.svc.leave(h.p);assert.equal(h.p.trainingAdmin,false);}finally{h.svc.close()}});
+test('player activity, missing heartbeat and logout pause the worker while save failure does not',()=>{const h=harness();try{h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});const gate=new Int32Array(h.jobs[0].data.control);assert.equal(gate[0],1);h.setBusy(true);h.svc.tick();assert.equal(gate[0],0);h.setBusy(false);h.svc.tick();assert.equal(gate[0],1);h.advance(46000);h.svc.tick();assert.equal(gate[0],0);h.svc.handle(h.p,{type:'ai:trainBeat'});assert.equal(gate[0],1);h.svc.handle(h.p,{type:'ai:trainSaveFailed'});h.svc.tick();assert.equal(gate[0],1);h.svc.leave(h.p);assert.equal(h.p.trainingAdmin,false);}finally{h.svc.close()}});
 test('25 matches or five minutes request cloud save; policy survives device disconnect',()=>{const h=harness();try{h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});const policy=seedPolicy();policy.matches=25;h.jobs[0].emit('message',{checkpoint:{schema:1,batch:25,completed:25,policy,baseline:seedPolicy()}});assert.equal(h.sent.filter(x=>x.type==='ai:trainCheckpoint').at(-1).save,true);h.ack();h.advance(300001);h.svc.handle(h.p,{type:'ai:trainBeat'});assert.equal(h.sent.filter(x=>x.type==='ai:trainCheckpoint').at(-1).save,true);h.svc.leave(h.p);h.auth();assert.equal(h.sent.filter(x=>x.type==='ai:trainAuth').at(-1).loaded,true);}finally{h.svc.close()}});
 test('new authenticated device takes over after old device saves; stale sessions cannot auto-reconnect',()=>{
  const h=harness();
@@ -195,12 +195,12 @@ test('continuous training accepts batches above 25 and keeps the configured burs
 test('training count continues beyond 1050 while Firebase save requests are coalesced',()=>{
  const h=harness();try{
   h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
-  const job=h.jobs[0],base=seedPolicy();
+  const job=h.jobs[0],base=seedPolicy(),before=h.sent.filter(m=>m.type==='ai:trainCheckpoint').length;
   for(let matches=1025;matches<=1100;matches+=25){
    const policy=structuredClone(base);policy.matches=matches;
    job.emit('message',{checkpoint:{schema:1,batch:25,completed:25,policy,baseline:seedPolicy()}});
   }
-  const checkpoints=h.sent.filter(m=>m.type==='ai:trainCheckpoint');
+  const checkpoints=h.sent.filter(m=>m.type==='ai:trainCheckpoint').slice(before);
   assert.equal(checkpoints.filter(m=>m.save===true).length,1,'Only one Firebase save may be in flight');
   const status=h.sent.filter(m=>m.type==='ai:trainStatus').at(-1);
   assert.equal(status.matches,1100,'Training counter must not stop at 1050');
