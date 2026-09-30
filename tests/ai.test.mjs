@@ -17,6 +17,24 @@ test('AI self-play optionally exposes real read-only spectator snapshots',()=>{
  assert.ok(result.results.every(x=>Number.isFinite(x.reward)));
  assert.equal(a.matches,0,'Watching alone must not mutate AI policy');
 });
+test('device trainer advances at least three watched battles concurrently',{timeout:12000},async()=>{
+ const control=new Int32Array(new SharedArrayBuffer(4)),watch=new Int32Array(new SharedArrayBuffer(4)),tuning=new Int32Array(new SharedArrayBuffer(8));
+ Atomics.store(control,0,1);Atomics.store(watch,0,1);Atomics.store(tuning,0,0);Atomics.store(tuning,1,3);
+ const p=seedPolicy(),checkpoint={schema:1,batch:25,completed:0,policy:p,baseline:structuredClone(p)};
+ const worker=new Worker(new URL('../multiplayer-server/ai/train-worker.js',import.meta.url),{workerData:{policy:p,checkpoint,control:control.buffer,watch:watch.buffer,tuning:tuning.buffer,device:true}});
+ const lanes=new Set();
+ try{
+  await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>reject(Error('Concurrent training previews timed out: '+[...lanes].join(','))),10000);
+   worker.on('error',e=>{clearTimeout(timer);reject(e)});
+   worker.on('message',m=>{if(m.preview?.phase==='train'){lanes.add(m.preview.lane);if(lanes.size>=3){clearTimeout(timer);resolve();}}});
+  });
+  assert.deepEqual([...lanes].sort((a,b)=>a-b),[0,1,2]);
+ }finally{
+  Atomics.store(control,0,2);Atomics.notify(control,0);await worker.terminate();
+ }
+});
+
 test('Void AI treats skill 3 as a reactive evade stance, not the old basic follow-up combo',()=>{
  const brain=createBrain('void',seedPolicy(),()=>.2,3),me={x:1000,y:1000,stam:100,maxStam:100,hp:100,maxHp:100,shield:100,stun:0,cool:[9,9,0,9,9],skillEvent:null,skillHold:null,void3DodgeRemaining:0},enemy={x:1100,y:1000,dash:0,attackAnim:0,skillPose:-1};
  let command;for(let i=0;i<8&&!Number.isInteger(command?.skill);i++)command=brain.step(.3,me,enemy);assert.equal(command.skill,2);
