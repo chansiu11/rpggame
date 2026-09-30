@@ -55,6 +55,13 @@ test('fresh neural policies produce combat exploration for every style',()=>{
  }
 });
 
+test('fresh neural policy acts without training-only exploration',()=>{
+ const p=seedPolicy(),session=createDuelSession('gale','break',p,p,901,6,()=>{},null,{explore:false});
+ let result;try{while(!session.done)result=session.step();}finally{session.dispose();}
+ assert.ok(result.results.some(r=>r.metrics.attempts>0),'fresh live/evaluation policy must attempt combat without exploration');
+ assert.ok(result.results.some(r=>r.metrics.damage>0),'fresh live/evaluation policy must be capable of dealing damage');
+});
+
 test('learning updates the network and never learns resource management',()=>{
  const p=seedPolicy(),before=p.styles.break.network.w1.slice();
  learn(p,'break',{noiseSeed:123456,sigma:p.styles.break.sigma},{win:true,reward:1.2,metrics:{hits:3}});
