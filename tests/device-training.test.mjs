@@ -148,6 +148,25 @@ test('split spectator creates separate panes for training and evaluation battles
  assert.equal(root.children[3].children.length,1);
 });
 
+test('split spectator restarts the same pane when a new bout reaches that lane',async()=>{
+ const vm=await import('node:vm'),{readFileSync}=await import('node:fs');
+ const ctx={beginPath(){},moveTo(){},lineTo(){},stroke(){},fillRect(){},arc(){},ellipse(){},fill(){},setLineDash(){},fillText(){}};
+ const el=tag=>({tag,children:[],hidden:false,className:'',textContent:'',width:0,height:0,appendChild(v){this.children.push(v)},setAttribute(){},getContext(){return tag==='canvas'?ctx:null}});
+ const head=el('head'),document={head,createElement:el};
+ const scheduled=[];const c={console,Map,Math,Number,Array,Object,String,setTimeout:fn=>{scheduled.push(fn);return scheduled.length},clearTimeout(){},document};c.window=c;vm.createContext(c);
+ vm.runInContext(readFileSync(new URL('../ai-training-viewer.js',import.meta.url),'utf8'),c);
+ const root=el('root');c.EchoesAiTrainingViewer.init(root);c.EchoesAiTrainingViewer.show(true);
+ const players=[{x:1400,y:1050,a:0,hp:100,maxHp:100,shield:100,maxShield:100},{x:2200,y:1050,a:3.14,hp:100,maxHp:100,shield:100,maxShield:100}];
+ c.EchoesAiTrainingViewer.frame({phase:'train',lane:0,laneCount:3,cycle:0,match:1,styles:['gale','void'],step:60,players,final:true});
+ while(scheduled.length)scheduled.shift()();
+ const pane=root.children[1].children[0],oldInfo=pane.children[2].textContent;
+ c.EchoesAiTrainingViewer.frame({phase:'train',lane:0,laneCount:3,cycle:0,match:4,styles:['dawn','break'],step:0,players});
+ assert.notEqual(pane.children[2].textContent,oldInfo);
+ assert.match(pane.children[0].textContent,/재전투 1회/);
+ assert.match(pane.children[2].textContent,/4번째/);
+ assert.doesNotMatch(pane.children[2].textContent,/종료/);
+});
+
 test('retraining cadence changes live without changing battle simulation speed',()=>{
  const h=harness();try{
   h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
