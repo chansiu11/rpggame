@@ -142,10 +142,11 @@ test('split spectator creates separate panes for training and evaluation battles
  const root=el('root');c.EchoesAiTrainingViewer.init(root);c.EchoesAiTrainingViewer.show(true);
  const players=[{x:1400,y:1050,a:0,hp:100,maxHp:100,shield:100,maxShield:100},{x:2200,y:1050,a:3.14,hp:100,maxHp:100,shield:100,maxShield:100}];
  c.EchoesAiTrainingViewer.frame({phase:'train',lane:0,laneCount:3,match:1,styles:['gale','void'],step:0,players});
+ assert.equal(root.children[1].children.length,3,'All training panes are created immediately from laneCount');
  c.EchoesAiTrainingViewer.frame({phase:'train',lane:1,laneCount:3,match:2,styles:['dawn','break'],step:0,players});
- c.EchoesAiTrainingViewer.frame({phase:'evaluation',lane:0,laneCount:32,match:1,styles:['gale','break'],step:0,players});
- assert.equal(root.children[1].children.length,2);
- assert.equal(root.children[3].children.length,1);
+ c.EchoesAiTrainingViewer.frame({phase:'evaluation',lane:0,laneCount:6,match:1,styles:['gale','break'],step:0,players});
+ assert.equal(root.children[1].children.length,3);
+ assert.equal(root.children[3].children.length,6,'All evaluation panes are created immediately too');
 });
 
 test('split spectator restarts the same pane when a new bout reaches that lane',async()=>{
