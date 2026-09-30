@@ -99,7 +99,7 @@ test('Hongryeon ultimate ends after missed dash and follows up only on confirmed
   b.api.control({keys:[],aim:0,skill:4});
   b.step(.35);b.api.control({keys:[],aim:0,release:4});
   assert.equal(b.api.me.skillEvent?.skill?.id,'meteorBreaker');
-  for(let i=0;i<32&&!hits.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)b.step(1/60);
+  for(let i=0;i<110&&!hits.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)b.step(1/60);
   const first=hits.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
   assert.ok(first,'short dash must produce an opening hit packet');
   b.api.receive({t:'attackResult',id:first.id,result:'hit'});
@@ -119,7 +119,7 @@ test('Hongryeon PVP fifth-form immediately ends when its caught opponent dies',(
   arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
   arena.api.control({keys:[],aim:0,skill:4});arena.step(.35);
   arena.api.control({keys:[],aim:0,release:4});
-  for(let i=0;i<32&&!packets.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)arena.step(1/60);
+  for(let i=0;i<110&&!packets.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)arena.step(1/60);
   const opening=packets.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
   assert.ok(opening,'opening dash should hit');
   arena.api.receive({t:'attackResult',id:opening.id,result:'hit'});
@@ -251,7 +251,7 @@ test('PvP fifth form uses world flame cuts and rotating fire without old explosi
   arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
   arena.api.control({keys:[],aim:0,skill:4});arena.step(.35);
   arena.api.control({keys:[],aim:0,release:4});
-  for(let i=0;i<32&&!packets.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)arena.step(1/60);
+  for(let i=0;i<110&&!packets.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)arena.step(1/60);
   const opening=packets.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
   assert.ok(opening);
   arena.api.receive({t:'attackResult',id:opening.id,result:'hit'});
@@ -310,7 +310,7 @@ test('PvP fifth-form confirmed hit sends the first flame to the other player fro
   attacker.api.enemy.netX=attacker.api.enemy.x;attacker.api.enemy.netY=attacker.api.enemy.y;
   attacker.api.control({keys:[],aim:0,skill:4});attacker.step(.35);
   attacker.api.control({keys:[],aim:0,release:4});
-  for(let i=0;i<32&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)attacker.step(1/60);
+  for(let i=0;i<110&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)attacker.step(1/60);
   const hit=packets.find(p=>p.t==='atk'&&p.skillId==='meteorBreaker');
   assert.ok(hit,'opening dash should connect');
   const before=packets.length;
@@ -380,7 +380,7 @@ test('Hongryeon fifth form halves opening and follow-up PvP stun without changin
   a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
   a.api.control({keys:[],aim:0,skill:4});a.step(.35);
   a.api.control({keys:[],aim:0,release:4});
-  for(let i=0;i<32&&!sent.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)a.step(1/60);
+  for(let i=0;i<110&&!sent.some(m=>m.t==='atk'&&m.skillId==='meteorBreaker');i++)a.step(1/60);
   const opening=sent.find(m=>m.t==='atk'&&m.skillId==='meteorBreaker');
   assert.ok(opening);
   assert.equal(opening.stun,1.55,'opening stun is half of 3.1 seconds');
@@ -459,7 +459,7 @@ test('Hongryeon fifth-form PvP shield blocks and perfect parries end the cast wi
    a.api.enemy.netX=a.api.enemy.x;a.api.enemy.netY=a.api.enemy.y;
    a.api.control({keys:[],aim:0,skill:4});a.step(.35);
    a.api.control({keys:[],aim:0,release:4});
-   for(let i=0;i<32&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)a.step(1/60);
+   for(let i=0;i<110&&!packets.some(p=>p.t==='atk'&&p.skillId==='meteorBreaker');i++)a.step(1/60);
    const opening=packets.find(p=>p.t==='atk'&&p.skillId==='meteorBreaker');
    assert.ok(opening,'the opening dash should reach the defender');
    assert.equal(opening.bypassShield,false,'the opening dash must be blockable');
@@ -542,4 +542,37 @@ test('Hongryeon fourth-form PvP flame trail avoids duplicate packets but preserv
   assert.ok(packets.some(p=>p.t==='state'&&p.hongFxReplay?.some(e=>e.id==='ironJudgment'&&e.phase==='trail')),
    'state snapshots can still recover a lost trail packet');
  }finally{arena.dispose();}
+});
+
+test('Hongryeon fifth form uses a natural fire-circle startup and begins its half-speed dash only after 0.5 seconds',()=>{
+ const arena=createArena({style:'break',level:100}),packets=[];
+ try{
+  arena.api.init(arena.snapshot,arena.snapshot,true,m=>packets.push(m));
+  const build=arena.c.EchoesBuildHongryeonFx;
+  const startup=build({id:'meteorBreaker',phase:'startup',x:1000,y:1000,a:0});
+  const plumes=startup.filter(e=>e.type==='flameBreathPlume');
+  assert.ok(plumes.length>=8,'startup circle should be made from multiple irregular fire tongues');
+  assert.ok(plumes.every(e=>Math.hypot(e.x-1000,e.y-1000)>90&&Math.hypot(e.x-1000,e.y-1000)<145),
+   'startup flames should sit around the caster instead of forming a central beam');
+  assert.equal(startup.filter(e=>e.type==='ring').length,0,'the startup recipe should not use a solid ring primitive');
+
+  arena.api.enemy.x=arena.api.me.x+700;arena.api.enemy.y=arena.api.me.y;
+  arena.api.enemy.netX=arena.api.enemy.x;arena.api.enemy.netY=arena.api.enemy.y;
+  const ox=arena.api.me.x;
+  arena.api.control({keys:[],aim:0,skill:4});arena.step(.2);
+  arena.api.control({keys:[],aim:0,release:4});
+  const seq=arena.api.me.skillEvent;assert.equal(seq?.skill?.id,'meteorBreaker');
+  for(let i=0;i<25;i++)arena.step(1/60);
+  assert.ok(Math.abs(arena.api.me.x-ox)<2,'the caster must remain in the ignition circle for the first 0.5 seconds');
+  for(let i=0;i<12;i++)arena.step(1/60);
+  assert.ok(arena.api.me.x>ox+20,'the dash starts after the startup delay');
+  const trail=packets.filter(p=>p.t==='hongFx'&&p.f.id==='meteorBreaker'&&p.f.phase==='trail');
+  assert.ok(trail.length>0,'the slower dash keeps a visible flame trail');
+ }finally{arena.dispose();}
+ const world=html.slice(html.indexOf('function updateFlameBreathFinale('),html.indexOf('function updateSwordSkill(dt)'));
+ const pvp=html.slice(html.indexOf('function pvpHongryeonFinale('),html.indexOf('function pvpWorldSwordMotion('));
+ assert.match(world,/startup=\.50,dashElapsed=seq\.elapsed-startup/);
+ assert.match(world,/dashSpeed=1175/);
+ assert.match(pvp,/startup=\.50,dashElapsed=ev\.elapsed-startup/);
+ assert.match(pvp,/dashSpeed=1175/);
 });
