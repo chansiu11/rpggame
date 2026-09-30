@@ -26,13 +26,20 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
   p.controlUntil=Math.max(p.controlUntil||0,p.stunUntil||0);
  }
  function ingest(p,msg){
-  const t=now();advance(p,t);const seq=Math.floor(Number(msg.seq)||0);
+  const t=now();advance(p,t);const seq=Math.floor(Number(msg.seq)||0),hadInput=(p.inputSeq||0)>0;
   if(seq<= (p.inputSeq||0))return null;p.inputSeq=seq;
   const ack=Math.floor(Number(msg.combatAck)||0),fresh=ack===(p.combatRevision||0),out={...msg};
   if(!fresh||p.forceMove||t<(p.controlUntil||0)||t<(p.rootUntil||0)){out.x=p.x;out.y=p.y;out.vx=out.vy=0;}
   if(msg.teleport&&fresh&&!p.forceMove&&t>=(p.controlUntil||0))p.teleportSeq=seq;
   if(!fresh){out.hp=p.hp;out.shield=p.shield;out.stam=p.stam;}
   if(fresh){
+   // Shared-world monster damage is simulated by the defending client. Count
+   // only acknowledged HP loss, never a stale replay or the initial login HP.
+   if(hadInput&&number(msg.hp)&&Number(msg.hp)<p.hp){
+    const lost=p.hp-clamp(msg.hp,0,p.maxHp||999999);
+    if(lost>0){if(t-(p.escapeLastAt||0)>=2500)p.escapeDamage=0;
+     p.escapeLastAt=t;p.escapeDamage=Math.min((p.maxHp||100)*.4,(p.escapeDamage||0)+lost);}
+   }
    for(const k of ['maxShield','maxStam'])if(number(msg[k]))p[k]=clamp(msg[k],0,999999);
    for(const k of ['shield','stam'])if(number(msg[k]))p[k]=clamp(msg[k],0,p[k==='shield'?'maxShield':'maxStam']||999999);
    for(const k of timed){if(k==='stun'||k==='root'||k==='mark')continue;if(number(msg[k]))p[k+'Until']=t+clamp(msg[k],0,k==='invuln'?1:3)*1000;}
