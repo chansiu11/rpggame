@@ -54,7 +54,7 @@ test('repeated incorrect passwords cannot force an administrator logout',()=>{
 test('panel is reachable only by the title-screen hotkey and controls remain locked before auth',async()=>{
  const vm=await import('node:vm'),{readFileSync}=await import('node:fs');const nodes=new Map(),events={},listeners={};let titleHidden=false;
  function node(id){if(nodes.has(id))return nodes.get(id);const n={id,hidden:id==='aiDeviceControls',value:'',textContent:'',classList:{contains:()=>titleHidden},appendChild(){},replaceChildren(){},addEventListener(t,fn){listeners[id+':'+t]=fn},focus(){},showModal(){this.open=true},close(){this.open=false}};nodes.set(id,n);return n;}
- const panel=node('panel'),c={console,Promise,Map,Object,JSON,String,structuredClone,setInterval:()=>1,clearInterval(){},localStorage:{getItem:()=>null,setItem(){}},document:{createElement:t=>t==='dialog'?panel:node(t),head:node('head'),body:node('body'),getElementById:node},EchoesMulti:{on:(t,f)=>events[t]=f,training(){},disconnect(){},state:{deviceTrainingProtocol:2}},addEventListener:(t,f)=>listeners[t]=f};c.window=c;vm.createContext(c);vm.runInContext(readFileSync(new URL('../ai-device-panel.js',import.meta.url),'utf8'),c);
+ const panel=node('panel'),c={console,Promise,Map,Object,JSON,String,structuredClone,setInterval:()=>1,clearInterval(){},localStorage:{getItem:()=>null,setItem(){}},document:{createElement:t=>t==='dialog'?panel:node(t),head:node('head'),body:node('body'),getElementById:node},EchoesMulti:{on:(t,f)=>events[t]=f,training(){},disconnect(){},state:{deviceTrainingProtocol:3}},addEventListener:(t,f)=>listeners[t]=f};c.window=c;vm.createContext(c);vm.runInContext(readFileSync(new URL('../ai-device-panel.js',import.meta.url),'utf8'),c);
  listeners.keydown({code:'F9',ctrlKey:false,shiftKey:false,preventDefault(){}});assert.equal(panel.open,undefined);
  titleHidden=true;listeners.keydown({code:'F9',ctrlKey:true,shiftKey:true,preventDefault(){}});assert.equal(panel.open,undefined);
  titleHidden=false;listeners.keydown({code:'F9',ctrlKey:true,shiftKey:true,preventDefault(){}});assert.equal(panel.open,true);assert.equal(node('aiDeviceControls').hidden,true);
@@ -66,7 +66,7 @@ test('new admin login triggers previous browser checkpoint save, sign-out and di
  const nodes=new Map(),events={},listeners={},sent=[],saved=[];let loggedOut=0,disconnected=0;
  function node(id){if(nodes.has(id))return nodes.get(id);const n={id,hidden:false,value:'',textContent:'',classList:{contains:()=>false},appendChild(){},replaceChildren(){},addEventListener(t,fn){listeners[id+':'+t]=fn},focus(){},showModal(){this.open=true},close(){this.open=false}};nodes.set(id,n);return n;}
  const panel=node('panel'),cloud={ready:Promise.resolve(),currentTrainingUid:()=> 'admin-test',loginTraining:async()=>{},logoutTraining:async()=>{loggedOut++},saveTraining:async p=>saved.push(p)};
- const multi={state:{deviceTrainingProtocol:2},connected:false,on:(t,f)=>events[t]=f,training:(t,p)=>sent.push({type:t,...p}),connect:async function(){this.connected=true},disconnect(){this.connected=false;disconnected++}};
+ const multi={state:{deviceTrainingProtocol:3},connected:false,on:(t,f)=>events[t]=f,training:(t,p)=>sent.push({type:t,...p}),connect:async function(){this.connected=true},disconnect(){this.connected=false;disconnected++}};
  const c={console,Promise,Map,Object,JSON,String,structuredClone,setInterval:()=>1,clearInterval(){},localStorage:{getItem:()=>null,setItem(){}},document:{createElement:t=>t==='dialog'?panel:node(t),head:node('head'),body:node('body'),getElementById:node},EchoesMulti:multi,EchoesCloud:cloud,EchoesTrainingAccount:{clearGameSession(){}},addEventListener:(t,f)=>listeners[t]=f};
  c.window=c;vm.createContext(c);vm.runInContext(readFileSync(new URL('../ai-device-panel.js',import.meta.url),'utf8'),c);
  listeners.keydown({code:'F9',ctrlKey:true,shiftKey:true,preventDefault(){}});node('aiDevicePassword').value='test-secret';
@@ -111,7 +111,7 @@ test('AI training manager mounts spectator only behind authenticated controls',a
  const nodes=new Map(),events={},listeners={},calls=[];
  const node=id=>{if(nodes.has(id))return nodes.get(id);const n={id,hidden:false,value:'',textContent:'',setAttribute(){},classList:{contains:()=>false},appendChild(){},replaceChildren(){},addEventListener(t,f){listeners[id+':'+t]=f},focus(){},showModal(){this.open=true},close(){this.open=false}};nodes.set(id,n);return n};
  const panel=node('panel'),viewer={init(el){calls.push(['init',el.id])},show(v){calls.push(['show',v])},frame(f){calls.push(['frame',f.step])}};
- const multi={on:(name,f)=>events[name]=f,training:(name,p)=>calls.push(['send',name,p]),state:{deviceTrainingProtocol:2},connect:async()=>{},disconnect(){},connected:false};
+ const multi={on:(name,f)=>events[name]=f,training:(name,p)=>calls.push(['send',name,p]),state:{deviceTrainingProtocol:3},connect:async()=>{},disconnect(){},connected:false};
  const cloud={ready:Promise.resolve(),currentTrainingUid:()=> 'admin-test',loginTraining:async()=>{},logoutTraining:async()=>{},loadTraining:async()=>null};
  const c={console,Promise,Map,Object,JSON,String,structuredClone,setInterval:()=>1,clearInterval(){},setTimeout,localStorage:{getItem:()=>null,setItem(){}},document:{createElement:t=>t==='dialog'?panel:node(t),head:node('head'),body:node('body'),getElementById:node},EchoesAiTrainingViewer:viewer,EchoesMulti:multi,EchoesCloud:cloud,EchoesTrainingAccount:{clearGameSession(){}},addEventListener:(t,f)=>listeners[t]=f};
  c.window=c;vm.createContext(c);vm.runInContext(readFileSync(new URL('../ai-device-panel.js',import.meta.url),'utf8'),c);
@@ -148,7 +148,7 @@ test('retraining cadence changes live without changing battle simulation speed',
  }finally{h.svc.close();}
 });
 
-test('training status includes the last duel and the next least-experienced pairing',()=>{
+test('continuous training accepts batches above 25 and keeps the configured burst',()=>{\n const h=harness();try{\n  h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainConfig',retrainDelayMs:0,matchesPerBurst:100});h.svc.handle(h.p,{type:'ai:trainStart'});\n  const policy=seedPolicy();policy.matches=30;\n  h.jobs[0].emit('message',{checkpoint:{schema:1,batch:100,completed:30,policy,baseline:seedPolicy()}});\n  const status=h.sent.filter(m=>m.type==='ai:trainStatus').at(-1);\n  assert.equal(status.batchSize,100);assert.equal(status.batchCompleted,30);assert.equal(status.settings.matchesPerBurst,100);\n }finally{h.svc.close();}\n});\n\ntest('training status includes the last duel and the next least-experienced pairing',()=>{
  const h=harness();try{
   h.auth();h.load();h.ack();h.svc.handle(h.p,{type:'ai:trainStart'});
   const job=h.jobs[0],policy=seedPolicy();policy.matches=1;policy.styles.gale.games=1;policy.styles.void.games=1;
