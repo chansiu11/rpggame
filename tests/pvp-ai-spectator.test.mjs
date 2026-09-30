@@ -72,6 +72,6 @@ test('new AI spectator match shares trained policy and receives reliable opponen
   assert.equal(ready.msg.spectate,true);
   assert.equal(ready.msg.style,'dawn');
   assert.equal(ready.msg.difficulty,5);
-  assert.ok(ready.msg.policy.styles.dawn.weights.length===3);
+  assert.equal(ready.msg.policy.schema,2);assert.equal(ready.msg.policy.model,'mlp-es-v1');assert.ok(ready.msg.policy.styles.dawn.network.w1.length>0);
  }finally{service.leave(player)}
 });
