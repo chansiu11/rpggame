@@ -102,7 +102,8 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    // Pure shield blocks also resist queued pulls, stuns and follow-up control.
    if(!damageEvent&&b.block&&b.shield>0&&!e.bypassShield)continue;
    if(damageEvent&&!contact(b,e,t))continue;
-   if(t<(b.invulnUntil||0)&&damageEvent)continue;
+   const guaranteedMeteorContact=damageEvent&&e.guaranteedContact===true&&String(e.skillId||'')==='meteorBreaker';
+   if(t<(b.invulnUntil||0)&&damageEvent&&!guaranteedMeteorContact)continue;
    // A Void 3 mark only counters actual attacks from its marked opponent.
    const guard=b.void3Mark;
    if(damageEvent&&guard&&guard.targetId===a.id&&t<guard.until&&guard.remaining>0&&!guard.pending&&clamp(e.damage,0,5000)>0){
@@ -118,7 +119,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    let damage=0,outcome='control';
    if(damageEvent){
     let raw=clamp(e.damage,0,5000);if(!raw)continue;
-    if(b.block&&b.shield>0&&!e.bypassShield){
+    if(b.block&&b.shield>0&&!e.bypassShield&&!guaranteedMeteorContact){
      b.shieldDelayUntil=t+1400;
      if(e.parryable!==false&&t<(b.parryWindowUntil||0)&&!e.breakShield){b.parryWindowUntil=0;b.shield=Math.max(0,b.shield-4);if(b.shield<=0)b.block=false;b.stam=Math.min(b.maxStam||0,(b.stam||0)+28);b.invulnUntil=t+250;lease(a,{stun:1.25},t);a.forceMove=null;a.controlBy=null;emit(a,{attackerId:b.id,outcome:'parried',damage:0});emit(b,{attackerId:a.id,outcome:'parry',damage:0,procId:String(e.procId||'').slice(0,40)});b.controlBy=null;continue;}
      if(e.breakShield){b.shield=0;b.shieldBrokenUntil=t;b.block=false;}else{const cost=C.shieldCost(raw),before=b.shield;b.shield=Math.max(0,b.shield-cost);if(b.shield>0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0,procId:String(e.procId||'').slice(0,40)});b.controlBy=null;continue;}b.shieldBrokenUntil=t;b.block=false;raw*=Math.max(0,1-before/cost);if(raw<=0){emit(b,{attackerId:a.id,outcome:'blocked',damage:0,procId:String(e.procId||'').slice(0,40)});b.controlBy=null;continue;}}
