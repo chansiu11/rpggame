@@ -66,7 +66,7 @@ test('new admin login triggers previous browser checkpoint save, sign-out and di
  const vm=await import('node:vm'),{readFileSync}=await import('node:fs');
  const nodes=new Map(),events={},listeners={},sent=[],saved=[];let loggedOut=0,disconnected=0;
  function node(id){if(nodes.has(id))return nodes.get(id);const n={id,hidden:false,value:'',textContent:'',classList:{contains:()=>false},appendChild(){},replaceChildren(){},addEventListener(t,fn){listeners[id+':'+t]=fn},focus(){},showModal(){this.open=true},close(){this.open=false}};nodes.set(id,n);return n;}
- const panel=node('panel'),cloud={ready:Promise.resolve(),currentTrainingUid:()=> 'admin-test',loginTraining:async()=>{},logoutTraining:async()=>{loggedOut++},saveTraining:async p=>saved.push(p)};
+ const panel=node('panel'),cloud={ready:Promise.resolve(),currentTrainingUid:()=> 'admin-test',loginTraining:async()=>{},logoutTraining:async()=>{loggedOut++},loadTraining:async()=>null,saveTraining:async p=>saved.push(p)};
  const multi={state:{deviceTrainingProtocol:3},connected:false,on:(t,f)=>events[t]=f,training:(t,p)=>sent.push({type:t,...p}),connect:async function(){this.connected=true},disconnect(){this.connected=false;disconnected++}};
  const c={console,Promise,Map,Object,JSON,String,structuredClone,setInterval:()=>1,clearInterval(){},localStorage:{getItem:()=>null,setItem(){}},document:{createElement:t=>t==='dialog'?panel:node(t),head:node('head'),body:node('body'),getElementById:node},EchoesMulti:multi,EchoesCloud:cloud,EchoesTrainingAccount:{clearGameSession(){}},addEventListener:(t,f)=>listeners[t]=f};
  c.window=c;vm.createContext(c);vm.runInContext(readFileSync(new URL('../ai-device-panel.js',import.meta.url),'utf8'),c);
