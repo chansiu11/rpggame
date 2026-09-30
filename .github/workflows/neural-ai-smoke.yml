@@ -7,6 +7,9 @@ on:
       - 'tests/neural-ai-smoke.test.mjs'
       - '.github/workflows/neural-ai-smoke.yml'
   workflow_dispatch:
+concurrency:
+  group: neural-ai-smoke-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   neural-smoke:
     runs-on: ubuntu-latest
