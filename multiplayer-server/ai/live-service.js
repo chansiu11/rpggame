@@ -27,5 +27,5 @@ export function createAiService(send,{store=new FirebaseStore(),refreshIntervalM
  const s=sessions.get(p.id);if(!s||s.id!==m.matchId||bytes>65536||!m.data||typeof m.data.t!=='string')return true;
  if(Date.now()-s.at>=1000){s.at=Date.now();s.count=0;}if(++s.count>(s.spectate?1200:240))return true;s.worker.postMessage(m.data);
  }return true;
- }return {handle,leave,setPolicy(value){policy=value;devicePolicyInstalled=true;},get currentPolicy(){return policy;},get active(){return sessions.size;},close(){clearInterval(refresh);for(const s of sessions.values()){clearTimeout(s.timeout);s.worker.terminate();}sessions.clear();}};
+ }return {handle,leave,setPolicy(value){policy=ensurePolicyStyles(value);devicePolicyInstalled=true;},get currentPolicy(){return policy;},get active(){return sessions.size;},close(){clearInterval(refresh);for(const s of sessions.values()){clearTimeout(s.timeout);s.worker.terminate();}sessions.clear();}};
 }
