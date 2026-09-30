@@ -28,7 +28,7 @@ test('neural policy shape and learning contract are valid',()=>{
 test('reactive dodge stays code-driven rather than neural',()=>{
  const p=seedPolicy(),brain=createBrain('gale',p,()=>.5,3,{training:true});
  const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:100,maxStam:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0};
- const enemy={x:1120,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:.25,skillPose:-1,block:false,combo:0};
+ const enemy={x:1120,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:.25,skillPose:0,block:false,combo:0};
  const action=brain.step(1/60,me,enemy);
  assert.equal(action.dash,true);
  assert.ok(action.keys.length>0);
