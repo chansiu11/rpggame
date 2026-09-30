@@ -24,6 +24,9 @@ on:
       - 'tests/world-combat.test.mjs'
       - 'tests/skill-render-ghosting.test.mjs'
   workflow_dispatch:
+concurrency:
+  group: combat-regressions-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   void3-tests:
     runs-on: ubuntu-latest
