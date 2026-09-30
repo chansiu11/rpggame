@@ -6,10 +6,10 @@ const style=document.createElement('style');style.textContent='#aiDevicePanel{ma
 const $=id=>document.getElementById(id),m=window.EchoesMulti;
 const tell=text=>$('aiDeviceMessage').textContent=text,viewer=window.EchoesAiTrainingViewer;viewer?.init($('aiSpectator'));
 function showWatch(on){viewer?.show(on);$('aiWatchButton').textContent=on?'대전 관전 끄기':'대전 관전 켜기';$('aiWatchButton').setAttribute?.('aria-pressed',String(on));}
-const key=()=> 'echoes-ai-checkpoint-v4-neural-20260930:'+cloud.currentTrainingUid();
+const key=()=> 'echoes-ai-checkpoint-v5-neural-seed-20260930:'+cloud.currentTrainingUid();
 function localRead(){try{return JSON.parse(localStorage.getItem(key())||'null')}catch{return null}}
 function localWrite(c){try{localStorage.setItem(key(),JSON.stringify(c))}catch{}}
-function purgeLegacyLocalTraining(){try{const doomed=[];for(let i=0;i<(localStorage.length||0);i++){const k=localStorage.key?.(i);if(k&&k.startsWith('echoes-ai-checkpoint-')&&!k.startsWith('echoes-ai-checkpoint-v4-neural-20260930:'))doomed.push(k);}for(const k of doomed)localStorage.removeItem?.(k);}catch{}}
+function purgeLegacyLocalTraining(){try{const doomed=[];for(let i=0;i<(localStorage.length||0);i++){const k=localStorage.key?.(i);if(k&&k.startsWith('echoes-ai-checkpoint-')&&!k.startsWith('echoes-ai-checkpoint-v5-neural-seed-20260930:'))doomed.push(k);}for(const k of doomed)localStorage.removeItem?.(k);}catch{}}
 function send(type,data={}){return m.training(type,data)}
 const fmt=n=>Number(n||0).toLocaleString('ko-KR');
 const tuningKey='echoes-ai-training-tuning-v1';
