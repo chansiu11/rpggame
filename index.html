@@ -6438,6 +6438,41 @@ function pvpHongryeonHit(ev,k){
  }
  triggerPvpShake(ev.index,.65,false);
 }
+function pvpEclipseMotion(ev,dt){
+ const mode=ev.cfg.mode,t=clamp(ev.elapsed/Math.max(.01,ev.cfg.duration),0,1),target=pvpWorldSwordTarget(ev),side=ev.side||1,tc=target?{x:target.x,y:target.y}:null,base=ev.eclipseBaseFace??ev.a;ev.eclipseBaseFace=base;
+ let face=tc?Math.atan2(tc.y-me.y,tc.x-me.x):base,ca=Math.cos(face),sa=Math.sin(face),nx=-sa,ny=ca;
+ const move=(vx,vy)=>{me.x=clamp(me.x+vx*dt,25,ARENA_W-25);me.y=clamp(me.y+vy*dt,25,ARENA_H-25);};
+ const moveTo=(tx,ty,speed,stop=0)=>{const dx=tx-me.x,dy=ty-me.y,d=Math.hypot(dx,dy)||1;if(d<=stop)return;const st=Math.min(speed*dt,d-stop);me.x=clamp(me.x+dx/d*st,25,ARENA_W-25);me.y=clamp(me.y+dy/d*st,25,ARENA_H-25);};
+ if(mode==='solarFlashLine'){
+  if(t<.34)move(ca*1850,sa*1850);else if(t<.48)move(-ca*160,-sa*160);else if(tc)moveTo(tc.x,tc.y,680,110);
+  me.skillLift=Math.sin(Math.min(1,t/.44)*Math.PI)*4;me.inv=Math.max(me.inv,.034);pvpShake=Math.max(pvpShake,t<.34?4.4:2.8);
+ }else if(mode==='solarFlowChain'){
+  const p=Math.min(3,Math.floor(t*4)),u=t*4-p,curve=[-1,1,1,-1][p]*side,fwd=[440,360,420,300][p],lat=[260,300,220,180][p]*curve*Math.sin(u*Math.PI);
+  move(ca*fwd+nx*lat,sa*fwd+ny*lat);me.skillLift=2+Math.sin(u*Math.PI)*5;me.inv=Math.max(me.inv,.022);pvpShake=Math.max(pvpShake,2+Math.abs(Math.sin(u*Math.PI))*1.8);
+ }else if(mode==='solarFallingCleave'){
+  if(t<.28)move(ca*1120,sa*1120);else if(t<.60){move(ca*360,sa*360);me.skillLift=Math.sin((t-.28)/.32*Math.PI)*58;}else{me.skillLift=Math.max(0,58*(1-(t-.60)/.22));if(tc)moveTo(tc.x,tc.y,520,100);}
+  me.inv=Math.max(me.inv,.028);pvpShake=Math.max(pvpShake,t<.28?3.2:t<.60?3.8:5.2);
+ }else if(mode==='lunarMistStep'){
+  if(!ev.eclipseSlipTeleported&&t<.24)move(ca*980+nx*side*520,sa*980+ny*side*520);else if(!ev.eclipseSlipTeleported&&t<.36)move(nx*side*260,ny*side*260);
+  me.skillLift=Math.sin(Math.PI*t)*4;me.inv=Math.max(me.inv,.032);pvpShake=Math.max(pvpShake,ev.eclipseSlipTeleported?3.8:2.6);
+ }else if(mode==='lunarSpiralBind'){
+  if(tc)moveTo(tc.x,tc.y,360,175);me.skillLift=2+Math.sin(t*Math.PI*3)*4;pvpShake=Math.max(pvpShake,3+Math.abs(Math.sin(t*Math.PI*3))*2);
+ }else if(mode==='lunarWildAngles'){
+  const p=Math.min(4,Math.floor(t*5)),u=t*5-p,sg=[1,-1,1,-1,0][p]*side;
+  if(p<4)move(ca*[520,280,620,300][p]+nx*sg*[700,820,760,860][p],sa*[520,280,620,300][p]+ny*sg*[700,820,760,860][p]);else if(tc)moveTo(tc.x,tc.y,780,120);
+  me.skillLift=2+Math.sin(u*Math.PI)*6;me.inv=Math.max(me.inv,.030);pvpShake=Math.max(pvpShake,2.4+Math.abs(Math.sin(u*Math.PI))*2.2);
+ }else if(mode==='eclipseMoonChain'){
+  const p=Math.min(9,Math.floor(t*10)),u=t*10-p;
+  if(t<.22)move(ca*1700,sa*1700);else if([2,6].includes(p))move(nx*(p===2?1:-1)*side*720,ny*(p===2?1:-1)*side*720);else if(p===4){move(ca*480,sa*480);me.skillLift=Math.sin(u*Math.PI)*42;}else if(tc)moveTo(tc.x,tc.y,540,135);
+  me.skillLift=Math.max(me.skillLift||0,3+Math.sin(u*Math.PI)*6);me.inv=Math.max(me.inv,.032);pvpShake=Math.max(pvpShake,4+p*.45+Math.abs(Math.sin(u*Math.PI))*1.8);
+ }
+ if(tc)face=Math.atan2(tc.y-me.y,tc.x-me.x);ev.a=me.a=face;
+ ev.fx-=dt;if(ev.fx>0)return;ev.fx=.028;
+ const solar=mode.startsWith('solar')||(mode==='eclipseMoonChain'&&[0,1,4,5,8,9].includes(Math.min(9,Math.floor(t*10)))),main=solar?'#ffffff':'#111116',sub=solar?'#bfc7d2':'#3a3148';
+ if(solar){beamFx(me.x-Math.cos(face)*35,me.y-Math.sin(face)*35,me.x+Math.cos(face)*130,me.y+Math.sin(face)*130,main,.14,true);for(let j=-1;j<=1;j++)slashFx(me.x,me.y,face+j*.18,.72,70+Math.abs(j)*18,j===0?main:sub,.17,true);}
+ else{for(let j=0;j<4;j++){const s=j%2?-1:1;slashFx(me.x-s*j*5,me.y+j*3,face+s*(.28+j*.11),.98+j*.08,72+j*13,j%2?sub:main,.19,true);}ring(me.x,me.y,72,sub,.16,true);}
+}
+
 function pvpHongryeonFinale(ev,dt){
  const a=ev.hongFace??ev.a,fx=Math.cos(a),fy=Math.sin(a),nx=-fy,ny=fx;ev.hongFace=a;
  const finish=()=>{ev.endedAt=performance.now();me.skillEvent=null;me.skillKind='';me.skillPose=-1;me.skillLift=0;me.attackCd=me.attackAnim=me.moveLock=0;me.postSkillLock=.05;if(ev.hongInvulnActive){me.inv=0;ev.hongInvulnActive=false;}net({t:'teleport',x:me.x,y:me.y,a:me.a});};
@@ -6498,40 +6533,7 @@ function pvpHongryeonFinale(ev,dt){
  if(since>=3.61)finish();
 }
 
-function pvpEclipseMotion(ev,dt){
- const mode=ev.cfg.mode,t=clamp(ev.elapsed/Math.max(.01,ev.cfg.duration),0,1),target=pvpWorldSwordTarget(ev),side=ev.side||1,tc=target?{x:target.x,y:target.y}:null,base=ev.eclipseBaseFace??ev.a;ev.eclipseBaseFace=base;
- let face=tc?Math.atan2(tc.y-me.y,tc.x-me.x):base,ca=Math.cos(face),sa=Math.sin(face),nx=-sa,ny=ca;
- const move=(vx,vy)=>{me.x=clamp(me.x+vx*dt,25,ARENA_W-25);me.y=clamp(me.y+vy*dt,25,ARENA_H-25);};
- const moveTo=(tx,ty,speed,stop=0)=>{const dx=tx-me.x,dy=ty-me.y,d=Math.hypot(dx,dy)||1;if(d<=stop)return;const st=Math.min(speed*dt,d-stop);me.x=clamp(me.x+dx/d*st,25,ARENA_W-25);me.y=clamp(me.y+dy/d*st,25,ARENA_H-25);};
- if(mode==='solarFlashLine'){
-  if(t<.34)move(ca*1850,sa*1850);else if(t<.48)move(-ca*160,-sa*160);else if(tc)moveTo(tc.x,tc.y,680,110);
-  me.skillLift=Math.sin(Math.min(1,t/.44)*Math.PI)*4;me.inv=Math.max(me.inv,.034);pvpShake=Math.max(pvpShake,t<.34?4.4:2.8);
- }else if(mode==='solarFlowChain'){
-  const p=Math.min(3,Math.floor(t*4)),u=t*4-p,curve=[-1,1,1,-1][p]*side,fwd=[440,360,420,300][p],lat=[260,300,220,180][p]*curve*Math.sin(u*Math.PI);
-  move(ca*fwd+nx*lat,sa*fwd+ny*lat);me.skillLift=2+Math.sin(u*Math.PI)*5;me.inv=Math.max(me.inv,.022);pvpShake=Math.max(pvpShake,2+Math.abs(Math.sin(u*Math.PI))*1.8);
- }else if(mode==='solarFallingCleave'){
-  if(t<.28)move(ca*1120,sa*1120);else if(t<.60){move(ca*360,sa*360);me.skillLift=Math.sin((t-.28)/.32*Math.PI)*58;}else{me.skillLift=Math.max(0,58*(1-(t-.60)/.22));if(tc)moveTo(tc.x,tc.y,520,100);}
-  me.inv=Math.max(me.inv,.028);pvpShake=Math.max(pvpShake,t<.28?3.2:t<.60?3.8:5.2);
- }else if(mode==='lunarMistStep'){
-  if(!ev.eclipseSlipTeleported&&t<.24)move(ca*980+nx*side*520,sa*980+ny*side*520);else if(!ev.eclipseSlipTeleported&&t<.36)move(nx*side*260,ny*side*260);
-  me.skillLift=Math.sin(Math.PI*t)*4;me.inv=Math.max(me.inv,.032);pvpShake=Math.max(pvpShake,ev.eclipseSlipTeleported?3.8:2.6);
- }else if(mode==='lunarSpiralBind'){
-  if(tc)moveTo(tc.x,tc.y,360,175);me.skillLift=2+Math.sin(t*Math.PI*3)*4;pvpShake=Math.max(pvpShake,3+Math.abs(Math.sin(t*Math.PI*3))*2);
- }else if(mode==='lunarWildAngles'){
-  const p=Math.min(4,Math.floor(t*5)),u=t*5-p,sg=[1,-1,1,-1,0][p]*side;
-  if(p<4)move(ca*[520,280,620,300][p]+nx*sg*[700,820,760,860][p],sa*[520,280,620,300][p]+ny*sg*[700,820,760,860][p]);else if(tc)moveTo(tc.x,tc.y,780,120);
-  me.skillLift=2+Math.sin(u*Math.PI)*6;me.inv=Math.max(me.inv,.030);pvpShake=Math.max(pvpShake,2.4+Math.abs(Math.sin(u*Math.PI))*2.2);
- }else if(mode==='eclipseMoonChain'){
-  const p=Math.min(9,Math.floor(t*10)),u=t*10-p;
-  if(t<.22)move(ca*1700,sa*1700);else if([2,6].includes(p))move(nx*(p===2?1:-1)*side*720,ny*(p===2?1:-1)*side*720);else if(p===4){move(ca*480,sa*480);me.skillLift=Math.sin(u*Math.PI)*42;}else if(tc)moveTo(tc.x,tc.y,540,135);
-  me.skillLift=Math.max(me.skillLift||0,3+Math.sin(u*Math.PI)*6);me.inv=Math.max(me.inv,.032);pvpShake=Math.max(pvpShake,4+p*.45+Math.abs(Math.sin(u*Math.PI))*1.8);
- }
- if(tc)face=Math.atan2(tc.y-me.y,tc.x-me.x);ev.a=me.a=face;
- ev.fx-=dt;if(ev.fx>0)return;ev.fx=.028;
- const solar=mode.startsWith('solar')||(mode==='eclipseMoonChain'&&[0,1,4,5,8,9].includes(Math.min(9,Math.floor(t*10)))),main=solar?'#ffffff':'#111116',sub=solar?'#bfc7d2':'#3a3148';
- if(solar){beamFx(me.x-Math.cos(face)*35,me.y-Math.sin(face)*35,me.x+Math.cos(face)*130,me.y+Math.sin(face)*130,main,.14,true);for(let j=-1;j<=1;j++)slashFx(me.x,me.y,face+j*.18,.72,70+Math.abs(j)*18,j===0?main:sub,.17,true);}
- else{for(let j=0;j<4;j++){const s=j%2?-1:1;slashFx(me.x-s*j*5,me.y+j*3,face+s*(.28+j*.11),.98+j*.08,72+j*13,j%2?sub:main,.19,true);}ring(me.x,me.y,72,sub,.16,true);}
-}
+
 function pvpWorldSwordMotion(ev,dt){const sk=ev.skill,cfg=ev.cfg,mode=cfg.mode,t=clamp(ev.elapsed/Math.max(.01,cfg.duration),0,1),a=ev.a,ca=Math.cos(a),sa=Math.sin(a),target=pvpWorldSwordTarget(ev),px0=me.x,py0=me.y;me.skillLift=0;
   if(PVP_ECLIPSE_MODES.has(mode)){pvpEclipseMotion(ev,dt);return;}
   if(PVP_HONGRYEON_MODES.has(mode)){pvpHongryeonMotion(ev,dt);return;}

@@ -1,0 +1,26 @@
+name: Moon Eclipse integration
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'multiplayer-server/ai/**'
+      - 'tests/moon-eclipse-pvp-ai.test.mjs'
+      - '.github/workflows/moon-eclipse-integration.yml'
+  workflow_dispatch:
+concurrency:
+  group: moon-eclipse-integration-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  moon-eclipse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: multiplayer-server/package-lock.json
+      - run: npm ci --prefix multiplayer-server
+      - run: node --test tests/moon-eclipse-pvp-ai.test.mjs
