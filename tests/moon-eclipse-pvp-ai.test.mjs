@@ -76,3 +76,42 @@ test('Moon AI presses/releases actual skill 1 and does not immediately flip back
   assert.notEqual(next.skill,0,'successful form shift must be latched while opposite 2-4 are still cooling');
  }finally{arena.dispose();}
 });
+
+
+test('Moon Eclipse custom FX survive the remote PVP path for players and bots',()=>{
+ const a=createArena({style:'moon',level:100}),b=createArena({style:'moon',level:100});
+ try{
+  const packets=[];
+  a.api.init(structuredClone(a.snapshot),structuredClone(b.snapshot),true,m=>packets.push(structuredClone(m)));
+  b.api.init(structuredClone(b.snapshot),structuredClone(a.snapshot),false,()=>{});
+  a.api.enemy.x=a.api.me.x+150;a.api.enemy.y=a.api.me.y;
+  b.api.enemy.x=b.api.me.x+150;b.api.enemy.y=b.api.me.y;
+
+  a.api.effects.length=0;b.api.effects.length=0;
+  assert.equal(waitForEventMode(a,1),'lunarMistStep');
+  stepN(a,20);
+  const lunarBatches=packets.splice(0).filter(m=>m.t==='fxBatch');
+  const lunarFx=lunarBatches.flatMap(m=>m.effects||[]);
+  assert.ok(lunarFx.some(f=>f.kind==='eclipseLunarInk'),'lunar ink must be transmitted');
+  const styledLunar=lunarFx.find(f=>f.kind==='slash'&&f.innerColor);
+  assert.ok(styledLunar,'styled lunar slash must be transmitted');
+  for(const m of lunarBatches)b.api.receive(m);
+  assert.ok(b.api.effects.some(f=>f.kind==='eclipseLunarInk'),'remote side must keep lunar ink');
+  const remoteStyled=b.api.effects.find(f=>f.kind==='slash'&&f.innerColor);
+  assert.equal(remoteStyled?.innerColor,styledLunar.innerColor);
+  assert.equal(remoteStyled?.innerAlpha,styledLunar.innerAlpha);
+
+  finishAction(a);packets.length=0;a.api.effects.length=0;b.api.effects.length=0;
+  tap(a,0);stepN(a,20);finishAction(a);
+  assert.equal(a.api.me.moonForm,'solar');
+  packets.length=0;a.api.effects.length=0;b.api.effects.length=0;
+
+  assert.equal(waitForEventMode(a,1),'solarFlashLine');
+  stepN(a,20);
+  const solarBatches=packets.splice(0).filter(m=>m.t==='fxBatch');
+  const solarFx=solarBatches.flatMap(m=>m.effects||[]);
+  assert.ok(solarFx.some(f=>f.kind==='eclipseSolarShard'),'solar shard must be transmitted');
+  for(const m of solarBatches)b.api.receive(m);
+  assert.ok(b.api.effects.some(f=>f.kind==='eclipseSolarShard'),'remote side must keep solar shard');
+ }finally{a.dispose();b.dispose();}
+});
