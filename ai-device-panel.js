@@ -24,6 +24,7 @@ function loadTuningUi(){const v=readTuning();$('aiRetrainDelay').value=String(v.
 function persistTuning(v){try{localStorage.setItem(tuningKey,JSON.stringify(v))}catch{}}
 loadTuningUi();
 function show(){if(opened||document.getElementById('title')?.classList.contains('hidden'))return;opened=true;panel.showModal();$('aiDevicePassword').focus();tell('');}
+const titleTrainingButton=document.getElementById('aiTrainingAdminBtn');if(titleTrainingButton)titleTrainingButton.addEventListener('click',show);
 async function close(){
  if(closing||connecting)return;closing=true;autoResume=false;wantedRunning=false;
  try{
