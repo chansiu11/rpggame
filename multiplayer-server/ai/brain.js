@@ -40,6 +40,7 @@ function ensureMatchups(policy){
 }
 export function ensurePolicyStyles(policy){
  if(!policy||typeof policy!=='object')return policy;
+ policy.schema=2;policy.model='mlp-es-v1';policy.learning={behaviors:[...NN_BEHAVIORS,'skillRangeUnderstanding','skillThreatUnderstanding','skillTimingUnderstanding'],fixedDodge:'skill-aware',resourceManagement:false};
  if(!policy.styles||typeof policy.styles!=='object')policy.styles={};
  for(const id of Object.keys(styles)){
   const s=policy.styles[id];
@@ -50,7 +51,7 @@ export function ensurePolicyStyles(policy){
 }
 export function seedPolicy(){
  const policy={
-  schema:3,model:'mlp-es-skill-aware-v2',generation:0,matches:0,
+  schema:2,model:'mlp-es-v1',generation:0,matches:0,
   learning:{behaviors:[...NN_BEHAVIORS,'skillRangeUnderstanding','skillThreatUnderstanding','skillTimingUnderstanding'],fixedDodge:'skill-aware',resourceManagement:false},
   styles:Object.fromEntries(Object.keys(styles).map(id=>[id,initialStyle(id)])),
   matchups:{}
