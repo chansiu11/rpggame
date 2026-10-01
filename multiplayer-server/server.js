@@ -229,7 +229,7 @@ function publicPlayer(p){
     hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
     swordStyle:p.swordStyle||'',swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):[],
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
-    attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,skillLift:clamp(p.skillLift||0,0,150),
+    attackAnim:p.attackAnim,attackDuration:p.attackDuration,basicVisual:clamp(p.basicVisual||0,0,.5),strikePose:p.strikePose,skillPose:p.skillPose,skillLift:clamp(p.skillLift||0,0,150),
     combo:p.combo,parry:p.parry,dodge:p.dodge,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
     deathSeq:p.deathSeq||0,skillFxSeq:p.skillFxSeq||0,skillFxSlot:p.skillFxSlot||0,skillFxId:p.skillFxId||'',skillFxWeapon:p.skillFxWeapon||0,skillFxX:p.skillFxX,skillFxY:p.skillFxY,skillFxA:p.skillFxA,
     vx:p.vx||0,vy:p.vy||0,seq:p.seq||0,
@@ -240,7 +240,7 @@ function publicPlayerState(p){
   return {
     ...worldCombat.snapshot(p),
     id:p.id,x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,weapon:p.weapon,swordStyle:p.swordStyle||'',swordSkills:p.swordSkills||[],
-    attackAnim:p.attackAnim,attackDuration:p.attackDuration,strikePose:p.strikePose,skillPose:p.skillPose,skillLift:clamp(p.skillLift||0,0,150),
+    attackAnim:p.attackAnim,attackDuration:p.attackDuration,basicVisual:clamp(p.basicVisual||0,0,.5),strikePose:p.strikePose,skillPose:p.skillPose,skillLift:clamp(p.skillLift||0,0,150),
     combo:p.combo,parry:p.parry,dodge:p.dodge,stun:p.stun||0,dx:p.dx,dy:p.dy,walk:p.walk,phase:p.phase,
     deathSeq:p.deathSeq||0,skillFxSeq:p.skillFxSeq||0,skillFxSlot:p.skillFxSlot||0,skillFxId:p.skillFxId||'',skillFxWeapon:p.skillFxWeapon||0,skillFxX:p.skillFxX,skillFxY:p.skillFxY,skillFxA:p.skillFxA,
     vx:p.vx||0,vy:p.vy||0,seq:p.seq||0,updatedAt:p.updatedAt
@@ -736,10 +736,10 @@ function handleMessage(player,msg,rawBytes){
     if(msg.swordStyle!==undefined)player.swordStyle=String(msg.swordStyle||'').slice(0,20);
     if(Array.isArray(msg.swordSkills))player.swordSkills=msg.swordSkills.slice(0,5).map(v=>String(v||'').slice(0,40));
     if(msg.equippedHead!==undefined)player.equippedHead=sanitizeEquip(msg.equippedHead,'wandererHood');if(msg.equippedChest!==undefined)player.equippedChest=sanitizeEquip(msg.equippedChest,'travelerCoat');if(msg.equippedShield!==undefined)player.equippedShield=sanitizeEquip(msg.equippedShield,'woodenShield');
-    for(const k of ['attackAnim','attackDuration','strikePose','skillPose','skillLift','combo','parry','dodge','stun','dx','dy','walk','phase'])if(Number.isFinite(Number(msg[k])))player[k]=Number(msg[k]);
+    for(const k of ['attackAnim','attackDuration','basicVisual','strikePose','skillPose','skillLift','combo','parry','dodge','stun','dx','dy','walk','phase'])if(Number.isFinite(Number(msg[k])))player[k]=Number(msg[k]);
     if(Number.isFinite(Number(msg.deathSeq)))player.deathSeq=Math.floor(clamp(msg.deathSeq,0,1e12));
     if(Number.isFinite(Number(msg.skillFxSeq))&&Number(msg.skillFxSeq)>=(player.skillFxSeq||0)){player.skillFxSeq=Math.floor(clamp(msg.skillFxSeq,0,1e12));player.skillFxSlot=Math.floor(clamp(msg.skillFxSlot,0,4));player.skillFxId=String(msg.skillFxId||'').slice(0,40);player.skillFxWeapon=Math.floor(clamp(msg.skillFxWeapon,0,4));player.skillFxX=clamp(Number(msg.skillFxX)||player.x,40,WORLD.width-40);player.skillFxY=clamp(Number(msg.skillFxY)||player.y,40,WORLD.height-40);player.skillFxA=clamp(Number(msg.skillFxA)||player.a,-Math.PI*4,Math.PI*4);}
-    player.attackAnim=clamp(player.attackAnim,0,5);player.attackDuration=clamp(player.attackDuration,.05,5);player.strikePose=Math.floor(clamp(player.strikePose,0,8));player.skillPose=Math.floor(clamp(player.skillPose,-1,8));player.skillLift=clamp(player.skillLift||0,0,150);player.combo=Math.floor(clamp(player.combo,0,10));player.parry=clamp(player.parry,0,2);player.dodge=clamp(player.dodge,0,2);player.stun=clamp(player.stun||0,0,1.5);player.dx=clamp(player.dx,-1,1);player.dy=clamp(player.dy,-1,1);player.walk=clamp(player.walk,0,1);player.phase=clamp(player.phase,-1e6,1e6);
+    player.attackAnim=clamp(player.attackAnim,0,5);player.attackDuration=clamp(player.attackDuration,.05,5);player.basicVisual=clamp(player.basicVisual||0,0,.5);player.strikePose=Math.floor(clamp(player.strikePose,0,8));player.skillPose=Math.floor(clamp(player.skillPose,-1,8));player.skillLift=clamp(player.skillLift||0,0,150);player.combo=Math.floor(clamp(player.combo,0,10));player.parry=clamp(player.parry,0,2);player.dodge=clamp(player.dodge,0,2);player.stun=clamp(player.stun||0,0,1.5);player.dx=clamp(player.dx,-1,1);player.dy=clamp(player.dy,-1,1);player.walk=clamp(player.walk,0,1);player.phase=clamp(player.phase,-1e6,1e6);
     player.vx=clamp(Number.isFinite(Number(msg.vx))?msg.vx:(player.x-oldX)/elapsed,-3000,3000);player.vy=clamp(Number.isFinite(Number(msg.vy))?msg.vy:(player.y-oldY)/elapsed,-3000,3000);player.seq=Math.max((player.seq||0)+1,Math.floor(clamp(msg.seq,0,1e12)));player.updatedAt=now;player.lastStateAt=now;
     const pub=publicPlayerState(player);if(msg.teleport||now-(player.lastSelfAckAt||0)>=100){player.lastSelfAckAt=now;safeSend(player.ws,{type:'player:self',player:pub,serverTime:now},{volatile:true});}broadcast({type:'player:state',player:pub},player.ws,{volatile:true});return;
   }
@@ -791,7 +791,7 @@ wss.on('connection',(ws)=>{
   const player={
     id:id('p_'),ws,name:'Player',x:800,y:3100,a:0,hp:100,maxHp:100,
     level:1,weapon:0,equippedHead:'wandererHood',equippedChest:'travelerCoat',equippedShield:'woodenShield',
-    attackAnim:0,attackDuration:.26,strikePose:0,skillPose:-1,skillLift:0,combo:0,parry:0,dodge:0,dx:0,dy:0,walk:0,phase:0,
+    attackAnim:0,attackDuration:.26,basicVisual:0,strikePose:0,skillPose:-1,skillLift:0,combo:0,parry:0,dodge:0,dx:0,dy:0,walk:0,phase:0,
     vx:0,vy:0,seq:0,lastStateAt:Date.now(),
     partyId:null,accountId:'',clientSessionId:'',clientMode:'world',pvpRuleset:'',pvpQueued:false,pvpQueuedAt:0,updatedAt:Date.now(),ready:false,lastBossHitAt:0,lastPvpHitAt:0
   };
