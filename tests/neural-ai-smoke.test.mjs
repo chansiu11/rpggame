@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {seedPolicy,createBrain,learn,NN_BEHAVIORS,networkParameterCount} from '../multiplayer-server/ai/brain.js';
+import {seedPolicy,createBrain,learn,stylePairs,NN_BEHAVIORS,networkParameterCount} from '../multiplayer-server/ai/brain.js';
 import {validatePolicy} from '../multiplayer-server/ai/store.js';
 import {createDuelSession} from '../multiplayer-server/ai/self-play.js';
 
 test('neural policy shape and learning contract are valid',()=>{
  const p=seedPolicy();
+ assert.equal(stylePairs().length,10);
+ assert.equal(Object.keys(p.styles).length,5);
+ assert.equal(Object.keys(p.matchups).length,10);
  assert.equal(p.schema,2);
  assert.equal(p.model,'mlp-es-v1');
  assert.equal(networkParameterCount(),934);
@@ -47,7 +50,7 @@ test('self-play exploration produces trainable neural result',()=>{
 });
 
 test('fresh neural policies produce combat exploration for every style',()=>{
- const p=seedPolicy(),pairs=[['gale','void'],['dawn','break'],['gale','dawn'],['void','break']];
+ const p=seedPolicy(),pairs=[['gale','void'],['moon','break'],['dawn','break'],['gale','dawn'],['void','break']];
  for(let n=0;n<pairs.length;n++){
   const [a,b]=pairs[n],session=createDuelSession(a,b,p,p,200+n,4,()=>{},null,{explore:true});
   let result;try{while(!session.done)result=session.step();}finally{session.dispose();}
@@ -63,7 +66,7 @@ test('fresh neural policy acts without training-only exploration',()=>{
 });
 
 test('every fresh style can choose an attack without training exploration',()=>{
- for(const style of ['gale','void','dawn','break']){
+ for(const style of ['gale','moon','void','dawn','break']){
   const p=seedPolicy(),brain=createBrain(style,p,()=>.5,3,{training:true});
   const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:100,maxStam:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,void3DodgeRemaining:0};
   const enemy={x:1160,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:0,skillPose:-1,block:false,combo:0};
