@@ -104,13 +104,18 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
  const training={noiseSeed,sigma:base.sigma};
  const state={previous:null,attackEma:0,blockEma:0,dashEma:0,skillEma:0};
- let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1;
+ let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonLastForm=null,moonShiftLatched=false,moonShiftReleasePending=false;
  const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
  return {tactic:-1,training,stats,step(dt,me,enemy){
   dt=clamp(Number(dt)||1/60,1/240,.08);stats.decisions++;dodgeLock=Math.max(0,dodgeLock-dt);
   const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
   const ready=readySkills(me,style),features=makeFeatures(state,me,enemy,holdAge,ready,dt),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
+  if(style==='moon'){
+   const observedForm=me?.moonForm==='solar'?'solar':'lunar';
+   if(moonLastForm===null)moonLastForm=observedForm;
+   else if(observedForm!==moonLastForm){moonLastForm=observedForm;moonShiftLatched=true;moonShiftReleasePending=false;}
+  }
   const aggression=out[11],desired=clamp(330+out[0]*250-aggression*75,70,650);
   let radial=d>desired+24?1:d<desired-24?-1:out[14]*.35,lateral=clamp(out[1],-1,1);
   if(Math.abs(lateral)<.08)lateral=side*.16;
@@ -119,7 +124,8 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   if((Number(me?.y)||0)<130)my=Math.max(my,.8);if((Number(me?.y)||0)>1970)my=Math.min(my,-.8);
   const keys=[];if(mx>.22)keys.push('KeyD');if(mx<-.22)keys.push('KeyA');if(my>.22)keys.push('KeyS');if(my<-.22)keys.push('KeyW');
   const aim=a+out[12]*.62;
-  if(Number(me?.stun)>0){hold=-1;holdAge=0;current={keys:[],aim,block:false,dash:false,basic:false};return current;}
+  if(Number(me?.stun)>0){hold=-1;holdAge=0;moonShiftReleasePending=false;current={keys:[],aim,block:false,dash:false,basic:false};return current;}
+  if(moonShiftReleasePending){moonShiftReleasePending=false;current={keys,aim,block:false,dash:false,basic:false,release:0};return current;}
 
   // Skill press duration is learned. The 1.6 s release is only a safety ceiling
   // so a malformed early network can never hold an input forever.
@@ -150,11 +156,13 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const skillBusy=!!me?.skillEvent||!!me?.skillHold;
   const busy=skillBusy||Number(me?.attackAnim)>0;
 
-  // 월식 폼 전환은 평타보다 우선한다. 2·3·4번이 모두 쿨이면
-  // 진행 중인 평타 모션과 관계없이 전환 입력을 먼저 보내며, 실제 스킬 중일 때만 기다린다.
+  // 월식 폼 전환은 평타보다 우선한다. 2·3·4가 모두 쿨이면 실제 1번 스킬 키를 누르고
+  // 다음 프레임에 키를 뗀다. 요청 자체로 성공 처리하지 않고 me.moonForm이 실제 바뀐 뒤에만 잠근다.
   const moon234Cooling=style==='moon'&&!ready[1]&&!ready[2]&&!ready[3];
-  if(moon234Cooling&&!skillBusy){
-   current={keys,aim,block:false,dash:false,basic:false,formShift:true};
+  if(style==='moon'&&!moon234Cooling)moonShiftLatched=false;
+  if(moon234Cooling&&!moonShiftLatched&&ready[0]&&!skillBusy){
+   moonShiftReleasePending=true;stats.skills++;
+   current={keys,aim,block:false,dash:false,basic:false,skill:0};
    return current;
   }
 
