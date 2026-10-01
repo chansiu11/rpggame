@@ -96,7 +96,7 @@ function makeFeatures(state,me,enemy,holdAge,ready,dt,style){
  const prev=state.previous,edx=prev?((Number(enemy?.x)||0)-prev.ex):0,edy=prev?((Number(enemy?.y)||0)-prev.ey):0;
  const invDt=1/Math.max(.001,dt),rv=prev?clamp(((d-prev.d)*invDt)/520,-1,1):0;
  const lateral=prev?clamp(((-Math.sin(a)*edx+Math.cos(a)*edy)*invDt)/520,-1,1):0;
- const alpha=clamp(dt*3.5,.02,.3),enemyAttack=(Number(enemy?.attackAnim)>0||Number(enemy?.skillPose)>=0)?1:0,enemySkill=Number(enemy?.skillPose)>=0?1:0;
+ const explicitEnemySkill=Number(enemy?.skillPose)>=0||String(enemy?.skillKind||'').length>0,alpha=clamp(dt*3.5,.02,.3),enemyAttack=(Number(enemy?.attackAnim)>0||explicitEnemySkill)?1:0,enemySkill=explicitEnemySkill?1:0;
  state.attackEma+=(enemyAttack-state.attackEma)*alpha;
  state.blockEma+=((enemy?.block?1:0)-state.blockEma)*alpha;
  state.dashEma+=((Number(enemy?.dash)>0?1:0)-state.dashEma)*alpha;
