@@ -12,13 +12,13 @@ test('World basic attack blocks dash and shield through animation, then releases
  state.player.parry=0;run.dash();assert.equal(state.player.dodge,.2);
 });
 test('Arena held basic attacks impact after 0.2 seconds and keep the fifth-hit pose',()=>{
- const state={now:1000,hits:0,me:{attackCd:0,attackAnim:0,attackDuration:.26,basicMoveSlow:0,basicVisual:0,basicAttackLockUntil:0,basicAttackStartedAt:0,pendingBasic:null,skillLift:0,skillPose:-1,stun:0,exhaust:0,skillHold:null,skillEvent:null,weapon:0,combo:0,comboTimer:0,rune:'',a:0,stam:100,maxStam:100,dash:0,dashCd:0,galeRoot:0,perks:{flow:0,focus:0},shield:100,maxShield:100,shieldRearm:0,shieldBroken:0,shieldNeedsRelease:false}};
+ const state={now:1000,hits:0,me:{attackCd:0,attackAnim:0,attackDuration:.26,basicMoveSlow:0,basicSeq:0,basicStage:0,basicVisual:0,basicAttackLockUntil:0,basicAttackStartedAt:0,pendingBasic:null,skillLift:0,skillPose:-1,stun:0,exhaust:0,skillHold:null,skillEvent:null,weapon:0,combo:0,comboTimer:0,rune:'',a:0,stam:100,maxStam:100,dash:0,dashCd:0,galeRoot:0,perks:{flow:0,focus:0},shield:100,maxShield:100,shieldRearm:0,shieldBroken:0,shieldNeedsRelease:false}};
  const init="const performance={now:()=>state.now},me=state.me,roundLocked=false,void3Pvp=null,weaponData=[{cool:.32,range:94,arc:1.9,cost:0}],useStam=()=>true,basicPvpAimAngle=()=>0,pvpBasicHeld=()=>true,fighterAttack=()=>35,arcAttack=()=>state.hits++,sendProjectile=()=>state.hits++,window={EchoesCombat:{basicControl:()=>({force:0,stun:.5})}},burst=()=>{},ring=()=>{},keys=new Set(),pkey=x=>x,moveAngle=()=>0,ARENA_W=3600,ARENA_H=2100,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));";
  const run=new Function('state',[init,section(html,'const PVP_BASIC_WINDUP=.2;','function potion(){'),'return {basic,updatePvpPendingBasic,dash,beginBlock};'].join('\n'))(state);
- run.basic();assert.equal(state.hits,0,'pressing basic must not damage immediately');assert.equal(state.me.basicAttackLockUntil,1200);assert.ok(state.me.basicVisual>=.3,'basic visual state must cover windup and impact pose');
+ run.basic();assert.equal(state.hits,0,'pressing basic must not damage immediately');assert.equal(state.me.basicAttackLockUntil,1200);assert.equal(state.me.basicSeq,1);assert.equal(state.me.basicStage,1);assert.ok(state.me.basicVisual>=.3,'basic visual state must cover windup and impact pose');
  run.dash();run.beginBlock();assert.equal(state.me.dash,0);assert.equal(!!state.me.block,false);
  run.updatePvpPendingBasic(.19);assert.equal(state.hits,0);
- run.updatePvpPendingBasic(.01);assert.equal(state.hits,1,'impact occurs after the full 0.2 s windup');
+ run.updatePvpPendingBasic(.01);assert.equal(state.hits,1,'impact occurs after the full 0.2 s windup');assert.equal(state.me.basicStage,2);
  state.me.attackCd=0;run.basic();assert.equal(state.hits,1,'the next held strike also waits for its windup');run.updatePvpPendingBasic(.2);assert.equal(state.hits,2);
  state.me.attackCd=0;state.me.combo=4;state.me.comboTimer=1;run.basic();assert.equal(state.me.combo,5);run.updatePvpPendingBasic(.2);
  assert.equal(state.me.combo,5,'fifth-hit combo number remains through the short impact animation');assert.equal(state.me.comboTimer,.12);assert.equal(state.me.attackAnim,.11);assert.ok(state.me.basicVisual>=.11,'impact pose must remain explicitly marked as a basic attack');
@@ -26,11 +26,24 @@ test('Arena held basic attacks impact after 0.2 seconds and keep the fifth-hit p
  assert.ok(html.includes("if(pvpBasicHeld()&&me.attackCd<=0&&!me.skillHold&&!me.skillEvent)basic();"),'PVP hold path must keep auto-attacking');
  assert.ok(html.includes("if(basicAttackHeld()&&player.attackCd<=0)attack();"),'world/touch hold path must keep auto-attacking');
 });
-test('PVP basic animation sync uses explicit visual state without changing optimized network cadence',()=>{
- assert.ok(html.includes("basicVisual:Math.max(0,me.basicVisual||0)"),'PVP state packet must mark basic animation explicitly');
- assert.ok(html.includes("const incomingBasicVisual=clamp(Number(m.basicVisual)||0,0,.5)"),'remote PVP renderer must consume explicit basic state');
- assert.ok(html.includes("enemy.attackAnim=incomingBasicVisual>0?Math.max(0,+m.attackAnim||0):Math.max(enemy.attackAnim,+m.attackAnim||0)"),'a short basic animation must replace a stale long skill animation');
- assert.ok(html.includes("if(Number.isFinite(+m.attackDuration)&&+m.attackDuration>0)enemy.attackDuration=clamp(+m.attackDuration,.05,10)"),'remote attack duration must accept the new shorter basic animation');
+test('PVP basic animation sync advances by attack stage instead of rewinding on every state packet',()=>{
+ assert.ok(html.includes("basicSeq:Math.max(0,Math.floor(Number(me.basicSeq)||0))"),'PVP state packet must carry a basic attack sequence');
+ assert.ok(html.includes("basicStage:Math.floor(clamp(Number(me.basicStage)||0,0,2))"),'PVP state packet must carry windup/impact stage');
+ assert.ok(html.includes("enemy.basicVisual=Math.max(0,(Number(enemy.basicVisual)||0)-dt)"),'remote visual timer must advance locally between packets');
+ const syncSrc=section(html,'function syncRemotePvpBasic(f,m){','function onData(m)');
+ const sync=new Function('clamp','PVP_BASIC_WINDUP',syncSrc+';return syncRemotePvpBasic;')((v,a,b)=>Math.max(a,Math.min(b,v)),.2);
+ const enemy={basicSeq:0,basicStage:0,basicVisual:0,attackAnim:0,attackDuration:.26};
+ assert.equal(sync(enemy,{basicSeq:11,basicStage:1,basicVisual:.28,attackAnim:.18,attackDuration:.2}),true);
+ assert.equal(enemy.basicSeq,11);assert.equal(enemy.basicStage,1);assert.equal(enemy.attackAnim,.18);
+ enemy.attackAnim=.12;enemy.basicVisual=.22;
+ sync(enemy,{basicSeq:11,basicStage:1,basicVisual:.27,attackAnim:.19,attackDuration:.2});
+ assert.equal(enemy.attackAnim,.12,'repeated windup packets must not rewind remote animation time');
+ assert.equal(enemy.basicVisual,.22,'repeated windup packets must not rewind the local visual timer');
+ sync(enemy,{basicSeq:11,basicStage:2,basicVisual:.10,attackAnim:.09,attackDuration:.11});
+ assert.equal(enemy.basicStage,2);assert.equal(enemy.attackDuration,.11);assert.equal(enemy.attackAnim,.11);
+ enemy.attackAnim=.06;
+ sync(enemy,{basicSeq:11,basicStage:2,basicVisual:.09,attackAnim:.10,attackDuration:.11});
+ assert.equal(enemy.attackAnim,.06,'repeated impact packets must not rewind the strike pose');
  assert.ok(html.includes("const netStep=pvpRoute==='DIRECT'?1/60:pvpRoute==='RELAY'?.025:.02;"),'existing DIRECT/RELAY state packet cadence must remain unchanged');
  assert.ok(html.includes("if(pingAt<=0&&conn?.open){pingAt=1;net({t:'ping',n:performance.now()})}"),'existing ping probe cadence must remain unchanged');
 });
