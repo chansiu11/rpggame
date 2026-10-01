@@ -23,6 +23,20 @@ const initialStyle=id=>{
  network.b3[13]=.10; // mild punish initiative
  return {network,sigma:.055,learningRate:.0035,rewardMean:0,games:0,wins:0,reward:0,metrics:{}};
 };
+export function stylePairs(){
+ const ids=Object.keys(styles),pairs=[];
+ for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++)pairs.push([ids[i],ids[j]]);
+ return pairs;
+}
+const matchupKey=(a,b)=>[String(a),String(b)].sort().join('|');
+function ensureMatchups(policy){
+ if(!policy.matchups||typeof policy.matchups!=='object')policy.matchups={};
+ for(const [a,b] of stylePairs()){
+  const key=matchupKey(a,b),n=Number(policy.matchups[key]);
+  policy.matchups[key]=Number.isSafeInteger(n)&&n>=0?n:0;
+ }
+ return policy.matchups;
+}
 export function ensurePolicyStyles(policy){
  if(!policy||typeof policy!=='object')return policy;
  if(!policy.styles||typeof policy.styles!=='object')policy.styles={};
@@ -30,29 +44,36 @@ export function ensurePolicyStyles(policy){
   const s=policy.styles[id];
   if(!s||!validateNetwork(s.network))policy.styles[id]=initialStyle(id);
  }
+ ensureMatchups(policy);
  return policy;
 }
 export function seedPolicy(){
- return {
+ const policy={
   schema:2,model:'mlp-es-v1',generation:0,matches:0,
   learning:{behaviors:[...NN_BEHAVIORS],fixedDodge:true,resourceManagement:false},
-  styles:Object.fromEntries(Object.keys(styles).map(id=>[id,initialStyle(id)]))
+  styles:Object.fromEntries(Object.keys(styles).map(id=>[id,initialStyle(id)])),
+  matchups:{}
  };
+ ensureMatchups(policy);
+ return policy;
 }
-// Always train the two least-experienced styles first. Five styles produce ten pairings.
-const trainingTieOrders=[
- ['gale','moon','void','dawn','break'],
- ['moon','dawn','gale','break','void'],
- ['void','break','moon','gale','dawn'],
- ['dawn','gale','break','void','moon']
-];
+export function recordMatchup(policy,a,b,count=1){
+ ensurePolicyStyles(policy);
+ const key=matchupKey(a,b);
+ if(!(key in policy.matchups))return false;
+ policy.matchups[key]=Math.max(0,(Number(policy.matchups[key])||0)+Math.max(0,Math.floor(Number(count)||0)));
+ return true;
+}
+// Pick the least-played matchup first, then prefer the least-experienced styles.
+// This guarantees all ten five-style pairings receive training instead of repeatedly
+// pairing only whichever two styles currently have the fewest total games.
 export function leastTrainedPair(policy){
  ensurePolicyStyles(policy);
- const round=Math.floor((Number(policy?.matches)||0)/2)%trainingTieOrders.length;
- const order=trainingTieOrders[round],priority=Object.fromEntries(order.map((id,i)=>[id,i]));
- return Object.keys(styles).sort((a,b)=>
-  ((policy.styles?.[a]?.games||0)-(policy.styles?.[b]?.games||0))||(priority[a]-priority[b])
- ).slice(0,2);
+ const pairs=stylePairs(),offset=(Number(policy.matches)||0)%pairs.length;
+ return pairs.map((pair,index)=>{
+  const [a,b]=pair,key=matchupKey(a,b);
+  return {pair,index,games:Number(policy.matchups[key])||0,experience:(Number(policy.styles[a]?.games)||0)+(Number(policy.styles[b]?.games)||0)};
+ }).sort((x,y)=>x.games-y.games||x.experience-y.experience||((x.index-offset+pairs.length)%pairs.length)-((y.index-offset+pairs.length)%pairs.length))[0].pair;
 }
 export function rng(seed=1){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};}
 export const difficulties={
