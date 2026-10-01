@@ -2214,7 +2214,7 @@ function hitSecretStatue(){
 }
 function enterSecretCave(){player.secretCaveActive=true;player.x=SECRET_CAVE.spawnX;player.y=SECRET_CAVE.spawnY;player.facing=-Math.PI/2;camera.x=player.x;camera.y=player.y;bodyGridValid=false;projectiles=[];effects=[];lastRegion=-1;player.invuln=1;toast('<b>별성 지하 비밀동굴</b><br>바로 앞에서 낡은 종이의 빛이 흔들립니다.');}
 function leaveSecretCave(){player.secretCaveActive=false;player.x=SECRET_STATUE.x-70;player.y=SECRET_STATUE.y-35;player.facing=Math.PI;camera.x=player.x;camera.y=player.y;bodyGridValid=false;projectiles=[];effects=[];lastRegion=-1;player.invuln=1;toast('종말의 별성으로 돌아왔습니다.');}
-const BASIC_ATTACK_WINDUP=.5;
+const BASIC_ATTACK_WINDUP=.2;
 function cancelWorldBasicAttack(resetCombo=false){
  if(!pendingBasicAttack)return false;
  pendingBasicAttack=null;pendingAttack=false;basicAttackLockUntil=0;basicAttackStartedAt=0;
@@ -6357,7 +6357,7 @@ function aiMoonFormShift(){
  if(h?.kind==='inputPrepare'&&h.index===0){skillUp(0);return true;}
  return false;
 }
-const PVP_BASIC_WINDUP=.5;
+const PVP_BASIC_WINDUP=.2;
 function cancelPvpPendingBasic(resetCombo=false){
  if(!me?.pendingBasic)return false;
  me.pendingBasic=null;me.basicAttackLockUntil=0;me.basicAttackStartedAt=0;me.basicMoveSlow=0;
