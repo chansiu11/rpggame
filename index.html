@@ -2227,13 +2227,14 @@ const BASIC_ATTACK_WINDUP=.2;
 function cancelWorldBasicAttack(resetCombo=false){
  if(!pendingBasicAttack)return false;
  pendingBasicAttack=null;pendingAttack=false;basicAttackLockUntil=0;basicAttackStartedAt=0;
- if(player&&player.skillPose<0&&!skillActionBusy()){player.attackAnim=0;player.attackDuration=BASIC_ATTACK_WINDUP;player.basicMoveSlow=0;}
+ if(player){player.skillLift=0;if(player.skillPose<0&&!skillActionBusy()){player.attackAnim=0;player.attackDuration=BASIC_ATTACK_WINDUP;player.basicMoveSlow=0;}}
  if(resetCombo&&player){player.combo=0;player.comboTimer=0;}
  return true;
 }
 function resolveWorldBasicAttack(){
  const p=pendingBasicAttack;if(!p)return false;
  pendingBasicAttack=null;pendingAttack=false;basicAttackLockUntil=0;basicAttackStartedAt=0;
+ if(player)player.skillLift=0;
  if(!player||mode!=='play'||player.hp<=0||(player.stun||0)>0)return false;
  const w=WEAPONS[p.weapon]||WEAPONS[0],oldAngle=player.attackAngle,oldArc=player.attackArc;
  player.attackAngle=p.angle;player.attackArc=p.arc;
@@ -2265,7 +2266,7 @@ function attack(){
  if(pendingBasicAttack||!canAct()||player.exhaust>0||(skillBusy&&!grace))return;
  if(player.dodge>0||(!grace&&player.attackCd>0)||player.parry>0||(!grace&&player.cast>0)){if(!grace&&Math.max(player.dodge,player.attackCd,player.parry,player.cast)<.17)queueAction('attack');return;}
  const savedSkillState=duringSkill?{attackCd:player.attackCd,attackAnim:player.attackAnim,attackDuration:player.attackDuration,attackAngle:player.attackAngle,attackArc:player.attackArc,skillPose:player.skillPose,skillKind:player.skillKind,cast:player.cast,heavy:player.heavy,strikePose:player.strikePose,moveLock:player.moveLock,exhaust:player.exhaust,facing:player.facing}:null;
- const w=WEAPONS[player.weapon];if(player.weapon===2&&!useStam(w.cost))return;if(grace)skillBasicGraceUsed=true;if(!duringSkill)player.basicMoveSlow=.5;aimBasicNearest();
+ const w=WEAPONS[player.weapon];if(player.weapon===2&&!useStam(w.cost))return;if(grace)skillBasicGraceUsed=true;if(!duringSkill){player.basicMoveSlow=.5;player.skillLift=0;}aimBasicNearest();
  if(player.weapon!==2){player.combo=player.comboTimer>0?player.combo+1:1;player.comboTimer=1;player.strikePose=player.combo-1;}else player.strikePose=0;
  const windup=BASIC_ATTACK_WINDUP;
  player.attackCd=grace?Math.max(player.attackCd,w.cool,windup):Math.max(w.cool,windup);player.attackDuration=grace?Math.max(player.attackDuration,windup):windup;player.attackAnim=grace?Math.max(player.attackAnim,windup):windup;player.attackAngle=player.facing;player.attackArc=w.arc+(player.combo===5?.9:0);player.heavy=false;basicAttackStartedAt=performance.now();basicAttackLockUntil=basicAttackStartedAt+windup*1000;if(!duringSkill)player.skillPose=-1;
@@ -4785,7 +4786,7 @@ function drawPlayer(){
  ellipse(ctx,p.x,p.y+3,19,7,'#07171c77');
  ctx.save();ctx.translate(0,-(p.skillLift||0));
  if(p.dodge>0){for(let i=1;i<=4;i++){ctx.globalAlpha=(5-i)*.09;line(ctx,p.x-p.dx*i*13-8,p.y-p.dy*i*13-5,p.x-p.dx*(i+1)*13-8,p.y-p.dy*(i+1)*13-5,'#b9eadb',4);line(ctx,p.x-p.dx*i*13+8,p.y-p.dy*i*13-9,p.x-p.dx*(i+1)*13+8,p.y-p.dy*(i+1)*13-9,'#dcebbd',3);}ctx.globalAlpha=1;}
- ctx.save();ctx.translate(p.x,p.y);if(p.invuln>0&&p.dodge<=0&&Math.sin(realTime*35)>0)ctx.globalAlpha=.72;
+ ctx.save();ctx.translate(p.x,p.y);const basicVisualActive=!!pendingBasicAttack||performance.now()<(basicAttackLockUntil||0);if(p.invuln>0&&p.dodge<=0&&!basicVisualActive&&Math.sin(realTime*35)>0)ctx.globalAlpha=.72;
  const pose=p.skillPose>=0&&p.attackAnim>0?p.skillPose:-1,hitPose=p.strikePose||0;ctx.translate(!prep&&p.attackAnim>0&&pose===1?fx*8:0,!prep&&pose===3?-Math.sin(attackT*Math.PI)*15:0);
  const recoil=p.hurt>0?Math.sin(p.hurt/.25*Math.PI)*2:0;ctx.translate(-fx*recoil,-fy*recoil*.4);
  const capeSway=Math.sin(m.phase-.6)*walk*3-fx*m.lean*7;
@@ -6392,14 +6393,14 @@ function aiMoonFormShift(){
 const PVP_BASIC_WINDUP=.2;
 function cancelPvpPendingBasic(resetCombo=false){
  if(!me?.pendingBasic)return false;
- me.pendingBasic=null;me.basicAttackLockUntil=0;me.basicAttackStartedAt=0;me.basicMoveSlow=0;
+ me.pendingBasic=null;me.basicAttackLockUntil=0;me.basicAttackStartedAt=0;me.basicMoveSlow=0;me.skillLift=0;
  if(me.skillPose<0&&!me.skillHold&&!me.skillEvent){me.attackAnim=0;me.attackDuration=PVP_BASIC_WINDUP;}
  if(resetCombo){me.combo=0;me.comboTimer=0;}
  return true;
 }
 function resolvePvpPendingBasic(){
  const p=me?.pendingBasic;if(!p)return false;
- me.pendingBasic=null;me.basicAttackLockUntil=0;me.basicAttackStartedAt=0;
+ me.pendingBasic=null;me.basicAttackLockUntil=0;me.basicAttackStartedAt=0;if(me)me.skillLift=0;
  if(!me||roundLocked||me.hp<=0||me.stun>0)return false;
  const w=weaponData[p.weapon]||weaponData[0];let mult=p.mult;
  if(p.weapon===2){
@@ -6425,7 +6426,7 @@ function basic(){
  const grace=!!me&&performance.now()<me.skillBasicGraceUntil&&!me.skillBasicGraceUsed;
  if(!me||me.pendingBasic||(!grace&&me.attackCd>0)||me.stun>0||me.exhaust>0||(!grace&&(me.skillHold||me.skillEvent))||roundLocked)return;
  const duringSkill=grace&&!!(me.skillHold||me.skillEvent||(me.skillPose>=0&&me.attackAnim>0)),savedSkillState=duringSkill?{attackCd:me.attackCd,attackDuration:me.attackDuration,attackAnim:me.attackAnim,skillPose:me.skillPose,skillKind:me.skillKind,moveLock:me.moveLock,postSkillLock:me.postSkillLock,exhaust:me.exhaust,a:me.a}:null;
- const w=weaponData[me.weapon];if(w.cost&&!useStam(w.cost))return;if(grace)me.skillBasicGraceUsed=true;if(!duringSkill)me.basicMoveSlow=.5;me.a=basicPvpAimAngle();me.combo=me.comboTimer>0?Math.min(5,me.combo+1):1;me.comboTimer=1;
+ const w=weaponData[me.weapon];if(w.cost&&!useStam(w.cost))return;if(grace)me.skillBasicGraceUsed=true;if(!duringSkill){me.basicMoveSlow=.5;me.skillLift=0;}me.a=basicPvpAimAngle();me.combo=me.comboTimer>0?Math.min(5,me.combo+1):1;me.comboTimer=1;
  const windup=PVP_BASIC_WINDUP;me.attackCd=grace?Math.max(me.attackCd,w.cool,windup):Math.max(w.cool,windup);me.attackDuration=grace?Math.max(me.attackDuration,windup):windup;me.attackAnim=grace?Math.max(me.attackAnim,windup):windup;me.basicAttackStartedAt=performance.now();me.basicAttackLockUntil=me.basicAttackStartedAt+windup*1000;
  const consumeRiposte=me.rune==='echo'&&me.riposte>0,mult=(me.weapon===2?1:me.combo===5?1.8:1+(me.combo-1)*.08)*(consumeRiposte?1.45:1);
  me.pendingBasic={elapsed:0,weapon:me.weapon,a:me.a,mult,final:me.combo===5,duringSkill,consumeRiposte};
@@ -7280,7 +7281,7 @@ let pvpLoopErrorAt=-Infinity,lastPvpCanvasRecoveryAt=-Infinity;
 function recoverPvpLoop(error){
  const now=performance.now();if(now-pvpLoopErrorAt>1000)console.error('PVP loop recovered',error);pvpLoopErrorAt=now;
  if(now-lastPvpCanvasRecoveryAt>500){lastPvpCanvasRecoveryAt=now;const width=canvas.width;canvas.width=width;ctx.setTransform(1,0,0,1,0,0);}
- try{if(void3Pvp)endVoid3Pvp();if(me){me.skillHold=null;me.skillEvent=null;me.moveLock=0;me.postSkillLock=0;me.attackCd=Math.min(Math.max(0,me.attackCd||0),.12);}}catch(recoveryError){console.error('PVP recovery error',recoveryError);}
+ try{if(void3Pvp)endVoid3Pvp();if(me){me.skillHold=null;me.skillEvent=null;me.skillLift=0;me.moveLock=0;me.postSkillLock=0;me.attackCd=Math.min(Math.max(0,me.attackCd||0),.12);}}catch(recoveryError){console.error('PVP recovery error',recoveryError);}
 }
 function loop(t){requestAnimationFrame(loop);const dt=Math.min(.033,(t-last)/1000||0);last=t;if(!layer.classList.contains('hidden')){try{if(running)update(dt);updatePvpComboHud();updatePvpEscapeHud();render()}catch(error){recoverPvpLoop(error)}}}
 // Server-only adapter: the headless runtime executes these SAME arena functions.
