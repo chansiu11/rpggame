@@ -53,7 +53,7 @@ export function createDuelSession(styleA,styleB,policyA,policyB,seed=1,seconds=9
   permit();
   for(let i=0;i<2;i++){
    const r=arenas[i];
-   r.api.control(brains[i].step(1/60,r.api.me,r.api.enemy));
+   r.api.control(brains[i].step(1/60,r.api.me,r.api.enemy,r.api.skillContext?.()||{}));
    r.step(1/60);
    metrics[i].frames++;
   }
