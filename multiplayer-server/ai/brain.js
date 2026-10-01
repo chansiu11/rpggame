@@ -104,7 +104,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
  const training={noiseSeed,sigma:base.sigma};
  const state={previous:null,attackEma:0,blockEma:0,dashEma:0,skillEma:0};
- let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1;
+ let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonFormResetLatched=false;
  const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
  return {tactic:-1,training,stats,step(dt,me,enemy){
@@ -149,10 +149,13 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const predictedAttack=out[15],predictedBlock=out[16];
   const busy=!!me?.skillEvent||!!me?.skillHold||Number(me?.attackAnim)>0;
 
-  // 월식 전용 Z 규칙: 2·3·4번 스킬이 모두 쿨타임이면 실제 Z 입력(basic)을 우선한다.
-  // 1번/5번 스킬의 쿨 상태와는 무관하며, 회피 직후나 다른 공격 중에는 중복 입력하지 않는다.
-  const moonAutoZ=style==='moon'&&!ready[1]&&!ready[2]&&!ready[3]&&!busy;
-  if(moonAutoZ){
+  // 월식 폼 전환 Z: 2·3·4번이 모두 쿨이 된 사이클마다 딱 한 번만 누른다.
+  // Z를 눌렀는데도 2·3·4가 계속 쿨이면 래치를 유지해 반복 입력하지 않는다.
+  // 2·3·4 중 하나라도 다시 사용 가능해진 뒤에만 다음 사이클용 래치를 해제한다.
+  const moon234Cooling=style==='moon'&&!ready[1]&&!ready[2]&&!ready[3];
+  if(style==='moon'&&!moon234Cooling)moonFormResetLatched=false;
+  if(moon234Cooling&&!moonFormResetLatched&&!busy){
+   moonFormResetLatched=true;
    stats.basics++;
    current={keys,aim,block:false,dash:false,basic:true};
    return current;
