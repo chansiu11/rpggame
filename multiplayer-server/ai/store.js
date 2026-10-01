@@ -1,12 +1,11 @@
 import {createSign,randomUUID} from 'node:crypto';
 import {validateNetwork} from './neural-policy.js';
-export const AI_TRAINING_RESET_EPOCH='2026-09-30-ai-neural-reset-4';
+export const AI_TRAINING_RESET_EPOCH='2026-10-02-ai-skill-aware-v5';
 export function validatePolicy(p){
- if(p?.schema!==2||p.model!=='mlp-es-v1'||!Number.isSafeInteger(p.matches)||p.matches<0||!Number.isSafeInteger(p.generation)||p.generation<0)throw Error('Invalid policy');
- if(p.learning?.fixedDodge!==true||p.learning?.resourceManagement!==false||!Array.isArray(p.learning?.behaviors)||p.learning.behaviors.length!==10)throw Error('Invalid learning policy');
+ if(p?.schema!==3||p.model!=='mlp-es-skill-aware-v2'||!Number.isSafeInteger(p.matches)||p.matches<0||!Number.isSafeInteger(p.generation)||p.generation<0)throw Error('Invalid policy');
+ if(p.learning?.fixedDodge!=='skill-aware'||p.learning?.resourceManagement!==false||!Array.isArray(p.learning?.behaviors)||p.learning.behaviors.length!==13)throw Error('Invalid learning policy');
  const validateStyle=(id,required=true)=>{const s=p.styles?.[id];if(!s){if(required)throw Error('Invalid style policy');return;}if(!validateNetwork(s.network)||!Number.isFinite(s.sigma)||s.sigma<.005||s.sigma>.25||!Number.isFinite(s.learningRate)||s.learningRate<=0||s.learningRate>.05||!Number.isFinite(s.rewardMean)||!Number.isFinite(s.games)||!Number.isFinite(s.wins)||!Number.isFinite(s.reward)||!s.metrics)throw Error('Invalid style policy');};
- for(const id of ['gale','void','dawn','break'])validateStyle(id,true);
- validateStyle('moon',false); // Legacy schema-2 policies may omit moon; brain.ensurePolicyStyles adds the 월식 network without resetting other styles.
+ for(const id of ['gale','moon','void','dawn','break'])validateStyle(id,true);
  return p;
 }
 export class FirebaseStore{
