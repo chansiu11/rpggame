@@ -6800,29 +6800,64 @@ function pvpEclipseStartFx(sk,a){
 function pvpEclipseSlash(ev,damage,stun,reach,width,offset=0,knock=0,opts={}){
  const ang=ev.a+offset,ca=Math.cos(ang),sa=Math.sin(ang),x1=me.x-ca*34,y1=me.y-sa*34,x2=me.x+ca*reach,y2=me.y+sa*reach;
  const confirmed=!!enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,x1,y1,x2,y2)<=width+enemy.r;
- const solar=String(ev.cfg?.mode||'').startsWith('solar')||opts.solar===true,color=solar?'#ffffff':'#111116',sub=solar?'#bfc7d2':'#3a3148';
+ const solar=String(ev.cfg?.mode||'').startsWith('solar')||opts.solar===true,color=solar?'#ffffff':'#111116';
  segmentAttack(x1,y1,x2,y2,width,damage,stun,{color,force:knock,forceA:ang,fx:false,teleportHit:confirmed,rapidHit:!!opts.rapidHit,skillId:ev.skill?.id||'',onHit:opts.onHit});
- riftCutFx((x1+x2)/2,(y1+y2)/2,ang,reach+74,Math.max(16,width*.32),solar?color:sub,.24,true);
- slashFx(me.x,me.y,ang,solar?1.15:1.52,Math.min(210,reach*.62),color,.25,true);
- if(opts.heavy){ring(me.x+ca*Math.min(reach*.45,120),me.y+sa*Math.min(reach*.45,120),solar?105:118,sub,.26,true);pvpShake=Math.max(pvpShake,solar?9:10);}
+ if(opts.heavy)pvpShake=Math.max(pvpShake,solar?9:10);
  return confirmed;
 }
 function pvpEclipsePull(ev,damage,stun,reach,width,pull,offset=0){
  return pvpEclipseSlash(ev,damage,stun,reach,width,offset,0,{onHit:()=>{if(!enemy)return;const dx=me.x-enemy.x,dy=me.y-enemy.y,d=Math.hypot(dx,dy)||1;forceEnemyTo(enemy.x+dx/d*pull,enemy.y+dy/d*pull,.22,stun);}});
 }
 function pvpEclipseHit(ev,k,damage,final){
- const mode=ev.cfg.mode;
- if(mode==='solarFlashLine'){const off=[-.18,.22,0][k]||0;pvpEclipseSlash(ev,damage,k===2?.46:.12,k===2?320:270,k===2?155:132,off,k===2?78:18,{solar:true,heavy:k===2});}
- else if(mode==='solarFlowChain'){const off=[-.72,.34,-.42,.62][k]||0;pvpEclipseSlash(ev,damage,k===3?.40:.10,k===3?285:250,k===3?150:132,off,k===3?38:8,{solar:true,heavy:k===3});}
- else if(mode==='solarFallingCleave'){const off=[-.62,.48,Math.PI/2][k]||0;pvpEclipseSlash(ev,damage,k===2?.72:.14,k===2?350:280,k===2?190:145,off,k===2?120:20,{solar:true,heavy:k===2});}
- else if(mode==='lunarMistStep'){
+ const mode=ev.cfg.mode,a=ev.a;
+ if(mode==='solarFlashLine'){
+  const off=[-.18,.22,0][k]||0;
+  if(k===0)for(let j=-2;j<=2;j++)pvpEclipseSolarShard(me.x,me.y,a+j*.05,340-j*12,58+Math.abs(j)*6,.25,1.25,true);
+  if(k===2)for(const aa of [a-.55,a+.55])pvpEclipseSolarShard(me.x,me.y,aa,330,78,.36,1.55,true);
+  pvpEclipseSlash(ev,damage,k===2?.46:.12,k===2?320:270,k===2?155:132,off,k===2?78:18,{solar:true,heavy:k===2});
+  pvpEclipseSolarMoonFx(a+off,k===2,k);
+ }else if(mode==='solarFlowChain'){
+  const off=[-.72,.34,-.42,.62][k]||0;
+  pvpEclipseSlash(ev,damage,k===3?.40:.10,k===3?285:250,k===3?150:132,off,k===3?38:8,{solar:true,heavy:k===3});
+  pvpEclipseSolarMoonFx(a+off,k===3,k);
+  for(let j=0;j<3;j++){const aa=a+off+(j-1)*.24;pvpEclipseStyledSlash(me.x+Math.cos(aa)*j*18,me.y+Math.sin(aa)*j*18,aa,1.0+j*.12,105+j*24,j===1?'#FFFFFF':'#BFC7D2',.18+j*.025,'#E8EDF5',.64,7,2,7,true);}
+ }else if(mode==='solarFallingCleave'){
+  const off=[-.62,.48,Math.PI/2][k]||0;
+  if(k===2){pvpEclipseSolarShard(me.x,me.y,a+Math.PI/2,420,112,.46,1.95,true);for(let j=-2;j<=2;j++)beamFx(me.x-130+j*18,me.y-16,me.x+130+j*18,me.y+16,j===0?'#FFFFFF':'#BFC7D2',.28,true);}
+  pvpEclipseSlash(ev,damage,k===2?.72:.14,k===2?350:280,k===2?190:145,off,k===2?120:20,{solar:true,heavy:k===2});
+  pvpEclipseSolarMoonFx(a+off,k===2,k);
+ }else if(mode==='lunarMistStep'){
   const off=k===0?.58:-.46;
-  pvpEclipseSlash(ev,damage,k===1?.44:.13,k===1?285:255,k===1?155:138,off,k===1?48:8,{heavy:k===1,onHit:k===0?()=>{if(me.skillEvent!==ev||ev.eclipseSlipTeleported||!enemy)return;const aa=Math.atan2(enemy.y-me.y,enemy.x-me.x),gap=me.r+enemy.r+72,ox=me.x,oy=me.y;me.x=clamp(enemy.x+Math.cos(aa)*gap,25,ARENA_W-25);me.y=clamp(enemy.y+Math.sin(aa)*gap,25,ARENA_H-25);ev.a=me.a=Math.atan2(enemy.y-me.y,enemy.x-me.x);ev.eclipseSlipTeleported=true;net({t:'teleport',x:me.x,y:me.y,a:me.a});beamFx(ox,oy,me.x,me.y,'#2a2634',.24,true);ring(ox,oy,72,'#111116',.26,true);ring(me.x,me.y,92,'#2a2634',.30,true);pvpShake=Math.max(pvpShake,10);}:null});
+  pvpEclipseLunarInk(me.x,me.y,a+off,k===1?220:176,k===1?2.68:2.18,k===1?.42:.32,k===1?1.5:1.2,((performance.now()*100000)|0)+k*41,true);
+  pvpEclipseSlash(ev,damage,k===1?.44:.13,k===1?285:255,k===1?155:138,off,k===1?48:8,{heavy:k===1,onHit:k===0?()=>{
+   if(me.skillEvent!==ev||ev.eclipseSlipTeleported||!enemy)return;
+   const aa=Math.atan2(enemy.y-me.y,enemy.x-me.x),gap=me.r+enemy.r+72,ox=me.x,oy=me.y;
+   me.x=clamp(enemy.x+Math.cos(aa)*gap,25,ARENA_W-25);me.y=clamp(enemy.y+Math.sin(aa)*gap,25,ARENA_H-25);ev.a=me.a=Math.atan2(enemy.y-me.y,enemy.x-me.x);ev.eclipseSlipTeleported=true;
+   net({t:'teleport',x:me.x,y:me.y,a:me.a});
+   pvpEclipseLunarInk(ox,oy,aa,176,2.45,.36,1.25,((performance.now()*100000)|0),true);
+   pvpEclipseLunarInk(me.x,me.y,me.a,206,2.72,.42,1.45,(((performance.now()*100000)|0)^0x5f3759df),true);
+   pvpShake=Math.max(pvpShake,10);
+  }:null});
+  pvpEclipseLunarMoonFx(ev.a+(k===0?0:-.34),k===1,k);
+ }else if(mode==='lunarSpiralBind'){
+  const off=[-.72,.72,-.18][k]||0;
+  if(k<2){pvpEclipsePull(ev,damage,.18,310,170,k===0?120:150,off);for(let j=0;j<4;j++)pvpEclipseLunarInk(me.x,me.y,a+off+j*.22,130+j*24,1.75+j*.18,.28+j*.025,1,((performance.now()*100000)|0)+k*131+j*37,true);}
+  else pvpEclipseSlash(ev,damage,.48,320,175,off,54,{heavy:true});
+  pvpEclipseLunarMoonFx(a+off,k===2,k);
+ }else if(mode==='lunarWildAngles'){
+  const off=[-.78,.56,-.48,.74,-.16][k]||0;
+  for(let j=0;j<3;j++)pvpEclipseLunarInk(me.x+(Math.random()*40-20),me.y+(Math.random()*40-20),a+off+(j-1)*.22,(k===4?215:150)+j*18,(k===4?2.70:1.70)+j*.12,.24+j*.025,1,((performance.now()*100000)|0)+k*157+j*31,true);
+  pvpEclipseSlash(ev,damage,k===4?.56:.10,k===4?325:270,k===4?175:145,off,k===4?72:10,{heavy:k===4});
+  pvpEclipseLunarMoonFx(a+off,k===4,k);
+ }else if(mode==='eclipseMoonChain'){
+  const off=[-.36,.30,.62,-.66,.48,-.42,.72,-.58,.24,0][k]||0,solar=[0,1,4,5,8,9].includes(k);
+  pvpEclipseSlash(ev,damage,k===9?.84:.12,k===9?350:280,k===9?185:150,off,k===9?120:14,{solar,heavy:k===9,rapidHit:true});
+  if(solar)pvpEclipseSolarMoonFx(a+off,k===9,k);else pvpEclipseLunarMoonFx(a+off,false,k);
+  pvpEclipseUltimateLayerFx(k,a+off);
+  if(k===9){burst(me.x,me.y,'#FFFFFF',22,220);burst(me.x,me.y,'#151515',22,215);pvpShake=Math.max(pvpShake,20);}
  }
- else if(mode==='lunarSpiralBind'){const off=[-.72,.72,-.18][k]||0;if(k<2)pvpEclipsePull(ev,damage,.18,310,170,k===0?120:150,off);else pvpEclipseSlash(ev,damage,.48,320,175,off,54,{heavy:true});}
- else if(mode==='lunarWildAngles'){const off=[-.78,.56,-.48,.74,-.16][k]||0;pvpEclipseSlash(ev,damage,k===4?.56:.10,k===4?325:270,k===4?175:145,off,k===4?72:10,{heavy:k===4});}
- else if(mode==='eclipseMoonChain'){const off=[-.36,.30,.62,-.66,.48,-.42,.72,-.58,.24,0][k]||0,solar=[0,1,4,5,8,9].includes(k);pvpEclipseSlash(ev,damage,k===9?.84:.12,k===9?350:280,k===9?185:150,off,k===9?120:14,{solar,heavy:k===9,rapidHit:true});if(k===9){nova(me.x,me.y,300,'#ffffff',.52,true);sealFx(me.x,me.y,270,'#111116',.52,true);pvpShake=Math.max(pvpShake,20);}}
 }
+
 function pvpWorldSwordHit(ev,k){
  if(PVP_HONGRYEON_MODES.has(ev.cfg.mode)){pvpHongryeonHit(ev,k);return;}
   const sk=ev.skill,cfg=ev.cfg,mode=cfg.mode,a=ev.a,reach=(weaponData[me.weapon]?.range||94)+(cfg.reach?.[k]||0),final=k===cfg.hits.length-1,d=sk.id==='thunderDrive'?pvpGale5Damage(final,me.level):pvpSkillAttack(me)*(cfg.mult?.[k]||1),arc=cfg.arc?.[k]||1.8,step=cfg.step?.[k]||0;
