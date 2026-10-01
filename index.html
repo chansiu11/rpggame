@@ -2259,7 +2259,7 @@ function resolveWorldBasicAttack(){
 }
 function updatePendingWorldBasic(dt){
  if(!pendingBasicAttack)return;
- if(player){player.facing=pendingBasicAttack.angle;player.attackAngle=pendingBasicAttack.angle;}
+ if(player){player.skillLift=0;player.facing=pendingBasicAttack.angle;player.attackAngle=pendingBasicAttack.angle;}
  pendingBasicAttack.elapsed+=dt;
  if(pendingBasicAttack.elapsed+1e-6>=BASIC_ATTACK_WINDUP)resolveWorldBasicAttack();
 }
@@ -4784,9 +4784,10 @@ function drawPlayer(){
  const prep=String(p.skillKind||'').startsWith('prepare:')?String(p.skillKind).slice(8):'',prepT=1-(p.attackAnim||0)/window.EchoesSkillPrepare.duration,prepVariant=window.EchoesSkillPrepare.variant(p.weapon===3?'hidden:'+p.skillPose:p.weapon===2?'bow:'+p.skillPose:(p.swordSkills?.[p.skillPose]||p.equippedSwordSkills?.[p.skillPose]||''),p.skillPose);
  const walk=prep?0:m.walk,bounce=Math.abs(Math.sin(m.phase))*walk*1.3,attackT=clamp(1-p.attackAnim/(p.attackDuration||.26),0,1),swing=p.attackAnim>0?Math.sin(attackT*Math.PI):0;
  const basicWindupVisual=!prep&&p.skillPose<0&&p.weapon!==2&&p.attackAnim>0&&p.attackDuration>=BASIC_ATTACK_WINDUP-.005;
+ const basicBodyStable=!!pendingBasicAttack||(!prep&&p.skillPose<0&&p.weapon!==2&&p.attackAnim>0&&p.attackDuration<=BASIC_ATTACK_WINDUP+.01);
  const breath=Math.sin(realTime*2.2)*.35,hipY=-21-bounce,shoulderY=-42-bounce+breath+m.lean*2,headY=shoulderY-14,bodyWidth=10+Math.abs(fy)*2,armor=p.equippedChest==='abyssPlate'?['#553c59','#8f6b91']:p.equippedChest==='frostMail'?['#5e8893','#b8d9df']:p.equippedChest==='knightPlate'?['#596b70','#aeb9b6']:['#709d91','#a2bbae'],helm=p.equippedHead==='voidVisor'?'#5c4770':p.equippedHead==='frostCrown'?'#8fb9bf':p.equippedHead==='ironHelm'?'#79888a':'#8ca99d',shieldCol=p.equippedShield==='astralShield'?'#d4c8ff':p.equippedShield==='frostShield'?'#9bd8e4':p.equippedShield==='ironShield'?'#9aa5a6':'#82bab0';
  ellipse(ctx,p.x,p.y+3,19,7,'#07171c77');
- ctx.save();ctx.translate(0,-(p.skillLift||0));
+ ctx.save();if(basicBodyStable)ctx.globalAlpha=1;ctx.translate(0,-(basicBodyStable?0:(p.skillLift||0)));
  if(p.dodge>0){for(let i=1;i<=4;i++){ctx.globalAlpha=(5-i)*.09;line(ctx,p.x-p.dx*i*13-8,p.y-p.dy*i*13-5,p.x-p.dx*(i+1)*13-8,p.y-p.dy*(i+1)*13-5,'#b9eadb',4);line(ctx,p.x-p.dx*i*13+8,p.y-p.dy*i*13-9,p.x-p.dx*(i+1)*13+8,p.y-p.dy*(i+1)*13-9,'#dcebbd',3);}ctx.globalAlpha=1;}
  ctx.save();ctx.translate(p.x,p.y);const basicVisualActive=!!pendingBasicAttack||performance.now()<(basicAttackLockUntil||0);if(p.invuln>0&&p.dodge<=0&&!basicVisualActive&&Math.sin(realTime*35)>0)ctx.globalAlpha=.72;
  const pose=p.skillPose>=0&&p.attackAnim>0?p.skillPose:-1,hitPose=p.strikePose||0;ctx.translate(!prep&&p.attackAnim>0&&pose===1?fx*8:0,!prep&&pose===3?-Math.sin(attackT*Math.PI)*15:0);
@@ -6421,7 +6422,7 @@ function resolvePvpPendingBasic(){
 }
 function updatePvpPendingBasic(dt){
  if(!me?.pendingBasic)return;
- if(Number.isFinite(me.pendingBasic.a))me.a=me.pendingBasic.a;
+ me.skillLift=0;if(Number.isFinite(me.pendingBasic.a))me.a=me.pendingBasic.a;
  me.pendingBasic.elapsed+=dt;
  if(me.pendingBasic.elapsed+1e-6>=PVP_BASIC_WINDUP)resolvePvpPendingBasic();
 }
@@ -7185,11 +7186,12 @@ function drawJourneyFighter(f,isMe){
  const m=f.motion||{phase:0,walk:0,facing:f.a,lean:0},a=m.facing,fxd=Math.cos(a),fyd=Math.sin(a),back=fyd<-.35,side=fxd<-.2?-1:1,walk=prep?0:m.walk;
  const bounce=Math.abs(Math.sin(m.phase))*walk*1.3,attackT=clamp(1-f.attackAnim/(f.attackDuration||.26),0,1),swing=f.attackAnim>0?Math.sin(attackT*Math.PI):0;
  const basicWindupVisual=!prep&&f.skillPose<0&&f.weapon!==2&&f.attackAnim>0&&f.attackDuration>=PVP_BASIC_WINDUP-.005;
+ const basicBodyStable=!!f.pendingBasic||(!prep&&f.skillPose<0&&f.weapon!==2&&f.attackAnim>0&&f.attackDuration<=PVP_BASIC_WINDUP+.01);
  const breath=Math.sin(performance.now()*.0022)*.35,hipY=-21-bounce,shoulderY=-42-bounce+breath+m.lean*2,headY=shoulderY-14,bodyWidth=10+Math.abs(fyd)*2;
  const armor=f.chestId==='abyssPlate'?['#553c59','#8f6b91']:f.chestId==='frostMail'?['#5e8893','#b8d9df']:f.chestId==='knightPlate'?['#596b70','#aeb9b6']:['#709d91','#a2bbae'];
  const helm=f.headId==='voidVisor'?'#5c4770':f.headId==='frostCrown'?'#8fb9bf':f.headId==='ironHelm'?'#79888a':'#8ca99d',shieldCol=f.shieldId==='astralShield'?'#d4c8ff':f.shieldId==='frostShield'?'#9bd8e4':f.shieldId==='ironShield'?'#9aa5a6':'#82bab0';
  const pose=f.skillPose>=0&&f.attackAnim>0?f.skillPose:-1;
- ctx.save();ctx.translate(f.x,f.y);ctx.scale(.76,.76);if(f.skillKind==='void3Evade'){pEllipse(0,3,23,6,'#ae83e088');ctx.restore();return;}pEllipse(0,3,19,7,'#07171c77');ctx.translate(0,-(f.skillLift||0));
+ ctx.save();ctx.translate(f.x,f.y);ctx.scale(.76,.76);if(f.skillKind==='void3Evade'){pEllipse(0,3,23,6,'#ae83e088');ctx.restore();return;}pEllipse(0,3,19,7,'#07171c77');if(basicBodyStable)ctx.globalAlpha=1;ctx.translate(0,-(basicBodyStable?0:(f.skillLift||0)));
  if(f.dash>0||f.skillKind==='hidden1'||f.skillKind==='hidden4'){for(let i=1;i<=4;i++){ctx.globalAlpha=(5-i)*.09;pLine(-fxd*i*15-8,-fyd*i*15-5,-fxd*(i+1)*15-8,-fyd*(i+1)*15-5,'#b9eadb',4);pLine(-fxd*i*15+8,-fyd*i*15-9,-fxd*(i+1)*15+8,-fyd*(i+1)*15-9,'#dcebbd',3)}ctx.globalAlpha=1}
  if(f.skillPose>=0&&!prep){const c=f.weapon===3?HIDDEN_SKILLS[f.skillPose]?.color:(pvpSwordSkillAt(f.skillPose,f)?.color||'#e8d399');ctx.globalAlpha=.24;pCircle(0,-24,25+(f.skillPose||0)*2,c||'#fff');ctx.globalAlpha=1}
  const recoil=f.hurt>0?Math.sin(f.hurt/.24*Math.PI)*2:0;ctx.translate(-fxd*recoil,-fyd*recoil*.4);const capeSway=Math.sin(m.phase-.6)*walk*3-fxd*m.lean*7;
