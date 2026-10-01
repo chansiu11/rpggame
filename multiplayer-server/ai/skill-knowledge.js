@@ -75,14 +75,17 @@ export function rangeFit(meta,distance){
 
 export function skillUseScore(meta,ctx={}){
  if(!meta)return -1;
- const d=Math.max(0,Number(ctx.distance)||0),fit=rangeFit(meta,d),enemyStun=Math.max(0,Number(ctx.enemyStun)||0),enemyBlock=ctx.enemyBlock?1:0;
+ const d=Math.max(0,Number(ctx.distance)||0),fit=rangeFit(meta,d),enemyStun=Math.max(0,Number(ctx.enemyStun)||0),enemyBlock=ctx.enemyBlock?1:0,enemySkillActive=ctx.enemySkillActive?1:0;
+ const shieldAge=Math.max(0,Number(ctx.enemyShieldAge)||0),shieldReleasedAge=Math.max(0,Number(ctx.shieldReleasedAge)||99);
  const hp=clamp(Number(ctx.selfHpRatio)||1,0,1),enemyHp=clamp(Number(ctx.enemyHpRatio)||1,0,1),stam=clamp(Number(ctx.staminaRatio)||1,0,1);
  let score=fit*.72+meta.control*(enemyStun>0?.02:.13)+meta.tracking*.08+meta.area*(d<meta.effectiveRange*.7?.10:0);
  if(meta.mobility&&d>meta.idealRange)score+=clamp((d-meta.idealRange)/Math.max(180,meta.effectiveRange),0,.22);
  if(meta.projectile&&d>180)score+=.12;
  if(meta.defensive)score+=(hp<.55?.26:.04)+(ctx.enemyAttacking?.18:0);
  if(meta.utility)score+=.02;
- if(enemyBlock)score+=meta.shieldBreak*.24-meta.projectile*.04;
+ if(enemyBlock){score+=meta.shieldBreak*(.24+Math.min(.18,shieldAge*.08))-meta.projectile*.04;if(meta.shieldBreak<.35)score-=.12;}
+ if(!enemyBlock&&shieldReleasedAge<.42)score+=meta.damageWeight*.12+meta.mobility*.06;
+ if(enemySkillActive){score+=meta.defensive*.16+meta.control*(meta.firstHit<.28?.10:0);if(meta.firstHit>.45&&!meta.defensive)score-=.08;}
  if(enemyStun>0)score+=meta.damageWeight*.12+meta.ultimate*.10;
  if(meta.ultimate&&fit<.05)score-=.35;
  if(meta.ultimate&&enemyHp<.35)score+=.14;
