@@ -17,7 +17,8 @@ export function createAiService(send,{store=new FirebaseStore(),refreshIntervalM
  if(p.pvpRelayMatch){send(p.ws,{type:'pvp:aiError',message:'진행 중인 PVP를 먼저 종료하세요.'});return true;}
  if(Date.now()-(p.aiLastStart||0)<3000)return true;p.aiLastStart=Date.now();leave(p);
  if(sessions.size>=Math.max(1,Math.min(4,Number(process.env.AI_MAX_MATCHES)||1))){send(p.ws,{type:'pvp:aiError',message:'AI 서버가 사용 중입니다. 잠시 후 다시 시도하세요.'});return true;}
- const style=Object.hasOwn(styles,m.style)?m.style:Object.keys(styles)[Math.floor(Math.random()*Object.keys(styles).length)],id=randomUUID(),difficulty=normalizeDifficulty(m.difficulty);
+ const requestedStyle=String(m.style||'random'),style=requestedStyle==='random'?Object.keys(styles)[Math.floor(Math.random()*Object.keys(styles).length)]:(Object.hasOwn(styles,requestedStyle)?requestedStyle:null),id=randomUUID(),difficulty=normalizeDifficulty(m.difficulty);
+ if(!style){send(p.ws,{type:'pvp:aiError',message:'선택한 AI 유파를 사용할 수 없습니다.'});return true;}
  const spectate=m.spectate===true;
  const worker=new Worker(new URL('./live-worker.js',import.meta.url),{workerData:{style,level:p.level,policy,difficulty},resourceLimits:{maxOldGenerationSizeMb:96}}),s={worker,id,spectate,count:0,at:Date.now(),timeout:setTimeout(()=>{send(p.ws,{type:'pvp:aiError',message:'AI 대전 제한 시간(20분)이 끝났습니다.'});leave(p)},20*60*1000)};sessions.set(p.id,s);
  worker.on('message',data=>{if(sessions.get(p.id)!==s)return;if(data.t==='aiReady')send(p.ws,{type:'pvp:aiReady',matchId:id,style,difficulty,...(spectate?{spectate:true,policy:structuredClone(policy)}:{})});else send(p.ws,{type:'pvp:aiPacket',matchId:id,data},{volatile:!spectate&&data.t==='state'});});
