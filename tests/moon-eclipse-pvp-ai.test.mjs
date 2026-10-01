@@ -57,30 +57,54 @@ test('Moon PVP uses real form shift input and swaps 2-4 to Solar skills',()=>{
  }finally{arena.dispose();}
 });
 
-test('Moon AI presses/releases actual skill 1 and does not immediately flip back after success',()=>{
+function setMoonOutputBias(policy,index,value){
+ const n=policy.styles.moon.network;n.w1.fill(0);n.b1.fill(0);n.w2.fill(0);n.b2.fill(0);n.w3.fill(0);n.b3.fill(-2);n.b3[index]=value;return policy;
+}
+
+test('Moon AI does not force form shift when 2-4 are cooling',()=>{
  const arena=createArena({style:'moon',level:100});
  try{
   arena.api.init(structuredClone(arena.snapshot),structuredClone(arena.snapshot),true,()=>{});
-  const me=arena.api.me,enemy=arena.api.enemy,brain=createBrain('moon',seedPolicy(),rng(77),3);
-  me.cool[1]=8;me.cool[2]=9;me.cool[3]=10;me.cool[0]=0;
-  const now=0;
-  me.moonFormCooldownEnds.solar[1]=12000;me.moonFormCooldownEnds.solar[2]=13000;me.moonFormCooldownEnds.solar[3]=14000;
+  const me=arena.api.me,enemy=arena.api.enemy,p=setMoonOutputBias(seedPolicy(),3,2);
+  const brain=createBrain('moon',p,()=>.5,3,{training:true});
+  enemy.x=me.x+150;enemy.y=me.y;me.cool[1]=8;me.cool[2]=9;me.cool[3]=10;me.cool[0]=0;
+  const action=brain.step(1/60,me,enemy);
+  assert.equal(action.basic,true);
+  assert.notEqual(action.skill,0);
+  assert.equal(action.formShift,undefined);
+ }finally{arena.dispose();}
+});
 
+test('Moon AI can choose real skill 1 itself and tap to change form',()=>{
+ const arena=createArena({style:'moon',level:100});
+ try{
+  arena.api.init(structuredClone(arena.snapshot),structuredClone(arena.snapshot),true,()=>{});
+  const me=arena.api.me,enemy=arena.api.enemy,p=setMoonOutputBias(seedPolicy(),4,2);
+  const brain=createBrain('moon',p,()=>.5,3,{training:true});
+  enemy.x=me.x+170;enemy.y=me.y;
   const press=brain.step(1/60,me,enemy);
   assert.equal(press.skill,0);
   assert.equal(press.formShift,undefined);
-  assert.notEqual(press.basic,true);
   arena.api.control(press);arena.step(1/60);
-
   const release=brain.step(1/60,me,enemy);
   assert.equal(release.release,0);
-  arena.api.control(release);
-  stepN(arena,30);
+  arena.api.control(release);stepN(arena,30);
   assert.equal(me.moonForm,'solar');
-
-  const next=brain.step(1/60,me,enemy);
-  assert.notEqual(next.skill,0,'successful form shift must be latched while opposite 2-4 are still cooling');
  }finally{arena.dispose();}
+});
+
+test('Moon neural input distinguishes Lunar and Solar for different learned skill choices',()=>{
+ const p=seedPolicy(),n=p.styles.moon.network;
+ n.w1.fill(0);n.b1.fill(0);n.w2.fill(0);n.b2.fill(0);n.w3.fill(0);n.b3.fill(-2);
+ n.w1[29*16]=2;n.w2[0]=2;
+ n.w3[0*18+5]=-3;
+ n.w3[0*18+6]=3;
+ const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:100,maxStam:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,moonAltReady:1};
+ const enemy={x:1160,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:0,skillPose:-1,block:false,combo:0};
+ const lunar=createBrain('moon',p,()=>.5,3,{training:true}).step(1/60,{...me,moonForm:'lunar'},enemy);
+ const solar=createBrain('moon',p,()=>.5,3,{training:true}).step(1/60,{...me,moonForm:'solar'},enemy);
+ assert.equal(lunar.skill,1);
+ assert.equal(solar.skill,2);
 });
 
 

@@ -68,7 +68,7 @@ function readySkills(me,style){
  const cool=Array.isArray(me?.cool)?me.cool:[0,0,0,0,0];
  return Array.from({length:5},(_,i)=>Number(cool[i]||0)<=0&&!(style==='void'&&i===2&&Number(me?.void3DodgeRemaining)>0));
 }
-function makeFeatures(state,me,enemy,holdAge,ready,dt){
+function makeFeatures(state,me,enemy,holdAge,ready,dt,style){
  const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
  const prev=state.previous,edx=prev?((Number(enemy?.x)||0)-prev.ex):0,edy=prev?((Number(enemy?.y)||0)-prev.ey):0;
  const invDt=1/Math.max(.001,dt),rv=prev?clamp(((d-prev.d)*invDt)/520,-1,1):0;
@@ -80,14 +80,19 @@ function makeFeatures(state,me,enemy,holdAge,ready,dt){
  state.skillEma+=(enemySkill-state.skillEma)*alpha;
  state.previous={ex:Number(enemy?.x)||0,ey:Number(enemy?.y)||0,d};
  const selfAction=(Number(me?.attackAnim)>0||Number(me?.skillPose)>=0)?1:0;
+ // Saved networks stay 30 inputs. Moon alone reuses the two trailing context slots:
+ // [28] = opposite-form 2/3/4 readiness, [29] = current Lunar(-1)/Solar(+1) form.
+ const moon=style==='moon';
+ const context28=moon?clamp((Number(me?.moonAltReady)||0)*2-1,-1,1):clamp((Number(enemy?.combo)||0)/5,0,1);
+ const context29=moon?(me?.moonForm==='solar'?1:-1):(selfAction?1:-1);
  return [
   clamp(dx/700,-1,1),clamp(dy/700,-1,1),clamp(d/800,0,1.5),Math.sin(a),Math.cos(a),
   ratio(me?.hp,me?.maxHp),ratio(enemy?.hp,enemy?.maxHp),clamp(ratio(me?.hp,me?.maxHp)-ratio(enemy?.hp,enemy?.maxHp),-1,1),
   ratio(me?.shield,me?.maxShield),ratio(enemy?.shield,enemy?.maxShield),
   selfAction,enemyAttack,clamp(Number(me?.stun)||0,0,1),clamp(Number(enemy?.stun)||0,0,1),enemy?.block?1:0,
   rv,lateral,state.attackEma,state.blockEma,state.dashEma,state.skillEma,clamp(holdAge/1.5,0,1),clamp((Number(me?.combo)||0)/5,0,1),
-  ready[0]?1:0,ready[1]?1:0,ready[2]?1:0,ready[3]?1:0,ready[4]?1:0,clamp((Number(enemy?.combo)||0)/5,0,1),
-  selfAction?1:-1
+  ready[0]?1:0,ready[1]?1:0,ready[2]?1:0,ready[3]?1:0,ready[4]?1:0,context28,
+  context29
  ];
 }
 function addDifficultyNoise(out,settings,random,training){
@@ -104,18 +109,13 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
  const training={noiseSeed,sigma:base.sigma};
  const state={previous:null,attackEma:0,blockEma:0,dashEma:0,skillEma:0};
- let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonLastForm=null,moonShiftLatched=false,moonShiftReleasePending=false;
+ let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonShiftReleasePending=false;
  const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
  return {tactic:-1,training,stats,step(dt,me,enemy){
   dt=clamp(Number(dt)||1/60,1/240,.08);stats.decisions++;dodgeLock=Math.max(0,dodgeLock-dt);
   const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
-  const ready=readySkills(me,style),features=makeFeatures(state,me,enemy,holdAge,ready,dt),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
-  if(style==='moon'){
-   const observedForm=me?.moonForm==='solar'?'solar':'lunar';
-   if(moonLastForm===null)moonLastForm=observedForm;
-   else if(observedForm!==moonLastForm){moonLastForm=observedForm;moonShiftLatched=true;moonShiftReleasePending=false;}
-  }
+  const ready=readySkills(me,style),features=makeFeatures(state,me,enemy,holdAge,ready,dt,style),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
   const aggression=out[11],desired=clamp(330+out[0]*250-aggression*75,70,650);
   let radial=d>desired+24?1:d<desired-24?-1:out[14]*.35,lateral=clamp(out[1],-1,1);
   if(Math.abs(lateral)<.08)lateral=side*.16;
@@ -156,15 +156,8 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const skillBusy=!!me?.skillEvent||!!me?.skillHold;
   const busy=skillBusy||Number(me?.attackAnim)>0;
 
-  // 월식 폼 전환은 평타보다 우선한다. 2·3·4가 모두 쿨이면 실제 1번 스킬 키를 누르고
-  // 다음 프레임에 키를 뗀다. 요청 자체로 성공 처리하지 않고 me.moonForm이 실제 바뀐 뒤에만 잠근다.
-  const moon234Cooling=style==='moon'&&!ready[1]&&!ready[2]&&!ready[3];
-  if(style==='moon'&&!moon234Cooling)moonShiftLatched=false;
-  if(moon234Cooling&&!moonShiftLatched&&ready[0]&&!skillBusy){
-   moonShiftReleasePending=true;stats.skills++;
-   current={keys,aim,block:false,dash:false,basic:false,skill:0};
-   return current;
-  }
+  // Moon form switching is learned, not forced. Slot 1 (index 0) stays in
+  // the same neural skill-choice competition as the other skills and basic attack.
 
   // Training-only exploration prevents an untrained random network from
   // getting trapped in "never attack" behavior. This is never used by live AI
@@ -172,7 +165,8 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   if(options.training===true&&noiseSeed!==null&&!busy&&random()<.025){
    const readyIds=[];for(let i=0;i<5;i++)if(ready[i])readyIds.push(i);
    if(readyIds.length){
-    const i=readyIds[Math.floor(random()*readyIds.length)];hold=i;holdAge=0;stats.skills++;
+    const i=readyIds[Math.floor(random()*readyIds.length)];stats.skills++;
+    if(style==='moon'&&i===0)moonShiftReleasePending=true;else{hold=i;holdAge=0;}
     current={keys,aim,block:false,dash:false,basic:false,skill:i};return current;
    }
    if(d<220){stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;}
@@ -197,7 +191,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
     if(score>best){best=score;bestType='skill';bestSkill=i;}
    }
    if(!feint&&best>settings.attackThreshold){
-    if(bestType==='skill'&&bestSkill>=0){hold=bestSkill;holdAge=0;stats.skills++;current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
+    if(bestType==='skill'&&bestSkill>=0){stats.skills++;if(style==='moon'&&bestSkill===0)moonShiftReleasePending=true;else{hold=bestSkill;holdAge=0;}current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
     if(bestType==='basic'){stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;}
    }else if(feint&&best>settings.attackThreshold){stats.feints++;}
   }
