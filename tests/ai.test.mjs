@@ -8,6 +8,20 @@ import {createAiService} from '../multiplayer-server/ai/live-service.js';
 test('all styles execute the existing arena code and inflict damage without rendering',()=>{
  for(const [a,b] of [['gale','void'],['moon','break'],['void','dawn'],['dawn','gale']]){const r=duel(a,b,seedPolicy(),seedPolicy(),72,20);assert.ok(r.results.some(x=>x.metrics.damage>0));assert.ok(r.results.every(x=>Number.isFinite(x.reward)));}
 });
+test('arena exposes current-form skill definitions to the bot',()=>{
+ const a=createArena({style:'moon'});
+ try{
+  a.api.init(a.snapshot,a.snapshot,true,()=>{});
+  let ctx=a.api.skillContext();
+  assert.equal(ctx.selfSkills.length,5);assert.equal(ctx.enemySkills.length,5);
+  assert.equal(ctx.selfSkills[0].id,'eclipseShift');
+  assert.ok(ctx.selfSkills.every((s,i)=>s&&s.cfg&&Number.isFinite(Number(s.cool))&&s.ultimate===(i===4)));
+  a.api.me.moonForm='solar';ctx=a.api.skillContext();
+  assert.equal(ctx.selfSkills[1].cfg.mode,'solarFlashLine');
+  a.api.me.moonForm='lunar';ctx=a.api.skillContext();
+  assert.equal(ctx.selfSkills[1].cfg.mode,'lunarMistStep');
+ }finally{a.dispose();}
+});
 test('AI self-play optionally exposes real read-only spectator snapshots',()=>{
  const a=seedPolicy(),b=seedPolicy(),frames=[];
  const result=duel('gale','void',a,b,98,2,()=>{},frame=>frames.push(frame));
@@ -35,14 +49,16 @@ test('device trainer advances at least three watched battles concurrently',{time
  }
 });
 
-test('neural AI learns ten combat behaviors while dodge stays fixed and resource management is excluded',()=>{
+test('neural AI keeps learned combat behaviors and adds live skill understanding',()=>{
  const p=seedPolicy();
- assert.equal(p.schema,2);assert.equal(p.model,'mlp-es-v1');assert.deepEqual(p.learning.behaviors,NN_BEHAVIORS);
- assert.equal(p.learning.fixedDodge,true);assert.equal(p.learning.resourceManagement,false);assert.equal(networkParameterCount(),934);
+ assert.equal(p.schema,3);assert.equal(p.model,'mlp-es-skill-aware-v2');assert.deepEqual(p.learning.behaviors.slice(0,NN_BEHAVIORS.length),NN_BEHAVIORS);
+ assert.deepEqual(p.learning.behaviors.slice(-3),['skillRangeUnderstanding','skillThreatUnderstanding','skillTimingUnderstanding']);
+ assert.equal(p.learning.fixedDodge,'skill-aware');assert.equal(p.learning.resourceManagement,false);assert.equal(networkParameterCount(),934);
  const brain=createBrain('void',p,()=>.5,3,{training:true});
  const me={x:1000,y:1000,stam:100,maxStam:100,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,void3DodgeRemaining:0};
  const enemy={x:1120,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:.2,skillPose:0,block:false,combo:0};
- const command=brain.step(1/60,me,enemy);assert.equal(command.dash,true,'close skill dodge remains a fixed code path instead of a learned output');
+ const enemySkill={id:'bladeRain',name:'사건선 절단',cost:61,cool:10.2,ultimate:false,cfg:{duration:1.05,hits:[.18,.52,.88],mult:[.38,.62,2.05],arc:[.72,.72,.82],reach:[220,230,265],mode:'eventHorizonShear'}};
+ const command=brain.step(1/60,me,enemy,{selfSkills:Array(5).fill(null),enemySkills:[enemySkill,null,null,null,null]});assert.equal(command.dash,true,'the dodge path must react to the active skill profile and range');assert.equal(brain.stats.threatDodges,1);
 });
 test('neural learning changes bounded network parameters and survives serialization',()=>{
  const p=seedPolicy(),before=p.styles.gale.network.w1.slice();
@@ -78,7 +94,7 @@ test('live worker negotiates the same PVP protocol and sends state, skills and d
  const a=createArena(),worker=new Worker(new URL('../multiplayer-server/ai/live-worker.js',import.meta.url),{workerData:{style:'gale',level:100}});let ready=false,started=false,states=0,attacks=0,countdownAt=0,goAt=0,ponged=false;
  a.api.init(a.snapshot,a.snapshot,true,m=>worker.postMessage(m));
  let timeout;
- const finished=new Promise((resolve,reject)=>{timeout=setTimeout(()=>reject(Error('Live neural AI produced no combat packet in time')),10000);worker.on('error',reject);worker.on('message',m=>{try{if(m.t==='aiReady'){ready=true;worker.postMessage({t:'hello',v:3,s:a.snapshot});}else if(m.t==='helloAck'){started=true;a.api.init(a.snapshot,m.s,true,d=>worker.postMessage(d));a.api.me.x=2050;}else{if(m.t==='aiCountdown'){countdownAt=performance.now();worker.postMessage({t:'ping',n:12345});}if(m.t==='pong'&&m.n===12345){assert.equal(goAt,0);ponged=true;}if(m.t==='aiGo')goAt=performance.now();if(m.t==='atk'||m.t==='proj')assert.ok(goAt>0,'no attacks before server start');if(m.t==='state')states++;if(m.t==='atk'||m.t==='proj')attacks++;a.api.receive(m);if(states>20&&attacks>0){clearTimeout(timeout);resolve();}}}catch(e){clearTimeout(timeout);reject(e)}})});
+ const finished=new Promise((resolve,reject)=>{timeout=setTimeout(()=>reject(Error('Live neural AI produced no combat packet in time')),10000);worker.on('error',reject);worker.on('message',m=>{try{if(m.t==='aiReady'){ready=true;worker.postMessage({t:'hello',v:4,ruleset:a.snapshot.ruleset,s:a.snapshot});}else if(m.t==='helloAck'){started=true;a.api.init(a.snapshot,m.s,true,d=>worker.postMessage(d));a.api.me.x=2050;}else{if(m.t==='aiCountdown'){countdownAt=performance.now();worker.postMessage({t:'ping',n:12345});}if(m.t==='pong'&&m.n===12345){assert.equal(goAt,0);ponged=true;}if(m.t==='aiGo')goAt=performance.now();if(m.t==='atk'||m.t==='proj')assert.ok(goAt>0,'no attacks before server start');if(m.t==='state')states++;if(m.t==='atk'||m.t==='proj')attacks++;a.api.receive(m);if(states>20&&attacks>0){clearTimeout(timeout);resolve();}}}catch(e){clearTimeout(timeout);reject(e)}})});
  const timer=setInterval(()=>{if(started)a.step(1/60)},1000/60);try{await finished;assert.ok(ready&&started&&states>20&&attacks>0);assert.ok(ponged,'pings remain responsive while locked');assert.ok(goAt-countdownAt>=2950,'at least three seconds before combat')}finally{clearTimeout(timeout);clearInterval(timer);await worker.terminate();a.dispose()}
 });
 test('AI service ignores world users and enforces concurrent session cap',async()=>{const sent=[],service=createAiService((ws,m)=>sent.push(m));const a={id:'a',clientMode:'pvp',ws:{}},b={id:'b',clientMode:'pvp',ws:{}},world={id:'world',clientMode:'world',ws:{}};try{service.handle(world,{type:'pvp:aiStart'},20);assert.equal(sent.length,0);service.handle(a,{type:'pvp:aiStart',style:'void'},20);service.handle(b,{type:'pvp:aiStart'},20);assert.equal(sent.at(-1).type,'pvp:aiError');assert.equal(service.handle(a,{type:'world:combat'},20),false);}finally{service.leave(a);service.leave(b)}});
@@ -101,7 +117,7 @@ test('Firebase checkpoints reload with a new store and reject failed writes',asy
  const oldFetch=globalThis.fetch,oldEnv=process.env.FIREBASE_SERVICE_ACCOUNT_JSON,db=new Map();let fail=false;
  const {privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});process.env.FIREBASE_SERVICE_ACCOUNT_JSON=JSON.stringify({project_id:'test-only',client_email:'test@example.invalid',private_key:privateKey.export({type:'pkcs8',format:'pem'})});
  globalThis.fetch=async(url,options={})=>{if(url.includes('oauth2'))return new Response(JSON.stringify({access_token:'test'}));const id=url.split('/').at(-1);if(options.method==='PATCH'){if(fail)return new Response('{}',{status:403});db.set(id,JSON.parse(options.body));}return db.has(id)?new Response(JSON.stringify(db.get(id))):new Response('{}',{status:404});};
- try{const p=seedPolicy();p.matches=25;p.autorun=true;const id=await new FirebaseStore().save(p);assert.match(id,/^v0-/);const current=await new FirebaseStore().load(),version=await new FirebaseStore().load(id);assert.equal(current.matches,p.matches);assert.equal(version.matches,p.matches);assert.equal(current.resetEpoch,'2026-09-30-ai-neural-reset-4');assert.equal(version.resetEpoch,'2026-09-30-ai-neural-reset-4');fail=true;await assert.rejects(new FirebaseStore().save(p),/403/);}finally{globalThis.fetch=oldFetch;if(oldEnv===undefined)delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;else process.env.FIREBASE_SERVICE_ACCOUNT_JSON=oldEnv;}
+ try{const p=seedPolicy();p.matches=25;p.autorun=true;const id=await new FirebaseStore().save(p);assert.match(id,/^v0-/);const current=await new FirebaseStore().load(),version=await new FirebaseStore().load(id);assert.equal(current.matches,p.matches);assert.equal(version.matches,p.matches);assert.equal(current.resetEpoch,'2026-10-02-ai-skill-aware-v5');assert.equal(version.resetEpoch,'2026-10-02-ai-skill-aware-v5');fail=true;await assert.rejects(new FirebaseStore().save(p),/403/);}finally{globalThis.fetch=oldFetch;if(oldEnv===undefined)delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;else process.env.FIREBASE_SERVICE_ACCOUNT_JSON=oldEnv;}
 });
 
 
