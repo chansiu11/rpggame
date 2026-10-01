@@ -6772,6 +6772,32 @@ function pvpBlackMoonSignatureFx(sk,k,finalHit,a,reach){
  }
  else if(id==='voidDance')sealFx(me.x,me.y,72,color,.22,true);
 }
+function pvpEclipseSolarShard(x,y,a,len=150,width=42,t=.24,power=1,send=true){pushFx({kind:'eclipseSolarShard',x,y,a,len,width,c:'#FFFFFF',t,max:t,power},send)}
+function pvpEclipseLunarInk(x,y,a,r=120,arc=1.9,t=.29,power=1,seed=((performance.now()*100000)|0),send=true){pushFx({kind:'eclipseLunarInk',x,y,a,r,arc,c:'#050505',seed:seed>>>0,t,max:t,power},send)}
+function pvpEclipseStyledSlash(x,y,a,arc,r,c,t=.22,innerColor='#fff5d8',innerAlpha=1,outerWidth=7,innerWidth=2,innerInset=7,send=true){pushFx({kind:'slash',x,y,a,arc,r,c,t,max:t,innerColor,innerAlpha,outerWidth,innerWidth,innerInset},send)}
+function pvpEclipseSolarMoonFx(a,heavy=false,phase=0){
+ const ca=Math.cos(a),sa=Math.sin(a),nx=-sa,ny=ca,count=heavy?12:8;
+ pvpEclipseSolarShard(me.x+ca*(heavy?54:42),me.y+sa*(heavy?54:42),a,heavy?230:165,heavy?58:42,heavy?.34:.24,heavy?1.35:1,true);
+ pvpEclipseStyledSlash(me.x,me.y,a,heavy?2.25:1.75,heavy?168:126,'#FFFFFF',heavy?.30:.22,'#BFC7D2',.58,heavy?8:6,2,7,true);
+ for(let j=0;j<count;j++){const q=(j+1)/(count+1),side=j%2?-1:1,cx=me.x+ca*(32+q*(heavy?148:104))+nx*side*(7+(j%3)*6),cy=me.y+sa*(32+q*(heavy?148:104))+ny*side*(7+(j%3)*6),aa=a+side*(.38+j*.035),r=18+(j%4)*6;pvpEclipseStyledSlash(cx,cy,aa,.44+(j%3)*.08,r,j%3===0?'#BFC7D2':'#FFFFFF',.12+j*.011,'#E8EDF5',.62,3.8,1.2,3.5,true);}
+}
+function pvpEclipseLunarMoonFx(a,heavy=false,phase=0){
+ const side=phase%2?-1:1,count=heavy?10:7,seed=((performance.now()*100000)|0)^(phase*2654435761);
+ pvpEclipseLunarInk(me.x,me.y,a+side*.10,heavy?182:138,heavy?2.72:2.20,heavy?.40:.29,heavy?1.35:1,seed,true);
+ for(let j=0;j<count;j++){const d=j%2?-1:1,aa=a+d*(.24+j*.10)+side*.08,r=42+(j%5)*14,shift=d*(13+j*5);pvpEclipseStyledSlash(me.x-Math.sin(a)*shift,me.y+Math.cos(a)*shift,aa,.82+(j%4)*.13,r,j%3===0?'#303030':j%2?'#151515':'#050505',.16+j*.017,j%2?'#080808':'#202020',.78,5.5+(j%2),2,6,true);}
+}
+function pvpEclipseUltimateLayerFx(k,a){
+ const x=me.x,y=me.y,solar=[0,1,4,5,8,9].includes(k),seed=((performance.now()*100000)|0)+k*1777;
+ if(solar){const big=k===9,mid=k===5||k===8;pvpEclipseSolarShard(x,y,a+(k%2?.22:-.18),big?430:mid?310:245,big?118:mid?82:62,big?.48:mid?.36:.28,big?2.05:mid?1.5:1.15,true);ring(x,y,big?255:mid?190:142,'#FFFFFF',big?.52:.34,true);ring(x,y,big?205:mid?148:102,'#BFC7D2',big?.48:.30,true);}
+ else{const big=k===7,mid=k===3||k===6;pvpEclipseLunarInk(x,y,a+(k%2?.34:-.30),big?270:mid?220:178,big?3.05:mid?2.78:2.45,big?.50:mid?.40:.32,big?1.9:mid?1.5:1.2,seed,true);ring(x,y,big?238:mid?188:142,'#050505',big?.46:.32,true);ring(x,y,big?182:mid?142:104,'#2A2A2A',big?.42:.28,true);}
+ if(k===9){pvpEclipseLunarInk(x,y,a+Math.PI/2,285,3,.58,1.95,seed^0x51f15e,true);sealFx(x,y,285,'#050505',.58,true);}
+}
+function pvpEclipseStartFx(sk,a){
+ const mode=sk?.cfg?.mode||'',x=me.x,y=me.y;
+ if(sk?.id==='eclipse5'){pvpEclipseSolarShard(x,y,a,300,80,.32,1.45,true);pvpEclipseSolarShard(x,y,a+Math.PI/2,220,58,.28,1.15,true);pvpEclipseLunarInk(x,y,a+.28,215,2.62,.40,1.45,((performance.now()*100000)|0),true);pvpEclipseLunarInk(x,y,a-.55,155,1.95,.34,1.05,((performance.now()*100000)|0)^0x271828,true);ring(x,y,185,'#FFFFFF',.36,true);ring(x,y,138,'#050505',.36,true);sealFx(x,y,205,'#050505',.40,true);return;}
+ if(mode.startsWith('solar')){pvpEclipseSolarShard(x,y,a,mode==='solarFlashLine'?270:mode==='solarFallingCleave'?235:210,mode==='solarFallingCleave'?66:58,.28,1.25,true);if(mode==='solarFlowChain')for(const aa of [a-.6,a,a+.6])pvpEclipseStyledSlash(x,y,aa,1.25,105,'#FFFFFF',.22,'#BFC7D2',.66,7,2,7,true);}
+ else{const rr=mode==='lunarSpiralBind'?205:mode==='lunarWildAngles'?190:182;pvpEclipseLunarInk(x,y,a,rr,mode==='lunarSpiralBind'?2.85:2.42,.36,1.3,((performance.now()*100000)|0),true);for(let j=0;j<7;j++){const side=j%2?-1:1;pvpEclipseStyledSlash(x-side*j*6,y+j*4,a+side*(.28+j*.08),.86+j*.09,62+j*12,j%3===0?'#2A2A2A':j%2?'#151515':'#050505',.16+j*.022,j%2?'#080808':'#202020',.75,7,2,7,true);}}
+}
 function pvpEclipseSlash(ev,damage,stun,reach,width,offset=0,knock=0,opts={}){
  const ang=ev.a+offset,ca=Math.cos(ang),sa=Math.sin(ang),x1=me.x-ca*34,y1=me.y-sa*34,x2=me.x+ca*reach,y2=me.y+sa*reach;
  const confirmed=!!enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,x1,y1,x2,y2)<=width+enemy.r;
