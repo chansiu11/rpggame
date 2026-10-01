@@ -1750,8 +1750,8 @@ function eclipseComboPullVector(e,seq,desired=84,maxPull=340){
  const cap=e.kind==='boss'?Math.min(maxPull,60):maxPull,scale=Math.min(cap,d)/d;
  return {dx:dx*scale,dy:dy*scale};
 }
-function eclipseMeleeHit(seq,damage,heavy,stun,reach=220,width=112,angleOffset=0,knock=0){
- const a=(seq?.facing??player.facing)+angleOffset,ca=Math.cos(a),sa=Math.sin(a),x1=player.x-ca*34,y1=player.y-sa*34,x2=player.x+ca*reach,y2=player.y+sa*reach;let first=null;
+function eclipseMeleeHit(seq,damage,heavy,stun,reach=220,width=112,angleOffset=0,knock=0,backReach=34){
+ const a=(seq?.facing??player.facing)+angleOffset,ca=Math.cos(a),sa=Math.sin(a),back=Math.max(34,Number(backReach)||34),x1=player.x-ca*back,y1=player.y-sa*back,x2=player.x+ca*reach,y2=player.y+sa*reach;let first=null;
  for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const cc=combatCenter(e);if(segmentDistance(cc.x,cc.y,[x1,y1],[x2,y2])>width+combatRadius(e))continue;if(!first)first=e;const pull=!heavy&&knock<60?eclipseComboPullVector(e,seq):null,out=eclipseStrikeTarget(e,damage,heavy,stun,pull?.dx??ca*knock,pull?.dy??sa*knock);if(seq&&out!==false)seq.eclipseCaught=true;}return first;
 }
 function eclipsePullMeleeHit(seq,damage,heavy,stun,reach=250,width=130,pull=110,angleOffset=0){
@@ -1841,7 +1841,9 @@ function eclipseSkillHit(seq,sk,k,damage,finalHit){
   eclipseMeleeHit(seq,damage,finalHit,k===4?.56:.10,k===4?325:270,k===4?175:145,off,k===4?72:10);eclipseLunarMoonFx(a+off,k===4,k);eclipseShake([2.5,3.5,4.5,5.5,11.0][k]||3);
  }else if(mode==='eclipseMoonChain'){
   const solar=[0,1,4,5,8,9].includes(k),off=[-.36,.30,.62,-.66,.48,-.42,.72,-.58,.24,0][k]||0;
-  eclipseMeleeHit(seq,damage,finalHit,k===9?.84:.12,k===9?350:280,k===9?185:150,off,k===9?120:14);
+  // The opening dash can carry the caster past a target that was overlapping at cast start.
+  // Moon 5 alone keeps a wide swept hitbox behind the caster so the first/chain hits still connect.
+  eclipseMeleeHit(seq,damage,finalHit,k===9?.84:.12,k===9?390:330,k===9?225:205,off,k===9?120:14,k===9?280:250);
   if(solar)eclipseSolarMoonFx(a+off,k===9,k);else eclipseLunarMoonFx(a+off,false,k);
   eclipseUltimateLayerFx(k,a+off);
   eclipseShake([3,4,5,6,7,8,9,10,12,20][k]||4);if(k===9){burst(player.x,player.y,'#FFFFFF',22,220);burst(player.x,player.y,'#151515',22,215);eclipseShake(20);}
@@ -6908,7 +6910,7 @@ function pvpEclipseComboPoint(ev,desired=84,maxPull=340){
  return {x:enemy.x+dx*scale,y:enemy.y+dy*scale};
 }
 function pvpEclipseSlash(ev,damage,stun,reach,width,offset=0,knock=0,opts={}){
- const ang=ev.a+offset,ca=Math.cos(ang),sa=Math.sin(ang),x1=me.x-ca*34,y1=me.y-sa*34,x2=me.x+ca*reach,y2=me.y+sa*reach;
+ const ang=ev.a+offset,ca=Math.cos(ang),sa=Math.sin(ang),back=Math.max(34,Number(opts.backReach)||34),x1=me.x-ca*back,y1=me.y-sa*back,x2=me.x+ca*reach,y2=me.y+sa*reach;
  const confirmed=!!enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,x1,y1,x2,y2)<=width+enemy.r;
  const solar=String(ev.cfg?.mode||'').startsWith('solar')||opts.solar===true,color=solar?'#ffffff':'#111116',comboPull=Number(opts.pullMax)||(opts.heavy||knock>=60?0:340);
  let pullPoint=null,pullForce=0,pullA=ang;
@@ -6956,7 +6958,7 @@ function pvpEclipseHit(ev,k,damage,final){
   pvpEclipseLunarMoonFx(a+off,k===4,k);
  }else if(mode==='eclipseMoonChain'){
   const off=[-.36,.30,.62,-.66,.48,-.42,.72,-.58,.24,0][k]||0,solar=[0,1,4,5,8,9].includes(k);
-  pvpEclipseSlash(ev,damage,k===9?.84:.12,k===9?350:280,k===9?185:150,off,k===9?120:14,{solar,heavy:k===9,rapidHit:true});
+  pvpEclipseSlash(ev,damage,k===9?.84:.12,k===9?390:330,k===9?225:205,off,k===9?120:14,{solar,heavy:k===9,rapidHit:true,backReach:k===9?280:250});
   if(solar)pvpEclipseSolarMoonFx(a+off,k===9,k);else pvpEclipseLunarMoonFx(a+off,false,k);
   pvpEclipseUltimateLayerFx(k,a+off);
   if(k===9){burst(me.x,me.y,'#FFFFFF',22,220);burst(me.x,me.y,'#151515',22,215);pvpShake=Math.max(pvpShake,20);}
@@ -6987,7 +6989,7 @@ function pvpWorldSwordHit(ev,k){
  
  if(ev.ultimate&&sk.id==='eclipse5'){
   const off=[-.36,.30,.62,-.66,.48,-.42,.72,-.58,.24,0][k]||0,oldA=me.a;me.a=ev.a+off;
-  arcAttack(reach+(k===9?70:20),d,cfg.arc[k]||2.4,k===9?138:0,k===9?.72:.16,{color:'#111116',fx:false,rapidHit:true,skillId:'moonEclipseChain'});
+  arcAttack(reach+(k===9?120:70),d,cfg.arc[k]||2.4,k===9?138:0,k===9?.72:.16,{color:'#111116',fx:false,rapidHit:true,skillId:'moonEclipseChain'});
   me.a=oldA;
  }else if(ev.ultimate&&sk.id==='prismLance'){
   if(k===0)for(let j=-2;j<=2;j++)wave(a+j*.12,720,pvpSkillAttack(me,'dawnArc')*1.2825,3);
