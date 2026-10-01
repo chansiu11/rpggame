@@ -16,6 +16,6 @@ parentPort.on('message',m=>{
  arena.api.receive(m);
 });
 let last=performance.now();setInterval(()=>{if(!initialized)return;const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
- if(arena.api.running&&!arena.api.locked)arena.api.control(brain.step(dt,arena.api.me,arena.api.enemy));arena.step(dt);
+ if(arena.api.running&&!arena.api.locked)arena.api.control(brain.step(dt,arena.api.me,arena.api.enemy,arena.api.skillContext?.()||{}));arena.step(dt);
 },1000/60);
 parentPort.postMessage({t:'aiReady'});
