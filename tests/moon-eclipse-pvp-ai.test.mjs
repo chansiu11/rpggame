@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {createArena} from '../multiplayer-server/ai/arena-runtime.js';
 import {createBrain,seedPolicy,rng} from '../multiplayer-server/ai/brain.js';
+
+const __dirname=path.dirname(fileURLToPath(import.meta.url));
+const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
 
 const idle=()=>({keys:[],aim:0,block:false,dash:false,basic:false});
 const stepN=(arena,n)=>{for(let i=0;i<n;i++)arena.step(1/60);};
@@ -114,4 +120,17 @@ test('Moon Eclipse custom FX survive the remote PVP path for players and bots',(
   for(const m of solarBatches)b.api.receive(m);
   assert.ok(b.api.effects.some(f=>f.kind==='eclipseSolarShard'),'remote side must keep solar shard');
  }finally{a.dispose();b.dispose();}
+});
+
+
+test('Eclipse combo movement pulls targets instead of chasing',()=>{
+ assert.match(html,/function eclipseComboPullVector\(/);
+ assert.match(html,/function pvpEclipseComboPoint\(/);
+ assert.match(html,/forceEnemyTo\(p\.x,p\.y,\.18/);
+ const worldMotion=html.slice(html.indexOf('function eclipseSkillMotion('),html.indexOf('\nfunction ',html.indexOf('function eclipseSkillMotion(')+10));
+ const pvpMotion=html.slice(html.indexOf('function pvpEclipseMotion('),html.indexOf('\nfunction ',html.indexOf('function pvpEclipseMotion(')+10));
+ assert.doesNotMatch(worldMotion,/swordSeqTarget|\btc\b|moveTo\(/);
+ assert.doesNotMatch(pvpMotion,/pvpWorldSwordTarget|\btc\b|moveTo\(|lockedDashFace/);
+ const pvpHit=html.slice(html.indexOf('function pvpEclipseHit('),html.indexOf('function pvpWorldSwordHit('));
+ assert.doesNotMatch(pvpHit,/net\(\{t:'teleport'/);
 });
