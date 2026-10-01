@@ -1,6 +1,6 @@
 import {Worker} from 'node:worker_threads';
 import {createHash,timingSafeEqual,randomUUID} from 'node:crypto';
-import {seedPolicy,leastTrainedPair} from './brain.js';
+import {seedPolicy,leastTrainedPair,ensurePolicyStyles} from './brain.js';
 import {validatePolicy} from './store.js';
 // One authenticated device leases training on the existing web service.
 // No extra Render instance. Dropped heartbeat or a failed save pauses work.
@@ -53,7 +53,7 @@ export function createDeviceTraining({send,isBusy,onPolicy,now=Date.now,makeWork
   if(!checkpoint||now()>lease){finishTakeover(h,false);return;}
   h.timer=setTimeout(()=>finishTakeover(h,false),6500);h.timer.unref?.();
  }
- const valid=c=>{if(!c||c.schema!==1||!Number.isInteger(c.batch)||c.batch<25||c.batch>100||!Number.isInteger(c.completed)||c.completed<0||c.completed>c.batch)throw Error('잘못된 학습 기록입니다.');validatePolicy(c.policy);validatePolicy(c.baseline);if(c.evaluation&&(!Number.isInteger(c.evaluation.completed)||c.evaluation.completed<0||c.evaluation.completed>32))throw Error('잘못된 평가 기록입니다.');return c;};
+ const valid=c=>{if(!c||c.schema!==1||!Number.isInteger(c.batch)||c.batch<25||c.batch>100||!Number.isInteger(c.completed)||c.completed<0||c.completed>c.batch)throw Error('잘못된 학습 기록입니다.');c.policy=ensurePolicyStyles(c.policy);c.baseline=ensurePolicyStyles(c.baseline);validatePolicy(c.policy);validatePolicy(c.baseline);if(c.evaluation&&(!Number.isInteger(c.evaluation.completed)||c.evaluation.completed<0||c.evaluation.completed>32))throw Error('잘못된 평가 기록입니다.');return c;};
  function status(){if(owner)send(owner.ws,{type:'ai:trainStatus',session,running,pendingStart,paused:!running?'stopped':isBusy(owner)?'players':now()>lease?'disconnected':'',matches:checkpoint?.policy.matches||0,generation:checkpoint?.policy.generation||0,batchCompleted:checkpoint?.completed||0,batchSize:checkpoint?.batch||25,settings:tuning(),parallelBattles:Math.min(4,tuning().matchesPerBurst),lastPair,nextPair:checkpoint?leastTrainedPair(checkpoint.policy):null,revision,savedRevision,error,saveInFlight,saveRequestedMatches});}
  function exportCheckpoint(force=false){
   if(!owner||!checkpoint)return;
