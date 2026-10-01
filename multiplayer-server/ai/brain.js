@@ -156,8 +156,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   if(style==='moon'&&!moon234Cooling)moonFormResetLatched=false;
   if(moon234Cooling&&!moonFormResetLatched&&!busy){
    moonFormResetLatched=true;
-   stats.basics++;
-   current={keys,aim,block:false,dash:false,basic:true};
+   current={keys,aim,block:false,dash:false,basic:false,formShift:true};
    return current;
   }
 
