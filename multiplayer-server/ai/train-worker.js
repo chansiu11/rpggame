@@ -1,6 +1,6 @@
 import {parentPort,workerData} from 'node:worker_threads';
 import {createDuelSession} from './self-play.js';
-import {learn,styles,leastTrainedPair,ensurePolicyStyles} from './brain.js';
+import {learn,styles,leastTrainedPair,recordMatchup,stylePairs,ensurePolicyStyles} from './brain.js';
 
 let saved=workerData.checkpoint||null;
 let policy=ensurePolicyStyles(structuredClone(saved?.policy||workerData.policy));
@@ -47,6 +47,7 @@ function plannedPair(planner){
  const [a,b]=leastTrainedPair(planner);
  planner.styles[a].games++;
  planner.styles[b].games++;
+ recordMatchup(planner,a,b);
  planner.matches++;
  return [a,b];
 }
@@ -88,6 +89,7 @@ for(;;){
    const {a,b,result:r}=item;
    learn(policy,a,r.results[0].training,r.results[0]);
    learn(policy,b,r.results[1].training,r.results[1]);
+   recordMatchup(policy,a,b);
    policy.matches++;
    completed++;
    parentPort.postMessage({progress:policy.matches,pair:[a,b],parallel:lanes});
@@ -97,17 +99,17 @@ for(;;){
  }
 
  let {wins=0,losses=0,draws=0,completed:evalCompleted=0}=saved?.evaluation||{};
- const rounds=32;
+ const evalPairs=stylePairs(),evalRepeats=2,rounds=evalPairs.length*2*evalRepeats;
  while(evalCompleted<rounds){
   permit();
   const lanes=parallelBattles(),count=Math.min(lanes,rounds-evalCompleted),configs=[];
   for(let j=0;j<count;j++){
-   const i=evalCompleted+j,a=ids[i%ids.length],b=ids[Math.floor(i/ids.length)%ids.length],swap=i>=16;
-   const pair=swap?[b,a]:[a,b];
+   const i=evalCompleted+j,pairIndex=i%evalPairs.length,phase=Math.floor(i/evalPairs.length),swap=phase%2===1,repeat=Math.floor(phase/2);
+   const base=evalPairs[pairIndex],pair=swap?[base[1],base[0]]:base;
    configs.push({
     a:pair[0],b:pair[1],
     policyA:swap?baseline:policy,policyB:swap?policy:baseline,
-    seed:10000+i%16,swap,
+    seed:10000+repeat*1000+pairIndex,swap,
     watch:spectator('evaluation',i+1,pair,j,lanes)
    });
   }
