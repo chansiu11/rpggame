@@ -45,6 +45,7 @@ test('World packets, server snapshots, and remote renderer share exact aerial he
 });
 test('World packets preserve explicit basic visual state for remote players',()=>{
  assert.ok(html.includes('basicVisual:Math.max(0,player.basicVisual||0)'));
+ assert.ok(client.includes('basicVisual:p.basicVisual'),'World websocket client must forward basic visual state');
  assert.ok(html.includes('rp.basicVisual=Math.max(0,(Number(rp.basicVisual)||0)-dt)'));
  assert.ok(server.includes("'basicVisual'"),'Server must ingest basic visual state');
  const src=section(server,'function publicPlayer(p){','function bossSnapshot');
