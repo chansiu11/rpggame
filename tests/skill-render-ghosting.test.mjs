@@ -67,10 +67,13 @@ test('both frame renderers reset compositing without recreating the canvas backi
  assert.match(worldRecovery,/globalCompositeOperation='source-over'/);
  assert.match(pvpRecovery,/globalCompositeOperation='source-over'/);
 });
-test('basic windup keeps body grounded without overriding frame alpha',()=>{
+test('basic windup uses per-fighter visual state and never leaks local state into remote rendering',()=>{
  const world=section('function drawPlayer()','function drawEnemy(e)');
  const pvp=section('function drawJourneyFighter(f,isMe)','function renderPvpEclipseFx(f)');
- assert.match(world,/basicBodyStable/);assert.match(pvp,/basicBodyStable/);
+ assert.match(world,/const basicAttackVisual=\(Number\(p\.basicVisual\)\|\|0\)>0/);
+ assert.match(pvp,/const basicAttackVisual=\(Number\(f\.basicVisual\)\|\|0\)>0/);
+ assert.doesNotMatch(world,/!!pendingBasicAttack/,'drawPlayer is reused for remote players and must not read the local pending attack');
+ assert.doesNotMatch(world,/basicAttackLockUntil/,'remote world rendering must not read the local attack lock');
  assert.doesNotMatch(world,/if\(basicBodyStable\)ctx\.globalAlpha=1/);
  assert.doesNotMatch(pvp,/if\(basicBodyStable\)ctx\.globalAlpha=1/);
  assert.match(world,/ctx\.translate\(0,-\(basicBodyStable\?0:\(p\.skillLift\|\|0\)\)\)/);
