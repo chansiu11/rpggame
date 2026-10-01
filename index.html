@@ -6091,9 +6091,12 @@ function syncRemotePvpBasic(f,m){
  const seq=hasSeq?Math.max(1,Math.floor(rawSeq)):0,stage=Math.floor(clamp(Number(m.basicStage)||0,0,2));
  const remaining=clamp(Number(m.basicVisual)||0,0,.5),remoteAnim=Math.max(0,Number(m.attackAnim)||0),remoteDuration=clamp(Number(m.attackDuration)||PVP_BASIC_WINDUP,.05,10);
  if(!hasSeq){
-  // Compatibility for an older peer: never rewind an animation on every state packet.
+  // Compatibility for an older PVP/AI peer: capture pose and direction once,
+  // then let the local renderer advance without packet-by-packet rewinds.
   if(remaining>0&&f.basicVisual<=0){
    f.basicVisual=remaining;f.basicStage=remoteDuration>=PVP_BASIC_WINDUP-.005?1:2;
+   f.basicAngle=Number.isFinite(Number(m.basicAngle))?Number(m.basicAngle):(Number.isFinite(Number(m.a))?Number(m.a):f.a);
+   f.strikePose=Number.isFinite(Number(m.strikePose))?clamp(Math.floor(Number(m.strikePose)),0,4):clamp((Math.floor(Number(m.combo)||1)-1),0,4);
    f.attackDuration=remoteDuration;f.attackAnim=remoteAnim;
   }
   return remaining>0;
