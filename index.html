@@ -1665,9 +1665,9 @@ const ECLIPSE_FORM_SKILLS=Object.freeze({
   eclipse4:{name:'일식 · 백월 낙단',cost:53,cool:8.6,desc:'짧게 파고들어 대각선 베기로 틈을 만든 뒤 앞으로 크게 뛰어올라 적 쪽으로 내려찍습니다. 마지막 내려베기는 넓은 범위와 강한 충격을 가진 중량 마무리기입니다.',cfg:{duration:.96,hits:[.16,.40,.76],mult:[.52,.68,1.78],arc:[TAU,TAU,TAU],reach:[0,0,0],step:[0,0,0],mode:'solarFallingCleave'}}
  }),
  lunar:Object.freeze({
-  eclipse2:{name:'월식 · 흑월 무흔',cost:28,cool:4.3,desc:'첫 넓은 베기가 적중하면 검은 잔상과 함께 상대를 내 검격 안쪽으로 끌어와 후속 역베기를 연결합니다. 공격자는 상대를 추적하지 않고 처음 잡은 방향의 보법을 유지합니다.',cfg:{duration:.62,hits:[.15,.44],mult:[.66,1.30],arc:[TAU,TAU],reach:[0,0],step:[0,0],mode:'lunarMistStep'}},
+  eclipse2:{name:'월식 · 흑월 무흔',cost:28,cool:4.3,desc:'첫 넓은 베기가 적중하면 공격자는 처음 잡은 방향의 보법을 유지하고, 상대가 검격 안쪽으로 자연스럽게 밀려와 후속 역베기가 이어집니다.',cfg:{duration:.62,hits:[.15,.44],mult:[.66,1.30],arc:[TAU,TAU],reach:[0,0],step:[0,0],mode:'lunarMistStep'}},
   eclipse3:{name:'월식 · 흑월 나선결',cost:39,cool:5.3,desc:'제자리에서 서로 반대 방향의 큰 반월 검격을 두 번 회전시켜 주변 적을 안쪽으로 끌어당기고, 마지막 직선 역베기로 연결합니다. 이동 대신 제어와 연계를 담당합니다.',cfg:{duration:.74,hits:[.15,.37,.58],mult:[.42,.52,1.24],arc:[TAU,TAU,TAU],reach:[0,0,0],step:[0,0,0],mode:'lunarSpiralBind'}},
-  eclipse4:{name:'월식 · 흑월 난각',cost:50,cool:7.9,desc:'표적 주변의 짧은 각도를 불규칙하게 바꾸며 네 번 파고들어 베고, 마지막에는 반대 방향에서 큰 역베기를 넣습니다. 각 이동은 짧지만 방향 전환 속도가 매우 빠른 다각 연속검입니다.',cfg:{duration:.92,hits:[.12,.28,.44,.60,.76],mult:[.30,.36,.42,.50,1.42],arc:[TAU,TAU,TAU,TAU,TAU],reach:[0,0,0,0,0],step:[0,0,0,0,0],mode:'lunarWildAngles'}}
+  eclipse4:{name:'월식 · 흑월 난각',cost:50,cool:7.9,desc:'처음 잡은 진행축을 유지한 채 다각 보법으로 연속 베기를 넣습니다. 적중한 상대가 매 타격마다 검격 중심으로 자연스럽게 밀려와 마지막 역베기까지 이어집니다.',cfg:{duration:.92,hits:[.12,.28,.44,.60,.76],mult:[.30,.36,.42,.50,1.42],arc:[TAU,TAU,TAU,TAU,TAU],reach:[0,0,0,0,0],step:[0,0,0,0,0],mode:'lunarWildAngles'}}
  })
 });
 function eclipseForm(){return player?.eclipseForm==='solar'?'solar':'lunar';}
@@ -1734,20 +1734,20 @@ function eclipseShake(power){
  if(!options.shake)return;
  shake=Math.max(shake,Math.max(0,Number(power)||0));
 }
-function eclipseComboPullVector(e,seq,desired=108,maxPull=220){
+function eclipseComboPullVector(e,seq,desired=84,maxPull=340){
  const cc=combatCenter(e),face=seq?.eclipseBaseFace??seq?.facing??player.facing;
  const tx=player.x+Math.cos(face)*desired,ty=player.y+Math.sin(face)*desired,dx=tx-cc.x,dy=ty-cc.y,d=Math.hypot(dx,dy);
- if(d<8)return {dx:0,dy:0};
- const cap=e.kind==='boss'?Math.min(maxPull,48):maxPull,scale=Math.min(cap,d)/d;
+ if(d<6)return {dx:0,dy:0};
+ const cap=e.kind==='boss'?Math.min(maxPull,60):maxPull,scale=Math.min(cap,d)/d;
  return {dx:dx*scale,dy:dy*scale};
 }
 function eclipseMeleeHit(seq,damage,heavy,stun,reach=220,width=112,angleOffset=0,knock=0){
  const a=(seq?.facing??player.facing)+angleOffset,ca=Math.cos(a),sa=Math.sin(a),x1=player.x-ca*34,y1=player.y-sa*34,x2=player.x+ca*reach,y2=player.y+sa*reach;let first=null;
- for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const cc=combatCenter(e);if(segmentDistance(cc.x,cc.y,[x1,y1],[x2,y2])>width+combatRadius(e))continue;if(!first)first=e;const pull=!heavy&&knock<60?eclipseComboPullVector(e,seq):null;eclipseStrikeTarget(e,damage,heavy,stun,pull?.dx??ca*knock,pull?.dy??sa*knock);}return first;
+ for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const cc=combatCenter(e);if(segmentDistance(cc.x,cc.y,[x1,y1],[x2,y2])>width+combatRadius(e))continue;if(!first)first=e;const pull=!heavy&&knock<60?eclipseComboPullVector(e,seq):null,out=eclipseStrikeTarget(e,damage,heavy,stun,pull?.dx??ca*knock,pull?.dy??sa*knock);if(seq&&out!==false)seq.eclipseCaught=true;}return first;
 }
 function eclipsePullMeleeHit(seq,damage,heavy,stun,reach=250,width=130,pull=110,angleOffset=0){
  const a=(seq?.facing??player.facing)+angleOffset,ca=Math.cos(a),sa=Math.sin(a),x1=player.x-ca*30,y1=player.y-sa*30,x2=player.x+ca*reach,y2=player.y+sa*reach;let first=null;
- for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const cc=combatCenter(e);if(segmentDistance(cc.x,cc.y,[x1,y1],[x2,y2])>width+combatRadius(e))continue;if(!first)first=e;const v=eclipseComboPullVector(e,seq,108,Math.max(120,pull));eclipseStrikeTarget(e,damage,heavy,stun,v.dx,v.dy);}return first;
+ for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const cc=combatCenter(e);if(segmentDistance(cc.x,cc.y,[x1,y1],[x2,y2])>width+combatRadius(e))continue;if(!first)first=e;const v=eclipseComboPullVector(e,seq,84,Math.max(180,pull*1.6)),out=eclipseStrikeTarget(e,damage,heavy,stun,v.dx,v.dy);if(seq&&out!==false)seq.eclipseCaught=true;}return first;
 }
 function eclipseSolarMoonFx(a,heavy=false,phase=0){
  const ca=Math.cos(a),sa=Math.sin(a),nx=-sa,ny=ca,count=heavy?12:8;
@@ -1841,34 +1841,34 @@ function eclipseSkillHit(seq,sk,k,damage,finalHit){
 function eclipseSkillMotion(seq,sk,dt,t){
  const mode=sk.cfg.mode;if(!ECLIPSE_COMBAT_MODES.has(mode))return;
  const ox=player.x,oy=player.y,side=seq.side||1,base=seq.eclipseBaseFace??seq.facing;seq.eclipseBaseFace=base;
- const aimFace=()=>base;
+ const aimFace=()=>base,moveEclipse=(dx,dy)=>{const scale=seq.eclipseCaught?.12:1;moveEclipse(dx*scale,dy*scale);};
  if(mode==='solarFlashLine'){
   const face=aimFace(),ca=Math.cos(face),sa=Math.sin(face);
   eclipseShake(t<.34?4.4:t<.52?2.8:2.0);
   if(!seq.eclipseDashShake){seq.eclipseDashShake=true;eclipseShake(4.8);}
-  if(t<.34)moveBody(player,ca*1850*dt,sa*1850*dt);
-  else if(t<.48)moveBody(player,-ca*160*dt,-sa*160*dt);
-  else moveBody(player,ca*680*dt,sa*680*dt);
+  if(t<.34)moveEclipse(ca*1850*dt,sa*1850*dt);
+  else if(t<.48)moveEclipse(-ca*160*dt,-sa*160*dt);
+  else moveEclipse(ca*680*dt,sa*680*dt);
   seq.facing=player.facing=player.attackAngle=face;player.skillLift=Math.sin(Math.min(1,t/.44)*Math.PI)*4;player.invuln=Math.max(player.invuln,.034);
  }else if(mode==='solarFlowChain'){
   const face=aimFace(),ca=Math.cos(face),sa=Math.sin(face),nx=-sa,ny=ca,p=Math.min(3,Math.floor(t*4)),u=t*4-p,curve=[-1,1,1,-1][p]*side;
   eclipseShake(2.0+Math.abs(Math.sin(u*Math.PI))*1.8);
   const fwd=[440,360,420,300][p],lat=[260,300,220,180][p]*curve*Math.sin(u*Math.PI);
-  moveBody(player,(ca*fwd+nx*lat)*dt,(sa*fwd+ny*lat)*dt);
+  moveEclipse((ca*fwd+nx*lat)*dt,(sa*fwd+ny*lat)*dt);
   seq.facing=player.facing=player.attackAngle=face;player.skillLift=2+Math.sin(u*Math.PI)*5;player.invuln=Math.max(player.invuln,.022);
  }else if(mode==='solarFallingCleave'){
   const face=aimFace(),ca=Math.cos(face),sa=Math.sin(face);
   eclipseShake(t<.28?3.2:t<.60?3.8:5.2);
   if(t>=.44&&!seq.eclipseApexShake){seq.eclipseApexShake=true;eclipseShake(6.0);}
-  if(t<.28)moveBody(player,ca*1120*dt,sa*1120*dt);
-  else if(t<.60){moveBody(player,ca*360*dt,sa*360*dt);player.skillLift=Math.sin((t-.28)/.32*Math.PI)*58;}
-  else{player.skillLift=Math.max(0,58*(1-(t-.60)/.22));moveBody(player,ca*520*dt,sa*520*dt);}
+  if(t<.28)moveEclipse(ca*1120*dt,sa*1120*dt);
+  else if(t<.60){moveEclipse(ca*360*dt,sa*360*dt);player.skillLift=Math.sin((t-.28)/.32*Math.PI)*58;}
+  else{player.skillLift=Math.max(0,58*(1-(t-.60)/.22));moveEclipse(ca*520*dt,sa*520*dt);}
   seq.facing=player.facing=player.attackAngle=face;player.invuln=Math.max(player.invuln,.028);
  }else if(mode==='lunarMistStep'){
   const face=aimFace(),ca=Math.cos(face),sa=Math.sin(face),nx=-sa,ny=ca;
   eclipseShake(2.6);
-  if(t<.24)moveBody(player,(ca*980+nx*side*520)*dt,(sa*980+ny*side*520)*dt);
-  else if(t<.36)moveBody(player,nx*side*260*dt,ny*side*260*dt);
+  if(t<.24)moveEclipse((ca*980+nx*side*520)*dt,(sa*980+ny*side*520)*dt);
+  else if(t<.36)moveEclipse(nx*side*260*dt,ny*side*260*dt);
   seq.facing=player.facing=player.attackAngle=face;player.skillLift=Math.sin(Math.PI*t)*4;player.invuln=Math.max(player.invuln,.032);
  }else if(mode==='lunarSpiralBind'){
   const face=aimFace();eclipseShake(3.0+Math.abs(Math.sin(t*Math.PI*3))*2.0);seq.facing=player.facing=player.attackAngle=face;player.skillLift=2+Math.sin(t*Math.PI*3)*4;
@@ -1876,17 +1876,17 @@ function eclipseSkillMotion(seq,sk,dt,t){
   const face=aimFace(),ca=Math.cos(face),sa=Math.sin(face),nx=-sa,ny=ca,p=Math.min(4,Math.floor(t*5)),u=t*5-p,sg=[1,-1,1,-1,0][p]*side;
   eclipseShake(2.4+Math.abs(Math.sin(u*Math.PI))*2.2);
   if(seq.eclipseWildShakePhase!==p){seq.eclipseWildShakePhase=p;eclipseShake([3.0,3.6,4.2,4.8,6.2][p]||3);}
-  if(p<4)moveBody(player,(ca*[520,280,620,300][p]+nx*sg*[700,820,760,860][p])*dt,(sa*[520,280,620,300][p]+ny*sg*[700,820,760,860][p])*dt);
-  else moveBody(player,ca*160*dt,sa*160*dt);
+  if(p<4)moveEclipse((ca*[520,280,620,300][p]+nx*sg*[700,820,760,860][p])*dt,(sa*[520,280,620,300][p]+ny*sg*[700,820,760,860][p])*dt);
+  else moveEclipse(ca*160*dt,sa*160*dt);
   seq.facing=player.facing=player.attackAngle=face;player.skillLift=2+Math.sin(u*Math.PI)*6;player.invuln=Math.max(player.invuln,.030);
  }else if(mode==='eclipseMoonChain'){
   const face=aimFace(),ca=Math.cos(face),sa=Math.sin(face),nx=-sa,ny=ca,p=Math.min(9,Math.floor(t*10)),u=t*10-p;
   eclipseShake(4.0+p*.45+Math.abs(Math.sin(u*Math.PI))*1.8);
   if(seq.eclipseUltShakePhase!==p){seq.eclipseUltShakePhase=p;eclipseShake([4,4.5,5,5.5,6,6.5,7,8,9,12][p]||4);}
-  if(t<.22)moveBody(player,ca*1700*dt,sa*1700*dt);
-  else if([2,6].includes(p))moveBody(player,nx*(p===2?1:-1)*side*720*dt,ny*(p===2?1:-1)*side*720*dt);
-  else if(p===4){moveBody(player,ca*480*dt,sa*480*dt);player.skillLift=Math.sin(u*Math.PI)*42;}
-  else moveBody(player,ca*150*dt,sa*150*dt);
+  if(t<.22)moveEclipse(ca*1700*dt,sa*1700*dt);
+  else if([2,6].includes(p))moveEclipse(nx*(p===2?1:-1)*side*720*dt,ny*(p===2?1:-1)*side*720*dt);
+  else if(p===4){moveEclipse(ca*480*dt,sa*480*dt);player.skillLift=Math.sin(u*Math.PI)*42;}
+  else moveEclipse(ca*150*dt,sa*150*dt);
   seq.facing=player.facing=player.attackAngle=face;player.skillLift=Math.max(player.skillLift||0,3+Math.sin(u*Math.PI)*6);player.invuln=Math.max(player.invuln,.032);
  }
  if(Math.hypot(player.x-ox,player.y-oy)>5)syncSkillMoveIfNeeded(ox,oy,10,1800);
@@ -6153,7 +6153,7 @@ function queueStigmaControl(key,x,y,t=.18,stun=.14,hold=.45,final=false){if(!me|
 function arcAttack(range,d,arc,force=0,stun=.08,extra={}){sendAttack({shape:'arc',x:me.x,y:me.y,a:me.a,range,d,arc,force,forceA:Number.isFinite(extra.forceA)?extra.forceA:me.a,stun,breakShield:!!extra.breakShield,bypassShield:!!extra.bypassShield,parryable:extra.parryable!==false,teleportHit:!!extra.teleportHit,controlLease:extra.controlLease||'',controlLeaseMs:extra.controlLeaseMs||0,root:extra.root||0,rapidHit:!!extra.rapidHit,skillId:extra.skillId||''},extra.onHit,extra.onRejected);if(extra.fx!==false)slashFx(me.x,me.y-10,me.a,arc,range,extra.color||'#d7ead3',.22,true)}
 function circleAttack(x,y,r,d,stun=.08,extra={}){sendAttack({shape:'circle',x,y,r,d,stun,force:extra.force||0,forceA:Number.isFinite(extra.forceA)?extra.forceA:me.a,breakShield:!!extra.breakShield,parryable:extra.parryable!==false,teleportHit:!!extra.teleportHit,controlLease:extra.controlLease||'',controlLeaseMs:extra.controlLeaseMs||0,stigmaMarkMs:extra.stigmaMarkMs||0,root:extra.root||0,rapidHit:!!extra.rapidHit,skillId:extra.skillId||'',vortexId:extra.vortexId||''},extra.onHit);if(extra.fx!==false)nova(x,y,r,extra.color||'#d7ead3',.42,true)}
 function rectAttack(a,forward,half,back,d,stun=.08,extra={}){sendAttack({shape:'rect',x:me.x,y:me.y,a,forward,half,back,d,stun,force:extra.force||0,forceA:Number.isFinite(extra.forceA)?extra.forceA:a,breakShield:!!extra.breakShield,parryable:extra.parryable!==false,teleportHit:!!extra.teleportHit,controlLease:extra.controlLease||'',controlLeaseMs:extra.controlLeaseMs||0},extra.onHit);if(extra.fx!==false)rift(me.x+Math.cos(a)*forward*.5,me.y+Math.sin(a)*forward*.5,a+Math.PI/2,half*2.2,22,extra.color||'#d7ead3',.16,true)}
-function segmentAttack(x1,y1,x2,y2,r,d,stun=.08,extra={}){sendAttack({shape:'segment',x1,y1,x2,y2,r,d,stun,force:extra.force||0,forceA:Number.isFinite(extra.forceA)?extra.forceA:Math.atan2(y2-y1,x2-x1),breakShield:!!extra.breakShield,parryable:extra.parryable!==false,teleportHit:!!extra.teleportHit,controlLease:extra.controlLease||'',controlLeaseMs:extra.controlLeaseMs||0,rapidHit:!!extra.rapidHit,skillId:extra.skillId||''},extra.onHit);if(extra.fx!==false)rift((x1+x2)/2,(y1+y2)/2,Math.atan2(y2-y1,x2-x1),Math.hypot(x2-x1,y2-y1)+90,r*.8,extra.color||'#d7ead3',.18,true)}
+function segmentAttack(x1,y1,x2,y2,r,d,stun=.08,extra={}){sendAttack({shape:'segment',x1,y1,x2,y2,r,d,stun,force:extra.force||0,forceA:Number.isFinite(extra.forceA)?extra.forceA:Math.atan2(y2-y1,x2-x1),forceTime:Number.isFinite(extra.forceTime)?extra.forceTime:null,breakShield:!!extra.breakShield,parryable:extra.parryable!==false,teleportHit:!!extra.teleportHit,controlLease:extra.controlLease||'',controlLeaseMs:extra.controlLeaseMs||0,rapidHit:!!extra.rapidHit,skillId:extra.skillId||''},extra.onHit);if(extra.fx!==false)rift((x1+x2)/2,(y1+y2)/2,Math.atan2(y2-y1,x2-x1),Math.hypot(x2-x1,y2-y1)+90,r*.8,extra.color||'#d7ead3',.18,true)}
 function sendProjectile(a,speed,d,opts={}){
  const nx=-Math.sin(a),ny=Math.cos(a),side=Number(opts.side)||0,x=me.x+Math.cos(a)*23+nx*side,y=me.y+Math.sin(a)*23+ny*side,p={x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:opts.r||7,d,owner:'me',life:opts.life||1.7,stun:opts.stun??.22,force:opts.force||0,pierce:opts.pierce||1,parryable:opts.parryable!==false,breakShield:!!opts.breakShield,visualLen:opts.visualLen||0,color:opts.color||'#efd792'};
  const seq=me.skillEvent;if(seq?.skill?.id==='solarReturn')p.pullToCaster=true;if(seq?.ultimate&&seq.skill?.id==='prismLance'&&seq.kind==='swordSeq'){seq.prismCast??='prism:'+String(++attackSerial);p.prismCast=seq.prismCast;}projectiles.push(p);net({t:'proj',...p,owner:undefined});
@@ -6434,7 +6434,7 @@ function pvpHongryeonHit(ev,k){
 function pvpEclipseMotion(ev,dt){
  const mode=ev.cfg.mode,t=clamp(ev.elapsed/Math.max(.01,ev.cfg.duration),0,1),side=ev.side||1,base=ev.eclipseBaseFace??ev.a;ev.eclipseBaseFace=base;
  let face=base,ca=Math.cos(face),sa=Math.sin(face),nx=-sa,ny=ca;
- const move=(vx,vy)=>{me.x=clamp(me.x+vx*dt,25,ARENA_W-25);me.y=clamp(me.y+vy*dt,25,ARENA_H-25);};
+ const move=(vx,vy)=>{const scale=ev.eclipseCaught?.12:1;me.x=clamp(me.x+vx*dt*scale,25,ARENA_W-25);me.y=clamp(me.y+vy*dt*scale,25,ARENA_H-25);};
  if(mode==='solarFlashLine'){
   if(t<.34)move(ca*1850,sa*1850);else if(t<.48)move(-ca*160,-sa*160);else move(ca*680,sa*680);
   me.skillLift=Math.sin(Math.min(1,t/.44)*Math.PI)*4;me.inv=Math.max(me.inv,.034);pvpShake=Math.max(pvpShake,t<.34?4.4:2.8);
@@ -6790,24 +6790,26 @@ function pvpEclipseStartFx(sk,a){
  if(mode.startsWith('solar')){pvpEclipseSolarShard(x,y,a,mode==='solarFlashLine'?270:mode==='solarFallingCleave'?235:210,mode==='solarFallingCleave'?66:58,.28,1.25,true);if(mode==='solarFlowChain')for(const aa of [a-.6,a,a+.6])pvpEclipseStyledSlash(x,y,aa,1.25,105,'#FFFFFF',.22,'#BFC7D2',.66,7,2,7,true);}
  else{const rr=mode==='lunarSpiralBind'?205:mode==='lunarWildAngles'?190:182;pvpEclipseLunarInk(x,y,a,rr,mode==='lunarSpiralBind'?2.85:2.42,.36,1.3,((performance.now()*100000)|0),true);for(let j=0;j<7;j++){const side=j%2?-1:1;pvpEclipseStyledSlash(x-side*j*6,y+j*4,a+side*(.28+j*.08),.86+j*.09,62+j*12,j%3===0?'#2A2A2A':j%2?'#151515':'#050505',.16+j*.022,j%2?'#080808':'#202020',.75,7,2,7,true);}}
 }
-function pvpEclipseComboPoint(ev,desired=108,maxPull=220){
+function pvpEclipseComboPoint(ev,desired=84,maxPull=340){
  if(!enemy)return null;
  const face=ev.eclipseBaseFace??ev.a,tx=me.x+Math.cos(face)*desired,ty=me.y+Math.sin(face)*desired,dx=tx-enemy.x,dy=ty-enemy.y,d=Math.hypot(dx,dy);
- if(d<8)return {x:enemy.x,y:enemy.y};
+ if(d<6)return {x:enemy.x,y:enemy.y};
  const scale=Math.min(maxPull,d)/d;
  return {x:enemy.x+dx*scale,y:enemy.y+dy*scale};
 }
 function pvpEclipseSlash(ev,damage,stun,reach,width,offset=0,knock=0,opts={}){
  const ang=ev.a+offset,ca=Math.cos(ang),sa=Math.sin(ang),x1=me.x-ca*34,y1=me.y-sa*34,x2=me.x+ca*reach,y2=me.y+sa*reach;
  const confirmed=!!enemy&&enemy.hp>0&&pointSegmentDistance(enemy.x,enemy.y,x1,y1,x2,y2)<=width+enemy.r;
- const solar=String(ev.cfg?.mode||'').startsWith('solar')||opts.solar===true,color=solar?'#ffffff':'#111116',comboPull=Number(opts.pullMax)||(opts.heavy||knock>=60?0:220);
- const onHit=()=>{if(comboPull&&enemy){const p=pvpEclipseComboPoint(ev,108,comboPull);if(p)forceEnemyTo(p.x,p.y,.18,Math.max(.08,Math.min(stun,.36)));}if(typeof opts.onHit==='function')opts.onHit();};
- segmentAttack(x1,y1,x2,y2,width,damage,stun,{color,force:comboPull?0:knock,forceA:ang,fx:false,teleportHit:confirmed,rapidHit:!!opts.rapidHit,skillId:ev.skill?.id||'',onHit});
+ const solar=String(ev.cfg?.mode||'').startsWith('solar')||opts.solar===true,color=solar?'#ffffff':'#111116',comboPull=Number(opts.pullMax)||(opts.heavy||knock>=60?0:340);
+ let pullPoint=null,pullForce=0,pullA=ang;
+ if(comboPull&&confirmed&&enemy){pullPoint=pvpEclipseComboPoint(ev,84,comboPull);if(pullPoint){const dx=pullPoint.x-enemy.x,dy=pullPoint.y-enemy.y;pullForce=Math.hypot(dx,dy);if(pullForce>1)pullA=Math.atan2(dy,dx);ev.eclipseCaught=true;}}
+ const onHit=()=>{ev.eclipseCaught=true;if(pullPoint&&enemy)forceEnemyTo(pullPoint.x,pullPoint.y,.14,Math.max(.08,Math.min(stun,.36)));if(typeof opts.onHit==='function')opts.onHit();};
+ segmentAttack(x1,y1,x2,y2,width,damage,stun,{color,force:comboPull?pullForce:knock,forceA:comboPull?pullA:ang,forceTime:comboPull&&pullForce>1?.14:null,fx:false,teleportHit:confirmed,rapidHit:!!opts.rapidHit,skillId:ev.skill?.id||'',onHit});
  if(opts.heavy)pvpShake=Math.max(pvpShake,solar?9:10);
  return confirmed;
 }
 function pvpEclipsePull(ev,damage,stun,reach,width,pull,offset=0){
- return pvpEclipseSlash(ev,damage,stun,reach,width,offset,0,{pullMax:Math.max(120,pull)});
+ return pvpEclipseSlash(ev,damage,stun,reach,width,offset,0,{pullMax:Math.max(180,pull*1.6)});
 }
 function pvpEclipseHit(ev,k,damage,final){
  const mode=ev.cfg.mode,a=ev.a;
