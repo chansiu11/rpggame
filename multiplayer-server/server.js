@@ -13,7 +13,7 @@ const PORT = Number(process.env.PORT || 8787);
 const TICK_MS = 1000;
 const PARTY_MAX = 4;
 const BOSS_RESPAWN_MS = 3 * 60 * 1000;
-const PVP_RULESET = 'world-combat-20260926-3';
+const PVP_RULESET = 'world-combat-20261002-pvp-basic-v4';
 
 const SIM_TICK_MS = 33;
 const MOB_NET_TICK_MS = 100;
@@ -21,7 +21,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v8-player-balance';
-const SERVER_BUILD = '2026-10-01-moon-eclipse-sync-2';
+const SERVER_BUILD = '2026-10-02-pvp-basic-v4';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const PLAYER_REFERENCE_BASE_HP = 100;
