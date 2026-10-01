@@ -150,7 +150,7 @@ test('Moon Eclipse custom FX survive the remote PVP path for players and bots',(
 test('Eclipse combo movement pulls targets instead of chasing',()=>{
  assert.match(html,/function eclipseComboPullVector\(/);
  assert.match(html,/function pvpEclipseComboPoint\(/);
- assert.match(html,/forceEnemyTo\(p\.x,p\.y,\.18/);
+ assert.match(html,/forceEnemyTo\(pullPoint\.x,pullPoint\.y,\.14/);
  const worldMotion=html.slice(html.indexOf('function eclipseSkillMotion('),html.indexOf('\nfunction ',html.indexOf('function eclipseSkillMotion(')+10));
  const pvpMotion=html.slice(html.indexOf('function pvpEclipseMotion('),html.indexOf('\nfunction ',html.indexOf('function pvpEclipseMotion(')+10));
  assert.doesNotMatch(worldMotion,/swordSeqTarget|\btc\b|moveTo\(/);
