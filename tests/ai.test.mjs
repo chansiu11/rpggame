@@ -51,7 +51,7 @@ test('device trainer advances at least three watched battles concurrently',{time
 
 test('neural AI keeps learned combat behaviors and adds live skill understanding',()=>{
  const p=seedPolicy();
- assert.equal(p.schema,3);assert.equal(p.model,'mlp-es-skill-aware-v2');assert.deepEqual(p.learning.behaviors.slice(0,NN_BEHAVIORS.length),NN_BEHAVIORS);
+ assert.equal(p.schema,2);assert.equal(p.model,'mlp-es-v1');assert.deepEqual(p.learning.behaviors.slice(0,NN_BEHAVIORS.length),NN_BEHAVIORS);
  assert.deepEqual(p.learning.behaviors.slice(-3),['skillRangeUnderstanding','skillThreatUnderstanding','skillTimingUnderstanding']);
  assert.equal(p.learning.fixedDodge,'skill-aware');assert.equal(p.learning.resourceManagement,false);assert.equal(networkParameterCount(),934);
  const brain=createBrain('void',p,()=>.5,3,{training:true});
@@ -117,7 +117,7 @@ test('Firebase checkpoints reload with a new store and reject failed writes',asy
  const oldFetch=globalThis.fetch,oldEnv=process.env.FIREBASE_SERVICE_ACCOUNT_JSON,db=new Map();let fail=false;
  const {privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});process.env.FIREBASE_SERVICE_ACCOUNT_JSON=JSON.stringify({project_id:'test-only',client_email:'test@example.invalid',private_key:privateKey.export({type:'pkcs8',format:'pem'})});
  globalThis.fetch=async(url,options={})=>{if(url.includes('oauth2'))return new Response(JSON.stringify({access_token:'test'}));const id=url.split('/').at(-1);if(options.method==='PATCH'){if(fail)return new Response('{}',{status:403});db.set(id,JSON.parse(options.body));}return db.has(id)?new Response(JSON.stringify(db.get(id))):new Response('{}',{status:404});};
- try{const p=seedPolicy();p.matches=25;p.autorun=true;const id=await new FirebaseStore().save(p);assert.match(id,/^v0-/);const current=await new FirebaseStore().load(),version=await new FirebaseStore().load(id);assert.equal(current.matches,p.matches);assert.equal(version.matches,p.matches);assert.equal(current.resetEpoch,'2026-10-02-ai-skill-aware-v5');assert.equal(version.resetEpoch,'2026-10-02-ai-skill-aware-v5');fail=true;await assert.rejects(new FirebaseStore().save(p),/403/);}finally{globalThis.fetch=oldFetch;if(oldEnv===undefined)delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;else process.env.FIREBASE_SERVICE_ACCOUNT_JSON=oldEnv;}
+ try{const p=seedPolicy();p.matches=25;p.autorun=true;const id=await new FirebaseStore().save(p);assert.match(id,/^v0-/);const current=await new FirebaseStore().load(),version=await new FirebaseStore().load(id);assert.equal(current.matches,p.matches);assert.equal(version.matches,p.matches);assert.equal(current.resetEpoch,'2026-09-30-ai-neural-reset-4');assert.equal(version.resetEpoch,'2026-09-30-ai-neural-reset-4');fail=true;await assert.rejects(new FirebaseStore().save(p),/403/);}finally{globalThis.fetch=oldFetch;if(oldEnv===undefined)delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;else process.env.FIREBASE_SERVICE_ACCOUNT_JSON=oldEnv;}
 });
 
 
