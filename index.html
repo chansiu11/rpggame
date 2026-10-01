@@ -1814,7 +1814,7 @@ function eclipseSkillHit(seq,sk,k,damage,finalHit){
   const off=[-.18,.22,0][k]||0;
   if(k===0)for(let j=-2;j<=2;j++)effects.push({type:'eclipseSolarShard',x:player.x,y:player.y,a:a+j*.05,len:340-j*12,width:58+Math.abs(j)*6,color:'#FFFFFF',t:.25,max:.25,power:1.25});
   if(k===2){for(const aa of [a-.55,a+.55])effects.push({type:'eclipseSolarShard',x:player.x,y:player.y,a:aa,len:330,width:78,color:'#FFFFFF',t:.36,max:.36,power:1.55});}
-  eclipseMeleeHit(seq,damage,finalHit,k===2?.46:.12,k===2?320:270,k===2?155:132,off,k===2?78:18);eclipseSolarMoonFx(a+off,k===2,k);eclipseShake([3.5,5.0,9.0][k]||4);
+  eclipseMeleeHit(seq,damage,finalHit,k===2?.46:.12,k===2?320:k===0?340:270,k===2?155:k===0?180:132,off,k===2?78:18);eclipseSolarMoonFx(a+off,k===2,k);eclipseShake([3.5,5.0,9.0][k]||4);
  }else if(mode==='solarFlowChain'){
   const off=[-.72,.34,-.42,.62][k]||0;
   eclipseMeleeHit(seq,damage,finalHit,k===3?.40:.10,k===3?285:250,k===3?150:132,off,k===3?38:8);
@@ -2256,6 +2256,7 @@ function resolveWorldBasicAttack(){
 }
 function updatePendingWorldBasic(dt){
  if(!pendingBasicAttack)return;
+ if(player){player.facing=pendingBasicAttack.angle;player.attackAngle=pendingBasicAttack.angle;}
  pendingBasicAttack.elapsed+=dt;
  if(pendingBasicAttack.elapsed+1e-6>=BASIC_ATTACK_WINDUP)resolveWorldBasicAttack();
 }
@@ -6416,6 +6417,7 @@ function resolvePvpPendingBasic(){
 }
 function updatePvpPendingBasic(dt){
  if(!me?.pendingBasic)return;
+ if(Number.isFinite(me.pendingBasic.a))me.a=me.pendingBasic.a;
  me.pendingBasic.elapsed+=dt;
  if(me.pendingBasic.elapsed+1e-6>=PVP_BASIC_WINDUP)resolvePvpPendingBasic();
 }
@@ -6923,7 +6925,7 @@ function pvpEclipseHit(ev,k,damage,final){
   const off=[-.18,.22,0][k]||0;
   if(k===0)for(let j=-2;j<=2;j++)pvpEclipseSolarShard(me.x,me.y,a+j*.05,340-j*12,58+Math.abs(j)*6,.25,1.25,true);
   if(k===2)for(const aa of [a-.55,a+.55])pvpEclipseSolarShard(me.x,me.y,aa,330,78,.36,1.55,true);
-  pvpEclipseSlash(ev,damage,k===2?.46:.12,k===2?320:270,k===2?155:132,off,k===2?78:18,{solar:true,heavy:k===2});
+  pvpEclipseSlash(ev,damage,k===2?.46:.12,k===2?320:k===0?340:270,k===2?155:k===0?180:132,off,k===2?78:18,{solar:true,heavy:k===2});
   pvpEclipseSolarMoonFx(a+off,k===2,k);
  }else if(mode==='solarFlowChain'){
   const off=[-.72,.34,-.42,.62][k]||0;
