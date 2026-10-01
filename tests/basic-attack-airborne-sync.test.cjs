@@ -63,6 +63,24 @@ test('PVP basic renderer freezes each strike pose and facing until its visual en
  assert.equal(enemy.basicAngle,.75,'same attack packets cannot rotate the stored visual facing');
  assert.equal(enemy.strikePose,3,'same attack packets cannot swap the stored strike pose');
 });
+test('PVP remote basic attack cannot inherit a stale skill/evade render state',()=>{
+ const draw=section(html,'function drawJourneyFighter(f,isMe)','function renderPvpEclipseFx(f)');
+ assert.ok(draw.includes("visualSkillKind=basicAttackVisual?'':String(f.skillKind||'')"),'basic rendering must blank stale skill kind');
+ assert.ok(draw.includes("visualSkillPose=basicAttackVisual?-1:f.skillPose"),'basic rendering must blank stale skill pose');
+ assert.ok(draw.includes("if(!basicAttackVisual&&visualSkillKind==='void3Evade')"),'void evade may hide the fighter only when a basic attack is not active');
+ assert.ok(html.includes("if(remoteBasic){enemy.skillPose=-1;enemy.skillLift=0;enemy.skillKind='';enemy.skillId='';}"),'received basic state must clear stale remote skill visuals');
+ assert.ok(html.includes("if(!duringSkill){me.basicMoveSlow=.5;me.skillLift=0;me.skillPose=-1;me.skillKind='';}"),'normal local basic start must clear stale skill visuals before sending state');
+});
+test('PVP protocol prevents cached old and current arena clients from mixing',()=>{
+ assert.ok(html.includes("const ONLINE_PVP_V2=true,PVP_PROTOCOL=4"));
+ assert.ok(html.includes("ruleset:'world-combat-20261002-pvp-basic-v4'"));
+ assert.ok(server.includes("const PVP_RULESET = 'world-combat-20261002-pvp-basic-v4';"));
+ assert.ok(html.includes("Number(m.v)!==PVP_PROTOCOL"));
+ assert.ok(html.includes("String(m.ruleset||m.s?.ruleset||'')!==PVP_RULESET"));
+ const ensure=section(html,'async function ensureMatchServer(s){','async function startMatchmaking(){');
+ assert.equal(ensure.includes('serverRuleset'),false,'client must never downgrade itself to the server-advertised build id');
+ assert.ok(ensure.includes('currentRuleset!==PVP_RULESET'),'an already connected old PVP profile must reconnect with the current ruleset');
+});
 test('World packets, server snapshots, and remote renderer share exact aerial height',()=>{
  assert.ok(client.includes('skillLift:p.skillLift'));
  assert.ok(html.includes('skillLift:Math.max(0,player.skillLift||0)'));
