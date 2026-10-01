@@ -9,8 +9,8 @@ test('neural policy shape and learning contract are valid',()=>{
  assert.equal(stylePairs().length,10);
  assert.equal(Object.keys(p.styles).length,5);
  assert.equal(Object.keys(p.matchups).length,10);
- assert.equal(p.schema,3);
- assert.equal(p.model,'mlp-es-skill-aware-v2');
+ assert.equal(p.schema,2);
+ assert.equal(p.model,'mlp-es-v1');
  assert.equal(networkParameterCount(),934);
  assert.equal(NN_BEHAVIORS.length,10);
  assert.deepEqual(p.learning.behaviors.slice(0,NN_BEHAVIORS.length),NN_BEHAVIORS);
