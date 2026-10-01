@@ -15,7 +15,7 @@ test('Arena held basic attacks impact after 0.2 seconds and keep the fifth-hit p
  const state={now:1000,hits:0,me:{attackCd:0,attackAnim:0,attackDuration:.26,basicMoveSlow:0,basicSeq:0,basicStage:0,basicVisual:0,basicAttackLockUntil:0,basicAttackStartedAt:0,pendingBasic:null,skillLift:0,skillPose:-1,stun:0,exhaust:0,skillHold:null,skillEvent:null,weapon:0,combo:0,comboTimer:0,rune:'',a:0,stam:100,maxStam:100,dash:0,dashCd:0,galeRoot:0,perks:{flow:0,focus:0},shield:100,maxShield:100,shieldRearm:0,shieldBroken:0,shieldNeedsRelease:false}};
  const init="const performance={now:()=>state.now},me=state.me,roundLocked=false,void3Pvp=null,weaponData=[{cool:.32,range:94,arc:1.9,cost:0}],useStam=()=>true,basicPvpAimAngle=()=>0,pvpBasicHeld=()=>true,fighterAttack=()=>35,arcAttack=()=>state.hits++,sendProjectile=()=>state.hits++,window={EchoesCombat:{basicControl:()=>({force:0,stun:.5})}},burst=()=>{},ring=()=>{},keys=new Set(),pkey=x=>x,moveAngle=()=>0,ARENA_W=3600,ARENA_H=2100,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));";
  const run=new Function('state',[init,section(html,'const PVP_BASIC_WINDUP=.2;','function potion(){'),'return {basic,updatePvpPendingBasic,dash,beginBlock};'].join('\n'))(state);
- run.basic();assert.equal(state.hits,0,'pressing basic must not damage immediately');assert.equal(state.me.basicAttackLockUntil,1200);assert.equal(state.me.basicSeq,1);assert.equal(state.me.basicStage,1);assert.ok(state.me.basicVisual>=.3,'basic visual state must cover windup and impact pose');
+ run.basic();assert.equal(state.hits,0,'pressing basic must not damage immediately');assert.equal(state.me.basicAttackLockUntil,1200);assert.equal(state.me.basicSeq,1);assert.equal(state.me.basicStage,1);assert.equal(state.me.strikePose,0);assert.equal(state.me.basicAngle,0);assert.ok(state.me.basicVisual>=.3,'basic visual state must cover windup and impact pose');
  run.dash();run.beginBlock();assert.equal(state.me.dash,0);assert.equal(!!state.me.block,false);
  run.updatePvpPendingBasic(.19);assert.equal(state.hits,0);
  run.updatePvpPendingBasic(.01);assert.equal(state.hits,1,'impact occurs after the full 0.2 s windup');assert.equal(state.me.basicStage,2);
@@ -46,6 +46,22 @@ test('PVP basic animation sync advances by attack stage instead of rewinding on 
  assert.equal(enemy.attackAnim,.06,'repeated impact packets must not rewind the strike pose');
  assert.ok(html.includes("const netStep=pvpRoute==='DIRECT'?1/60:pvpRoute==='RELAY'?.025:.02;"),'existing DIRECT/RELAY state packet cadence must remain unchanged');
  assert.ok(html.includes("if(pingAt<=0&&conn?.open){pingAt=1;net({t:'ping',n:performance.now()})}"),'existing ping probe cadence must remain unchanged');
+});
+test('PVP basic renderer freezes each strike pose and facing until its visual ends',()=>{
+ const draw=section(html,'function drawJourneyFighter(f,isMe)','function renderPvpEclipseFx(f)');
+ assert.ok(draw.includes('const basicPose=clamp(Math.floor(Number(f.strikePose)||0),0,4)'));
+ assert.ok(draw.includes('basicAttackPose(basicPose+1,basicWindupVisual'));
+ const motion=section(html,'function animatePvpFighter(f,dt)','function prismPvpUninterruptible()');
+ assert.ok(motion.includes("const visualFacing=(Number(f.basicVisual)||0)>0&&Number.isFinite(Number(f.basicAngle))?Number(f.basicAngle):f.a"));
+ const syncSrc=section(html,'function syncRemotePvpBasic(f,m){','function onData(m)');
+ const sync=new Function('clamp','PVP_BASIC_WINDUP',syncSrc+';return syncRemotePvpBasic;')((v,a,b)=>Math.max(a,Math.min(b,v)),.2);
+ const enemy={a:2.2,basicSeq:0,basicStage:0,basicVisual:0,basicAngle:2.2,strikePose:0,attackAnim:0,attackDuration:.26};
+ sync(enemy,{basicSeq:31,basicStage:1,basicVisual:.3,attackAnim:.2,attackDuration:.2,basicAngle:.75,strikePose:3,a:1.9,combo:4});
+ assert.equal(enemy.basicAngle,.75);assert.equal(enemy.strikePose,3);
+ enemy.basicVisual=.2;enemy.attackAnim=.1;
+ sync(enemy,{basicSeq:31,basicStage:1,basicVisual:.29,attackAnim:.19,attackDuration:.2,basicAngle:-1.4,strikePose:0,a:-1.4,combo:1});
+ assert.equal(enemy.basicAngle,.75,'same attack packets cannot rotate the stored visual facing');
+ assert.equal(enemy.strikePose,3,'same attack packets cannot swap the stored strike pose');
 });
 test('World packets, server snapshots, and remote renderer share exact aerial height',()=>{
  assert.ok(client.includes('skillLift:p.skillLift'));
