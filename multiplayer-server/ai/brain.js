@@ -149,6 +149,15 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const predictedAttack=out[15],predictedBlock=out[16];
   const busy=!!me?.skillEvent||!!me?.skillHold||Number(me?.attackAnim)>0;
 
+  // 월식 전용 Z 규칙: 2·3·4번 스킬이 모두 쿨타임이면 실제 Z 입력(basic)을 우선한다.
+  // 1번/5번 스킬의 쿨 상태와는 무관하며, 회피 직후나 다른 공격 중에는 중복 입력하지 않는다.
+  const moonAutoZ=style==='moon'&&!ready[1]&&!ready[2]&&!ready[3]&&!busy;
+  if(moonAutoZ){
+   stats.basics++;
+   current={keys,aim,block:false,dash:false,basic:true};
+   return current;
+  }
+
   // Training-only exploration prevents an untrained random network from
   // getting trapped in "never attack" behavior. This is never used by live AI
   // or evaluation; timing and action choice in real matches remain neural.
