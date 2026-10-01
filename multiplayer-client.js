@@ -17,7 +17,7 @@ function getClientSessionId(){
 }
 let mobQueue=[],mobScheduled=false,mobSeq=0;
 function queueMobHit(event){if(!state.mobCombatProtocol){send({type:'world:mobDamage',...event});return;}mobQueue.push(event);if(mobScheduled)return;mobScheduled=true;const socket=state.socket;queueMicrotask(()=>{mobScheduled=false;const events=mobQueue;mobQueue=[];if(socket!==state.socket)return;for(let i=0;i<events.length;i+=64)send({type:'world:mobCombat',seq:++mobSeq,events:events.slice(i,i+64)});});}
-let combatSeq=0,combatAck=0,combatQueue=[];
+let combatSeq=0,combatAck=0,controlAck=0,combatQueue=[];
 function flushCombat(){if(!combatQueue.length)return;const events=combatQueue.splice(0,64);if(!send({type:'world:combat',seq:++combatSeq,events}))combatQueue=[];}
 function combatEvent(event){if(state.connected&&state.profile?.mode!=='pvp'){combatQueue.push(event);if(combatQueue.length>=64)flushCombat();}}
 const state={
@@ -54,7 +54,7 @@ function handle(msg){
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='net:pong'){if(msg.nonce!==state.lastPingNonce)return;const rtt=Date.now()-msg.nonce;if(rtt>=0&&rtt<3000){state.rtt=rtt;state.serverOffset=msg.serverTime-(msg.nonce+rtt/2);}return;}
   if(msg.type==='hello:ok'){
-    state.lastPingAt=0;delete state.serverOffset;mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;combatQueue=[];state.serverBuild=String(msg.serverBuild||'');state.deviceTrainingProtocol=Number(msg.deviceTrainingProtocol)||0;state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
+    state.lastPingAt=0;delete state.serverOffset;mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;controlAck=0;combatQueue=[];state.serverBuild=String(msg.serverBuild||'');state.deviceTrainingProtocol=Number(msg.deviceTrainingProtocol)||0;state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
     state.players=new Map((msg.players||[]).filter(p=>p.id!==state.selfId).map(p=>[p.id,p]));
     state.bosses=new Map((msg.bosses||[]).map(b=>[b.id,normalizeBoss(b)]));
     state.worldRole=msg.worldRole||{leaderId:null,isLeader:false,serverAuthority:true};
@@ -73,7 +73,7 @@ function handle(msg){
     for(const p of msg.players||[]){if(p.id===state.selfId)continue;const old=state.players.get(p.id)||{};next.set(p.id,{...old,...p,netReceivedAt:performance.now()});}
     state.players=next;if(Number(msg.revision)>state.worldRevision)requestWorldResync();emit('players',[...state.players.values()]);return;
   }
-  if(msg.type==='world:combatResult'){if(msg.targetId===state.selfId){const rev=Number(msg.player?.combatRevision)||0;if(rev<=combatAck)return;combatAck=rev;}else if(msg.player){const old=state.players.get(msg.targetId)||{};if((old.combatRevision||0)>(msg.player.combatRevision||0))return;state.players.set(msg.targetId,{...old,...msg.player});}emit('world:combatResult',msg);return;}
+  if(msg.type==='world:combatResult'){if(msg.targetId===state.selfId){const rev=Number(msg.player?.combatRevision)||0;if(rev<=combatAck)return;combatAck=rev;controlAck=Math.max(controlAck,Number(msg.player?.controlRevision)||0);}else if(msg.player){const old=state.players.get(msg.targetId)||{};if((old.combatRevision||0)>(msg.player.combatRevision||0))return;state.players.set(msg.targetId,{...old,...msg.player});}emit('world:combatResult',msg);return;}
   if(msg.type==='player:self'){emit('player:self',msg);return;}
   if(msg.type==='skill:fx'){emit('skill:fx',msg);return;}
   if(msg.type==='skill:effects'){emit('skill:effects',msg);return;}
@@ -190,10 +190,11 @@ window.EchoesMulti={
   serverNow(){return Date.now()+(state.serverOffset||0);},
   packetAge(stamp){return Number.isFinite(stamp)&&Number.isFinite(state.serverOffset)?Math.max(0,Math.min(.3,(Date.now()+state.serverOffset-stamp)/1000)):0;},
   get combatAck(){return combatAck;},
+  get controlAck(){return controlAck;},
   get enabled(){return !!url();},
   get connected(){return state.connected||state.recovering;},
   get serverUrl(){return url();},
-  sendState(p){if(!p)return;if(!state.connected){if(state.recovering)state.pendingState=p;return;}const now=Date.now();if(now-(state.lastPingAt||0)>2000){state.lastPingAt=now;state.lastPingNonce=now;send({type:'net:ping',nonce:now});}send({type:p.teleport?'world:teleport':'state',combatAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
+  sendState(p){if(!p)return;if(!state.connected){if(state.recovering)state.pendingState=p;return;}const now=Date.now();if(now-(state.lastPingAt||0)>2000){state.lastPingAt=now;state.lastPingNonce=now;send({type:'net:ping',nonce:now});}send({type:p.teleport?'world:teleport':'state',combatAck,controlAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
     x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
     swordStyle:p.swordStyle,swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):undefined,
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,

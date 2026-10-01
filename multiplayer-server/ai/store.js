@@ -6,7 +6,7 @@ export function validatePolicy(p){
  if(p.learning?.fixedDodge!==true||p.learning?.resourceManagement!==false||!Array.isArray(p.learning?.behaviors)||p.learning.behaviors.length!==10)throw Error('Invalid learning policy');
  const validateStyle=(id,required=true)=>{const s=p.styles?.[id];if(!s){if(required)throw Error('Invalid style policy');return;}if(!validateNetwork(s.network)||!Number.isFinite(s.sigma)||s.sigma<.005||s.sigma>.25||!Number.isFinite(s.learningRate)||s.learningRate<=0||s.learningRate>.05||!Number.isFinite(s.rewardMean)||!Number.isFinite(s.games)||!Number.isFinite(s.wins)||!Number.isFinite(s.reward)||!s.metrics)throw Error('Invalid style policy');};
  for(const id of ['gale','void','dawn','break'])validateStyle(id,true);
- validateStyle('moon',false);
+ validateStyle('moon',false); // Legacy schema-2 policies may omit moon; brain.ensurePolicyStyles adds the 월식 network without resetting other styles.
  return p;
 }
 export class FirebaseStore{

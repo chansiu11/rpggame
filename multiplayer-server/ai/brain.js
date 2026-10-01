@@ -3,7 +3,7 @@ export {NN_BEHAVIORS,NN_SHAPE,networkParameterCount};
 
 export const styles={
  gale:{name:'질풍'},
- moon:{name:'흑월'},
+ moon:{name:'월식'},
  void:{name:'이형'},
  dawn:{name:'여명'},
  break:{name:'홍련'}

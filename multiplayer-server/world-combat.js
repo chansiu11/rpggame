@@ -28,8 +28,8 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
  function ingest(p,msg){
   const t=now();advance(p,t);const seq=Math.floor(Number(msg.seq)||0),hadInput=(p.inputSeq||0)>0;
   if(seq<= (p.inputSeq||0))return null;p.inputSeq=seq;
-  const ack=Math.floor(Number(msg.combatAck)||0),fresh=ack===(p.combatRevision||0),out={...msg};
-  if(!fresh||p.forceMove||t<(p.controlUntil||0)||t<(p.rootUntil||0)){out.x=p.x;out.y=p.y;out.vx=out.vy=0;}
+  const ack=Math.floor(Number(msg.combatAck)||0),controlAck=Math.floor(Number(msg.controlAck)||0),fresh=ack===(p.combatRevision||0),controlFresh=controlAck===(p.controlRevision||0),out={...msg};
+  if(!fresh||!controlFresh||p.forceMove||t<(p.controlUntil||0)||t<(p.rootUntil||0)){out.x=p.x;out.y=p.y;out.vx=out.vy=0;}
   if(msg.teleport&&fresh&&!p.forceMove&&t>=(p.controlUntil||0))p.teleportSeq=seq;
   if(!fresh){out.hp=p.hp;out.shield=p.shield;out.stam=p.stam;}
   if(fresh){
@@ -133,7 +133,7 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
     // Mark scripted follow-up sequences; other attacks still allow a stun escape.
     if(String(e.skillId||'')==='meteorBreaker'){
      if(t>=(b.escapeGuaranteedUntil||0))b.escapeGuaranteedUntil=t+3800;
-    }else if(['thunderDrive','lunarBind','prismLance','voidDance','starRush'].includes(String(e.skillId||''))){
+    }else if(['thunderDrive','moonEclipseChain','prismLance','voidDance','starRush'].includes(String(e.skillId||''))){
      b.escapeGuaranteedUntil=Math.max(b.escapeGuaranteedUntil||0,t+450);
     }
     // Arm only from a confirmed opening hit; the server counters never submit another cast event.
