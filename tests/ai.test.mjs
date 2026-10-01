@@ -8,6 +8,19 @@ import {createAiService} from '../multiplayer-server/ai/live-service.js';
 test('all styles execute the existing arena code and inflict damage without rendering',()=>{
  for(const [a,b] of [['gale','void'],['moon','break'],['void','dawn'],['dawn','gale']]){const r=duel(a,b,seedPolicy(),seedPolicy(),72,20);assert.ok(r.results.some(x=>x.metrics.damage>0));assert.ok(r.results.every(x=>Number.isFinite(x.reward)));}
 });
+test('AI explicitly tracks opponent skill and shield state transitions',()=>{
+ const p=seedPolicy(),brain=createBrain('gale',p,()=>.5,3,{training:true});
+ const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:500,maxStam:500,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0};
+ const enemy={x:1260,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:.8,attackDuration:1.05,skillPose:0,skillId:'bladeRain',skillKind:'eventHorizonShear',block:true,combo:0};
+ const skill={id:'bladeRain',name:'사건선 절단',cost:61,cool:10.2,cfg:{duration:1.05,hits:[.18,.52,.88],mult:[.38,.62,2.05],arc:[.72,.72,.82],reach:[220,230,265],mode:'eventHorizonShear'}};
+ brain.step(1/60,me,enemy,{selfSkills:Array(5).fill(null),enemySkills:[skill,null,null,null,null]});
+ assert.equal(brain.awareness.skillActive,true);assert.equal(brain.awareness.skillIndex,0);assert.equal(brain.awareness.skillId,'bladeRain');
+ assert.equal(brain.awareness.shielding,true);assert.ok(brain.awareness.shieldAge>0);
+ enemy.block=false;enemy.skillPose=-1;enemy.skillId='';enemy.skillKind='';enemy.attackAnim=0;
+ brain.step(1/60,me,enemy,{selfSkills:Array(5).fill(null),enemySkills:[skill,null,null,null,null]});
+ assert.equal(brain.awareness.skillActive,false);assert.equal(brain.awareness.skillEndedAge,0);
+ assert.equal(brain.awareness.shielding,false);assert.equal(brain.awareness.shieldReleasedAge,0);
+});
 test('arena exposes current-form skill definitions to the bot',()=>{
  const a=createArena({style:'moon'});
  try{
