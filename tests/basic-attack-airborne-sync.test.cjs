@@ -11,13 +11,25 @@ test('World basic attack blocks dash and shield through animation, then releases
  state.now=1341;state.player.attackCd=0;run.parry();assert.ok(state.player.parry>.2);assert.equal(run.shieldHeld(),true);
  state.player.parry=0;run.dash();assert.equal(state.player.dodge,.2);
 });
-test('Arena basic attack blocks dash and shield until animation ends',()=>{
- const state={now:1000,hits:0,me:{attackCd:0,stun:0,exhaust:0,skillHold:null,skillEvent:null,weapon:0,combo:0,comboTimer:0,rune:'',a:0,stam:100,maxStam:100,dash:0,dashCd:0,galeRoot:0,perks:{flow:0,focus:0},shield:100,maxShield:100,shieldRearm:0,shieldBroken:0,shieldNeedsRelease:false}};
- const init="const performance={now:()=>state.now},me=state.me,roundLocked=false,void3Pvp=null,weaponData=[{cool:.32,range:94,arc:1.9,cost:0}],useStam=()=>true,combatAimAngle=()=>0,fighterAttack=()=>35,arcAttack=()=>state.hits++,window={EchoesCombat:{basicControl:()=>({force:0,stun:.5})}},burst=()=>{},ring=()=>{},keys=new Set(),pkey=x=>x,moveAngle=()=>0,ARENA_W=3600,ARENA_H=2100,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));";
- const run=new Function('state',[init,section(html,'function basic(){','function potion(){'),'return {basic,dash,beginBlock};'].join('\n'))(state);
- run.basic();assert.equal(state.hits,1);assert.equal(state.me.basicAttackLockUntil,1340);
+test('Arena held basic attacks impact after 0.2 seconds and keep the fifth-hit pose',()=>{
+ const state={now:1000,hits:0,me:{attackCd:0,attackAnim:0,attackDuration:.26,basicMoveSlow:0,basicAttackLockUntil:0,basicAttackStartedAt:0,pendingBasic:null,skillLift:0,skillPose:-1,stun:0,exhaust:0,skillHold:null,skillEvent:null,weapon:0,combo:0,comboTimer:0,rune:'',a:0,stam:100,maxStam:100,dash:0,dashCd:0,galeRoot:0,perks:{flow:0,focus:0},shield:100,maxShield:100,shieldRearm:0,shieldBroken:0,shieldNeedsRelease:false}};
+ const init="const performance={now:()=>state.now},me=state.me,roundLocked=false,void3Pvp=null,weaponData=[{cool:.32,range:94,arc:1.9,cost:0}],useStam=()=>true,basicPvpAimAngle=()=>0,pvpBasicHeld=()=>true,fighterAttack=()=>35,arcAttack=()=>state.hits++,sendProjectile=()=>state.hits++,window={EchoesCombat:{basicControl:()=>({force:0,stun:.5})}},burst=()=>{},ring=()=>{},keys=new Set(),pkey=x=>x,moveAngle=()=>0,ARENA_W=3600,ARENA_H=2100,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));";
+ const run=new Function('state',[init,section(html,'const PVP_BASIC_WINDUP=.2;','function potion(){'),'return {basic,updatePvpPendingBasic,dash,beginBlock};'].join('\n'))(state);
+ run.basic();assert.equal(state.hits,0,'pressing basic must not damage immediately');assert.equal(state.me.basicAttackLockUntil,1200);
  run.dash();run.beginBlock();assert.equal(state.me.dash,0);assert.equal(!!state.me.block,false);
- state.now=1341;run.beginBlock();assert.equal(state.me.block,true);state.me.block=false;run.dash();assert.equal(state.me.dash,.2);
+ run.updatePvpPendingBasic(.19);assert.equal(state.hits,0);
+ run.updatePvpPendingBasic(.01);assert.equal(state.hits,1,'impact occurs after the full 0.2 s windup');
+ state.me.attackCd=0;run.basic();assert.equal(state.hits,1,'the next held strike also waits for its windup');run.updatePvpPendingBasic(.2);assert.equal(state.hits,2);
+ state.me.attackCd=0;state.me.combo=4;state.me.comboTimer=1;run.basic();assert.equal(state.me.combo,5);run.updatePvpPendingBasic(.2);
+ assert.equal(state.me.combo,5,'fifth-hit combo number remains through the short impact animation');assert.equal(state.me.comboTimer,.12);assert.equal(state.me.attackAnim,.11);
+ run.beginBlock();assert.equal(state.me.block,true);state.me.block=false;run.dash();assert.equal(state.me.dash,.2);
+ assert.ok(html.includes("if(pvpBasicHeld()&&me.attackCd<=0&&!me.skillHold&&!me.skillEvent)basic();"),'PVP hold path must keep auto-attacking');
+ assert.ok(html.includes("if(basicAttackHeld()&&player.attackCd<=0)attack();"),'world/touch hold path must keep auto-attacking');
+});
+test('PVP basic animation sync does not change optimized network cadence',()=>{
+ assert.ok(html.includes("if(Number.isFinite(+m.attackDuration)&&+m.attackDuration>0)enemy.attackDuration=clamp(+m.attackDuration,.05,10)"),'remote attack duration must accept the new shorter basic animation instead of retaining a stale long skill duration');
+ assert.ok(html.includes("const netStep=pvpRoute==='DIRECT'?1/60:pvpRoute==='RELAY'?.025:.02;"),'existing DIRECT/RELAY state packet cadence must remain unchanged');
+ assert.ok(html.includes("if(pingAt<=0&&conn?.open){pingAt=1;net({t:'ping',n:performance.now()})}"),'existing ping probe cadence must remain unchanged');
 });
 test('World packets, server snapshots, and remote renderer share exact aerial height',()=>{
  assert.ok(client.includes('skillLift:p.skillLift'));
