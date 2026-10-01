@@ -104,7 +104,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
  const training={noiseSeed,sigma:base.sigma};
  const state={previous:null,attackEma:0,blockEma:0,dashEma:0,skillEma:0};
- let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonFormResetLatched=false;
+ let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1;
  const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
  return {tactic:-1,training,stats,step(dt,me,enemy){
@@ -149,13 +149,10 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const predictedAttack=out[15],predictedBlock=out[16];
   const busy=!!me?.skillEvent||!!me?.skillHold||Number(me?.attackAnim)>0;
 
-  // 월식 폼 전환 Z: 2·3·4번이 모두 쿨이 된 사이클마다 딱 한 번만 누른다.
-  // Z를 눌렀는데도 2·3·4가 계속 쿨이면 래치를 유지해 반복 입력하지 않는다.
-  // 2·3·4 중 하나라도 다시 사용 가능해진 뒤에만 다음 사이클용 래치를 해제한다.
+  // 월식 폼 전환: 2·3·4번이 모두 쿨이면 실제 전환이 성공할 때까지 입력을 재시도한다.
+  // 반복 전환 방지는 PVP 캐릭터의 moonFormShiftLatched가 실제 성공 시점에 담당한다.
   const moon234Cooling=style==='moon'&&!ready[1]&&!ready[2]&&!ready[3];
-  if(style==='moon'&&!moon234Cooling)moonFormResetLatched=false;
-  if(moon234Cooling&&!moonFormResetLatched&&!busy){
-   moonFormResetLatched=true;
+  if(moon234Cooling&&!busy){
    current={keys,aim,block:false,dash:false,basic:false,formShift:true};
    return current;
   }
