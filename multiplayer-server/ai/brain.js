@@ -147,12 +147,13 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   }
 
   const predictedAttack=out[15],predictedBlock=out[16];
-  const busy=!!me?.skillEvent||!!me?.skillHold||Number(me?.attackAnim)>0;
+  const skillBusy=!!me?.skillEvent||!!me?.skillHold;
+  const busy=skillBusy||Number(me?.attackAnim)>0;
 
-  // 월식 폼 전환: 2·3·4번이 모두 쿨이면 실제 전환이 성공할 때까지 입력을 재시도한다.
-  // 반복 전환 방지는 PVP 캐릭터의 moonFormShiftLatched가 실제 성공 시점에 담당한다.
+  // 월식 폼 전환은 평타보다 우선한다. 2·3·4번이 모두 쿨이면
+  // 진행 중인 평타 모션과 관계없이 전환 입력을 먼저 보내며, 실제 스킬 중일 때만 기다린다.
   const moon234Cooling=style==='moon'&&!ready[1]&&!ready[2]&&!ready[3];
-  if(moon234Cooling&&!busy){
+  if(moon234Cooling&&!skillBusy){
    current={keys,aim,block:false,dash:false,basic:false,formShift:true};
    return current;
   }

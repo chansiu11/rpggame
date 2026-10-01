@@ -5968,7 +5968,11 @@ function skillUp(i){
 }
 function switchWeapon(i){if(i===1)return;if(roundLocked||!me||!me.ownedWeapons.includes(i)||me.stun>0||me.skillHold||me.skillEvent||me.attackCd>.1||me.dash>0)return;me.weapon=i;me.combo=0;me.skillPose=-1;me.skillKind='';updateScore()}
 function aiMoonFormShift(){
- if(!me||me.swordStyle!=='moon'||me.moonFormShiftLatched||me.stun>0||me.skillHold||me.skillEvent||me.attackCd>0||roundLocked)return false;
+ if(!me||me.swordStyle!=='moon'||me.moonFormShiftLatched||me.stun>0||me.skillHold||me.skillEvent||roundLocked)return false;
+ if((me.basicAttackLockUntil||0)>0||me.skillPose<0&&me.attackAnim>0){
+  me.attackCd=0;me.attackAnim=0;me.attackDuration=.26;me.basicAttackLockUntil=0;me.basicAttackStartedAt=0;me.basicMoveSlow=0;me.combo=0;me.comboTimer=0;
+ }
+ if(me.attackCd>0)return false;
  me.moonFormCooldownEnds??={lunar:[0,0,0,0,0],solar:[0,0,0,0,0]};
  const now=performance.now(),current=me.moonForm==='solar'?'solar':'lunar',next=current==='lunar'?'solar':'lunar';
  for(let i=1;i<=3;i++)me.moonFormCooldownEnds[current][i]=Math.max(Number(me.moonFormCooldownEnds[current][i])||0,now+Math.max(0,Number(me.cool[i])||0)*1000);
