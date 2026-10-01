@@ -4774,6 +4774,9 @@ function basicAttackPose(combo,windup,t,a,side,sign,fx,fy,shoulderY,headY,hipY){
  if(windup){const holdLift=Math.sin(q*Math.PI)*2.2;return {hand:{x:start.x,y:start.y-holdLift},weaponA:wa0};}
  return {hand:{x:start.x+(end.x-start.x)*ease,y:start.y+(end.y-start.y)*ease},weaponA:wa0+angleDiff(wa1,wa0)*ease};
 }
+// PvP runs in a separate IIFE. Export the shared five-hit pose helper explicitly
+// instead of relying on a function that is private to the world-game closure.
+window.EchoesBasicAttackPose=basicAttackPose;
 // Feet stay on the ground plane; only the limbs and equipment turn with aiming.
 function drawPlayer(){
  const p=player;if(p.deathHidden)return;
@@ -5686,6 +5689,7 @@ requestAnimationFrame(frame);
 (()=>{
 'use strict';
 const ONLINE_PVP_V2=true,PVP_PROTOCOL=4,$=id=>document.getElementById(id),layer=$('pvpLayer'),canvas=$('pvpCanvas');if(!layer||!canvas)return;
+const pvpBasicAttackPose=typeof window.EchoesBasicAttackPose==='function'?window.EchoesBasicAttackPose:()=>null;
 const ctx=canvas.getContext('2d'),W=1200,H=700,ARENA_W=W*3,ARENA_H=H*3,TAU=Math.PI*2,SESSION='echoes_account_session_v1',SAVE='echoes_wild_save_v1',PVP_KEYS='echoes_keys_v1';
 const PVP_KEY_DEFAULTS={KeyW:'KeyW',KeyS:'KeyS',KeyA:'KeyA',KeyD:'KeyD',ShiftLeft:'ShiftLeft',KeyZ:'KeyZ',Space:'Space',KeyC:'KeyC',KeyQ:'KeyQ',KeyR:'KeyR',KeyT:'KeyT',KeyG:'KeyG',KeyV:'KeyV',KeyF:'KeyF',Digit1:'Digit1',Digit2:'Digit2',Digit3:'Digit3',Digit4:'Digit4'};
 let pvpKeybinds={...PVP_KEY_DEFAULTS};
@@ -5790,7 +5794,7 @@ function showLobby(msg=''){
  $('pvpLobby').classList.remove('hidden');$('pvpHud').classList.add('hidden');$('pvpCooldowns').classList.add('hidden');$('pvpScore').classList.add('hidden');$('pvpResult').classList.add('hidden');
  if(msg){$('pvpRoomView').textContent=msg;$('pvpRoomView').classList.remove('hidden')}else if(!matchWaiting)$('pvpRoomView').classList.add('hidden');
 }
-function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20260927-DAMAGE-SCOPE-7';resize()}
+function open(){loadPvpKeys();document.querySelector('#title')?.classList.add('hidden');layer.classList.remove('hidden');showLobby();$('pvpStatus').textContent='매칭을 시작하세요. · PVP build 20261002-BASIC-POSE-SCOPE-5';resize()}
 function close(){stopNet();layer.classList.add('hidden');document.querySelector('#title')?.classList.remove('hidden')}
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){aiCountdownUntil=0;aiAwaitStart=false;running=false;resetPvpHongFx();pvpHitProcs.clear();void3Pvp=null;remoteCriticalAck=false;resetPvpCriticalHits();try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[];pvpVortices=[];resetPvpCombo();}
@@ -7229,7 +7233,7 @@ function drawJourneyFighter(f,isMe){
   if(sign===side&&f.attackAnim>0){const sweep=a+(attackT-.5)*(f.weapon===1?2.6:2.0)*(f.combo%2?-1:1);hand={x:Math.cos(sweep)*(19+swing*9),y:shoulderY+13+Math.sin(sweep)*12}}
   if(f.block&&sign===-side)hand={x:fxd*20-sign*5,y:shoulderY+5+fyd*8};
   if(f.weapon===2)hand=sign===side?{x:fxd*22+side*6,y:shoulderY+13+fyd*11}:{x:fxd*(12-swing*8)-side*3,y:shoulderY+14+fyd*7};
-  if(f.attackAnim>0&&pose<0&&f.weapon!==2){const bp=basicAttackPose(basicPose+1,basicWindupVisual,attackT,a,side,sign,fxd,fyd,shoulderY,headY,hipY);if(bp)hand=bp.hand;}
+  if(f.attackAnim>0&&pose<0&&f.weapon!==2){const bp=pvpBasicAttackPose(basicPose+1,basicWindupVisual,attackT,a,side,sign,fxd,fyd,shoulderY,headY,hipY);if(bp)hand=bp.hand;}
   if(f.attackAnim>0&&pose>=0&&f.weapon!==2){if(pose===0&&sign===side)hand={x:Math.cos(a+(attackT-.5)*2.5)*28,y:shoulderY+12+Math.sin(a+(attackT-.5)*2.5)*12};if(pose===1)hand={x:fxd*30+sign*4,y:shoulderY+15};if(pose===2)hand={x:sign*27*Math.cos(attackT*TAU),y:shoulderY+12+Math.sin(attackT*TAU)*13};if(pose===3)hand={x:sign*6,y:headY-14+55*attackT};if(pose===4)hand={x:sign*24*Math.cos(attackT*TAU*1.5),y:shoulderY+12+Math.sin(attackT*TAU*1.5)*12}}
   if(f.dash>0)hand={x:sign*14-fxd*9,y:hipY+1-fyd*5};if(prep){const v=window.EchoesSkillPrepare.pose(prep,a,prepT,sign,side,shoulderY,headY,prepVariant);hand={x:shoulder.x+(v.hand.x-shoulder.x)*v.q,y:shoulder.y+14+(v.hand.y-shoulder.y-14)*v.q};}return {shoulder,hand,elbow:{x:(shoulder.x+hand.x)*.5+sign*4,y:(shoulder.y+hand.y)*.5+4}};
  };
@@ -7244,7 +7248,7 @@ function drawJourneyFighter(f,isMe){
  if(back){pEllipse(0,headY+1,7.8,6.6,'#9cb3a3');pLine(-6,headY+3,6,headY+3,'#6d9189',1.5)}else{const faceX=fxd*3;pEllipse(faceX,headY+2,6.5,4,'#385459');pLine(faceX-4,headY+1,faceX+4,headY+1,'#e5e9c6',1.5)}
  pLine(-7,shoulderY-1,6,shoulderY-1,'#e0c48a',3);pLine(6,shoulderY,11+capeSway*.5,shoulderY+7,'#c7af76',2.5);
  arm(side);const hand=armPose(side).hand;
- if(f.weapon!==2){const h=armPose(side).hand,len=f.weapon===3?42:34,active=f.attackAnim>0,bp=active&&pose<0?basicAttackPose(basicPose+1,basicWindupVisual,attackT,a,side,side,fxd,fyd,shoulderY,headY,hipY):null,weaponA=bp&&Number.isFinite(bp.weaponA)?bp.weaponA:active&&pose===3?-Math.PI/2+attackT*Math.PI:active&&pose===1?a:active?a+(attackT-.5)*2.3*(f.combo%2?-1:1):-Math.PI/2+side*.22,tx=h.x+Math.cos(weaponA)*len,ty=h.y+Math.sin(weaponA)*len*(active?.65:1);pLine(h.x,h.y,tx,ty,f.weapon===3?'#7d5e92':'#577a80',f.weapon===3?7:5);pLine(h.x+.7,h.y-.7,tx+.7,ty-.7,f.weapon===3?'#f0d7ff':'#dce8d2',f.weapon===3?4:3);const dx=tx-h.x,dy=ty-h.y,n=Math.hypot(dx,dy)||1;pLine(h.x-dy/n*5,h.y+dx/n*5,h.x+dy/n*5,h.y-dx/n*5,'#d8bd77',2.6);pCircle(h.x,h.y,2.4,'#cbb994')}
+ if(f.weapon!==2){const h=armPose(side).hand,len=f.weapon===3?42:34,active=f.attackAnim>0,bp=active&&pose<0?pvpBasicAttackPose(basicPose+1,basicWindupVisual,attackT,a,side,side,fxd,fyd,shoulderY,headY,hipY):null,weaponA=bp&&Number.isFinite(bp.weaponA)?bp.weaponA:active&&pose===3?-Math.PI/2+attackT*Math.PI:active&&pose===1?a:active?a+(attackT-.5)*2.3*(f.combo%2?-1:1):-Math.PI/2+side*.22,tx=h.x+Math.cos(weaponA)*len,ty=h.y+Math.sin(weaponA)*len*(active?.65:1);pLine(h.x,h.y,tx,ty,f.weapon===3?'#7d5e92':'#577a80',f.weapon===3?7:5);pLine(h.x+.7,h.y-.7,tx+.7,ty-.7,f.weapon===3?'#f0d7ff':'#dce8d2',f.weapon===3?4:3);const dx=tx-h.x,dy=ty-h.y,n=Math.hypot(dx,dy)||1;pLine(h.x-dy/n*5,h.y+dx/n*5,h.x+dy/n*5,h.y-dx/n*5,'#d8bd77',2.6);pCircle(h.x,h.y,2.4,'#cbb994')}
  else{ctx.save();ctx.translate(hand.x,hand.y);ctx.rotate(a+Math.PI/2);ctx.strokeStyle='#d3b77d';ctx.lineWidth=2.7;ctx.beginPath();ctx.moveTo(-2,-17);ctx.quadraticCurveTo(11,0,-2,17);ctx.stroke();ctx.beginPath();ctx.moveTo(-2,-17);ctx.lineTo(-6-swing*6,0);ctx.lineTo(-2,17);ctx.strokeStyle='#d3dec4';ctx.lineWidth=1;ctx.stroke();ctx.restore()}
  if(f.block){const h=armPose(-side).hand;pEllipse(h.x,h.y-3,7,11,'#709d98');pPoly([[h.x,h.y-14],[h.x+8,h.y-6],[h.x,h.y+8],[h.x-8,h.y-6]],shieldCol,'#d7e6c2',1.7)}
  if(f.attackAnim>0&&f.weapon!==2&&!basicWindupVisual){ctx.save();ctx.scale(1,.6);ctx.rotate(a);ctx.globalAlpha=Math.sin(attackT*Math.PI)*.8;ctx.strokeStyle=f.weapon===3?'#f0c9ff':'#bce9d6';ctx.lineWidth=f.weapon===3?7:4;ctx.beginPath();ctx.arc(0,-20,(weaponData[f.weapon]?.range||94)*.72,-1+attackT*.25,1+attackT*.25);ctx.stroke();ctx.restore()}
