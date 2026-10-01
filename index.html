@@ -6605,7 +6605,8 @@ function controlSpectatorAi(dt){
  if(command.block)beginBlock();
  else if(me.block){me.block=false;me.parryWindow=0;me.shieldNeedsRelease=false;me.shieldRearm=.5;}
  if(command.dash)dash();
- if(command.basic)basic();
+ if(command.formShift)aiMoonFormShift();
+ else if(command.basic)basic();
  if(Number.isInteger(command.skill))skillDown(command.skill);
  if(Number.isInteger(command.release))skillUp(command.release);
 }
@@ -6726,7 +6727,7 @@ function loop(t){requestAnimationFrame(loop);const dt=Math.min(.033,(t-last)/100
 if(window.__AI_SERVER__){window.__arena={
  snapshot,validSnap,startAiMatch,stopNet,beginAiCountdown,resetRound,rematch,get countdown(){return !!(aiCountdownUntil||aiAwaitStart)},get me(){return me},get enemy(){return enemy},get running(){return running},get locked(){return roundLocked},
  init(own,other,isHost,send){aiCountdownUntil=0;aiAwaitStart=false;resetPvpHongFx();host=isHost;conn={open:true,ai:!!window.__AI_LIVE__,send};remoteSnap=other;me=createFighter(own,isHost?1450:2150,1050,isHost?0:Math.PI);enemy=createFighter(other,isHost?2150:1450,1050,isHost?Math.PI:0);running=true;roundLocked=false;},
- receive:onData,step:update,...(window.__PLAYTEST__?{render,get effects(){return fx;}}:{}),
+ receive:onData,step:update,...(window.__PLAYTEST__?{render,get effects(){return fx;},moonFormShift:aiMoonFormShift,controlSpectatorAi}:{}),
  control(c){if(roundLocked)return;keys.clear();for(const k of c.keys||[])keys.add(k);mouse.active=true;mouse.lastMove=performance.now();if(!me)return;me.a=c.aim;const rect=canvas.getBoundingClientRect();mouse.x=(me.x+Math.cos(c.aim)*300-pvpCamera.x+W/2)*rect.width/W;mouse.y=(me.y+Math.sin(c.aim)*300-pvpCamera.y+H/2)*rect.height/H;
  if(c.block)beginBlock();else if(me.block){me.block=false;me.parryWindow=0;me.shieldNeedsRelease=false;me.shieldRearm=.5;}
  if(c.dash)dash();if(c.formShift)aiMoonFormShift();else if(c.basic)basic();if(Number.isInteger(c.skill))skillDown(c.skill);if(Number.isInteger(c.release))skillUp(c.release);},
