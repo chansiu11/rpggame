@@ -9,12 +9,13 @@ test('neural policy shape and learning contract are valid',()=>{
  assert.equal(stylePairs().length,10);
  assert.equal(Object.keys(p.styles).length,5);
  assert.equal(Object.keys(p.matchups).length,10);
- assert.equal(p.schema,2);
- assert.equal(p.model,'mlp-es-v1');
+ assert.equal(p.schema,3);
+ assert.equal(p.model,'mlp-es-skill-aware-v2');
  assert.equal(networkParameterCount(),934);
  assert.equal(NN_BEHAVIORS.length,10);
- assert.deepEqual(p.learning.behaviors,NN_BEHAVIORS);
- assert.equal(p.learning.fixedDodge,true);
+ assert.deepEqual(p.learning.behaviors.slice(0,NN_BEHAVIORS.length),NN_BEHAVIORS);
+ assert.deepEqual(p.learning.behaviors.slice(-3),['skillRangeUnderstanding','skillThreatUnderstanding','skillTimingUnderstanding']);
+ assert.equal(p.learning.fixedDodge,'skill-aware');
  assert.equal(p.learning.resourceManagement,false);
  assert.doesNotThrow(()=>validatePolicy(structuredClone(p)));
  for(const s of Object.values(p.styles)){
@@ -28,11 +29,12 @@ test('neural policy shape and learning contract are valid',()=>{
  }
 });
 
-test('reactive dodge stays code-driven rather than neural',()=>{
+test('reactive dodge reads the active enemy skill profile',()=>{
  const p=seedPolicy(),brain=createBrain('gale',p,()=>.5,3,{training:true});
  const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:100,maxStam:100,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0};
  const enemy={x:1120,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:.25,skillPose:0,block:false,combo:0};
- const action=brain.step(1/60,me,enemy);
+ const enemySkill={id:'bladeRain',name:'사건선 절단',cost:61,cool:10.2,cfg:{duration:1.05,hits:[.18,.52,.88],mult:[.38,.62,2.05],arc:[.72,.72,.82],reach:[220,230,265],mode:'eventHorizonShear'}};
+ const action=brain.step(1/60,me,enemy,{selfSkills:Array(5).fill(null),enemySkills:[enemySkill,null,null,null,null]});
  assert.equal(action.dash,true);
  assert.ok(action.keys.length>0);
 });
