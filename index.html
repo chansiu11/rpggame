@@ -4239,6 +4239,7 @@ $('hud').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||
 $('mapBtn').addEventListener('click',()=>{if(!modal)showMap();});
 $('onlineWorldBtn')?.addEventListener('click',startOnlineWorld);
 $('titleFullscreen')?.addEventListener('click',()=>{initAudio();toggleFullscreen();});
+$('aiTrainingAdminBtn')?.addEventListener('click',()=>{window.dispatchEvent(new KeyboardEvent('keydown',{code:'F9',key:'F9',ctrlKey:true,shiftKey:true,bubbles:true}));});
 $('titleHelp').addEventListener('click',showHelp);
 $('accountLogin').addEventListener('click',()=>showAuth('login'));
 $('accountRegister').addEventListener('click',()=>showAuth('register'));
@@ -6717,7 +6718,7 @@ $('pvpBtn')?.addEventListener('click',open);$('pvpExit').addEventListener('click
 })();
 </script>
 <script src="./ai-training-viewer.js?v=20260930-parallel-4b"></script>
-<script src="./ai-device-panel.js?v=20260930-neural-ai-3"></script>
+<script src="./ai-device-panel.js?v=20261001-training-admin-button-2"></script>
 </body>
 </html>
 
