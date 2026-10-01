@@ -43,7 +43,7 @@ export function analyzeSkill(skill,slot=0){
  const reach=maxNum(cfg.reach,0),arc=maxNum(cfg.arc,0),hits=Array.isArray(cfg.hits)?cfg.hits.map(Number).filter(Number.isFinite):[];
  const duration=Math.max(.05,Number(cfg.duration)||Number(skill.holdMax)||.5),firstHit=minPositive(hits,Math.min(.22,duration*.35)),lastHit=hits.length?Math.max(...hits):firstHit;
  const meleeRange=94+Math.max(0,reach),effectiveRange=Math.max(meleeRange,Number(profile.range)||0,Number(cfg.dashDistance)||0);
- const area=clamp(Number(profile.area)||arc>=TAU*.88?1:arc>=3?.65:arc>=2?.3:0,0,1);
+ const inferredArea=arc>=TAU*.88?1:arc>=3?.65:arc>=2?.3:0,area=clamp(Number.isFinite(Number(profile.area))?Number(profile.area):inferredArea,0,1);
  const mobility=clamp(Number(profile.mobility)||((Number(cfg.dashDistance)||0)>0?1:0),0,1);
  const projectile=clamp(Number(profile.projectile)||0,0,1),tracking=clamp(Number(profile.tracking)||0,0,1),control=clamp(Number(profile.control)||0,0,1),defensive=clamp(Number(profile.defensive)||0,0,1);
  const utility=clamp(Number(profile.utility)||0,0,1),shieldBreak=clamp(Number(profile.shieldBreak)||0,0,1);
