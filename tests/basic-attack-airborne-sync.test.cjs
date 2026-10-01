@@ -63,6 +63,13 @@ test('PVP basic renderer freezes each strike pose and facing until its visual en
  assert.equal(enemy.basicAngle,.75,'same attack packets cannot rotate the stored visual facing');
  assert.equal(enemy.strikePose,3,'same attack packets cannot swap the stored strike pose');
 });
+test('PVP basic pose helper is explicitly shared across the two script closures',()=>{
+ assert.ok(html.includes('window.EchoesBasicAttackPose=basicAttackPose;'),'world script must export the five-hit pose helper');
+ const pvp=html.slice(html.indexOf('const ONLINE_PVP_V2=true'));
+ assert.ok(pvp.includes("const pvpBasicAttackPose=typeof window.EchoesBasicAttackPose==='function'?window.EchoesBasicAttackPose:()=>null;"));
+ assert.equal((pvp.match(/pvpBasicAttackPose\\(/g)||[]).length,2,'PVP renderer must use the shared helper for arm and weapon poses');
+ assert.equal((pvp.match(/(?<!pvp)basicAttackPose\\(/g)||[]).length,0,'PVP closure must never call the world-private helper directly');
+});
 test('PVP remote basic attack cannot inherit a stale skill/evade render state',()=>{
  const draw=section(html,'function drawJourneyFighter(f,isMe)','function renderPvpEclipseFx(f)');
  assert.ok(draw.includes("visualSkillKind=basicAttackVisual?'':String(f.skillKind||'')"),'basic rendering must blank stale skill kind');
