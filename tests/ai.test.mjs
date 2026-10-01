@@ -1,12 +1,12 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {Worker} from 'node:worker_threads';
 import {createArena} from '../multiplayer-server/ai/arena-runtime.js';
-import {seedPolicy,learn,createBrain,leastTrainedPair,NN_BEHAVIORS,networkParameterCount} from '../multiplayer-server/ai/brain.js';
+import {seedPolicy,learn,createBrain,leastTrainedPair,recordMatchup,stylePairs,NN_BEHAVIORS,networkParameterCount} from '../multiplayer-server/ai/brain.js';
 import {validatePolicy} from '../multiplayer-server/ai/store.js';
 import {duel} from '../multiplayer-server/ai/self-play.js';
 import {createAiService} from '../multiplayer-server/ai/live-service.js';
 test('all styles execute the existing arena code and inflict damage without rendering',()=>{
- for(const [a,b] of [['gale','void'],['void','dawn'],['dawn','gale']]){const r=duel(a,b,seedPolicy(),seedPolicy(),72,20);assert.ok(r.results.some(x=>x.metrics.damage>0));assert.ok(r.results.every(x=>Number.isFinite(x.reward)));}
+ for(const [a,b] of [['gale','void'],['moon','break'],['void','dawn'],['dawn','gale']]){const r=duel(a,b,seedPolicy(),seedPolicy(),72,20);assert.ok(r.results.some(x=>x.metrics.damage>0));assert.ok(r.results.every(x=>Number.isFinite(x.reward)));}
 });
 test('AI self-play optionally exposes real read-only spectator snapshots',()=>{
  const a=seedPolicy(),b=seedPolicy(),frames=[];
@@ -52,28 +52,27 @@ test('neural learning changes bounded network parameters and survives serializat
  assert.ok(checked.styles.gale.network.w1.every(v=>Number.isFinite(v)&&Math.abs(v)<=8));
  assert.throws(()=>validatePolicy({...p,schema:1}));
 });
-test('training pairs the least experienced two styles even after loading uneven progress',()=>{
- const policy=seedPolicy();policy.styles.gale.games=100;policy.styles.void.games=9;policy.styles.dawn.games=3;policy.styles.break.games=1;
- assert.deepEqual(leastTrainedPair(policy),['break','dawn']);
- assert.deepEqual(leastTrainedPair(JSON.parse(JSON.stringify(policy))),['break','dawn'],'Stored progress determines the next opponents');
- assert.equal(new Set(leastTrainedPair(policy)).size,2,'A style must never duel itself');
-});
-test('reselecting and learning both duelists gives every style equal training exposure',()=>{
- const policy=seedPolicy(),first=[];
- for(let i=0;i<24;i++){
-  const [a,b]=leastTrainedPair(policy);
-  if(i<6)first.push([a,b]);
-  const games=Object.values(policy.styles).map(s=>s.games);
-  assert.equal(policy.styles[a].games,Math.min(...games));
-  assert.equal(policy.styles[b].games,[...games].sort((x,y)=>x-y)[1]);
+test('five-style training scheduler covers all ten matchups without self fights',()=>{
+ const policy=seedPolicy(),seen=new Set(),pairs=stylePairs();
+ assert.equal(pairs.length,10);
+ assert.equal(new Set(pairs.map(([a,b])=>[a,b].sort().join('|'))).size,10);
+ for(let i=0;i<10;i++){
+  const [a,b]=leastTrainedPair(policy),key=[a,b].sort().join('|');
+  assert.notEqual(a,b,'A style must never duel itself');
+  assert.equal(seen.has(key),false,'Every zero-count matchup should be scheduled before a repeat');
+  seen.add(key);
   learn(policy,a,0,{win:true,reward:0,metrics:{}});
   learn(policy,b,0,{win:false,reward:0,metrics:{}});
+  recordMatchup(policy,a,b);
   policy.matches++;
  }
- assert.deepEqual(first,[['gale','void'],['dawn','break'],['gale','dawn'],['void','break'],['gale','break'],['void','dawn']]);
- assert.equal(new Set(first.map(pair=>pair.slice().sort().join('|'))).size,6,'Every possible style matchup must appear in the first three balanced rounds');
- assert.deepEqual(Object.values(policy.styles).map(s=>s.games),[12,12,12,12]);
- assert.equal(policy.matches,24,'Every duel increments the shared match count only once');
+ assert.equal(seen.size,10,'All five-style pairings must be trained once per balanced cycle');
+ assert.deepEqual(Object.values(policy.styles).map(s=>s.games),[4,4,4,4,4]);
+ assert.ok(Object.values(policy.matchups).every(v=>v===1));
+ const restored=JSON.parse(JSON.stringify(policy));
+ const [a,b]=leastTrainedPair(restored);
+ assert.equal(new Set([a,b]).size,2);
+ assert.equal(restored.matchups[[a,b].sort().join('|')],1,'Stored matchup history must survive reload');
 });
 test('live worker negotiates the same PVP protocol and sends state, skills and damage',{timeout:12000},async()=>{
  const a=createArena(),worker=new Worker(new URL('../multiplayer-server/ai/live-worker.js',import.meta.url),{workerData:{style:'gale',level:100}});let ready=false,started=false,states=0,attacks=0,countdownAt=0,goAt=0,ponged=false;
