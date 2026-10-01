@@ -58,7 +58,7 @@ test('two real clients enter arena without PeerJS, exchange packets, reject outs
   a.c.arenaTest.sendProjectile(.3,470,42,{visualLen:105,color:'#aabbcc'});await waitFor(()=>b.c.arenaTest.projectiles.length>0);
   assert.equal(b.c.arenaTest.projectiles.at(-1).visualLen,105);assert.equal(b.c.arenaTest.projectiles.at(-1).color,'#aabbcc');
   // A repeated hello ack must not reset a running fight.
-  const hp=a.c.arenaTest.me.hp;a.c.arenaTest.me.hp=321;a.c.arenaTest.onData({t:'helloAck',v:3,s:b.c.arenaTest.me});assert.equal(a.c.arenaTest.me.hp,321);
+  const hp=a.c.arenaTest.me.hp;a.c.arenaTest.me.hp=321;a.c.arenaTest.onData({t:'helloAck',v:4,ruleset:'world-combat-20261002-pvp-basic-v4',s:b.c.arenaTest.me});assert.equal(a.c.arenaTest.me.hp,321);
   const outsider=await arena(port,'outsider');clients.push(outsider);await outsider.c.EchoesMulti.connect({name:'outsider',accountId:'outsider',mode:'world'});
   outsider.c.EchoesMulti.pvpRelaySend(a.c.arenaTest.room,{t:'state',hp:999,x:999,y:999});await delay(100);assert.equal(b.c.arenaTest.enemy.hp,456);
   a.c.arenaTest.stopNet();await waitFor(()=>!b.c.arenaTest.running);assert.equal(errors,'');
