@@ -1,4 +1,5 @@
 import {NN_BEHAVIORS,NN_SHAPE,createNetwork,validateNetwork,forward,perturbNetwork,esUpdateNetwork,hashSeed,networkParameterCount} from './neural-policy.js';
+import {analyzeLoadout,activeSkillThreat,skillUseScore,preferredDistance,leadAim} from './skill-knowledge.js';
 export {NN_BEHAVIORS,NN_SHAPE,networkParameterCount};
 
 export const styles={
@@ -49,8 +50,8 @@ export function ensurePolicyStyles(policy){
 }
 export function seedPolicy(){
  const policy={
-  schema:2,model:'mlp-es-v1',generation:0,matches:0,
-  learning:{behaviors:[...NN_BEHAVIORS],fixedDodge:true,resourceManagement:false},
+  schema:3,model:'mlp-es-skill-aware-v2',generation:0,matches:0,
+  learning:{behaviors:[...NN_BEHAVIORS,'skillRangeUnderstanding','skillThreatUnderstanding','skillTimingUnderstanding'],fixedDodge:'skill-aware',resourceManagement:false},
   styles:Object.fromEntries(Object.keys(styles).map(id=>[id,initialStyle(id)])),
   matchups:{}
  };
@@ -99,7 +100,7 @@ function makeFeatures(state,me,enemy,holdAge,ready,dt,style){
  state.blockEma+=((enemy?.block?1:0)-state.blockEma)*alpha;
  state.dashEma+=((Number(enemy?.dash)>0?1:0)-state.dashEma)*alpha;
  state.skillEma+=(enemySkill-state.skillEma)*alpha;
- state.previous={ex:Number(enemy?.x)||0,ey:Number(enemy?.y)||0,d};
+ state.enemyVx=prev?edx*invDt:0;state.enemyVy=prev?edy*invDt:0;state.previous={ex:Number(enemy?.x)||0,ey:Number(enemy?.y)||0,d};
  const selfAction=(Number(me?.attackAnim)>0||Number(me?.skillPose)>=0)?1:0;
  // Saved networks stay 30 inputs. Moon alone reuses the two trailing context slots:
  // [28] = opposite-form 2/3/4 readiness, [29] = current Lunar(-1)/Solar(+1) form.
@@ -129,47 +130,54 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const noiseSeed=Number.isInteger(options.noiseSeed)?options.noiseSeed>>>0:null;
  const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
  const training={noiseSeed,sigma:base.sigma};
- const state={previous:null,attackEma:0,blockEma:0,dashEma:0,skillEma:0};
+ const state={previous:null,enemyVx:0,enemyVy:0,attackEma:0,blockEma:0,dashEma:0,skillEma:0};
  let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonShiftReleasePending=false;
- const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0};
+ const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0,skillAwareChoices:0,threatDodges:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
- return {tactic:-1,training,stats,step(dt,me,enemy){
+ return {tactic:-1,training,stats,step(dt,me,enemy,combatContext={}){
   dt=clamp(Number(dt)||1/60,1/240,.08);stats.decisions++;dodgeLock=Math.max(0,dodgeLock-dt);
   const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
-  const ready=readySkills(me,style),features=makeFeatures(state,me,enemy,holdAge,ready,dt,style),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
-  const aggression=out[11],desired=clamp(330+out[0]*250-aggression*75,70,650);
+  const ready=readySkills(me,style),selfSkills=Array.isArray(combatContext?.selfSkills)?combatContext.selfSkills:me?.swordSkills,enemySkills=Array.isArray(combatContext?.enemySkills)?combatContext.enemySkills:enemy?.swordSkills;
+  const selfMeta=analyzeLoadout(selfSkills),enemyMeta=analyzeLoadout(enemySkills),threat=activeSkillThreat(enemy,enemyMeta,d);
+  const features=makeFeatures(state,me,enemy,holdAge,ready,dt,style),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
+  const aggression=out[11],neuralDesired=clamp(330+out[0]*250-aggression*75,70,650),knownDesired=preferredDistance(selfMeta,ready),desired=clamp(neuralDesired*.58+knownDesired*.42,70,650);
   let radial=d>desired+24?1:d<desired-24?-1:out[14]*.35,lateral=clamp(out[1],-1,1);
   if(Math.abs(lateral)<.08)lateral=side*.16;
   let mx=Math.cos(a)*radial-Math.sin(a)*lateral,my=Math.sin(a)*radial+Math.cos(a)*lateral;
   if((Number(me?.x)||0)<130)mx=Math.max(mx,.8);if((Number(me?.x)||0)>3470)mx=Math.min(mx,-.8);
   if((Number(me?.y)||0)<130)my=Math.max(my,.8);if((Number(me?.y)||0)>1970)my=Math.min(my,-.8);
   const keys=[];if(mx>.22)keys.push('KeyD');if(mx<-.22)keys.push('KeyA');if(my>.22)keys.push('KeyS');if(my<-.22)keys.push('KeyW');
-  const aim=a+out[12]*.62;
+  let aim=a+out[12]*.62;
   if(Number(me?.stun)>0){hold=-1;holdAge=0;moonShiftReleasePending=false;current={keys:[],aim,block:false,dash:false,basic:false};return current;}
   if(moonShiftReleasePending){moonShiftReleasePending=false;current={keys,aim,block:false,dash:false,basic:false,release:0};return current;}
 
-  // Skill press duration is learned. The 1.6 s release is only a safety ceiling
-  // so a malformed early network can never hold an input forever.
+  // Skill press duration is learned, but the actual skill definition supplies the
+  // legal/meaningful hold window so the bot does not treat every skill identically.
   if(hold>=0){
    holdAge+=dt;
-   const continueHold=out[9]+out[17]*.22;
-   if(continueHold<0||holdAge>=1.6){
+   const heldMeta=selfMeta[hold],knowledgeCeiling=heldMeta?.hold?clamp(heldMeta.holdMax||1.6,.25,3.2):clamp(Math.max(.38,(heldMeta?.firstHit||.18)+.28),.38,.9);
+   const continueHold=out[9]+out[17]*.22+(heldMeta?.hold?.18:-.05);
+   if(continueHold<0||holdAge>=knowledgeCeiling){
     const release=hold;hold=-1;holdAge=0;stats.releases++;
     current={keys,aim,block:false,dash:false,basic:false,release};return current;
    }
    current={keys,aim,block:false,dash:false,basic:false};return current;
   }
 
-  // Dodge is intentionally NOT learned. It is a fixed reactive movement rule.
-  // Stamina is only checked for action feasibility; resource management is not
-  // an observation, reward, or learned objective.
-  const fixedSkillDodge=Number(enemy?.skillPose)>=0&&d<235;
+  // Dodge remains deterministic for reliability, but it now reads the opponent's
+  // actual active skill range/type/timing instead of using a universal 235px rule.
+  const skillThreat=threat.active&&threat.danger>.43&&threat.timeToImpact<.55;
   const canDash=(Number(me?.dash)||0)<=0&&(me?.stam===undefined||Number(me.stam)>6);
-  if(fixedSkillDodge&&canDash&&dodgeLock<=0){
-   dodgeLock=.42;side=state.skillEma>.35?-side:side;stats.dodges++;
-   const dodgeKeys=side>0
-    ?[Math.sin(a)>-.2?'KeyS':'KeyW',Math.cos(a)>.2?'KeyA':'KeyD']
-    :[Math.sin(a)>.2?'KeyW':'KeyS',Math.cos(a)>-.2?'KeyD':'KeyA'];
+  if(skillThreat&&canDash&&dodgeLock<=0){
+   dodgeLock=.42;side=state.skillEma>.35?-side:side;stats.dodges++;stats.threatDodges++;
+   let dodgeKeys;
+   if((threat.meta?.area||0)>.72||(threat.meta?.tracking||0)>.78){
+    dodgeKeys=[Math.sin(a)>.25?'KeyW':Math.sin(a)<-.25?'KeyS':'KeyW',Math.cos(a)>.25?'KeyA':Math.cos(a)<-.25?'KeyD':'KeyA'];
+   }else{
+    dodgeKeys=side>0
+     ?[Math.sin(a)>-.2?'KeyS':'KeyW',Math.cos(a)>.2?'KeyA':'KeyD']
+     :[Math.sin(a)>.2?'KeyW':'KeyS',Math.cos(a)>-.2?'KeyD':'KeyA'];
+   }
    current={keys:[...new Set(dodgeKeys)],aim,block:false,dash:true,basic:false};return current;
   }
 
@@ -193,7 +201,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
    if(d<220){stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;}
   }
 
-  const blockScore=out[2]+predictedAttack*.18;
+  const blockScore=out[2]+predictedAttack*.18+threat.danger*.24-(threat.meta?.shieldBreak||0)*.22;
   const block=Number(me?.shield)>0&&blockScore>.18;
   if(block){stats.blocks++;current={keys,aim,block:true,dash:false,basic:false};return current;}
 
@@ -208,11 +216,12 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
    const basicScore=out[3]+attackDrive;
    if(d<190&&basicScore>best){best=basicScore;bestType='basic';}
    for(let i=0;i<5;i++)if(ready[i]){
-    const score=out[4+i]+attackDrive;
+    const knowledge=skillUseScore(selfMeta[i],{distance:d,enemyBlock:!!enemy?.block,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||Number(enemy?.skillPose)>=0,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam});
+    const score=out[4+i]+attackDrive+knowledge*.52;
     if(score>best){best=score;bestType='skill';bestSkill=i;}
    }
    if(!feint&&best>settings.attackThreshold){
-    if(bestType==='skill'&&bestSkill>=0){stats.skills++;if(style==='moon'&&bestSkill===0)moonShiftReleasePending=true;else{hold=bestSkill;holdAge=0;}current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
+    if(bestType==='skill'&&bestSkill>=0){stats.skills++;stats.skillAwareChoices++;aim=leadAim(selfMeta[bestSkill],aim,state.enemyVx,state.enemyVy,d);if(style==='moon'&&bestSkill===0)moonShiftReleasePending=true;else{hold=bestSkill;holdAge=0;}current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
     if(bestType==='basic'){stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;}
    }else if(feint&&best>settings.attackThreshold){stats.feints++;}
   }
