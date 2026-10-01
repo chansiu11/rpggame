@@ -56,12 +56,25 @@ test('off-screen particles are culled, but long skill trails intersecting the vi
  h.draw(false);assert.equal(h.stats().saves,1,'Only intersecting long skill trail should be rendered');
  assert.equal(h.stats().depth,0);
 });
-test('both frame renderers reset compositing before clearing pixels, and recover a failed canvas',()=>{
+test('both frame renderers reset compositing without recreating the canvas backing store',()=>{
  assert.match(html,/function render\(\)\{ctx\.setTransform\(DPR,0,0,DPR,0,0\);ctx\.globalAlpha=1;ctx\.globalCompositeOperation='source-over'/);
  assert.match(html,/function render\(\)\{ctx\.setTransform\(1,0,0,1,0,0\);ctx\.globalAlpha=1;ctx\.globalCompositeOperation='source-over'/);
  assert.match(html,/lastCanvasRecoveryAt/);assert.match(html,/lastPvpCanvasRecoveryAt/);
- assert.match(html,/canvas\.width=width;ctx\.setTransform\(DPR,0,0,DPR,0,0\)/);
- assert.match(html,/canvas\.width=width;ctx\.setTransform\(1,0,0,1,0,0\)/);
+ const worldRecovery=section('function recoverGameLoop(error)','function frame(stamp)');
+ const pvpRecovery=section('function recoverPvpLoop(error)','function loop(t)');
+ assert.doesNotMatch(worldRecovery,/canvas\.width\s*=/,'World recovery must not flash by recreating the canvas');
+ assert.doesNotMatch(pvpRecovery,/canvas\.width\s*=/,'PVP recovery must not flash by recreating the canvas');
+ assert.match(worldRecovery,/globalCompositeOperation='source-over'/);
+ assert.match(pvpRecovery,/globalCompositeOperation='source-over'/);
+});
+test('basic windup keeps body grounded without overriding frame alpha',()=>{
+ const world=section('function drawPlayer()','function drawEnemy(e)');
+ const pvp=section('function drawJourneyFighter(f,isMe)','function renderPvpEclipseFx(f)');
+ assert.match(world,/basicBodyStable/);assert.match(pvp,/basicBodyStable/);
+ assert.doesNotMatch(world,/if\(basicBodyStable\)ctx\.globalAlpha=1/);
+ assert.doesNotMatch(pvp,/if\(basicBodyStable\)ctx\.globalAlpha=1/);
+ assert.match(world,/ctx\.translate\(0,-\(basicBodyStable\?0:\(p\.skillLift\|\|0\)\)\)/);
+ assert.match(pvp,/ctx\.translate\(0,-\(basicBodyStable\?0:\(f\.skillLift\|\|0\)\)\)/);
 });
 test('PVP caps all visual effects, even while spectating, without suppressing combat data',()=>{
  const fn=section('function trimFx(){','function pushFx(');
