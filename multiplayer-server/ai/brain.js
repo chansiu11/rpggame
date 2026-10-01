@@ -205,8 +205,10 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const block=Number(me?.shield)>0&&blockScore>.18;
   if(block){stats.blocks++;current={keys,aim,block:true,dash:false,basic:false};return current;}
 
-  const feintScore=out[10]+Math.max(0,predictedBlock)*.22;
-  const feint=feintScore>.34&&!busy;
+  const knowledgeScores=selfMeta.map((meta,i)=>ready[i]?skillUseScore(meta,{distance:d,enemyBlock:!!enemy?.block,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||Number(enemy?.skillPose)>=0,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam}):-1);
+  const bestKnowledge=Math.max(-1,...knowledgeScores);
+  const feintScore=out[10]+Math.max(0,predictedBlock)*.22-Math.max(0,bestKnowledge)*.28;
+  const feint=feintScore>.34&&!busy&&bestKnowledge<.68;
   const stopAttack=out[9]<-.22&&(Number(me?.combo)||0)>0;
   const comboDrive=(Number(me?.combo)||0)>0?out[17]*.20:0;
   const attackDrive=aggression*.18+out[13]*.20+comboDrive-(feint?.38:0);
@@ -216,7 +218,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
    const basicScore=out[3]+attackDrive;
    if(d<190&&basicScore>best){best=basicScore;bestType='basic';}
    for(let i=0;i<5;i++)if(ready[i]){
-    const knowledge=skillUseScore(selfMeta[i],{distance:d,enemyBlock:!!enemy?.block,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||Number(enemy?.skillPose)>=0,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam});
+    const knowledge=knowledgeScores[i];
     const score=out[4+i]+attackDrive+knowledge*.52;
     if(score>best){best=score;bestType='skill';bestSkill=i;}
    }
