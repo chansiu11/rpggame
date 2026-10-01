@@ -135,7 +135,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonShiftReleasePending=false;
  const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0,skillAwareChoices:0,threatDodges:0,enemySkillFrames:0,enemyShieldFrames:0,shieldPunishes:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
- let lastAwareness={skillActive:false,skillIndex:-1,skillAge:0,skillEndedAge:99,shielding:false,shieldAge:0,shieldReleasedAge:99};
+ let lastAwareness={skillActive:false,skillIndex:-1,skillId:'',skillName:'',skillAge:0,skillEndedAge:99,shielding:false,shieldAge:0,shieldReleasedAge:99};
  return {tactic:-1,training,stats,get awareness(){return {...lastAwareness}},step(dt,me,enemy,combatContext={}){
   dt=clamp(Number(dt)||1/60,1/240,.08);stats.decisions++;dodgeLock=Math.max(0,dodgeLock-dt);
   const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
@@ -144,9 +144,10 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   if(enemyShielding){state.enemyShieldAge=state.enemyShielding?state.enemyShieldAge+dt:dt;state.enemyShieldReleaseAge=99;stats.enemyShieldFrames++;}else{if(state.enemyShielding)state.enemyShieldReleaseAge=0;else state.enemyShieldReleaseAge=Math.min(99,state.enemyShieldReleaseAge+dt);state.enemyShieldAge=0;}
   if(enemySkillActive){const same=state.enemySkillActive&&state.enemySkillIndex===enemySkillIndex;state.enemySkillAge=same?state.enemySkillAge+dt:dt;state.enemySkillEndedAge=99;state.enemySkillIndex=enemySkillIndex;stats.enemySkillFrames++;}else{if(state.enemySkillActive)state.enemySkillEndedAge=0;else state.enemySkillEndedAge=Math.min(99,state.enemySkillEndedAge+dt);state.enemySkillAge=0;state.enemySkillIndex=-1;}
   state.enemyShielding=enemyShielding;state.enemySkillActive=enemySkillActive;
-  const awareness={skillActive:enemySkillActive,skillIndex:enemySkillIndex,skillAge:state.enemySkillAge,skillEndedAge:state.enemySkillEndedAge,shielding:enemyShielding,shieldAge:state.enemyShieldAge,shieldReleasedAge:state.enemyShieldReleaseAge};
+  const selfMeta=analyzeLoadout(selfSkills),enemyMeta=analyzeLoadout(enemySkills),activeMeta=enemySkillIndex>=0?enemyMeta[enemySkillIndex]:null;
+  const awareness={skillActive:enemySkillActive,skillIndex:enemySkillIndex,skillId:String(activeMeta?.id||enemy?.skillId||''),skillName:String(activeMeta?.name||''),skillAge:state.enemySkillAge,skillEndedAge:state.enemySkillEndedAge,shielding:enemyShielding,shieldAge:state.enemyShieldAge,shieldReleasedAge:state.enemyShieldReleaseAge};
   lastAwareness=awareness;
-  const selfMeta=analyzeLoadout(selfSkills),enemyMeta=analyzeLoadout(enemySkills),threat=activeSkillThreat(enemy,enemyMeta,d);
+  const threat=activeSkillThreat(enemy,enemyMeta,d);
   const features=makeFeatures(state,me,enemy,holdAge,ready,dt,style),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
   const aggression=out[11],neuralDesired=clamp(330+out[0]*250-aggression*75,70,650),knownDesired=preferredDistance(selfMeta,ready),desired=clamp(neuralDesired*.58+knownDesired*.42,70,650);
   let radial=d>desired+24?1:d<desired-24?-1:out[14]*.35,lateral=clamp(out[1],-1,1);
