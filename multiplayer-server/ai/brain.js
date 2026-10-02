@@ -228,10 +228,13 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
    }
   }
 
-  const comboBuilding=state.comboBasicCount>0&&state.comboBasicCount<4,comboSkillPending=state.comboSkillReady&&state.comboBasicCount>=4;
+  const comboBuilding=state.comboBasicCount<4,comboSkillPending=state.comboSkillReady&&state.comboBasicCount>=4;
   const blockScore=out[2]+predictedAttack*.18+threat.danger*.24-(threat.meta?.shieldBreak||0)*.22;
   const emergencyBlock=threat.active&&threat.danger>.68&&threat.timeToImpact<.32;
-  const block=Number(me?.shield)>0&&blockScore>.18&&(!comboBuilding&&!comboSkillPending||emergencyBlock);
+  // AI-vs-AI combo loop starts immediately at 0/4. Normal neural turtling cannot
+  // prevent one side from ever entering its four-basic chain; only an immediate
+  // high-danger hit may interrupt the chain with a defensive block.
+  const block=Number(me?.shield)>0&&blockScore>.18&&((!comboBuilding&&!comboSkillPending)||emergencyBlock);
   if(block){stats.blocks++;current={keys,aim,block:true,dash:false,basic:false};return current;}
 
   const knowledgeScores=selfMeta.map((meta,i)=>ready[i]?skillUseScore(meta,{distance:d,enemyBlock:awareness.shielding,enemySkillActive:awareness.skillActive,enemySkillIndex:awareness.skillIndex,enemySkillAge:awareness.skillAge,enemyShieldAge:awareness.shieldAge,shieldReleasedAge:awareness.shieldReleasedAge,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||awareness.skillActive,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam}):-1);
