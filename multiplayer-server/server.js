@@ -13,7 +13,7 @@ const PORT = Number(process.env.PORT || 8787);
 const TICK_MS = 1000;
 const PARTY_MAX = 4;
 const BOSS_RESPAWN_MS = 3 * 60 * 1000;
-const PVP_RULESET = 'world-combat-20261002-pvp-basic-v5';
+const PVP_RULESET = 'world-combat-20261002-dawn-test-parity-v6';
 
 const SIM_TICK_MS = 33;
 const MOB_NET_TICK_MS = 100;
