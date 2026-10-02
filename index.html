@@ -7189,7 +7189,7 @@ function updateVoid3PvpExitDash(dt){
 function controlSpectatorAi(dt){
  if(!spectating||!spectatorServerCommand||roundLocked||!me||!enemy)return;
  const command=spectatorServerCommand;
- keys.clear();for(const code of command.keys||[])keys.add(code);
+ keys.clear();for(const code of command.keys||[])keys.add(pkey(code));
  const a=Number.isFinite(command.aim)?command.aim:Math.atan2(enemy.y-me.y,enemy.x-me.x);
  mouse.active=true;mouse.lastMove=performance.now();me.a=a;
  const rect=canvas.getBoundingClientRect(),zoom=pvpSpectator?.zoom()||1;
