@@ -220,12 +220,40 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
    }
   }
 
+  const comboBuilding=state.comboBasicCount>0&&state.comboBasicCount<4,comboSkillPending=state.comboSkillReady&&state.comboBasicCount>=4;
   const blockScore=out[2]+predictedAttack*.18+threat.danger*.24-(threat.meta?.shieldBreak||0)*.22;
-  const block=Number(me?.shield)>0&&blockScore>.18;
+  const emergencyBlock=threat.active&&threat.danger>.68&&threat.timeToImpact<.32;
+  const block=Number(me?.shield)>0&&blockScore>.18&&(!comboBuilding&&!comboSkillPending||emergencyBlock);
   if(block){stats.blocks++;current={keys,aim,block:true,dash:false,basic:false};return current;}
 
   const knowledgeScores=selfMeta.map((meta,i)=>ready[i]?skillUseScore(meta,{distance:d,enemyBlock:awareness.shielding,enemySkillActive:awareness.skillActive,enemySkillIndex:awareness.skillIndex,enemySkillAge:awareness.skillAge,enemyShieldAge:awareness.shieldAge,shieldReleasedAge:awareness.shieldReleasedAge,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||awareness.skillActive,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam}):-1);
-  const bestKnowledge=Math.max(-1,...knowledgeScores),comboBuilding=state.comboBasicCount>0&&state.comboBasicCount<4,comboSkillPending=state.comboSkillReady&&state.comboBasicCount>=4;
+  const bestKnowledge=Math.max(-1,...knowledgeScores);
+  // Four-basic combo mode: outside immediate danger, do not let the neural policy
+  // spend a skill before four basic attacks. After the fourth basic, do not use
+  // a fifth basic; choose the best currently-ready skill and then restart at zero.
+  const comboSafe=!awareness.skillActive||threat.danger<.55;
+  if(!busy&&!awareness.shielding&&comboSafe&&state.comboBasicCount<4){
+   if(d<=205){
+    stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;
+   }
+   current={keys,aim,block:false,dash:false,basic:false};return current;
+  }
+  if(!busy&&state.comboSkillReady&&state.comboBasicCount>=4){
+   let comboSkill=-1,comboScore=-Infinity;
+   for(let i=0;i<5;i++)if(ready[i]){
+    const score=knowledgeScores[i]+out[4+i]*.30+(selfMeta[i]?.mobility&&d>205?.18:0);
+    if(score>comboScore){comboScore=score;comboSkill=i;}
+   }
+   if(comboSkill>=0){
+    stats.skills++;stats.skillAwareChoices++;stats.fourHitComboSkills++;
+    state.comboBasicCount=0;state.comboSkillReady=false;
+    aim=leadAim(selfMeta[comboSkill],aim,state.enemyVx,state.enemyVy,d);
+    if(style==='moon'&&comboSkill===0)moonShiftReleasePending=true;else{hold=comboSkill;holdAge=0;}
+    current={keys,aim,block:false,dash:false,basic:false,skill:comboSkill};return current;
+   }
+   current={keys,aim,block:false,dash:false,basic:false};return current;
+  }
+
   const feintScore=out[10]+Math.max(0,predictedBlock)*.22-Math.max(0,bestKnowledge)*.28;
   const feint=feintScore>.34&&!busy&&bestKnowledge<.68&&!comboBuilding&&!comboSkillPending;
   const stopAttack=out[9]<-.22&&(Number(me?.combo)||0)>0&&!comboBuilding&&!comboSkillPending;
@@ -246,7 +274,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
     if(score>best){best=score;bestType='skill';bestSkill=i;}
    }
    if(!feint&&best>settings.attackThreshold){
-    if(bestType==='skill'&&bestSkill>=0){const completedFourHitCombo=comboSkillReady;stats.skills++;stats.skillAwareChoices++;if(completedFourHitCombo){stats.fourHitComboSkills++;state.comboBasicCount=0;state.comboSkillReady=false;}if(shieldPunishWindow||awareness.shielding&&(selfMeta[bestSkill]?.shieldBreak||0)>.5)stats.shieldPunishes++;aim=leadAim(selfMeta[bestSkill],aim,state.enemyVx,state.enemyVy,d);if(style==='moon'&&bestSkill===0)moonShiftReleasePending=true;else{hold=bestSkill;holdAge=0;}current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
+    if(bestType==='skill'&&bestSkill>=0){stats.skills++;stats.skillAwareChoices++;if(shieldPunishWindow||awareness.shielding&&(selfMeta[bestSkill]?.shieldBreak||0)>.5)stats.shieldPunishes++;aim=leadAim(selfMeta[bestSkill],aim,state.enemyVx,state.enemyVy,d);if(style==='moon'&&bestSkill===0)moonShiftReleasePending=true;else{hold=bestSkill;holdAge=0;}current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
     if(bestType==='basic'){stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;}
    }else if(feint&&best>settings.attackThreshold){stats.feints++;}
   }
