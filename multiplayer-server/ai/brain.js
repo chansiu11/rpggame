@@ -1,6 +1,7 @@
 import {NN_BEHAVIORS,NN_SHAPE,createNetwork,validateNetwork,forward,perturbNetwork,esUpdateNetwork,hashSeed,networkParameterCount} from './neural-policy.js';
 import {analyzeLoadout,activeSkillThreat,skillUseScore,preferredDistance,leadAim} from './skill-knowledge.js';
 export {NN_BEHAVIORS,NN_SHAPE,networkParameterCount};
+export const AI_BRAIN_BUILD='20261002-dual-bot-skill-6';
 
 export const styles={
  gale:{name:'질풍'},
