@@ -2240,7 +2240,7 @@ function hitSecretStatue(){
 }
 function enterSecretCave(){player.secretCaveActive=true;player.x=SECRET_CAVE.spawnX;player.y=SECRET_CAVE.spawnY;player.facing=-Math.PI/2;camera.x=player.x;camera.y=player.y;bodyGridValid=false;projectiles=[];effects=[];lastRegion=-1;player.invuln=1;toast('<b>별성 지하 비밀동굴</b><br>바로 앞에서 낡은 종이의 빛이 흔들립니다.');}
 function leaveSecretCave(){player.secretCaveActive=false;player.x=SECRET_STATUE.x-70;player.y=SECRET_STATUE.y-35;player.facing=Math.PI;camera.x=player.x;camera.y=player.y;bodyGridValid=false;projectiles=[];effects=[];lastRegion=-1;player.invuln=1;toast('종말의 별성으로 돌아왔습니다.');}
-const BASIC_ATTACK_WINDUP=.1;
+const BASIC_ATTACK_WINDUP=0;
 function cancelWorldBasicAttack(resetCombo=false){
  if(!pendingBasicAttack)return false;
  pendingBasicAttack=null;pendingAttack=false;basicAttackLockUntil=0;basicAttackStartedAt=0;
@@ -2291,6 +2291,7 @@ function attack(){
  pendingBasicAttack={elapsed:0,weapon:player.weapon,angle:player.facing,arc:player.attackArc,damage:damageValue(mult),combo:player.combo,pose:player.strikePose,final:player.combo===5,duringSkill,consumeRiposte};
  pendingAttack=true;
  if(savedSkillState)Object.assign(player,savedSkillState);
+ if(windup<=0)resolveWorldBasicAttack();
  sound(player.weapon===2?'bow':'swing');
 }
 // Restore shared skill definitions removed with the Void 3 rewrite.
@@ -6455,7 +6456,7 @@ function aiMoonFormShift(){
  if(h?.kind==='inputPrepare'&&h.index===0){skillUp(0);return true;}
  return false;
 }
-const PVP_BASIC_WINDUP=.1;
+const PVP_BASIC_WINDUP=0;
 function cancelPvpPendingBasic(resetCombo=false){
  if(!me?.pendingBasic)return false;
  me.pendingBasic=null;me.basicAttackLockUntil=0;me.basicAttackStartedAt=0;me.basicMoveSlow=0;me.basicStage=0;me.basicVisual=0;me.skillLift=0;
@@ -6496,6 +6497,7 @@ function basic(){
  const consumeRiposte=me.rune==='echo'&&me.riposte>0,mult=(me.weapon===2?1:me.combo===5?1.8:1+(me.combo-1)*.08)*(consumeRiposte?1.45:1);
  me.pendingBasic={elapsed:0,weapon:me.weapon,a:me.a,mult,final:me.combo===5,duringSkill,consumeRiposte};
  if(savedSkillState)Object.assign(me,savedSkillState);
+ if(windup<=0)resolvePvpPendingBasic();
 }
 function dash(){if(pvpEscapeReady()){if(pvpEscapeLocked()||me.skillHold||me.skillEvent)return;performPvpEscape();return;}if(me&&performance.now()<(me.basicAttackLockUntil||0))return;if(!me||me.dash>0||me.dashCd>0||me.stun>0||(me.galeRoot||0)>0||me.skillHold||me.skillEvent||roundLocked)return;/* void3Pvp is intentionally not blocked: dash stays usable during Void 3 tracking */const cost=20-4*(me.perks?.flow||0);if(!useStam(cost))return;const a=moveAngle(me.a),speed=720+(me.perks?.flow||0)*40;me.a=a;me.lastMoveA=a;me.dash=.2;me.dashCd=.55;me.inv=.16;me.vx=Math.cos(a)*speed;me.vy=Math.sin(a)*speed;ring(me.x,me.y,33,'#b7dec9',.3,true)}
 function beginBlock(){if(roundLocked||!me||performance.now()<(me.basicAttackLockUntil||0)||me.block||me.stun>0||me.dash>0||me.shieldNeedsRelease||(me.shieldRearm||0)>0||me.shieldBroken>0||me.skillHold||me.skillEvent)return;me.shield=me.maxShield;me.shieldNeedsRelease=false;me.block=true;if(me.parryCd<=0){me.parryWindow=.19+(me.perks?.focus||0)*.035;me.parryCd=.38}ring(me.x,me.y,25,'#9bd6db',.15,false)}
