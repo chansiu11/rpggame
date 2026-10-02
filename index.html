@@ -6116,8 +6116,9 @@ function processPvpData(m){if(!m||typeof m!=='object')return;
  if(conn?.ai&&!window.__AI_LIVE__&&m.t==='aiCountdown'){aiServerCountdown=true;beginAiCountdown();return;}
  if(conn?.ai&&!window.__AI_LIVE__&&m.t==='aiGo'){endAiCountdown();return;}
  if((aiCountdownUntil||aiAwaitStart)&&!['hello','helloAck','ping','pong','rematch','round'].includes(m.t))return;
- if((m.t==='hello'||m.t==='helloAck')&&Number.isFinite(Number(m.v))&&Number(m.v)!==PVP_PROTOCOL){net({t:'protocolMismatch',v:PVP_PROTOCOL});matchPeerError('상대의 PVP 연결 방식이 너무 오래된 버전입니다. 두 플레이어 모두 새로고침 후 다시 매칭해 주세요.');return;}
- if((m.t==='hello'||m.t==='helloAck')&&String(m.ruleset||m.s?.ruleset||'')!==PVP_RULESET){net({t:'rulesetMismatch',ruleset:PVP_RULESET});matchPeerError('상대와 PVP 코드 버전이 다릅니다. 두 기기 모두 새로고침 후 다시 매칭해 주세요.');return;}
+ const serverAiPeer=!!(conn?.ai&&!window.__AI_LIVE__);
+ if((m.t==='hello'||m.t==='helloAck')&&Number.isFinite(Number(m.v))&&Number(m.v)!==PVP_PROTOCOL&&!serverAiPeer){net({t:'protocolMismatch',v:PVP_PROTOCOL});matchPeerError('상대의 PVP 연결 방식이 너무 오래된 버전입니다. 두 플레이어 모두 새로고침 후 다시 매칭해 주세요.');return;}
+ if((m.t==='hello'||m.t==='helloAck')&&String(m.ruleset||m.s?.ruleset||'')!==PVP_RULESET&&!serverAiPeer){net({t:'rulesetMismatch',ruleset:PVP_RULESET});matchPeerError('상대와 PVP 코드 버전이 다릅니다. 두 기기 모두 새로고침 후 다시 매칭해 주세요.');return;}
  if(m.t==='rulesetMismatch'){matchPeerError('PVP 코드 버전이 갱신되었습니다. 두 기기 모두 새로고침 후 다시 매칭해 주세요.');return;}
  if(m.t==='protocolMismatch'){matchPeerError('PVP 연결 방식이 갱신되었습니다. 페이지를 새로고침한 뒤 다시 매칭해 주세요.');return;}
  if(m.t==='hello'&&validSnap(m.s)){remoteSnap=m.s;net({t:'helloAck',v:PVP_PROTOCOL,ruleset:PVP_RULESET,s:pvpOwnSnapshot()});startMatchIfReady()}else if(m.t==='helloAck'&&validSnap(m.s)){remoteSnap=m.s;aiServerCountdown=conn?.ai&&m.aiCountdown===true;startMatchIfReady()}
