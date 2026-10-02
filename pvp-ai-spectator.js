@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const $=id=>document.getElementById(id),names={gale:'질풍',moon:'월식',void:'이형',dawn:'여명',break:'홍련'};
-const s={active:false,mode:'both',zoom:1,actualZoom:1,panX:1800,panY:1050,pressed:new Set(),drag:null,brainModule:null};
+const s={active:false,mode:'both',zoom:1,actualZoom:1,panX:1800,panY:1050,pressed:new Set(),drag:null};
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 let start=()=>{},stop=()=>{};
 function mount(callbacks){
@@ -31,8 +31,6 @@ function mount(callbacks){
  for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(s.drag?.id===e.pointerId)s.drag=null;});
 }
 function getConfig(){const pool=['gale','moon','void','dawn','break'],choose=id=>id==='random'?pool[Math.floor(Math.random()*pool.length)]:id;return {styleA:choose($('pvpSpecStyleA')?.value||'random'),styleB:choose($('pvpSpecStyleB')?.value||'random'),difficultyA:Number($('pvpSpecDiffA')?.value)||3,difficultyB:Number($('pvpSpecDiffB')?.value)||3};}
-async function loadBrain(){if(!s.brainModule)s.brainModule=import('./multiplayer-server/ai/brain.js?v=20261002-four-basic-combo-12');return s.brainModule;}
-function makeBrain(style,policy,difficulty){return loadBrain().then(m=>m.createBrain(style,policy||m.seedPolicy(),Math.random,difficulty));}
 function setActive(on){s.active=!!on;s.pressed.clear();s.drag=null;s.mode='both';s.zoom=1;s.actualZoom=1;s.panX=1800;s.panY=1050;if($('pvpSpecZoom'))$('pvpSpecZoom').textContent='100%';if($('pvpSpecCamera'))$('pvpSpecCamera').value='both';if($('pvpSpectateTools'))$('pvpSpectateTools').hidden=!on;}
 function key(code,pressed){if(!s.active)return false;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD'].includes(code)){if(pressed){s.pressed.add(code);if(s.mode!=='free'){s.mode='free';s.panX=s.cameraX??1800;s.panY=s.cameraY??1050;$('pvpSpecCamera').value='free';}}else s.pressed.delete(code);return true;}if(pressed&&code==='Escape'){stop();return true;}if(pressed&&(code==='Equal'||code==='NumpadAdd')){$('pvpSpecPlus')?.click();return true;}if(pressed&&(code==='Minus'||code==='NumpadSubtract')){$('pvpSpecMinus')?.click();return true;}return false;}
 function update(camera,me,enemy,dt,W,H,arenaW,arenaH){if(!s.active||!me||!enemy)return;
@@ -47,5 +45,5 @@ function update(camera,me,enemy,dt,W,H,arenaW,arenaH){if(!s.active||!me||!enemy)
  const smooth=1-Math.exp(-dt*(s.mode==='free'?26:13));camera.x+=(x-camera.x)*smooth;camera.y+=(y-camera.y)*smooth;s.cameraX=camera.x;s.cameraY=camera.y;
 }
 const zoom=()=>s.active?s.actualZoom:1;
-window.EchoesPvpSpectator={mount,getConfig,loadBrain,makeBrain,setActive,key,update,zoom,get brainBuild(){return s.brainModule?.AI_BRAIN_BUILD||''},get active(){return s.active},names};
+window.EchoesPvpSpectator={mount,getConfig,setActive,key,update,zoom,get active(){return s.active},names};
 })();
