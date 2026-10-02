@@ -132,7 +132,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const noiseSeed=Number.isInteger(options.noiseSeed)?options.noiseSeed>>>0:null;
  const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
  const training={noiseSeed,sigma:base.sigma};
- const state={previous:null,enemyVx:0,enemyVy:0,attackEma:0,blockEma:0,dashEma:0,skillEma:0,enemyShielding:false,enemyShieldAge:0,enemyShieldReleaseAge:99,enemySkillActive:false,enemySkillAge:0,enemySkillIndex:-1,enemySkillEndedAge:99,comboBasicCount:0,lastBasicSeq:0,comboSkillReady:false,enemySkillDodgeUsed:false,comboStallAge:0};
+ const state={previous:null,enemyVx:0,enemyVy:0,attackEma:0,blockEma:0,dashEma:0,skillEma:0,enemyShielding:false,enemyShieldAge:0,enemyShieldReleaseAge:99,enemySkillActive:false,enemySkillAge:0,enemySkillIndex:-1,enemySkillEndedAge:99,comboBasicCount:0,lastBasicSeq:0,lastBasicHitSeq:0,comboSkillReady:false,enemySkillDodgeUsed:false,comboStallAge:0};
  let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonShiftReleasePending=false;
  const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0,skillAwareChoices:0,threatDodges:0,enemySkillFrames:0,enemyShieldFrames:0,shieldPunishes:0,fourHitComboSkills:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
@@ -141,14 +141,15 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   dt=clamp(Number(dt)||1/60,1/240,.08);stats.decisions++;dodgeLock=Math.max(0,dodgeLock-dt);
   const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
   const ready=readySkills(me,style),selfSkills=Array.isArray(combatContext?.selfSkills)?combatContext.selfSkills:me?.swordSkills,enemySkills=Array.isArray(combatContext?.enemySkills)?combatContext.enemySkills:enemy?.swordSkills;
-  const basicSeq=Math.max(0,Math.floor(Number(me?.basicSeq)||0));
-  state.comboStallAge=state.comboBasicCount<4?Math.min(4,(state.comboStallAge||0)+dt):0;
-  if(basicSeq>0&&basicSeq!==state.lastBasicSeq){
-   state.lastBasicSeq=basicSeq;state.comboBasicCount=Math.min(4,state.comboBasicCount+1);state.comboStallAge=0;
+  const basicSeq=Math.max(0,Math.floor(Number(me?.basicSeq)||0)),basicHitSeq=Math.max(0,Math.floor(Number(me?.basicHitSeq)||0));
+  if(basicSeq>0)state.lastBasicSeq=basicSeq;
+  const confirmedBasicHit=basicHitSeq>0&&basicHitSeq!==state.lastBasicHitSeq;
+  if(confirmedBasicHit){
+   state.lastBasicHitSeq=basicHitSeq;state.comboBasicCount=Math.min(4,state.comboBasicCount+1);state.comboStallAge=0;
    if(state.comboBasicCount>=4)state.comboSkillReady=true;
-  }else if(basicSeq===0&&state.lastBasicSeq>0&&!Number(me?.attackAnim)){
-   state.lastBasicSeq=0;
-  }
+  }else if(state.comboBasicCount>0&&state.comboBasicCount<4){
+   state.comboStallAge=Math.min(6,(state.comboStallAge||0)+dt);
+  }else state.comboStallAge=0;
   const enemyShielding=!!enemy?.block,enemySkillIndex=Number.isInteger(Number(enemy?.skillPose))&&Number(enemy.skillPose)>=0&&Number(enemy.skillPose)<5?Number(enemy.skillPose):-1,enemySkillActive=enemySkillIndex>=0||(/^prepare:/.test(String(enemy?.skillKind||'')));
   if(enemyShielding){state.enemyShieldAge=state.enemyShielding?state.enemyShieldAge+dt:dt;state.enemyShieldReleaseAge=99;stats.enemyShieldFrames++;}else{if(state.enemyShielding)state.enemyShieldReleaseAge=0;else state.enemyShieldReleaseAge=Math.min(99,state.enemyShieldReleaseAge+dt);state.enemyShieldAge=0;}
   if(enemySkillActive){
@@ -240,18 +241,31 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
 
   const knowledgeScores=selfMeta.map((meta,i)=>ready[i]?skillUseScore(meta,{distance:d,enemyBlock:awareness.shielding,enemySkillActive:awareness.skillActive,enemySkillIndex:awareness.skillIndex,enemySkillAge:awareness.skillAge,enemyShieldAge:awareness.shieldAge,shieldReleasedAge:awareness.shieldReleasedAge,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||awareness.skillActive,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam}):-1);
   const bestKnowledge=Math.max(-1,...knowledgeScores);
-  // If the four-basic chain cannot progress for a while (for example because the
-  // opponent keeps casting or kiting), use a real skill to break the stalemate,
-  // then restart the 4-basic -> skill chain. This prevents one spectator bot from
-  // becoming a permanent dodge-only fighter.
-  const comboStalled=state.comboBasicCount<4&&state.comboStallAge>=.85,canCounterSkill=!busy&&(Number(me?.dash)||0)<=0;
-  if(comboStalled&&canCounterSkill){
+  // Before four confirmed basic hits, skills are exceptions rather than the default.
+  // Use one early only for a clear tactical reason: break a held shield, punish a
+  // recent recovery/stun, defend at low HP, or rescue a combo that has genuinely
+  // been stuck after at least one landed basic.
+  const enemyStunned=Math.max(0,Number(enemy?.stun)||0),selfHp=ratio(me?.hp,me?.maxHp);
+  const punishWindow=enemyStunned>.05||awareness.skillEndedAge<.42||awareness.shieldReleasedAge<.34;
+  const shieldBreakWindow=awareness.shielding&&awareness.shieldAge>.30;
+  const defensiveEmergency=selfHp<.34&&awareness.skillActive&&threat.danger>.48;
+  const comboStalled=state.comboBasicCount>0&&state.comboBasicCount<4&&state.comboStallAge>=2.4;
+  const canCounterSkill=!busy&&(Number(me?.dash)||0)<=0;
+  if(canCounterSkill&&!state.comboSkillReady&&(shieldBreakWindow||punishWindow||defensiveEmergency||comboStalled)){
    let fallbackSkill=-1,fallbackScore=-Infinity;
    for(let i=0;i<5;i++)if(ready[i]){
-    const meta=selfMeta[i],score=knowledgeScores[i]+(awareness.skillActive?(meta?.defensive||0)*.22+(meta?.mobility||0)*.16+(meta?.tracking||0)*.08:0)+(d>180?(meta?.projectile||0)*.14+(meta?.mobility||0)*.10:0);
+    const meta=selfMeta[i];if(!meta)continue;
+    if(shieldBreakWindow&&(meta.shieldBreak||0)<.45)continue;
+    if(defensiveEmergency&&(meta.defensive||0)<.35&&(meta.mobility||0)<.70)continue;
+    const score=knowledgeScores[i]
+     +(shieldBreakWindow?(meta.shieldBreak||0)*.42:0)
+     +(punishWindow?(meta.control||0)*.08+(meta.damageWeight||0)*.12:0)
+     +(defensiveEmergency?(meta.defensive||0)*.28+(meta.mobility||0)*.18:0)
+     +(comboStalled?(meta.projectile||0)*.10+(meta.mobility||0)*.12:0);
     if(score>fallbackScore){fallbackScore=score;fallbackSkill=i;}
    }
-   if(fallbackSkill>=0&&fallbackScore>-.20){
+   const needed=shieldBreakWindow?.18:defensiveEmergency?.10:punishWindow?.22:.34;
+   if(fallbackSkill>=0&&fallbackScore>needed){
     stats.skills++;stats.skillAwareChoices++;state.comboBasicCount=0;state.comboSkillReady=false;state.comboStallAge=0;
     aim=leadAim(selfMeta[fallbackSkill],aim,state.enemyVx,state.enemyVy,d);
     if(style==='moon'&&fallbackSkill===0)moonShiftReleasePending=true;else{hold=fallbackSkill;holdAge=0;}
@@ -261,7 +275,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   // Four-basic combo mode: count four actual basic activations (not only confirmed hits),
   // then choose a skill instead of a fifth basic. This keeps both bots able to progress
   // their combo even when the opponent blocks or dodges one of the four swings.
-  const comboSafe=!awareness.skillActive||threat.danger<.55;
+  const enemyBasicThreat=!awareness.skillActive&&Number(enemy?.attackAnim)>0&&d<190,comboSafe=!awareness.shielding&&!enemyBasicThreat&&(!awareness.skillActive||threat.danger<.40);
   if(!busy&&!awareness.shielding&&comboSafe&&state.comboBasicCount<4){
    // The live AI always uses the sword (weapon 0). Its basic range is ~94px,
    // so move inside reliable hit distance before spending a combo basic.
@@ -275,16 +289,25 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   if(!busy&&state.comboSkillReady&&state.comboBasicCount>=4){
    let comboSkill=-1,comboScore=-Infinity;
    for(let i=0;i<5;i++)if(ready[i]){
-    const score=knowledgeScores[i]+out[4+i]*.30+(selfMeta[i]?.mobility&&d>205?.18:0);
+    const meta=selfMeta[i];if(!meta)continue;
+    const dangerousCast=awareness.skillActive&&threat.danger>.45&&(meta.defensive||0)<.35&&(meta.mobility||0)<.70;
+    if(dangerousCast)continue;
+    if(awareness.shielding&&(meta.shieldBreak||0)<.35)continue;
+    const score=knowledgeScores[i]+out[4+i]*.22
+     +(enemyStunned>.05?.16:0)
+     +(awareness.skillEndedAge<.42?.12:0)
+     +(awareness.shielding?(meta.shieldBreak||0)*.28:0)
+     +((meta.mobility||0)&&d>(meta.idealRange||180)?.10:0);
     if(score>comboScore){comboScore=score;comboSkill=i;}
    }
-   if(comboSkill>=0){
+   if(comboSkill>=0&&comboScore>.05){
     stats.skills++;stats.skillAwareChoices++;stats.fourHitComboSkills++;
     state.comboBasicCount=0;state.comboSkillReady=false;state.comboStallAge=0;
     aim=leadAim(selfMeta[comboSkill],aim,state.enemyVx,state.enemyVy,d);
     if(style==='moon'&&comboSkill===0)moonShiftReleasePending=true;else{hold=comboSkill;holdAge=0;}
     current={keys,aim,block:false,dash:false,basic:false,skill:comboSkill};return current;
    }
+   // Keep the four-hit charge and reposition until a suitable skill window appears.
    current={keys,aim,block:false,dash:false,basic:false};return current;
   }
 
@@ -299,7 +322,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
    const shieldPunishWindow=!awareness.shielding&&awareness.shieldReleasedAge<.42,comboSkillReady=state.comboSkillReady&&state.comboBasicCount>=4;
    const comboBasicBonus=!comboSkillReady&&state.comboBasicCount<4?.68:0;
    const basicScore=out[3]+attackDrive+comboBasicBonus-(awareness.shielding?.52:0)+(shieldPunishWindow?.18:0)-(awareness.skillActive&&threat.danger>.45?.28:0);
-   if(!comboSkillReady&&d<190&&basicScore>best){best=basicScore;bestType='basic';}
+   if(!comboSkillReady&&!awareness.shielding&&!enemyBasicThreat&&d<190&&basicScore>best){best=basicScore;bestType='basic';}
    if(comboSkillReady)for(let i=0;i<5;i++)if(ready[i]){
     const knowledge=knowledgeScores[i];
     const shieldBreakBonus=awareness.shielding?(selfMeta[i]?.shieldBreak||0)*.34:0,shieldReleaseBonus=shieldPunishWindow?.12:0;
