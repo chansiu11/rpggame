@@ -112,6 +112,14 @@ test('World packets preserve explicit basic visual state for remote players',()=
  assert.ok(draw.includes('const basicAttackVisual=(Number(p.basicVisual)||0)>0'));
  assert.equal(draw.includes('!!pendingBasicAttack'),false,'remote drawPlayer must not depend on the local pending attack');
 });
+test('Airborne skill frames are unhittable in world and arena until skillLift returns to zero',()=>{
+ const worldHit=section(html,'function hitPlayer(damage,source,parryable=true){','const shieldSlot=');
+ assert.ok(worldHit.includes("if((Number(player.skillLift)||0)>.01)return 'ignored';"));
+ const arenaHurt=section(html,'function hurt(raw,opts={}){','function pointSegmentDistance');
+ assert.ok(arenaHurt.includes("(Number(me.skillLift)||0)>.01"));
+ const worldCombat=fs.readFileSync(path.resolve(__dirname,'../multiplayer-server/world-combat.js'),'utf8');
+ assert.ok(worldCombat.includes("if((Number(b.skillLift)||0)>.01)continue;"),'authoritative world PvP must reject damage/control while airborne');
+});
 test('Arena sends opponent aerial height and resets it after interruption',()=>{
  assert.ok(html.includes('skillLift:clamp(me.skillLift||0,0,150)'));
  assert.ok(html.includes('enemy.skillLift=clamp(Number(m.skillLift)||0,0,150)'));
