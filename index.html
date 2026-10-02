@@ -5683,7 +5683,7 @@ window.EchoesWorldPvpData={
 requestAnimationFrame(frame);
 })();
 </script>
-<script src="./pvp-ai-spectator.js?v=20261002-skill-aware-combo-3"></script>
+<script src="./pvp-ai-spectator.js?v=20261002-dual-bot-skill-6"></script>
 
 <script>
 (()=>{
@@ -5829,7 +5829,7 @@ async function startAiSpectate(config=pvpSpectator?.getConfig()){
  const button=$('pvpAiSpectateStart');button.disabled=true;
  $('pvpStatus').textContent='AI 대 AI 관전 연결 중…';
  try{
-  await pvpSpectator.loadBrain();
+  const browserBrainModule=await pvpSpectator.loadBrain();
   if(requestSeq!==aiRequestSeq)return;
   spectatorSnapshot=makeSpectatorSnapshot(config.styleA);
   const m=await ensureMatchServer(spectatorSnapshot);
@@ -5841,6 +5841,8 @@ async function startAiSpectate(config=pvpSpectator?.getConfig()){
   aiUnsub.push(m.on('pvp:aiError',msg=>{if(requestSeq!==aiRequestSeq)return;cleanup();stopNet();showLobby(msg.message||'관전 연결 실패');}));
   aiUnsub.push(m.on('pvp:aiReady',msg=>{
    if(requestSeq!==aiRequestSeq||!msg.spectate)return;
+   const browserBuild=String(browserBrainModule?.AI_BRAIN_BUILD||''),serverBuild=String(msg.aiBuild||'');
+   if(!browserBuild||!serverBuild||browserBuild!==serverBuild){cleanup();m.aiLeave();stopPeer();showLobby('AI 1·AI 2 코드 버전이 다릅니다. 페이지를 새로고침한 뒤 다시 관전해 주세요.');return;}
    void (async()=>{
     try{
      spectatorBrain=await pvpSpectator.makeBrain(config.styleA,msg.policy,config.difficultyA);
