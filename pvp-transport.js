@@ -6,8 +6,8 @@ window.EchoesPvpTransport={create({host,relaySend,onData,onStatus=()=>{}}){
  const pendingIce=[],probes=new Map(),pending=new Map(),seen=new Set();
  const ICE_SERVERS=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun2.l.google.com:19302'},{urls:'stun:stun3.l.google.com:19302'}];
  const clock=()=>performance.now(),smooth=(old,ms)=>Number.isFinite(old)?old*.72+ms*.28:ms;
- function useDirect(){return reliable?.readyState==='open'&&clock()-directAt<3000&&Number.isFinite(directRtt)&&directRtt<=relayRtt+4;}
- function raw(data,path){if(path==='direct'){const ch=data.t==='state'&&states?.readyState==='open'?states:reliable;if(ch?.readyState!=='open')return false;if(data.t==='state'&&ch.bufferedAmount>8192)return false;try{ch.send(JSON.stringify(data));return true;}catch{return false;}}return relaySend(data);}
+ function useDirect(){return reliable?.readyState==='open'&&clock()-directAt<4500&&Number.isFinite(directRtt)&&(!Number.isFinite(relayRtt)||directRtt<=relayRtt+12);}
+ function raw(data,path){if(path==='direct'){const ch=data.t==='state'&&states?.readyState==='open'?states:reliable;if(ch?.readyState!=='open')return false;if(data.t==='state'&&ch.bufferedAmount>2048)return false;try{ch.send(JSON.stringify(data));return true;}catch{return false;}}return relaySend(data);}
  function receive(data,path){
   if(closed||!data||typeof data!=='object')return;
   if(data.t==='routeAck'){pending.delete(data.id);return;}
