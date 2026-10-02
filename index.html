@@ -5841,13 +5841,13 @@ async function startAiSpectate(config=pvpSpectator?.getConfig()){
   aiUnsub.push(m.on('pvp:aiError',msg=>{if(requestSeq!==aiRequestSeq)return;cleanup();stopNet();showLobby(msg.message||'관전 연결 실패');}));
   aiUnsub.push(m.on('pvp:aiReady',msg=>{
    if(requestSeq!==aiRequestSeq||!msg.spectate)return;
-   const browserBuild=String(browserBrainModule?.AI_BRAIN_BUILD||''),serverBuild=String(msg.aiBuild||'');
-   if(!browserBuild||!serverBuild||browserBuild!==serverBuild){cleanup();m.aiLeave();stopPeer();showLobby('AI 1·AI 2 코드 버전이 다릅니다. 페이지를 새로고침한 뒤 다시 관전해 주세요.');return;}
+   const browserBuild=String(browserBrainModule?.AI_BRAIN_BUILD||''),serverBuild=String(msg.aiBuild||''),buildMismatch=!!(browserBuild&&serverBuild&&browserBuild!==serverBuild);
+   if(buildMismatch){console.warn('[AI VS AI] browser/server brain build differs',browserBuild,serverBuild);$('pvpStatus').textContent='AI 대 AI 관전 · 서버 AI 업데이트 전환 중';}
    void (async()=>{
     try{
      spectatorBrain=await pvpSpectator.makeBrain(config.styleA,msg.policy,config.difficultyA);
      if(requestSeq!==aiRequestSeq)return;
-     clearTimeout(timeout);host=true;room=msg.matchId;pvpRoute='AI VS AI';
+     clearTimeout(timeout);host=true;room=msg.matchId;pvpRoute=buildMismatch?'AI VS AI · COMPAT':'AI VS AI';
      const handlers=new Map(),c={
       open:true,ai:true,on(type,fn){handlers.set(type,fn)},
       send(data){m.aiPacket(room,data)},
