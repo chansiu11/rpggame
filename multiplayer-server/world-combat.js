@@ -97,6 +97,9 @@ export function createWorldCombat({players,send,broadcast,publicState,safeZone,w
    const b=players.get(String(e.targetId||''));if(b)advance(b,t);
    if(!allowed(a,b)||t<(a.stunUntil||0)||Math.hypot(a.x-b.x,a.y-b.y)>clamp(e.range||1100,40,1200)+80)continue;
    const kind=String(e.kind||'attack'),damageEvent=kind==='attack',hasLease=b.controlBy===a.id&&t<(b.controlLeaseUntil||0),galePulseControl=!damageEvent&&kind==='special'&&String(e.skillId||'')==='galeOrbit'&&String(a.skillId||'')==='galeOrbit'&&Math.hypot(a.x-b.x,a.y-b.y)<=320;
+   // Airborne sword-skill frames are fully unhittable until the fighter lands.
+   // Skip damage and queued control (stun/pull/knockback) while skillLift is above ground.
+   if((Number(b.skillLift)||0)>.01)continue;
    if(!damageEvent&&!['control','special'].includes(kind))continue;
    if(!damageEvent&&!hasLease&&!galePulseControl)continue;
    // Pure shield blocks also resist queued pulls, stuns and follow-up control.
