@@ -2723,7 +2723,7 @@ function updateStandardSkillPrepare(dt){
  if(player.stun>0&&!h.follow){cancelSkillPreparationOnStun();return;}
  h.elapsed+=dt;player.skillPose=h.index;player.skillKind='prepare:'+h.pose;player.facing=h.facing;player.attackAngle=h.facing;player.parry=0;player.perfectWindow=0;
  player.attackDuration=window.EchoesSkillPrepare.duration;player.attackAnim=Math.max(.001,window.EchoesSkillPrepare.duration-h.elapsed);
- if(h.elapsed>=window.EchoesSkillPrepare.duration&&(h.continuous||h.released||skillInfo(h.index)?.id==='prismLance'))finishStandardSkillPreparation(h);
+ if(h.elapsed>=window.EchoesSkillPrepare.duration&&(h.continuous||h.released))finishStandardSkillPreparation(h);
 }
 function skill(index=0){
  if(typeof index!=='number')index=0;const sk=skillInfo(index);if(!sk||(!canAct()&&!hiddenFollowReady(index)))return;
@@ -2918,8 +2918,7 @@ function startSwordSkill(slot){
  sendSharedSkillFx(slot,cfg.mode==='galePulse'?'galeCharge':sk.id,player.weapon,player.facing);
  if(BLACK_MOON_SKILL_IDS.has(sk.id)||ECLIPSE_SKILLS.has(sk.id))multiSkillCaptureUntil=Math.max(multiSkillCaptureUntil,realTime+cfg.duration+.45);
  swordSkillStartVisuals(player,sk,slot,player.facing);if(slot===4){if(ECLIPSE_SKILLS.has(sk.id))eclipseShake(5.5);else shake=Math.max(shake,9);}
- if(slot===4&&sk.id==='prismLance')performSwordSkillHit(activeSwordSkill,activeSwordSkill.nextHit++);
- if(cfg.mode==='galePulse'){player.skillPose=-1;player.attackAnim=0;player.heavy=false;}else sound('swing');updateSkillTray();return true;
+  if(cfg.mode==='galePulse'){player.skillPose=-1;player.attackAnim=0;player.heavy=false;}else sound('swing');updateSkillTray();return true;
 }
 const SWORD_CARRY_MODES=new Set(['blinkThrust','chaseCombo','stationaryFlurry','orbitStrike','mirrorBackstab','phantomSwap','quakeLine','guardPierce','tempest','earthSlam','skyFall','holdVortex','holdShadow']);
 function swordCarryEligible(e){return !!e&&!e.dead&&!e.riftSleeping&&e.kind!=='boss'&&e.type!=='dummy'&&!(e.type==='finalBoss'&&!e.alert);}
@@ -3102,13 +3101,6 @@ function performSwordSkillHit(seq,hitIndex){
  else if(seq.ultimate&&sk.id==='eclipse5'){
   const off=[-.36,.30,.62,-.66,.48,-.42,.72,-.58,.24,0][hitIndex]||0,rr=reach+(hitIndex===9?70:20);
   blackMoonArcHit(seq,rr,cfg.arc[hitIndex]||2.4,damage,finalHit,off,(_e,aa)=>hitIndex===9?{stun:.72,dx:Math.cos(aa)*138,dy:Math.sin(aa)*138,duration:.34,skillId:sk.id}:{stun:.16,dx:0,dy:0,skillId:sk.id});
- }else if(seq.ultimate&&sk.id==='prismLance'){
-  if(hitIndex===0){for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.12,720,damageValue(1.2825,'dawnArc'),'player','wave',3);}
-  else if(hitIndex===1){for(let j=-4;j<=4;j++)fireProjectile(player.x,player.y,ang+j*.10,780,damageValue(1.2825,'dawnArc'),'player','wave',3);}
-  else{const f=cfg.finisher,ca=Math.cos(ang),sa=Math.sin(ang),x1=player.x-ca*f.back,y1=player.y-sa*f.back,x2=player.x+ca*f.forward,y2=player.y+sa*f.forward;
-   for(const e of combatTargets()){if(e.dead||e.riftSleeping)continue;const c=combatCenter(e);if(segmentDistance(c.x,c.y,[x1,y1],[x2,y2])<=f.width+combatRadius(e)){hitEnemyConfirmed(e,damageValue(f.mult),true,player,()=>applyEnemyStun(e,f.stun));}}
-   for(let j=-2;j<=2;j++)fireProjectile(player.x,player.y,ang+j*.065,920,damageValue(1.2825,'dawnArc'),'player','wave',6);
-  }
  }else if(mode==='blackMoonCrescent'){
   const off=hitIndex===0?.42:-.38;blackMoonArcHit(seq,reach,cfg.arc[hitIndex],damage,finalHit,off,(_e,aa)=>finalHit?{stun:.34,dx:Math.cos(aa)*72,dy:Math.sin(aa)*72,duration:.22,skillId:sk.id}:{stun:.16,dx:0,dy:0,skillId:sk.id});
  }else if(mode==='lunarMistStep'){
