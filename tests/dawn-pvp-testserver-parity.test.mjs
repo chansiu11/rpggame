@@ -4,10 +4,10 @@ import fs from 'node:fs';
 
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const server=fs.readFileSync(new URL('../multiplayer-server/server.js',import.meta.url),'utf8');
-function source(name){const a=html.indexOf('function '+name+'(');assert.ok(a>=0,'missing '+name);const b=html.indexOf('\nfunction ',a+1);return html.slice(a,b<0?html.length:b);}
+function source(name){const a=html.indexOf('function '+name+'(');assert.ok(a>=0,'missing '+name);const b=html.indexOf('\nfunction ',a+1);return html.slice(a,b<0?html.length:b);}\nfunction sourceLast(name){const a=html.lastIndexOf('function '+name+'(');assert.ok(a>=0,'missing '+name);const b=html.indexOf('\nfunction ',a+1);return html.slice(a,b<0?html.length:b);}
 
 test('Dawn 1 PvP uses rpggametest wave rod and knockback control',()=>{
- const hit=source('pvpWorldSwordHit'),send=source('sendProjectile'),render=source('render');
+ const hit=source('pvpWorldSwordHit'),send=source('sendProjectile'),render=sourceLast('render');
  assert.match(hit,/mode==='dawnWave'[\s\S]*wave=window\.EchoesCombat\.waveControl/);
  assert.match(hit,/force:wave\.force/);
  assert.match(hit,/stun:wave\.stun/);
@@ -19,7 +19,7 @@ test('Dawn 1 PvP uses rpggametest wave rod and knockback control',()=>{
 });
 
 test('Dawn 4 PvP uses crossing echo cuts then Sun Fold circle burst',()=>{
- const fx=source('pvpWorldSwordHit');
+ const fx=source('pvpSwordSignatureFx');
  assert.match(fx,/id==='solarReturn'/);
  assert.match(fx,/kind:'dawnEchoCut'/);
  assert.match(fx,/cross:1/);
@@ -28,7 +28,7 @@ test('Dawn 4 PvP uses crossing echo cuts then Sun Fold circle burst',()=>{
 });
 
 test('Dawn 5 PvP uses large halo, 660-length Genesis Cut and reactive seal glyph',()=>{
- const start=source('startSwordSequence'),hit=source('pvpWorldSwordHit'),seal=source('startPvpDawnSeal'),stack=source('recordPvpDawnSealDamage'),renderFx=source('renderFx');
+ const start=source('startSwordSequence'),hit=source('pvpSwordSignatureFx'),seal=source('startPvpDawnSeal'),stack=source('recordPvpDawnSealDamage'),renderFx=source('renderFx');
  assert.match(start,/kind:'dawnGenesisHalo'/);
  assert.doesNotMatch(start,/sk\.id==='prismLance'[\s\S]{0,500}for\(let j=0;j<12;j\).*beamFx/);
  assert.match(hit,/id==='prismLance'[\s\S]*kind:'dawnGenesisCut'[\s\S]*len:660/);

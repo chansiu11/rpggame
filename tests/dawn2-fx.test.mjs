@@ -50,11 +50,11 @@ test('Dawn 2 PvP has dedicated reliable visual packets for startup and trail',()
  assert.match(html,/pvpDawnReboundVisualFx\('trail'/);
  assert.match(html,/pvpDawnReboundVisualFx\('bind'/);
  assert.match(html,/pvpDawnReboundVisualFx\('resolve'/);
- assert.match(html,/world-combat-20261002-pvp-basic-v5/);
+ assert.match(html,/world-combat-20261002-dawn-test-parity-v6/);
 });
 
 
-test('Dawn 2 PvP client and relay server advertise the same v5 ruleset',()=>{
- assert.match(html,/world-combat-20261002-pvp-basic-v5/);
- assert.match(server,/const PVP_RULESET = 'world-combat-20261002-pvp-basic-v5'/);
+test('Dawn 2 PvP client and relay server advertise the same v6 ruleset',()=>{
+ assert.match(html,/world-combat-20261002-dawn-test-parity-v6/);
+ assert.match(server,/const PVP_RULESET = 'world-combat-20261002-dawn-test-parity-v6'/);
 });
