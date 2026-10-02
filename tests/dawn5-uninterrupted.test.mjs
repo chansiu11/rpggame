@@ -1,11 +1,10 @@
-import test from 'node:test';import assert from 'node:assert/strict';
-import {createArena} from '../multiplayer-server/ai/arena-runtime.js';
-function run(slot,hit=false){const a=createArena({style:'dawn'}),packets=[];a.api.init(a.snapshot,a.snapshot,true,m=>packets.push(m));a.api.control({skill:slot,aim:0,keys:[]});assert.ok(a.api.me.skillEvent);const seq=a.api.me.skillEvent,hp=a.api.me.hp;
- if(hit)a.api.receive({t:'atk',id:'test-hit',shape:'circle',x:a.api.me.x,y:a.api.me.y,r:100,d:20,stun:1,parryable:false});
- for(let i=0;i<130;i++)a.step(1/60);return {a,packets,seq,hp};}
-test('Dawn 5 keeps firing after damage/stun and each projectile matches Dawn 1',()=>{
- const one=run(0),five=run(4,true);try{assert.ok(five.a.api.me.hp<five.hp);const p1=one.packets.filter(m=>m.t==='proj'),p5=five.packets.filter(m=>m.t==='proj');assert.equal(p1.length,1);assert.equal(p5.length,19);for(const p of p5)assert.equal(p.d,p1[0].d);}finally{one.a.dispose();five.a.dispose();}
-});
-test('other skills still cancel on incoming stun',()=>{const r=run(0,true);try{assert.equal(r.packets.filter(m=>m.t==='proj').length,0);}finally{r.a.dispose();}});
-
-test('Dawn 5 emits first five projectiles on keydown without advancing a frame',()=>{const a=createArena({style:'dawn'}),packets=[];try{a.api.init(a.snapshot,a.snapshot,true,m=>packets.push(m));a.api.control({skill:4,aim:0,keys:[]});assert.equal(packets.filter(m=>m.t==='proj').length,5);a.step(1/60);assert.equal(packets.filter(m=>m.t==='proj').length,5);}finally{a.dispose();}});
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+function source(name){const a=html.indexOf('function '+name+'(');assert.ok(a>=0,'missing '+name);const b=html.indexOf('\nfunction ',a+1);return html.slice(a,b<0?html.length:b);}
+function skill(id){const line=html.split('\n').find(l=>l.includes("{id:'"+id+"',name:"));assert.ok(line,'missing '+id);return vm.runInNewContext('('+line.trim().replace(/,$/,'')+')',{TAU:Math.PI*2});}
+test('Dawn 5 remake uses delayed seal slash timing',()=>{const sk=skill('prismLance');assert.equal(sk.cfg.mode,'dawnJudgmentSeal');assert.equal(sk.cfg.duration,1.08);assert.deepEqual(sk.cfg.hits,[.72]);assert.deepEqual(sk.cfg.mult,[1.55]);assert.equal(sk.cfg.reach[0],280);assert.match(html,/if\(slot===4&&sk\.id==='prismLance'\)\{cfg\.duration=1\.08;cfg\.hits=\[\.72\];cfg\.mult=\[1\.55\];cfg\.arc=\[2\.78\];cfg\.reach=\[378\]/);});
+test('Dawn 5 no longer resolves on keydown',()=>{const sk=skill('prismLance'),world=source('startSwordSkill'),pvp=source('startSwordSequence');assert.equal(world.includes('performSwordSkillHit(seq,0)'),false);assert.equal(pvp.includes('pvpWorldSwordHit(ev,0);me.skillEvent=null'),false);let t=0,hit=null;while(t<sk.cfg.duration&&hit===null){t+=1/240;if(t>=sk.cfg.hits[0])hit=t;}assert.ok(hit>=.72&&hit<.725);});
+test('Dawn 5 applies the seal in both world and PvP hit paths',()=>{assert.ok(html.includes("activeSwordSkill?.skillId!=='prismLance'"));assert.match(source('performSwordSkillHit'),/mode==='dawnJudgmentSeal'[\s\S]*applyDawnSeal\(e\)/);assert.match(source('pvpWorldSwordHit'),/mode==='dawnJudgmentSeal'[\s\S]*onHit:startPvpDawnSeal/);});

@@ -12,6 +12,10 @@ on:
       - 'tests/damage-escape.test.mjs'
       - 'tests/world-combat.test.mjs'
       - 'tests/skill-render-ghosting.test.mjs'
+      - 'tests/dawn5-uninterrupted.test.mjs'
+      - 'tests/prism-chase.test.mjs'
+      - 'tests/prism-finisher.test.mjs'
+      - 'tests/remote-skill-fx.test.mjs'
       - '.github/workflows/void3-tests.yml'
   pull_request:
     paths:
@@ -25,6 +29,10 @@ on:
       - 'tests/damage-escape.test.mjs'
       - 'tests/world-combat.test.mjs'
       - 'tests/skill-render-ghosting.test.mjs'
+      - 'tests/dawn5-uninterrupted.test.mjs'
+      - 'tests/prism-chase.test.mjs'
+      - 'tests/prism-finisher.test.mjs'
+      - 'tests/remote-skill-fx.test.mjs'
       - '.github/workflows/void3-tests.yml'
   workflow_dispatch:
 concurrency:
@@ -62,4 +70,4 @@ jobs:
           cache: npm
           cache-dependency-path: multiplayer-server/package-lock.json
       - run: npm ci --prefix multiplayer-server
-      - run: node --test tests/void3.test.mjs tests/hongryeon-integration.test.mjs tests/damage-escape.test.mjs tests/world-combat.test.mjs tests/skill-render-ghosting.test.mjs
+      - run: node --test tests/void3.test.mjs tests/hongryeon-integration.test.mjs tests/damage-escape.test.mjs tests/world-combat.test.mjs tests/skill-render-ghosting.test.mjs tests/dawn5-uninterrupted.test.mjs tests/prism-chase.test.mjs tests/prism-finisher.test.mjs tests/remote-skill-fx.test.mjs
