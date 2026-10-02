@@ -5683,7 +5683,7 @@ window.EchoesWorldPvpData={
 requestAnimationFrame(frame);
 })();
 </script>
-<script src="./pvp-ai-spectator.js?v=20261001-moon-spectator-1"></script>
+<script src="./pvp-ai-spectator.js?v=20261002-skill-aware-combo-3"></script>
 
 <script>
 (()=>{
@@ -7181,7 +7181,8 @@ function updateVoid3PvpExitDash(dt){
 
 function controlSpectatorAi(dt){
  if(!spectating||!spectatorBrain||roundLocked||!me||!enemy)return;
- const command=spectatorBrain.step(dt,me,enemy);if(!command)return;
+ const skillContext={selfSkills:Array.from({length:5},(_,i)=>pvpSwordSkillAt(i,me)),enemySkills:Array.from({length:5},(_,i)=>pvpSwordSkillAt(i,enemy))};
+ const command=spectatorBrain.step(dt,me,enemy,skillContext);if(!command)return;
  keys.clear();for(const code of command.keys||[])keys.add(code);
  const a=Number.isFinite(command.aim)?command.aim:Math.atan2(enemy.y-me.y,enemy.x-me.x);
  mouse.active=true;mouse.lastMove=performance.now();me.a=a;
