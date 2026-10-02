@@ -40,7 +40,7 @@ function url(){
 }
 function send(data){
   const ws=state.socket;if(ws?.readyState!==WebSocket.OPEN)return false;
-  if(['pvp:relay','pvp:aiPacket'].includes(data?.type)&&data.data?.t==='state'&&!state.profile?.spectator&&ws.bufferedAmount>8192)return false;
+  if(['pvp:relay','pvp:aiPacket'].includes(data?.type)&&data.data?.t==='state'&&!state.profile?.spectator&&ws.bufferedAmount>4096)return false;
   if(ws.bufferedAmount>48000&&(data?.type==='state'||data?.type==='world:mobsDelta'))return false;
   try{ws.send(JSON.stringify(data,data.type==='state'?((k,v)=>typeof v==='number'&&Number.isFinite(v)?Math.round(v*1000)/1000:v):undefined));return true;}catch{return false;}
 }
