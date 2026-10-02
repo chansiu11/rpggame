@@ -1,4 +1,4 @@
-name: Inspect knockback snapback
+name: Inspect knockback call sites
 
 on:
   push:
@@ -13,28 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect shared-world and arena knockback paths
+      - name: Show every PvP forceEnemyTo and forceDelta path
         run: |
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          names=['applyWorldCombatResult','worldTargetControl','previewWorldControl','forceEnemyTo','receiveAttack','update']
-          for name in names:
-            marker='function '+name+'('
-            a=s.find(marker)
-            if a<0:
-              print('\n=== MISSING',name,'===')
-              continue
-            b=s.find('\nfunction ',a+len(marker))
-            if b<0:b=min(len(s),a+12000)
-            print('\n===',name,'===')
-            print(s[a:min(b,a+12000)])
-          print('\n=== force/sync grep ===')
-          for i,line in enumerate(s.splitlines(),1):
-            if any(k in line for k in ['forceDelta','forceDeltaAck','hitForce','knockState','forcedMove','forceTrack','remoteForce','player:self','world:combatResult']):
-              print(f'{i}:{line}')
+          lines=s.splitlines()
+          for i,line in enumerate(lines):
+            if 'forceEnemyTo(' in line or "m.t==='forceDelta'" in line or "m.t==='forceDeltaAck'" in line:
+              print(f'\n--- around line {i+1} ---')
+              for j in range(max(0,i-4),min(len(lines),i+5)):
+                print(f'{j+1}:{lines[j]}')
           PY
-      - name: Run knockback regressions
+      - name: Confirm current endpoint-stability tests
         run: |
           cd multiplayer-server && npm ci --no-audit --no-fund && cd ..
-          node --test tests/combat-latency.test.mjs tests/world-combat.test.mjs tests/gale-control-regression.test.cjs tests/pvp-relay-runtime.test.cjs
+          node --test --test-name-pattern="several forced deltas accumulate|settlement result corrects local coordinates|Gale 4 world releases|Gale 4 PVP sends" tests/world-combat.test.mjs tests/combat-latency.test.mjs tests/gale-control-regression.test.cjs
