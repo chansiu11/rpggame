@@ -561,10 +561,34 @@ function styleServerMove(m,target,data,k){
 function styleServerHitTest(m,target,data,k){
  return styleServerShapes(m,data,k).some(s=>styleServerShapeContains(s,target));
 }
+function styleDawnReboundPacket(m,target,data,k,extra={}){
+ const finalHit=k===Math.max(0,(m.styleHits?.length||1)-1);
+ return {type:'world:mobAttack',bypassShield:true,stunSeconds:0,mobId:m.id,mobType:m.type,targetId:target.id,damage:0,projectileDamage:0,projectiles:[],x:m.x,y:m.y,tx:target.x,ty:target.y,anchorX:m.styleAnchorX,anchorY:m.styleAnchorY,originX:m.styleOriginX,originY:m.styleOriginY,styleSide:m.styleSide||1,facing:m.locked,kind:'style',attackType:'style',skillId:data.id,skillSlot:m.skillSlot,styleId:m.styleId,castId:m.styleCastId||0,hitIndex:k,finalHit,heavy:false,serverTime:Date.now(),...extra};
+}
+function broadcastStyleDawnReboundHit(m,target,data,k,directHit){
+ const packet=styleDawnReboundPacket(m,target,data,k);
+ if(directHit&&!m.dawnReboundCaught){
+  const totalMult=(data.cfg.mult||[]).reduce((sum,v)=>sum+(Number(v)||0),0);
+  m.dawnReboundCaught=true;m.dawnReboundResolved=false;m.dawnReboundTargetId=target.id;m.dawnReboundResolveAt=Date.now()+500;
+  m.dawnReboundDamage=Math.max(1,Math.round(m.damage*totalMult*(data.damageScale||1)*STYLE_ADEPT_DAMAGE_SCALE));
+  packet.dawnReboundBind=true;packet.stunSeconds=.5;
+ }
+ safeSend(target.ws,packet,{volatile:false});broadcast({...packet,damage:0,projectileDamage:0},target.ws,{volatile:true});
+}
+function resolveStyleDawnRebound(m,data,now){
+ const target=players.get(m.dawnReboundTargetId);
+ if(target&&validMobTarget(m,target)){
+  const k=Math.max(0,Math.min((m.styleHits?.length||1)-1,(m.styleHitIndex||1)-1));
+  const packet=styleDawnReboundPacket(m,target,data,k,{dawnReboundResolve:true,damage:Math.max(1,Number(m.dawnReboundDamage)||1),stunSeconds:2,bypassShield:true,heavy:true,finalHit:true,serverTime:now});
+  safeSend(target.ws,packet,{volatile:false});broadcast({...packet,damage:0,projectileDamage:0},target.ws,{volatile:true});
+ }
+ m.dawnReboundResolved=true;m.dawnReboundResolveAt=0;
+}
 function broadcastStyleHit(m,target,data,k){
  styleServerMove(m,target,data,k);
  const shapes=styleServerShapes(m,data,k),directShapes=shapes.filter(s=>!s.projectile),projectiles=shapes.filter(s=>s.projectile).map(s=>s.projectile);
  const directHit=directShapes.some(s=>styleServerShapeContains(s,target));
+ if(data.cfg.mode==='dawnReboundZ'){broadcastStyleDawnReboundHit(m,target,data,k,directHit);return;}
   if(data.cfg.mode==='flameBreathFinale'&&k===0&&directHit){
    m.styleHits=[.53,...FLAME_FINALE_CUTS.map(c=>.53+c.at)];m.styleDuration=.53+3.61;m.styleAnchorX=target.x;m.styleAnchorY=target.y;
   }
@@ -580,15 +604,24 @@ function broadcastStyleHit(m,target,data,k){
   broadcast({...packet,damage:0,projectileDamage:0},target.ws,{volatile:true});
 }
 function beginStyleCast(m,target,now){
- const data=STYLE_ADEPT_SKILL_DATA[m.skillId];if(!data)return false;m.blackMoonMistHit=false;m.styleHits=styleSyntheticHits(data);m.styleHitIndex=0;m.styleCastId=(m.styleCastId||0)+1;m.styleStartedAt=now;m.styleDuration=data.id==='gravityCut'?7:data.cfg.mode==='flameBreathFinale'?.71:Math.max(data.cfg.duration||.5,(m.styleHits[m.styleHits.length-1]||0)+.18);m.state='styleSkill';markMobDirty(m);return true;
+ const data=STYLE_ADEPT_SKILL_DATA[m.skillId];if(!data)return false;m.blackMoonMistHit=false;m.styleHits=styleSyntheticHits(data);m.styleHitIndex=0;m.styleCastId=(m.styleCastId||0)+1;m.styleStartedAt=now;
+ if(data.cfg.mode==='dawnReboundZ'){m.dawnReboundCaught=false;m.dawnReboundResolved=false;m.dawnReboundTargetId='';m.dawnReboundResolveAt=0;m.dawnReboundDamage=0;m.styleDuration=(Number(data.cfg.duration)||.42)+.5;}
+ else m.styleDuration=data.id==='gravityCut'?7:data.cfg.mode==='flameBreathFinale'?.71:Math.max(data.cfg.duration||.5,(m.styleHits[m.styleHits.length-1]||0)+.18);
+ m.state='styleSkill';markMobDirty(m);return true;
 }
 function advanceStyleCast(m,target,now){
  const data=STYLE_ADEPT_SKILL_DATA[m.skillId];if(!data||!target)return false;const elapsed=(now-m.styleStartedAt)/1000;
  while(m.styleHitIndex<m.styleHits.length&&elapsed>=m.styleHits[m.styleHitIndex]){broadcastStyleHit(m,target,data,m.styleHitIndex);m.styleHitIndex++;markMobDirty(m);}
+ if(data.cfg.mode==='dawnReboundZ'){
+  const baseDuration=Number(data.cfg.duration)||.42;
+  if(m.dawnReboundCaught&&!m.dawnReboundResolved&&m.dawnReboundResolveAt&&now>=m.dawnReboundResolveAt)resolveStyleDawnRebound(m,data,now);
+  const finished=m.dawnReboundCaught?(m.dawnReboundResolved&&elapsed>=baseDuration):elapsed>=baseDuration+.5;
+  if(finished){m.state='recover';m.recoverUntil=now+STYLE_ADEPT_RECAST_MS;m.styleHitIndex=0;m.styleHits=[];markMobDirty(m);return false;}return true;
+ }
  if(elapsed>=m.styleDuration){m.state='recover';m.recoverUntil=now+STYLE_ADEPT_RECAST_MS;m.styleHitIndex=0;m.styleHits=[];markMobDirty(m);return false;}return true;
 }
 
-function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.attackTargetX=undefined;m.attackTargetY=undefined;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.rootUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;m.skillId='';m.skillSlot=0;m.skillRange=0;m.styleHits=[];m.styleHitIndex=0;m.styleCastId=0;m.styleStartedAt=0;m.styleDuration=0;m.styleOriginX=m.styleOriginY=0;m.styleSide=1;m.styleWindTotal=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
+function respawnMob(m,now){m.dead=false;m.hp=m.maxHp;m.x=m.sx;m.y=m.sy;m.state='idle';m.alert=false;m.targetId=null;m.provokedBy=null;m.attackAt=0;m.attackTargetX=undefined;m.attackTargetY=undefined;m.recoverUntil=0;m.chargeUntil=0;m.stunUntil=0;m.rootUntil=0;m.respawnAt=0;m.knockVX=0;m.knockVY=0;m.forceMove=null;m.skillId='';m.skillSlot=0;m.skillRange=0;m.styleHits=[];m.styleHitIndex=0;m.styleCastId=0;m.styleStartedAt=0;m.styleDuration=0;m.styleOriginX=m.styleOriginY=0;m.styleSide=1;m.styleWindTotal=0;m.dawnReboundCaught=false;m.dawnReboundResolved=false;m.dawnReboundTargetId='';m.dawnReboundResolveAt=0;m.dawnReboundDamage=0;const b=bosses.get(m.id);if(b){b.alive=true;b.hp=b.maxHp;b.respawnAt=0;broadcast({type:'boss:respawn',boss:{id:b.id,name:b.name,x:b.x,y:b.y,hp:b.hp,maxHp:b.maxHp,alive:true,respawnInMs:0}});}markMobDirty(m);}
 function aiMobStep(m,dx,dy,now){if(now<(m.rootUntil||0))return false;return moveServerMob(m,dx,dy);}
 function simulateStyleAdept(m,target,dt,now){
   if(!target||m.dead)return;

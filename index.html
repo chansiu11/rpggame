@@ -1545,6 +1545,11 @@ function playStyleAdeptNetworkFx(e,castId,hitIndex,finalHit=false,tx=null,ty=nul
  const k=Math.min(hitIndex,Math.max(0,(cfg.reach?.length||1)-1)),reach=cfg.mode==='flameBreathFinale'?(hitIndex===0?185:FLAME_FINALE_CUTS[hitIndex-1]?.reach||211):94+(cfg.reach?.[k]||0),target=Number.isFinite(tx)&&Number.isFinite(ty)?{x:tx,y:ty}:styleAdeptNetworkTarget(e);
  const ctx={skillId:sk.id,slot:e.styleSkillSlot,target,anchorX:Number.isFinite(e.styleAnchorX)?e.styleAnchorX:target.x,anchorY:Number.isFinite(e.styleAnchorY)?e.styleAnchorY:target.y};
  const hits=styleAdeptSyntheticHits(sk,cfg),seq={skillId:sk.id,slot:e.styleSkillSlot,sk,cfg,hits,duration:sk.id==='gravityCut'?7:Math.max(cfg.duration||.5,(hits[hits.length-1]||0)+.18),facing:Number(e.locked)||Number(e.facing)||0,originX:e.styleOriginX??e.x,originY:e.styleOriginY??e.y,anchorX:e.styleAnchorX??target.x,anchorY:e.styleAnchorY??target.y,side:e.styleSide||1},pose=styleAdeptPredictedPose(e,seq,hitIndex);if(cfg.mode==='flameBreathFinale')ctx.baseFacing=pose.a;
+ if(sk.id==='tempest'){
+  if(hitIndex===0)swordSkillStartVisuals(e,sk,e.styleSkillSlot,pose.a);
+  styleAdeptSpawnPlayerLikeVisuals(e,seq,hitIndex);
+  return;
+ }
  swordSignatureFx(sk.id,hitIndex,finalHit,pose.a,reach,sk.color,e,ctx);swordUltimateHitVisuals(e,sk,e.styleSkillSlot,hitIndex,pose.a,reach);styleAdeptSpawnPlayerLikeVisuals(e,seq,hitIndex);
 }
 function recoverStyleAdeptNetworkFx(e){
@@ -4622,6 +4627,11 @@ function renderRemoteSkillFx(msg){
   }return;
  }
  if(BLACK_MOON_SKILL_IDS.has(id)){replayRemoteSwordSignature(rp,id,slot,x,y,a);return;}
+ if(id==='tempest'){
+  const raw=swordSkillById(id),sk=raw?balancedSwordSkill(raw,slot):null;
+  if(sk)swordSkillStartVisuals({x,y,facing:a},sk,slot,a);
+  return;
+ }
  if(rp&&(rp.remoteExactFxUntil||0)>realTime)return;
  let color='#d7c181',sub='#ffffff',accent='#d7c181';
  if(weapon===3){color=HIDDEN_SKILLS[slot]?.color||'#d8b5ff';accent='#ffffff';}
@@ -4705,8 +4715,20 @@ function bindMultiplayerEvents(){
    e.styleCastId=Math.max(0,Number(msg.castId)||e.styleCastId||0);e.styleAnchorX=Number.isFinite(Number(msg.anchorX))?Number(msg.anchorX):e.styleAnchorX;e.styleAnchorY=Number.isFinite(Number(msg.anchorY))?Number(msg.anchorY):e.styleAnchorY;e.styleOriginX=Number.isFinite(Number(msg.originX))?Number(msg.originX):e.styleOriginX;e.styleOriginY=Number.isFinite(Number(msg.originY))?Number(msg.originY):e.styleOriginY;if(Number.isFinite(Number(msg.styleSide)))e.styleSide=Number(msg.styleSide)>=0?1:-1;
    if(distance(e,player)<1350)playStyleAdeptNetworkFx(e,e.styleCastId,Number(msg.hitIndex)||0,!!msg.finalHit,Number(msg.tx),Number(msg.ty));
   }else ring(e.x,e.y,e.kind==='boss'?70:38,e.color||'#e1c28d',.22);
+  if(styleAttack&&msg.skillId==='tempest'){
+   const boundUntil=realTime+.5;
+   if(msg.dawnReboundBind){const rp=msg.targetId===m.state.selfId?null:multiRemotePlayers.get(msg.targetId);if(rp)rp.dawnReboundBoundUntil=boundUntil;}
+   else if(msg.dawnReboundResolve){const rp=msg.targetId===m.state.selfId?null:multiRemotePlayers.get(msg.targetId);if(rp)rp.dawnReboundBoundUntil=0;}
+  }
   if(msg.targetId!==m.state.selfId||player.hp<=0)return;
-  if(styleAttack){spawnStyleAdeptNetworkDamageProjectiles(e,msg);const dmg=Math.max(0,Number(msg.damage)||0);if(dmg<=0)return;const result=hitPlayer(dmg,e,msg.bypassShield===true?false:!!msg.heavy);if(result==='hit'&&msg.styleId==='break'){player.invuln=Math.min(player.invuln,.08);player.stun=Math.max(player.stun,Math.max(0,Number(msg.stunSeconds)||0));}if(result==='parried'){const a=Math.atan2(e.y-player.y,e.x-player.x),control={stun:1.25,knockbackX:Math.cos(a)*18,knockbackY:Math.sin(a)*18};m.damageMob(e.id,0,control);}return;}
+  if(styleAttack){
+   spawnStyleAdeptNetworkDamageProjectiles(e,msg);
+   if(msg.skillId==='tempest'&&msg.dawnReboundBind){player.dawnReboundBoundUntil=realTime+.5;player.block=false;player.parry=0;player.perfectWindow=0;player.shieldNeedsRelease=true;desktopShield=false;bufferedAction=null;pendingAttack=false;player.stun=Math.max(Number(player.stun)||0,.5);player.moveLock=Math.max(Number(player.moveLock)||0,.5);cancelWorldBasicAttack(true);cancelSkillPreparationOnStun();return;}
+   const dmg=Math.max(0,Number(msg.damage)||0);if(dmg<=0)return;const result=hitPlayer(dmg,e,msg.bypassShield===true?false:!!msg.heavy);
+   if(result==='hit'&&msg.skillId==='tempest'&&msg.dawnReboundResolve){player.dawnReboundBoundUntil=0;player.invuln=Math.min(player.invuln,.08);player.stun=Math.max(Number(player.stun)||0,Math.max(2,Number(msg.stunSeconds)||0));player.moveLock=Math.max(Number(player.moveLock)||0,2);cancelSkillPreparationOnStun();}
+   if(result==='hit'&&msg.styleId==='break'){player.invuln=Math.min(player.invuln,.08);player.stun=Math.max(player.stun,Math.max(0,Number(msg.stunSeconds)||0));}
+   if(result==='parried'){const a=Math.atan2(e.y-player.y,e.x-player.x),control={stun:1.25,knockbackX:Math.cos(a)*18,knockbackY:Math.sin(a)*18};m.damageMob(e.id,0,control);}return;
+  }
   if(msg.kind==='ranged'){
    const sx=Number.isFinite(Number(msg.x))?Number(msg.x):e.x,sy=Number.isFinite(Number(msg.y))?Number(msg.y):e.y;
    const tx=Number.isFinite(Number(msg.tx))?Number(msg.tx):player.x,ty=Number.isFinite(Number(msg.ty))?Number(msg.ty):player.y;
@@ -5628,7 +5650,7 @@ function render(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;ctx.global
  const l=camera.x-VIEW_W/2-140,r=camera.x+VIEW_W/2+140,t=camera.y-VIEW_H/2-150,b=camera.y+VIEW_H/2+180;const visible=e=>e.x>l&&e.x<r&&e.y>t&&e.y<b;
  for(const e of enemies)if(!e.dead&&!e.riftSleeping&&visible(e))drawTelegraph(e);drawEffects(true);
  const renderList=[];for(const o of objects)if(visible(o))renderList.push({y:o.y,kind:'object',o});for(const o of candidates(camera.x,camera.y,Math.max(VIEW_W,VIEW_H)/2+240))if(o.type&&visible(o))renderList.push({y:o.y+(o.type==='house'?o.h*.4:0),kind:o.type,o});for(const e of enemies)if(!e.dead&&!e.riftSleeping&&visible(e))renderList.push({y:e.y,kind:'enemy',o:e});if(multiplayerMode)for(const rp of multiRemotePlayers.values()){const x=Number.isFinite(rp.rx)?rp.rx:rp.x,y=Number.isFinite(rp.ry)?rp.ry:rp.y;if(visible({x,y}))renderList.push({y,kind:'remote',o:rp});}renderList.push({y:player.y,kind:'player'});renderList.sort((a,b)=>a.y-b.y);
- for(const d of renderList){if(d.kind==='tree')drawTree(d.o);else if(d.kind==='rock')drawRock(d.o);else if(d.kind==='house')drawHouse(d.o);else if(d.kind==='object')drawObject(d.o);else if(d.kind==='enemy'){drawEnemy(d.o);drawDawnReboundOutline(d.o);}else if(d.kind==='remote'){drawRemotePlayer(d.o);drawDawnReboundOutline(d.o);}else drawPlayer();}
+ for(const d of renderList){if(d.kind==='tree')drawTree(d.o);else if(d.kind==='rock')drawRock(d.o);else if(d.kind==='house')drawHouse(d.o);else if(d.kind==='object')drawObject(d.o);else if(d.kind==='enemy'){drawEnemy(d.o);drawDawnReboundOutline(d.o);}else if(d.kind==='remote'){drawRemotePlayer(d.o);drawDawnReboundOutline(d.o);}else{drawPlayer();drawDawnReboundOutline(player);}}
  for(const p of projectiles){if(p._styleCollisionOnly||!visible(p))continue;const color=p.owner==='player'?(p.kind==='arrow'?'#dddcc1':'#c4ecda'):'#edc899';if(p.kind==='orb'||p.kind==='star'){glow(ctx,p.x,p.y,17,color+'30');circle(ctx,p.x,p.y,5,color);circle(ctx,p.x,p.y,2,'#f7f0d4');}else{const len=p.visualLen||(p.kind==='charged'?29:p.kind==='wave'?48:20);line(ctx,p.x-Math.cos(p.a)*len,p.y-Math.sin(p.a)*len,p.x,p.y,color,p.kind==='wave'?6:p.kind==='charged'?4:2);polygon(ctx,[[p.x+Math.cos(p.a)*5,p.y+Math.sin(p.a)*5],[p.x+Math.cos(p.a+2.5)*7,p.y+Math.sin(p.a+2.5)*7],[p.x+Math.cos(p.a-2.5)*7,p.y+Math.sin(p.a-2.5)*7]],color);}}
  for(const p of remoteSkillProjectiles){if(!visible(p))continue;const color=p.color||(p.kind==='arrow'?'#dddcc1':'#c4ecda');if(p.kind==='orb'||p.kind==='star'){glow(ctx,p.x,p.y,17,color+'30');circle(ctx,p.x,p.y,5,color);circle(ctx,p.x,p.y,2,'#f7f0d4');}else{const len=p.visualLen||(p.kind==='charged'?29:p.kind==='wave'?48:20);line(ctx,p.x-Math.cos(p.a)*len,p.y-Math.sin(p.a)*len,p.x,p.y,color,p.kind==='wave'?6:p.kind==='charged'?4:2);polygon(ctx,[[p.x+Math.cos(p.a)*5,p.y+Math.sin(p.a)*5],[p.x+Math.cos(p.a+2.5)*7,p.y+Math.sin(p.a+2.5)*7],[p.x+Math.cos(p.a-2.5)*7,p.y+Math.sin(p.a-2.5)*7]],color);}}
  for(const v of galeVortices)GALE_VORTEX.draw(ctx,v);for(const v of remoteGaleVortices)GALE_VORTEX.draw(ctx,v);drawEffects(false);drawFlameFinaleVortex();drawLockMarker();
