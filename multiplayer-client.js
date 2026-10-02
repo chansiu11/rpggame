@@ -217,7 +217,7 @@ window.EchoesMulti={
   pvpRelaySend(matchId,data){if(data?.t==='state'){const packed={...data};for(const key of Object.keys(packed)){const v=packed[key];if(typeof v==='number'&&Number.isFinite(v))packed[key]=Math.round(v*1000)/1000;}data=packed;}return send({type:'pvp:relay',matchId,data});},
   pvpRelayLeave(matchId){return send({type:'pvp:relayLeave',matchId});},
   training(type,data={}){return send({...data,type:'ai:train'+type});},
-  aiStart(style,difficulty=3,options={}){return send({type:'pvp:aiStart',style,difficulty,spectate:options.spectate===true});},
+  aiStart(style,difficulty=3,options={}){return send({type:'pvp:aiStart',style,difficulty,spectate:options.spectate===true,localStyle:options.localStyle,localDifficulty:options.localDifficulty});},
   aiPacket(matchId,data){return send({type:'pvp:aiPacket',matchId,data});},
   aiLeave(){return send({type:'pvp:aiLeave'});},
   pvpMatchJoin(){return send({type:'pvp:matchJoin'});},
