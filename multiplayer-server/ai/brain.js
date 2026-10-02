@@ -230,13 +230,14 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
    }
   }
 
-  const comboBuilding=state.comboBasicCount<4,comboSkillPending=state.comboSkillReady&&state.comboBasicCount>=4;
+  const comboBuilding=state.comboBasicCount>0&&state.comboBasicCount<4,comboSkillPending=state.comboSkillReady&&state.comboBasicCount>=4;
+  const enemyBasicIncoming=!awareness.skillActive&&Number(enemy?.attackAnim)>0&&d<175;
   const blockScore=out[2]+predictedAttack*.18+threat.danger*.24-(threat.meta?.shieldBreak||0)*.22;
-  const emergencyBlock=threat.active&&threat.danger>.68&&threat.timeToImpact<.32;
-  // AI-vs-AI combo loop starts immediately at 0/4. Normal neural turtling cannot
-  // prevent one side from ever entering its four-basic chain; only an immediate
-  // high-danger hit may interrupt the chain with a defensive block.
-  const block=Number(me?.shield)>0&&blockScore>.18&&((!comboBuilding&&!comboSkillPending)||emergencyBlock);
+  const emergencyBlock=(threat.active&&threat.danger>.68&&threat.timeToImpact<.32)||enemyBasicIncoming;
+  const neutralBlock=!comboBuilding&&!comboSkillPending&&(enemyBasicIncoming||(threat.active&&threat.danger>.42)||predictedAttack>.45);
+  // Before the first landed basic, defend normally. During hits 1-3 the bot tries
+  // to preserve the combo, but a genuinely incoming hit may still interrupt it.
+  const block=Number(me?.shield)>0&&blockScore>.18&&(neutralBlock||emergencyBlock);
   if(block){stats.blocks++;current={keys,aim,block:true,dash:false,basic:false};return current;}
 
   const knowledgeScores=selfMeta.map((meta,i)=>ready[i]?skillUseScore(meta,{distance:d,enemyBlock:awareness.shielding,enemySkillActive:awareness.skillActive,enemySkillIndex:awareness.skillIndex,enemySkillAge:awareness.skillAge,enemyShieldAge:awareness.shieldAge,shieldReleasedAge:awareness.shieldReleasedAge,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||awareness.skillActive,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam}):-1);
@@ -275,7 +276,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   // Four-basic combo mode: count four actual basic activations (not only confirmed hits),
   // then choose a skill instead of a fifth basic. This keeps both bots able to progress
   // their combo even when the opponent blocks or dodges one of the four swings.
-  const enemyBasicThreat=!awareness.skillActive&&Number(enemy?.attackAnim)>0&&d<190,comboSafe=!awareness.shielding&&!enemyBasicThreat&&(!awareness.skillActive||threat.danger<.40);
+  const enemyBasicThreat=enemyBasicIncoming,comboSafe=!awareness.shielding&&!enemyBasicThreat&&(!awareness.skillActive||threat.danger<.40);
   if(!busy&&!awareness.shielding&&comboSafe&&state.comboBasicCount<4){
    // The live AI always uses the sword (weapon 0). Its basic range is ~94px,
    // so move inside reliable hit distance before spending a combo basic.
