@@ -1,7 +1,7 @@
-import {NN_BEHAVIORS,NN_SHAPE,createNetwork,validateNetwork,forward,perturbNetwork,esUpdateNetwork,hashSeed,networkParameterCount} from './neural-policy.js?v=20261002-dual-bot-skill-10';
-import {analyzeLoadout,activeSkillThreat,skillUseScore,preferredDistance,leadAim} from './skill-knowledge.js?v=20261002-dual-bot-skill-10';
+import {NN_BEHAVIORS,NN_SHAPE,createNetwork,validateNetwork,forward,perturbNetwork,esUpdateNetwork,hashSeed,networkParameterCount} from './neural-policy.js?v=20261002-dual-bot-skill-11';
+import {analyzeLoadout,activeSkillThreat,skillUseScore,preferredDistance,leadAim} from './skill-knowledge.js?v=20261002-dual-bot-skill-11';
 export {NN_BEHAVIORS,NN_SHAPE,networkParameterCount};
-export const AI_BRAIN_BUILD='20261002-dual-bot-skill-10';
+export const AI_BRAIN_BUILD='20261002-dual-bot-skill-11';
 
 export const styles={
  gale:{name:'질풍'},
