@@ -13,15 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Show current world and PvP basic timing expressions
+      - name: Show exact basic timing lines
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          s=Path('index.html').read_text(encoding='utf-8')
-          for start,end,label in [('function attack(){','function useSkill(','WORLD'),('function basic(){','function potion(){','PVP')]:
-            a=s.index(start); b=s.index(end,a); sec=s[a:b]
-            print('---',label,'---')
-            for part in sec.split(';'):
-              if any(k in part for k in ['attackCd=','exhaust=','attackDuration=','attackAnim=','comboTimer=']):
-                print(part.strip()+';')
-          PY
+          echo '--- attackCd ---'
+          grep -n "attackCd=" index.html | head -80 || true
+          echo '--- pending basic ---'
+          grep -n -E "pendingBasic|pendingBasicAttack|exhaust=2|comboTimer=.12" index.html | head -120 || true
