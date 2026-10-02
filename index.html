@@ -5839,12 +5839,18 @@ async function startAiSpectate(config=pvpSpectator?.getConfig()){
   aiUnsub.push(m.on('pvp:aiError',msg=>{if(requestSeq!==aiRequestSeq)return;cleanup();stopNet();showLobby(msg.message||'관전 연결 실패');}));
   aiUnsub.push(m.on('pvp:aiReady',msg=>{
    if(requestSeq!==aiRequestSeq||!msg.spectate)return;
-   if(msg.style!==config.styleB||msg.localStyle!==config.styleA){
-    m.aiLeave();cleanup();stopPeer();showLobby('AI 1·AI 2 유파 동기화에 실패했습니다. 다시 시작해 주세요.');return;
-   }
+   const validStyle=id=>Object.hasOwn(PVP_AI_STYLE_NAMES,String(id||''))&&id!=='random';
+   const serverStyleB=validStyle(msg.style)?String(msg.style):config.styleB;
+   const serverStyleA=validStyle(msg.localStyle)?String(msg.localStyle):config.styleA;
+   // The AI server is authoritative. Rebuild AI 1 from the exact style the server
+   // paired with AI 2 instead of aborting when cached client/server builds disagree.
+   spectatorConfig={...config,styleA:serverStyleA,styleB:serverStyleB};
+   spectatorSnapshot=makeSpectatorSnapshot(serverStyleA);
+   if($('pvpSpecStyleA'))$('pvpSpecStyleA').value=serverStyleA;
+   if($('pvpSpecStyleB'))$('pvpSpecStyleB').value=serverStyleB;
    spectatorAiBuild=String(msg.aiBuild||'');spectatorServerCommand=null;spectatorControlSeq=0;
    clearTimeout(timeout);host=true;room=msg.matchId;pvpRoute='AI VS AI · SAME BRAIN';
-   $('pvpStatus').textContent='AI 대 AI · 동일 두뇌 '+(spectatorAiBuild||'서버');
+   $('pvpStatus').textContent='AI 대 AI · '+(PVP_AI_STYLE_NAMES[serverStyleA]||serverStyleA)+' vs '+(PVP_AI_STYLE_NAMES[serverStyleB]||serverStyleB)+' · 동일 두뇌 '+(spectatorAiBuild||'서버');
    const handlers=new Map(),c={
     open:true,ai:true,on(type,fn){handlers.set(type,fn)},
     send(data){m.aiPacket(room,data)},
