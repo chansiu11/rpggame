@@ -6,6 +6,14 @@ test('duplicate combat packet and duplicate input cannot double damage or roll s
 test('forced movement wins over active input, settles, then permits fresh movement',()=>{const f=fixture();f.hit({dx:280,stun:.6,duration:.4});f.step(200);const x=f.b.x;assert.ok(x>1100&&x<1380);const state=f.c.ingest(f.b,{seq:1,combatAck:1,x:100,y:100,hp:900});assert.equal(state.x,x);f.step(500);assert.equal(f.b.x,1380);assert.equal(f.b.forceMove,null);const stale=f.c.ingest(f.b,{seq:2,combatAck:0,x:1100,hp:1000});assert.equal(stale.x,1380);const fresh=f.c.ingest(f.b,{seq:3,combatAck:f.b.combatRevision,x:1385,hp:900});assert.equal(fresh.x,1385);});
 test('several forced deltas accumulate from server endpoint, no snap back',()=>{const f=fixture();f.hit({dx:100});f.c.handle(f.a,{seq:2,events:[{kind:'control',targetId:'b',dx:120,stun:.1}]});f.step(1000);assert.equal(f.b.x,1320);});
 test('safe areas, party members, dead players and matchmaking clients excluded',()=>{for(const change of [f=>f.a.x=100,f=>{f.a.partyId=f.b.partyId='p'},f=>f.b.hp=0,f=>f.a.clientMode='pvp']){const f=fixture();change(f);const hp=f.b.hp;f.hit();assert.equal(f.b.hp,hp);}});
+test('airborne sword skills ignore damage, stun and forced movement until landing',()=>{
+ const f=fixture();f.b.skillLift=42;
+ f.hit({damage:180,stun:1.1,dx:260});
+ f.c.handle(f.a,{seq:2,events:[{kind:'control',targetId:'b',dx:180,stun:.8}]});
+ assert.equal(f.b.hp,1000);assert.equal(f.b.x,1100);assert.ok(!f.b.forceMove);assert.ok(!(f.b.stunUntil>10000));
+ f.b.skillLift=0;f.hit({damage:100,stun:.3,dx:100});
+ assert.equal(f.b.hp,900,'damage resumes immediately after landing');assert.ok(f.b.forceMove);
+});
 test('invulnerability prevents damage and does not grant a control lease',()=>{const f=fixture();f.b.invulnUntil=11000;f.hit({dx:100});f.c.handle(f.a,{seq:2,events:[{kind:'control',targetId:'b',dx:100}]});assert.equal(f.b.hp,1000);assert.equal(f.b.x,1100);assert.ok(!f.b.forceMove);});
 test('shield block, break and parry are resolved once by server',()=>{let f=fixture();f.b.block=true;f.hit();assert.equal(f.b.hp,1000);assert.equal(f.b.shield,360);f=fixture();f.b.block=true;f.b.parryWindowUntil=10200;f.hit({dx:200});assert.equal(f.b.hp,1000);assert.equal(f.b.shield,496);assert.ok(f.a.stunUntil>10000);assert.ok(!f.b.forceMove);f=fixture();f.b.block=true;f.hit({breakShield:true});assert.equal(f.b.shield,0);assert.equal(f.b.hp,900);});
 test('mark and shield-break special states require an accepted hit lease',()=>{const f=fixture();f.c.handle(f.a,{seq:1,events:[{kind:'special',targetId:'b',mark:3,breakShield:true}]});assert.equal(f.b.shield,500);f.c.handle(f.a,{seq:2,events:[{kind:'attack',targetId:'b',damage:100},{kind:'special',targetId:'b',mark:3,breakShield:true}]});assert.equal(f.b.shield,0);assert.equal(f.c.snapshot(f.b).mark,3);});
