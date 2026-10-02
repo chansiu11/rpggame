@@ -8,6 +8,23 @@ import {createAiService} from '../multiplayer-server/ai/live-service.js';
 test('all styles execute the existing arena code and inflict damage without rendering',()=>{
  for(const [a,b] of [['gale','void'],['moon','break'],['void','dawn'],['dawn','gale']]){const r=duel(a,b,seedPolicy(),seedPolicy(),72,20);assert.ok(r.results.some(x=>x.metrics.damage>0));assert.ok(r.results.every(x=>Number.isFinite(x.reward)));}
 });
+test('AI can chain four basics into a skill instead of taking the fifth basic',()=>{
+ const p=seedPolicy(),n=p.styles.gale.network;
+ n.b3[2]=-4;n.b3[3]=4;n.b3[9]=1;n.b3[10]=-4;for(let i=4;i<=8;i++)n.b3[i]=.6;
+ const skill=(id,mode,ultimate=false)=>({id,name:id,cost:30,cool:5,ultimate,cfg:{duration:.8,hits:[.2,.55],mult:[.7,1.2],arc:[1.5,1.8],reach:[40,80],mode}});
+ const skills=[skill('windSlash','windShot'),skill('flashRush','galeBlink'),skill('galeOrbit','galePulse'),skill('starRush','galeCrescendo'),skill('thunderDrive','galePursuit',true)];
+ const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:500,maxStam:500,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,basicSeq:0,void3DodgeRemaining:0};
+ const enemy={x:1140,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:0,attackDuration:.26,skillPose:-1,skillKind:'',block:false,combo:0};
+ const brain=createBrain('gale',p,()=>.5,3,{training:true}),actions=[];
+ for(let step=0;step<10;step++){
+  const a=brain.step(1/60,me,enemy,{selfSkills:skills,enemySkills:Array(5).fill(null)});
+  if(a.basic){actions.push('basic');me.basicSeq++;me.combo=Math.min(4,me.combo+1);}
+  else if(Number.isInteger(a.skill)){actions.push('skill'+(a.skill+1));break;}
+ }
+ assert.deepEqual(actions.slice(0,4),['basic','basic','basic','basic']);
+ assert.match(actions[4],/^skill[1-5]$/,'the fifth action in the chain must be a skill, not a fifth basic');
+ assert.equal(brain.stats.fourHitComboSkills,1);
+});
 test('AI explicitly tracks opponent skill and shield state transitions',()=>{
  const p=seedPolicy(),brain=createBrain('gale',p,()=>.5,3,{training:true});
  const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:500,maxStam:500,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0};
