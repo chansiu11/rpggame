@@ -1546,7 +1546,12 @@ function playStyleAdeptNetworkFx(e,castId,hitIndex,finalHit=false,tx=null,ty=nul
  const ctx={skillId:sk.id,slot:e.styleSkillSlot,target,anchorX:Number.isFinite(e.styleAnchorX)?e.styleAnchorX:target.x,anchorY:Number.isFinite(e.styleAnchorY)?e.styleAnchorY:target.y};
  const hits=styleAdeptSyntheticHits(sk,cfg),seq={skillId:sk.id,slot:e.styleSkillSlot,sk,cfg,hits,duration:sk.id==='gravityCut'?7:Math.max(cfg.duration||.5,(hits[hits.length-1]||0)+.18),facing:Number(e.locked)||Number(e.facing)||0,originX:e.styleOriginX??e.x,originY:e.styleOriginY??e.y,anchorX:e.styleAnchorX??target.x,anchorY:e.styleAnchorY??target.y,side:e.styleSide||1},pose=styleAdeptPredictedPose(e,seq,hitIndex);if(cfg.mode==='flameBreathFinale')ctx.baseFacing=pose.a;
  if(sk.id==='tempest'){
-  if(hitIndex===0)swordSkillStartVisuals(e,sk,e.styleSkillSlot,pose.a);
+  if(hitIndex===0){
+   // Match the test build: the startup trace is anchored to the cast origin,
+   // before the first backward Z-step has moved the style adept.
+   const startActor={x:Number.isFinite(e.styleOriginX)?e.styleOriginX:e.x,y:Number.isFinite(e.styleOriginY)?e.styleOriginY:e.y,facing:Number(seq.facing)||pose.a};
+   swordSkillStartVisuals(startActor,sk,e.styleSkillSlot,Number(seq.facing)||pose.a);
+  }
   styleAdeptSpawnPlayerLikeVisuals(e,seq,hitIndex);
   return;
  }

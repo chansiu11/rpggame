@@ -566,8 +566,12 @@ function styleDawnReboundPacket(m,target,data,k,extra={}){
  return {type:'world:mobAttack',bypassShield:true,stunSeconds:0,mobId:m.id,mobType:m.type,targetId:target.id,damage:0,projectileDamage:0,projectiles:[],x:m.x,y:m.y,tx:target.x,ty:target.y,anchorX:m.styleAnchorX,anchorY:m.styleAnchorY,originX:m.styleOriginX,originY:m.styleOriginY,styleSide:m.styleSide||1,facing:m.locked,kind:'style',attackType:'style',skillId:data.id,skillSlot:m.skillSlot,styleId:m.styleId,castId:m.styleCastId||0,hitIndex:k,finalHit,heavy:false,serverTime:Date.now(),...extra};
 }
 function broadcastStyleDawnReboundHit(m,target,data,k,directHit){
+ // The test build stops checking hit events after the first successful bind.
+ // Movement still advances through the Z path in broadcastStyleHit(), but no
+ // additional attack packets are emitted after a target has been caught.
+ if(m.dawnReboundCaught)return;
  const packet=styleDawnReboundPacket(m,target,data,k);
- if(directHit&&!m.dawnReboundCaught){
+ if(directHit){
   const totalMult=(data.cfg.mult||[]).reduce((sum,v)=>sum+(Number(v)||0),0);
   m.dawnReboundCaught=true;m.dawnReboundResolved=false;m.dawnReboundTargetId=target.id;m.dawnReboundResolveAt=Date.now()+500;
   m.dawnReboundDamage=Math.max(1,Math.round(m.damage*totalMult*(data.damageScale||1)*STYLE_ADEPT_DAMAGE_SCALE));
