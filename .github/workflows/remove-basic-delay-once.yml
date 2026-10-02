@@ -1,4 +1,4 @@
-name: Inspect knockback acknowledgement
+name: Fix knockback snapback
 
 on:
   push:
@@ -9,24 +9,79 @@ permissions:
   contents: write
 
 jobs:
-  inspect:
+  fix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Show attack result and force acknowledgement ordering
+        with:
+          fetch-depth: 1
+      - name: Patch PvP forced movement convergence
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          s=Path('index.html').read_text(encoding='utf-8')
-          lines=s.splitlines()
-          keys=["m.t==='attackResult'", "function sendAttack(", "function forceEnemyTo(", "m.t==='hitForce'", "m.t==='forceDelta'", "m.t==='forceDeltaAck'"]
-          for i,line in enumerate(lines):
-            if any(k in line for k in keys):
-              print(f'\n--- around line {i+1} ---')
-              for j in range(max(0,i-3),min(len(lines),i+4)):
-                print(f'{j+1}:{lines[j]}')
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          replacements=[]
+          old="""else if(m.t==='forceDelta'&&me){if(performance.now()<(me.escapeProtectUntil||0))return;const dx=clamp(+m.dx||0,-720,720),dy=clamp(+m.dy||0,-720,720),ft=clamp(+m.t||.35,.08,.8),st=clamp(+m.stun||0,0,1.5);me.vx=me.vy=0;if(me.forcedMove?.priority){me.forcedMove.stun=Math.max(me.forcedMove.stun||0,st)}else{const ox=me.x,oy=me.y,tx=clamp(ox+dx,25,ARENA_W-25),ty=clamp(oy+dy,25,ARENA_H-25);me.forcedMove={x:tx,y:ty,t:ft,max:ft,elapsed:0,startX:ox,startY:oy,stun:st,priority:false};me.knockCameraHold=Math.max(me.knockCameraHold||0,ft+.14)}if(st>0)me.stun=Math.max(me.stun,Math.min(.12,st));net({t:'forceDeltaAck',x:me.forcedMove?.x??me.x,y:me.forcedMove?.y??me.y,t:ft,stun:st,fromX:me.x,fromY:me.y})}"""
+          new="""else if(m.t==='forceDelta'&&me){if(performance.now()<(me.escapeProtectUntil||0))return;const dx=clamp(+m.dx||0,-720,720),dy=clamp(+m.dy||0,-720,720),ft=clamp(+m.t||.35,.08,.8),st=clamp(+m.stun||0,0,1.5);me.vx=me.vy=0;if(me.forcedMove){const f=me.forcedMove,elapsed=Math.max(0,Number(f.elapsed)||0),remaining=Math.max(0,(Number(f.max)||Number(f.t)||ft)-elapsed),bx=Number.isFinite(Number(f.x))?Number(f.x):me.x,by=Number.isFinite(Number(f.y))?Number(f.y):me.y;f.x=clamp(bx+dx,25,ARENA_W-25);f.y=clamp(by+dy,25,ARENA_H-25);f.stun=Math.max(f.stun||0,st);f.max=elapsed+Math.max(.08,remaining,ft);f.t=Math.max(.08,f.max-elapsed);me.knockCameraHold=Math.max(me.knockCameraHold||0,ft+.14)}else{const ox=me.x,oy=me.y,tx=clamp(ox+dx,25,ARENA_W-25),ty=clamp(oy+dy,25,ARENA_H-25);me.forcedMove={x:tx,y:ty,t:ft,max:ft,elapsed:0,startX:ox,startY:oy,stun:st,priority:false};me.knockCameraHold=Math.max(me.knockCameraHold||0,ft+.14)}if(st>0)me.stun=Math.max(me.stun,Math.min(.12,st));net({t:'forceDeltaAck',x:me.forcedMove?.x??me.x,y:me.forcedMove?.y??me.y,t:ft,stun:st,fromX:me.x,fromY:me.y})}"""
+          replacements.append((old,new,'victim forceDelta accumulation'))
+          old="""function forceEnemyTo(x,y,t=.28,stun=0){if(!enemy)return;x=clamp(Number(x)||enemy.x,25,ARENA_W-25);y=clamp(Number(y)||enemy.y,25,ARENA_H-25);t=clamp(Number(t)||.28,.08,.8);stun=clamp(Number(stun)||0,0,1.5);const sx=enemy.x,sy=enemy.y,dx=clamp(x-sx,-720,720),dy=clamp(y-sy,-720,720),tx=clamp(sx+dx,25,ARENA_W-25),ty=clamp(sy+dy,25,ARENA_H-25);enemy.remoteForce={x:tx,y:ty,max:t,elapsed:0,startX:sx,startY:sy,stun};enemy.netX=tx;enemy.netY=ty;enemy.netVX=enemy.netVY=0;enemy.stun=Math.max(enemy.stun||0,stun);net({t:'forceDelta',dx,dy,t,stun})}"""
+          new="""function forceEnemyTo(x,y,t=.28,stun=0){if(!enemy)return;x=clamp(Number(x)||enemy.x,25,ARENA_W-25);y=clamp(Number(y)||enemy.y,25,ARENA_H-25);t=clamp(Number(t)||.28,.08,.8);stun=clamp(Number(stun)||0,0,1.5);const sx=enemy.x,sy=enemy.y,dx=clamp(x-sx,-720,720),dy=clamp(y-sy,-720,720),tx=clamp(sx+dx,25,ARENA_W-25),ty=clamp(sy+dy,25,ARENA_H-25);if(enemy.remoteForce){const f=enemy.remoteForce,elapsed=Math.max(0,Number(f.elapsed)||0),remaining=Math.max(0,(Number(f.max)||t)-elapsed),bx=Number.isFinite(Number(f.x))?Number(f.x):sx,by=Number.isFinite(Number(f.y))?Number(f.y):sy;f.x=clamp(bx+dx,25,ARENA_W-25);f.y=clamp(by+dy,25,ARENA_H-25);f.stun=Math.max(f.stun||0,stun);f.max=elapsed+Math.max(.08,remaining,t);enemy.netX=f.x;enemy.netY=f.y}else{enemy.remoteForce={x:tx,y:ty,max:t,elapsed:0,startX:sx,startY:sy,stun};enemy.netX=tx;enemy.netY=ty}enemy.netVX=enemy.netVY=0;enemy.stun=Math.max(enemy.stun||0,stun);net({t:'forceDelta',dx,dy,t,stun})}"""
+          replacements.append((old,new,'attacker remote preview accumulation'))
+          replacements.append(("force:comboPull?pullForce:knock,forceA:comboPull?pullA:ang,forceTime:comboPull&&pullForce>1?.14:null","force:comboPull?0:knock,forceA:comboPull?pullA:ang,forceTime:comboPull&&pullForce>1?.14:null",'eclipse segment duplicate force'))
+          for old,new,label in replacements:
+            count=s.count(old)
+            expected=2 if label=='eclipse segment duplicate force' else 1
+            if count!=expected:
+              raise SystemExit(f'{label}: expected {expected} matches, found {count}')
+            s=s.replace(old,new)
+          p.write_text(s,encoding='utf-8')
+          print('patched',len(replacements),'rules')
           PY
-      - name: Focused endpoint tests
+      - name: Add focused snapback regression
+        run: |
+          cat > tests/pvp-knockback-snapback.test.cjs <<'EOF'
+          const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+          const html=fs.readFileSync(path.resolve(__dirname,'../index.html'),'utf8');
+          function lineWith(token){const line=html.split(/\r?\n/).find(v=>v.includes(token));assert.ok(line,'missing '+token);return line;}
+          function functionSource(name){const start=html.indexOf('function '+name+'(');assert.ok(start>=0,'missing '+name);const end=html.indexOf('\nfunction ',start+1);return html.slice(start,end>start?end:html.length);}
+          test('forceDelta received during an active knockback extends the authoritative endpoint instead of being discarded',()=>{
+            const branch=lineWith("else if(m.t==='forceDelta'&&me)").trim().replace(/^else if/,'if');
+            const packets=[],ctx={ARENA_W:3000,ARENA_H:2000,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),performance:{now:()=>1000},net:m=>packets.push(m),me:{x:120,y:100,vx:0,vy:0,stun:0,knockCameraHold:0,escapeProtectUntil:0,forcedMove:{x:180,y:100,t:.2,max:.3,elapsed:.1,startX:100,startY:100,stun:.2,priority:true}}};
+            vm.createContext(ctx);vm.runInContext(`function apply(m){${branch}}`,ctx);ctx.apply({t:'forceDelta',dx:40,dy:0,t:.18,stun:.3});
+            assert.equal(ctx.me.forcedMove.x,220);assert.equal(ctx.me.forcedMove.priority,true);assert.equal(packets.at(-1).x,220);
+            ctx.apply({t:'forceDelta',dx:30,dy:0,t:.18,stun:.2});assert.equal(ctx.me.forcedMove.x,250);assert.equal(packets.at(-1).x,250);
+          });
+          test('attacker preview accumulates overlapping push deltas onto the pending landing',()=>{
+            const packets=[],ctx={ARENA_W:3000,ARENA_H:2000,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),net:m=>packets.push(m),enemy:{x:120,y:100,netX:180,netY:100,netVX:0,netVY:0,stun:0,remoteForce:{x:180,y:100,max:.3,elapsed:.1,startX:100,startY:100,stun:.2}}};
+            vm.createContext(ctx);vm.runInContext(functionSource('forceEnemyTo'),ctx);ctx.forceEnemyTo(ctx.enemy.x+40,ctx.enemy.y,.18,.3);
+            assert.equal(ctx.enemy.remoteForce.x,220);assert.equal(ctx.enemy.netX,220);assert.equal(packets.at(-1).dx,40);
+          });
+          test('eclipse pull no longer sends the same displacement through both hit force and forceEnemyTo',()=>{
+            const old=(html.match(/force:comboPull\?pullForce:knock/g)||[]).length,newCount=(html.match(/force:comboPull\?0:knock/g)||[]).length;
+            assert.equal(old,0);assert.equal(newCount,2);
+          });
+          EOF
+      - name: Validate syntax and knockback regressions
         run: |
           cd multiplayer-server && npm ci --no-audit --no-fund && cd ..
+          node --test tests/pvp-knockback-snapback.test.cjs
           node --test --test-name-pattern="several forced deltas accumulate|settlement result corrects local coordinates|Gale 4 world releases|Gale 4 PVP sends" tests/world-combat.test.mjs tests/combat-latency.test.mjs tests/gale-control-regression.test.cjs
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          parts=s.split('<script>')
+          for i,part in enumerate(parts[1:],1):
+            js=part.split('</script>',1)[0]
+            Path(f'/tmp/index-script-{i}.js').write_text(js,encoding='utf-8')
+          PY
+          for f in /tmp/index-script-*.js; do node --check "$f"; done
+          git diff --check
+      - name: Commit verified game fix
+        run: |
+          git config user.name 'chansiu11'
+          git config user.email 'chanjoowill@gmail.com'
+          git add index.html tests/pvp-knockback-snapback.test.cjs
+          git diff --cached --stat
+          git commit -m 'Prevent pushed players from snapping back'
+          git push origin HEAD:main
