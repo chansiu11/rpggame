@@ -61,8 +61,8 @@ test('both spectator bots receive the same current skill-aware decision path',()
  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const spectator=fs.readFileSync(new URL('../pvp-ai-spectator.js',import.meta.url),'utf8');
  const pvp=html.split('<script>')[2]?.split('</script>')[0]||'';
- assert.match(spectator,/brain\.js\?v=20261002-dual-bot-skill-10/,'browser-side AI must use the current shared brain build');
- assert.match(html,/pvp-ai-spectator\.js\?v=20261002-dual-bot-skill-10/,'spectator controller cache must be busted with the matching build');
+ assert.match(spectator,/brain\.js\?v=20261002-dual-bot-skill-11/,'browser-side AI must use the current shared brain build');
+ assert.match(html,/pvp-ai-spectator\.js\?v=20261002-dual-bot-skill-11/,'spectator controller cache must be busted with the matching build');
  assert.match(pvp,/const skillContext=\{selfSkills:Array\.from\(\{length:5\},\(_,i\)=>pvpSwordSkillAt\(i,me\)\),enemySkills:Array\.from\(\{length:5\},\(_,i\)=>pvpSwordSkillAt\(i,enemy\)\)\}/);
  assert.match(pvp,/spectatorBrain\.step\(dt,me,enemy,skillContext\)/,'AI 1 must receive real skill metadata just like server-side AI 2');
  assert.match(pvp,/browserBuild!==serverBuild/,'AI-vs-AI must refuse to start when the browser and server brains differ');
@@ -89,7 +89,7 @@ test('new AI spectator match shares trained policy and receives reliable opponen
   assert.equal(ready.msg.spectate,true);
   assert.equal(ready.msg.style,'dawn');
   assert.equal(ready.msg.difficulty,5);
-  assert.equal(ready.msg.aiBuild,'20261002-dual-bot-skill-10');
+  assert.equal(ready.msg.aiBuild,'20261002-dual-bot-skill-11');
   assert.equal(ready.msg.policy.schema,2);assert.equal(ready.msg.policy.model,'mlp-es-v1');assert.ok(ready.msg.policy.styles.dawn.network.w1.length>0);
  }finally{service.leave(player)}
 });
