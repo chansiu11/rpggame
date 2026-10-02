@@ -33,7 +33,7 @@ test('AI approaches into real melee range instead of whiffing combo basics',()=>
  assert.equal(a.basic,false,'outside reliable sword range the combo bot must not waste a basic');
  assert.ok(a.keys.includes('KeyD'),'the bot must close distance before the next combo basic');
 });
-test('AI combo advances on four basic activations even when the opponent dodges them',()=>{
+test('AI combo counts confirmed basic hits instead of whiffs',()=>{
  const p=seedPolicy(),n=p.styles.gale.network;n.b3[2]=-4;n.b3[3]=4;n.b3[9]=1;n.b3[10]=-4;for(let i=4;i<=8;i++)n.b3[i]=1.2;
  const skill=(id,mode)=>({id,name:id,cost:30,cool:5,cfg:{duration:.8,hits:[.2,.55],mult:[.7,1.2],arc:[1.5,1.8],reach:[40,80],mode}});
  const skills=[skill('windSlash','windShot'),skill('flashRush','galeBlink'),skill('galeOrbit','galePulse'),skill('starRush','galeCrescendo'),skill('thunderDrive','galePursuit')];
@@ -42,8 +42,22 @@ test('AI combo advances on four basic activations even when the opponent dodges 
  const brain=createBrain('gale',p,()=>.5,3,{training:true});
  for(let swing=0;swing<4;swing++){const a=brain.step(1/60,me,enemy,{selfSkills:skills,enemySkills:Array(5).fill(null)});assert.equal(a.basic,true);me.basicSeq++;}
  brain.step(1/60,me,enemy,{selfSkills:skills,enemySkills:Array(5).fill(null)});
+ assert.equal(brain.awareness.comboBasicCount,0,'four whiffs must not unlock the combo skill');
+ for(let hit=0;hit<4;hit++){me.basicHitSeq++;brain.step(1/60,me,enemy,{selfSkills:skills,enemySkills:Array(5).fill(null)});}
  assert.equal(brain.awareness.comboBasicCount,4);
  assert.equal(brain.awareness.comboSkillReady,true);
+});
+test('AI does not open a neutral fight by instantly throwing a skill',()=>{
+ const p=seedPolicy(),brain=createBrain('gale',p,()=>.5,3,{training:true});
+ const skill=(id,mode)=>({id,name:id,cost:30,cool:5,cfg:{duration:.8,hits:[.2,.55],mult:[.7,1.2],arc:[1.5,1.8],reach:[40,80],mode}});
+ const skills=[skill('windSlash','windShot'),skill('flashRush','galeBlink'),skill('galeOrbit','galePulse'),skill('starRush','galeCrescendo'),skill('thunderDrive','galePursuit')];
+ const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:500,maxStam:500,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,basicSeq:0,basicHitSeq:0};
+ const enemy={x:1450,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:0,attackDuration:.26,skillPose:-1,skillKind:'',block:false,combo:0};
+ for(let i=0;i<90;i++){
+  const a=brain.step(1/60,me,enemy,{selfSkills:skills,enemySkills:Array(5).fill(null)});
+  assert.equal(Number.isInteger(a.skill),false,'neutral approach must not trigger an immediate skill before the combo begins');
+  if(a.keys.includes('KeyD'))me.x+=3;
+ }
 });
 test('AI dodges a single enemy skill activation at most once instead of looping dodge-only',()=>{
  const p=seedPolicy(),brain=createBrain('gale',p,()=>.5,3,{training:true});
