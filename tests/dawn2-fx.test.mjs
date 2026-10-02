@@ -16,13 +16,14 @@ test('Dawn 2 world FX continues through the Z dash',()=>{
  assert.match(s,/t:\.15,max:\.15/);
 });
 
-test('Dawn 2 PvP FX continues and is relayed to the peer',()=>{
- const s=branch('pvpWorldSwordMotion');
+test('Dawn 2 PvP FX continues and uses the dedicated reliable helper',()=>{
+ const s=branch('pvpWorldSwordMotion'),fx=source('pvpDawnReboundVisualFx');
  assert.match(s,/ev\.elapsed<cfg\.duration/);
  assert.match(s,/ev\.fx=\.055/);
- assert.match(s,/kind:'dawnZTrace'/);
- assert.match(s,/kind:'dawnEchoCut'/);
- assert.ok((s.match(/},true\);/g)||[]).length>=2);
+ assert.match(s,/pvpDawnReboundVisualFx\('trail'/);
+ assert.match(fx,/kind:'dawnZTrace'/);
+ assert.match(fx,/kind:'dawnEchoCut'/);
+ assert.match(fx,/t:'dawnReboundFx'/);
 });
 
 test('Dawn 2 startup and trail lifetimes overlap until the dash ends',()=>{
