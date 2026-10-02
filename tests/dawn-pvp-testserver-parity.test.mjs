@@ -4,7 +4,8 @@ import fs from 'node:fs';
 
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const server=fs.readFileSync(new URL('../multiplayer-server/server.js',import.meta.url),'utf8');
-function source(name){const a=html.indexOf('function '+name+'(');assert.ok(a>=0,'missing '+name);const b=html.indexOf('\nfunction ',a+1);return html.slice(a,b<0?html.length:b);}\nfunction sourceLast(name){const a=html.lastIndexOf('function '+name+'(');assert.ok(a>=0,'missing '+name);const b=html.indexOf('\nfunction ',a+1);return html.slice(a,b<0?html.length:b);}
+function source(name){const a=html.indexOf('function '+name+'(');assert.ok(a>=0,'missing '+name);const b=html.indexOf('\nfunction ',a+1);return html.slice(a,b<0?html.length:b);}
+function sourceLast(name){const a=html.lastIndexOf('function '+name+'(');assert.ok(a>=0,'missing '+name);const b=html.indexOf('\nfunction ',a+1);return html.slice(a,b<0?html.length:b);}
 
 test('Dawn 1 PvP uses rpggametest wave rod and knockback control',()=>{
  const hit=source('pvpWorldSwordHit'),send=source('sendProjectile'),render=sourceLast('render');
