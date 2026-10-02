@@ -1,0 +1,38 @@
+name: Dawn remake integration
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'multiplayer-server/server.js'
+      - 'tests/dawn5-uninterrupted.test.mjs'
+      - 'tests/prism-chase.test.mjs'
+      - 'tests/prism-finisher.test.mjs'
+      - 'tests/remote-skill-fx.test.mjs'
+      - '.github/workflows/dawn-remake.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'multiplayer-server/server.js'
+      - 'tests/dawn5-uninterrupted.test.mjs'
+      - 'tests/prism-chase.test.mjs'
+      - 'tests/prism-finisher.test.mjs'
+      - 'tests/remote-skill-fx.test.mjs'
+      - '.github/workflows/dawn-remake.yml'
+  workflow_dispatch:
+concurrency:
+  group: dawn-remake-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dawn-remake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: multiplayer-server/package-lock.json
+      - run: npm ci --prefix multiplayer-server
+      - run: node --test tests/dawn5-uninterrupted.test.mjs tests/prism-chase.test.mjs tests/prism-finisher.test.mjs tests/remote-skill-fx.test.mjs

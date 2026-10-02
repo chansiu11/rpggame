@@ -15,8 +15,8 @@ test('Dawn remake keeps the five test-server skills in production slots',()=>{
  const styleLine=html.split('\n').find(l=>l.includes("{id:'dawn',name:'여명 유파'"));
  assert.ok(styleLine);
  const style=vm.runInNewContext('('+styleLine.trim().replace(/,$/,'')+')');
- assert.deepEqual(style.skills,ids);
- ids.forEach((id,i)=>{const s=skill(id);assert.equal(s.cfg.mode,expected[i][0]);assert.equal(s.cfg.duration,expected[i][1]);assert.deepEqual(s.cfg.hits,expected[i][2]);});
+ assert.equal(JSON.stringify(style.skills),JSON.stringify(ids));
+ ids.forEach((id,i)=>{const s=skill(id);assert.equal(s.cfg.mode,expected[i][0]);assert.equal(s.cfg.duration,expected[i][1]);assert.equal(JSON.stringify(s.cfg.hits),JSON.stringify(expected[i][2]));});
 });
 
 test('Solar Return remains stationary in world and PvP',()=>{
