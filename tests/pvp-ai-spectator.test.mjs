@@ -67,6 +67,7 @@ test('both spectator bots are driven by the exact same server brain build',()=>{
  assert.match(html,/pvp-ai-spectator\.js\?v=20261002-server-dual-brain-13/);
  assert.match(html,/multiplayer-client\.js\?v=20261002-server-dual-brain-13/);
  assert.match(pvp,/spectatorServerCommand/);
+ assert.match(pvp,/keys\.clear\(\);for\(const code of command\.keys\|\|\[\]\)keys\.add\(pkey\(code\)\)/,'AI 1 movement commands must pass through the browser keybind map');
  assert.match(pvp,/localStyle:config\.styleA,localDifficulty:config\.difficultyA/);
  assert.doesNotMatch(pvp,/spectatorBrain\.step/,'AI 1 decisions must come from the server worker');
  assert.match(worker,/createBrain\(workerData\.style/);
