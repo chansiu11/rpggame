@@ -1,6 +1,6 @@
 import {Worker} from 'node:worker_threads';
 import {randomUUID} from 'node:crypto';
-import {styles,seedPolicy,normalizeDifficulty,ensurePolicyStyles} from './brain.js';
+import {styles,seedPolicy,normalizeDifficulty,ensurePolicyStyles,AI_BRAIN_BUILD} from './brain.js';
 import {FirebaseStore} from './store.js';
 export function createAiService(send,{store=new FirebaseStore(),refreshIntervalMs=60000}={}){
  const sessions=new Map();let policy=ensurePolicyStyles(seedPolicy()),devicePolicyInstalled=false;
@@ -21,7 +21,7 @@ export function createAiService(send,{store=new FirebaseStore(),refreshIntervalM
  if(!style){send(p.ws,{type:'pvp:aiError',message:'선택한 AI 유파를 사용할 수 없습니다.'});return true;}
  const spectate=m.spectate===true;
  const worker=new Worker(new URL('./live-worker.js',import.meta.url),{workerData:{style,level:p.level,policy,difficulty},resourceLimits:{maxOldGenerationSizeMb:96}}),s={worker,id,spectate,count:0,at:Date.now(),timeout:setTimeout(()=>{send(p.ws,{type:'pvp:aiError',message:'AI 대전 제한 시간(20분)이 끝났습니다.'});leave(p)},20*60*1000)};sessions.set(p.id,s);
- worker.on('message',data=>{if(sessions.get(p.id)!==s)return;if(data.t==='aiReady')send(p.ws,{type:'pvp:aiReady',matchId:id,style,difficulty,...(spectate?{spectate:true,policy:structuredClone(policy)}:{})});else send(p.ws,{type:'pvp:aiPacket',matchId:id,data},{volatile:!spectate&&data.t==='state'});});
+ worker.on('message',data=>{if(sessions.get(p.id)!==s)return;if(data.t==='aiReady')send(p.ws,{type:'pvp:aiReady',matchId:id,style,difficulty,aiBuild:AI_BRAIN_BUILD,...(spectate?{spectate:true,policy:structuredClone(policy)}:{})});else send(p.ws,{type:'pvp:aiPacket',matchId:id,data},{volatile:!spectate&&data.t==='state'});});
  worker.on('error',e=>{console.error('[ai-worker]',e.message);send(p.ws,{type:'pvp:aiError',message:'AI 실행 오류가 발생했습니다.'});leave(p)});
  worker.on('exit',()=>{if(sessions.get(p.id)===s){sessions.delete(p.id);clearTimeout(s.timeout);send(p.ws,{type:'pvp:aiError',message:'AI 대전이 종료되었습니다.'});}});
  }else if(m.type==='pvp:aiPacket'){
