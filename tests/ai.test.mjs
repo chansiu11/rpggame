@@ -60,6 +60,24 @@ test('AI dodges a single enemy skill activation at most once instead of looping 
  assert.equal(next.dash,true,'a new skill activation may trigger a new emergency dodge');
  assert.equal(brain.stats.threatDodges,2);
 });
+test('spectator-side AI does not get stuck dodging a continuously casting opponent',()=>{
+ const p=seedPolicy(),brain=createBrain('gale',p,()=>.5,3,{training:true});
+ const skill=(id,mode,extra={})=>({id,name:id,cost:30,cool:5,ultimate:!!extra.ultimate,cfg:{duration:extra.duration??1,hits:extra.hits??[.2,.55],mult:[.7,1.2],arc:extra.arc??[1.4,1.8],reach:extra.reach??[40,80],mode}});
+ const selfSkills=[skill('windSlash','windShot'),skill('flashRush','galeBlink'),skill('galeOrbit','galePulse',{arc:[Math.PI*2],reach:[0]}),skill('starRush','galeCrescendo',{arc:[Math.PI*2],reach:[0]}),skill('thunderDrive','galePursuit',{ultimate:true})];
+ const enemySkills=[skill('bladeRain','eventHorizonShear',{duration:1.2,hits:[.2,.6,1],reach:[220,230,265]}),null,null,null,null];
+ const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:500,maxStam:500,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0,basicSeq:0,void3DodgeRemaining:0};
+ const enemy={x:1320,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stun:0,dash:0,attackAnim:1,attackDuration:1.2,skillPose:0,skillKind:'eventHorizonShear',skillId:'bladeRain',block:false,combo:0};
+ let dashed=false,skillUsed=false;
+ for(let i=0;i<90&&!skillUsed;i++){
+  const a=brain.step(1/60,me,enemy,{selfSkills,enemySkills});
+  if(a.dash){dashed=true;me.dash=.2;}
+  if(Number.isInteger(a.skill))skillUsed=true;
+  if(me.dash>0)me.dash=Math.max(0,me.dash-1/60);
+ }
+ assert.equal(dashed,true,'AI should still dodge the dangerous opening');
+ assert.equal(skillUsed,true,'AI must counter with a skill instead of remaining dodge-only');
+ assert.equal(brain.stats.threatDodges,1,'one continuous enemy skill should not cause endless repeated dodges');
+});
 test('AI explicitly tracks opponent skill and shield state transitions',()=>{
  const p=seedPolicy(),brain=createBrain('gale',p,()=>.5,3,{training:true});
  const me={x:1000,y:1000,hp:100,maxHp:100,shield:100,maxShield:100,stam:500,maxStam:500,stun:0,dash:0,cool:[0,0,0,0,0],skillEvent:null,skillHold:null,attackAnim:0,skillPose:-1,combo:0};
