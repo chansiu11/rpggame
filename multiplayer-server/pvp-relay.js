@@ -24,7 +24,7 @@ export function createPvpRelay(players,send){
   }
   if(!match.open||!msg.data||typeof msg.data!=='object'||Array.isArray(msg.data)||typeof msg.data.t!=='string'||(rawBytes??JSON.stringify(msg.data).length)>65536)return true;
   const opponent=players.get(match.ids.find(id=>id!==player.id));
-  if(msg.data.t==='state'&&Number(opponent?.ws?.bufferedAmount||0)>8192)return true;
+  if(msg.data.t==='state'&&Number(opponent?.ws?.bufferedAmount||0)>4096)return true;
   if(opponent?.pvpRelayMatch===match.id)send(opponent.ws,{type:'pvp:relay',matchId:match.id,data:msg.data},{volatile:msg.data.t==='state'});
   return true;
  }
