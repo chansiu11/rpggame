@@ -131,21 +131,28 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const noiseSeed=Number.isInteger(options.noiseSeed)?options.noiseSeed>>>0:null;
  const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
  const training={noiseSeed,sigma:base.sigma};
- const state={previous:null,enemyVx:0,enemyVy:0,attackEma:0,blockEma:0,dashEma:0,skillEma:0,enemyShielding:false,enemyShieldAge:0,enemyShieldReleaseAge:99,enemySkillActive:false,enemySkillAge:0,enemySkillIndex:-1,enemySkillEndedAge:99};
+ const state={previous:null,enemyVx:0,enemyVy:0,attackEma:0,blockEma:0,dashEma:0,skillEma:0,enemyShielding:false,enemyShieldAge:0,enemyShieldReleaseAge:99,enemySkillActive:false,enemySkillAge:0,enemySkillIndex:-1,enemySkillEndedAge:99,comboBasicCount:0,lastBasicSeq:0,comboSkillReady:false};
  let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonShiftReleasePending=false;
- const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0,skillAwareChoices:0,threatDodges:0,enemySkillFrames:0,enemyShieldFrames:0,shieldPunishes:0};
+ const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0,skillAwareChoices:0,threatDodges:0,enemySkillFrames:0,enemyShieldFrames:0,shieldPunishes:0,fourHitComboSkills:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
  let lastAwareness={skillActive:false,skillIndex:-1,skillId:'',skillName:'',skillAge:0,skillEndedAge:99,shielding:false,shieldAge:0,shieldReleasedAge:99};
  return {tactic:-1,training,stats,get awareness(){return {...lastAwareness}},step(dt,me,enemy,combatContext={}){
   dt=clamp(Number(dt)||1/60,1/240,.08);stats.decisions++;dodgeLock=Math.max(0,dodgeLock-dt);
   const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
   const ready=readySkills(me,style),selfSkills=Array.isArray(combatContext?.selfSkills)?combatContext.selfSkills:me?.swordSkills,enemySkills=Array.isArray(combatContext?.enemySkills)?combatContext.enemySkills:enemy?.swordSkills;
+  const basicSeq=Math.max(0,Math.floor(Number(me?.basicSeq)||0));
+  if(basicSeq>0&&basicSeq!==state.lastBasicSeq){
+   state.lastBasicSeq=basicSeq;state.comboBasicCount=Math.min(4,state.comboBasicCount+1);
+   if(state.comboBasicCount>=4)state.comboSkillReady=true;
+  }else if(basicSeq===0&&state.lastBasicSeq>0&&!Number(me?.attackAnim)){
+   state.lastBasicSeq=0;
+  }
   const enemyShielding=!!enemy?.block,enemySkillIndex=Number.isInteger(Number(enemy?.skillPose))&&Number(enemy.skillPose)>=0&&Number(enemy.skillPose)<5?Number(enemy.skillPose):-1,enemySkillActive=enemySkillIndex>=0||(/^prepare:/.test(String(enemy?.skillKind||'')));
   if(enemyShielding){state.enemyShieldAge=state.enemyShielding?state.enemyShieldAge+dt:dt;state.enemyShieldReleaseAge=99;stats.enemyShieldFrames++;}else{if(state.enemyShielding)state.enemyShieldReleaseAge=0;else state.enemyShieldReleaseAge=Math.min(99,state.enemyShieldReleaseAge+dt);state.enemyShieldAge=0;}
   if(enemySkillActive){const same=state.enemySkillActive&&state.enemySkillIndex===enemySkillIndex;state.enemySkillAge=same?state.enemySkillAge+dt:dt;state.enemySkillEndedAge=99;state.enemySkillIndex=enemySkillIndex;stats.enemySkillFrames++;}else{if(state.enemySkillActive)state.enemySkillEndedAge=0;else state.enemySkillEndedAge=Math.min(99,state.enemySkillEndedAge+dt);state.enemySkillAge=0;state.enemySkillIndex=-1;}
   state.enemyShielding=enemyShielding;state.enemySkillActive=enemySkillActive;
   const selfMeta=analyzeLoadout(selfSkills),enemyMeta=analyzeLoadout(enemySkills),activeMeta=enemySkillIndex>=0?enemyMeta[enemySkillIndex]:null;
-  const awareness={skillActive:enemySkillActive,skillIndex:enemySkillIndex,skillId:String(activeMeta?.id||enemy?.skillId||''),skillName:String(activeMeta?.name||''),skillAge:state.enemySkillAge,skillEndedAge:state.enemySkillEndedAge,shielding:enemyShielding,shieldAge:state.enemyShieldAge,shieldReleasedAge:state.enemyShieldReleaseAge};
+  const awareness={skillActive:enemySkillActive,skillIndex:enemySkillIndex,skillId:String(activeMeta?.id||enemy?.skillId||''),skillName:String(activeMeta?.name||''),skillAge:state.enemySkillAge,skillEndedAge:state.enemySkillEndedAge,shielding:enemyShielding,shieldAge:state.enemyShieldAge,shieldReleasedAge:state.enemyShieldReleaseAge,comboBasicCount:state.comboBasicCount,comboSkillReady:state.comboSkillReady};
   lastAwareness=awareness;
   const threat=activeSkillThreat(enemy,enemyMeta,d);
   const features=makeFeatures(state,me,enemy,holdAge,ready,dt,style),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
@@ -224,18 +231,20 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const mistake=!options.training&&random()<settings.mistake;
   if(!busy&&!stopAttack&&!mistake){
    let bestType='none',best=-Infinity,bestSkill=-1;
-   const shieldPunishWindow=!awareness.shielding&&awareness.shieldReleasedAge<.42;
-   const basicScore=out[3]+attackDrive-(awareness.shielding?.52:0)+(shieldPunishWindow?.18:0)-(awareness.skillActive&&threat.danger>.45?.28:0);
-   if(d<190&&basicScore>best){best=basicScore;bestType='basic';}
+   const shieldPunishWindow=!awareness.shielding&&awareness.shieldReleasedAge<.42,comboSkillReady=state.comboSkillReady&&state.comboBasicCount>=4;
+   const comboBasicBonus=!comboSkillReady&&state.comboBasicCount<4?.48:0;
+   const basicScore=out[3]+attackDrive+comboBasicBonus-(awareness.shielding?.52:0)+(shieldPunishWindow?.18:0)-(awareness.skillActive&&threat.danger>.45?.28:0);
+   if(!comboSkillReady&&d<190&&basicScore>best){best=basicScore;bestType='basic';}
    for(let i=0;i<5;i++)if(ready[i]){
     const knowledge=knowledgeScores[i];
     const shieldBreakBonus=awareness.shielding?(selfMeta[i]?.shieldBreak||0)*.34:0,shieldReleaseBonus=shieldPunishWindow?.12:0;
     const skillCastSafety=awareness.skillActive&&threat.danger>.55&&!(selfMeta[i]?.defensive||0)?-.22:0;
-    const score=out[4+i]+attackDrive+knowledge*.52+shieldBreakBonus+shieldReleaseBonus+skillCastSafety;
+    const comboSkillBonus=comboSkillReady?.92:-.26;
+    const score=out[4+i]+attackDrive+knowledge*.52+shieldBreakBonus+shieldReleaseBonus+skillCastSafety+comboSkillBonus;
     if(score>best){best=score;bestType='skill';bestSkill=i;}
    }
    if(!feint&&best>settings.attackThreshold){
-    if(bestType==='skill'&&bestSkill>=0){stats.skills++;stats.skillAwareChoices++;if(shieldPunishWindow||awareness.shielding&&(selfMeta[bestSkill]?.shieldBreak||0)>.5)stats.shieldPunishes++;aim=leadAim(selfMeta[bestSkill],aim,state.enemyVx,state.enemyVy,d);if(style==='moon'&&bestSkill===0)moonShiftReleasePending=true;else{hold=bestSkill;holdAge=0;}current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
+    if(bestType==='skill'&&bestSkill>=0){const completedFourHitCombo=comboSkillReady;stats.skills++;stats.skillAwareChoices++;if(completedFourHitCombo){stats.fourHitComboSkills++;state.comboBasicCount=0;state.comboSkillReady=false;}if(shieldPunishWindow||awareness.shielding&&(selfMeta[bestSkill]?.shieldBreak||0)>.5)stats.shieldPunishes++;aim=leadAim(selfMeta[bestSkill],aim,state.enemyVx,state.enemyVy,d);if(style==='moon'&&bestSkill===0)moonShiftReleasePending=true;else{hold=bestSkill;holdAge=0;}current={keys,aim,block:false,dash:false,basic:false,skill:bestSkill};return current;}
     if(bestType==='basic'){stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;}
    }else if(feint&&best>settings.attackThreshold){stats.feints++;}
   }
