@@ -233,10 +233,14 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   // a fifth basic; choose the best currently-ready skill and then restart at zero.
   const comboSafe=!awareness.skillActive||threat.danger<.55;
   if(!busy&&!awareness.shielding&&comboSafe&&state.comboBasicCount<4){
-   if(d<=205){
-    stats.basics++;current={keys,aim,block:false,dash:false,basic:true};return current;
+   // The live AI always uses the sword (weapon 0). Its basic range is ~94px,
+   // so move inside reliable hit distance before spending a combo basic.
+   const comboBasicRange=108;
+   if(d<=comboBasicRange){
+    stats.basics++;current={keys:[],aim:a,block:false,dash:false,basic:true};return current;
    }
-   current={keys,aim,block:false,dash:false,basic:false};return current;
+   const approachKeys=[];if(Math.cos(a)>.18)approachKeys.push('KeyD');if(Math.cos(a)<-.18)approachKeys.push('KeyA');if(Math.sin(a)>.18)approachKeys.push('KeyS');if(Math.sin(a)<-.18)approachKeys.push('KeyW');
+   current={keys:approachKeys,aim:a,block:false,dash:false,basic:false};return current;
   }
   if(!busy&&state.comboSkillReady&&state.comboBasicCount>=4){
    let comboSkill=-1,comboScore=-Infinity;
