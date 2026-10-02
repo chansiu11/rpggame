@@ -3523,6 +3523,11 @@ function updateSwordSkillMotion(seq,sk,dt){
   const pts=[[-82,0],[170,102],[312,-98],[448,28]],p=pts[stage],tx=originX+bc*p[0]+nx*p[1]*sg,ty=originY+bs*p[0]+ny*p[1]*sg;
   const dx=tx-player.x,dy=ty-player.y,d=Math.hypot(dx,dy)||1,spd=[1900,2920,3180,3360][stage],mv=Math.min(d,spd*dt);moveBody(player,dx/d*mv,dy/d*mv);
   player.facing=seq.facing=player.attackAngle=base;player.skillLift=Math.sin(clamp((t-[0,.14,.39,.64][stage])/[.14,.25,.25,.36][stage],0,1)*Math.PI)*(stage===0?2:4);
+  if(seq.elapsed<cfg.duration){seq.fx-=dt;if(seq.elapsed>.10&&seq.fx<=0){seq.fx=.055;const th=swordStyleFxForSkill(sk.id);
+   effects.push({type:'dawnZTrace',x:player.x,y:player.y,a:base,len:124,width:40,color:th.main,sub:th.sub,accent:th.accent,t:.15,max:.15});
+   for(let q=-1;q<=1;q++)effects.push({type:'dawnEchoCut',x:player.x,y:player.y,a:base+q*.22,len:72-Math.abs(q)*8,spread:9,cross:q===0?1:0,color:q===0?th.sub:th.main,sub:th.sub,accent:th.accent,t:.12,max:.12});
+   for(let j=-2;j<=2;j++){const aa=base+Math.PI+j*.15,sp=170+Math.abs(j)*34;effects.push({type:'particle',x:player.x,y:player.y,vx:Math.cos(aa)*sp,vy:Math.sin(aa)*sp,color:j%2?th.accent:th.main,t:.14,max:.14,size:1.5+Math.abs(j)*.18});}
+  }}
  }
  else if(mode==='earthSlam'){player.skillLift=Math.sin(t*Math.PI)*42;if(t<.70)moveBody(player,ca*92*dt,sa*92*dt);}
  else if(mode==='dawnWave'&&seq.elapsed>.28&&seq.elapsed<.55)moveBody(player,-ca*105*dt,-sa*105*dt);
@@ -7027,6 +7032,10 @@ function pvpWorldSwordMotion(ev,dt){const sk=ev.skill,cfg=ev.cfg,mode=cfg.mode,t
  else if(mode==='dawnReboundZ'){
   const tar=pvpWorldSwordTarget(ev);if(!Number.isFinite(ev.dawnBaseFace))ev.dawnBaseFace=tar?Math.atan2(tar.y-(ev.originY??me.y),tar.x-(ev.originX??me.x)):ev.a;
   const base=ev.dawnBaseFace,bc=Math.cos(base),bs=Math.sin(base),nx=-bs,ny=bc,stage=t<.14?0:t<.39?1:t<.64?2:3,pts=[[-82,0],[170,102],[312,-98],[448,28]],p=pts[stage],tx=(ev.originX??me.x)+bc*p[0]+nx*p[1]*(ev.side||1),ty=(ev.originY??me.y)+bs*p[0]+ny*p[1]*(ev.side||1),dx=tx-me.x,dy=ty-me.y,dd=Math.hypot(dx,dy)||1,spd=[1900,2920,3180,3360][stage],mv=Math.min(dd,spd*dt);me.x+=dx/dd*mv;me.y+=dy/dd*mv;me.a=ev.a=base;me.skillLift=Math.sin(clamp((t-[0,.14,.39,.64][stage])/[.14,.25,.25,.36][stage],0,1)*Math.PI)*(stage===0?2:4);
+  if(ev.elapsed<cfg.duration){ev.fx-=dt;if(ev.elapsed>.10&&ev.fx<=0){ev.fx=.055;
+   pushFx({kind:'dawnZTrace',x:me.x,y:me.y,a:base,len:124,width:40,c:sk.color||'#ffd95c',sub:sk.sub||'#fffbe8',accent:sk.accent||'#fff29a',t:.15,max:.15},true);
+   for(let q=-1;q<=1;q++)pushFx({kind:'dawnEchoCut',x:me.x,y:me.y,a:base+q*.22,len:72-Math.abs(q)*8,spread:9,c:q===0?(sk.sub||'#fffbe8'):(sk.color||'#ffd95c'),sub:sk.sub||'#fffbe8',accent:sk.accent||'#fff29a',cross:q===0?1:0,t:.12,max:.12},true);
+  }}
  }
  else if(mode==='earthSlam'){me.skillLift=Math.sin(t*Math.PI)*42;if(t<.70){me.x+=ca*92*dt;me.y+=sa*92*dt}}
  else if(mode==='dawnStillSun'){if(target)me.a=ev.a=Math.atan2(target.y-me.y,target.x-me.x);me.skillLift=Math.sin(clamp((t-(t<.18?0:t<.36?.18:t<.54?.36:t<.72?.54:.72))/.20,0,1)*Math.PI)*3;}

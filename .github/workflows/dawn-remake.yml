@@ -9,6 +9,7 @@ on:
       - 'tests/prism-chase.test.mjs'
       - 'tests/prism-finisher.test.mjs'
       - 'tests/remote-skill-fx.test.mjs'
+      - 'tests/dawn2-fx.test.mjs'
       - '.github/workflows/dawn-remake.yml'
   pull_request:
     paths:
@@ -18,6 +19,7 @@ on:
       - 'tests/prism-chase.test.mjs'
       - 'tests/prism-finisher.test.mjs'
       - 'tests/remote-skill-fx.test.mjs'
+      - 'tests/dawn2-fx.test.mjs'
       - '.github/workflows/dawn-remake.yml'
   workflow_dispatch:
 concurrency:
@@ -35,4 +37,4 @@ jobs:
           cache: npm
           cache-dependency-path: multiplayer-server/package-lock.json
       - run: npm ci --prefix multiplayer-server
-      - run: node --test tests/dawn5-uninterrupted.test.mjs tests/prism-chase.test.mjs tests/prism-finisher.test.mjs tests/remote-skill-fx.test.mjs
+      - run: node --test tests/dawn5-uninterrupted.test.mjs tests/prism-chase.test.mjs tests/prism-finisher.test.mjs tests/remote-skill-fx.test.mjs tests/dawn2-fx.test.mjs
