@@ -164,7 +164,7 @@ body{position:relative}.touch-mode select,.touch-mode input{font-size:16px}
 <script src="./multiplayer-config.js?v=20260926-2"></script>
 <script src="./multiplayer-server/combat-core.js?v=20260928-armor-mitigation-fix-1"></script>
 <script src="./pvp-transport.js?v=20261001-low-latency-1"></script>
-<script src="./multiplayer-client.js?v=20261002-pvp-ping-v2"></script>
+<script src="./multiplayer-client.js?v=20261002-server-dual-brain-13"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <script>
 (() => {
@@ -5683,7 +5683,7 @@ window.EchoesWorldPvpData={
 requestAnimationFrame(frame);
 })();
 </script>
-<script src="./pvp-ai-spectator.js?v=20261002-four-basic-combo-12"></script>
+<script src="./pvp-ai-spectator.js?v=20261002-server-dual-brain-13"></script>
 
 <script>
 (()=>{
@@ -5730,7 +5730,7 @@ const keys=new Set(),mouse={x:W*.5,y:H*.5,active:false,down:false,lastMove:0},pv
 const pvpHitProcs=new Map();let pvpShieldKeyLatched=false;
 let me=null,enemy=null,fx=[],projectiles=[],pvpVortices=[],pvpVortexSeq=0,pvpHudTimer=0,pvpRoute='RELAY',receivingPvpVisual=false;
 const GALE_VORTEX_PVP=window.EchoesGaleVortex,pvpSpectator=window.EchoesPvpSpectator;
-let spectating=false,spectatorSnapshot=null,spectatorBrain=null,spectatorConfig=null;
+let spectating=false,spectatorSnapshot=null,spectatorBrain=null,spectatorServerCommand=null,spectatorControlSeq=0,spectatorAiBuild='',spectatorConfig=null;
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function angleDiff(a,b){return Math.atan2(Math.sin(a-b),Math.cos(a-b))}
 function currentSave(){try{const u=(localStorage.getItem(SESSION)||'').trim().toLowerCase();if(!u)return null;return JSON.parse(localStorage.getItem(SAVE+'::account::'+u)||'null');}catch(e){return null}}
@@ -5800,7 +5800,7 @@ function close(){stopNet();layer.classList.add('hidden');document.querySelector(
 function resize(){const r=$('pvpStage').getBoundingClientRect(),ratio=W/H;if(r.width/r.height>ratio){canvas.style.width=(r.height*ratio)+'px';canvas.style.height=r.height+'px'}else{canvas.style.width=r.width+'px';canvas.style.height=(r.width/ratio)+'px'}}
 function stopPeer(){aiCountdownUntil=0;aiAwaitStart=false;running=false;resetPvpHongFx();pvpHitProcs.clear();void3Pvp=null;remoteCriticalAck=false;resetPvpCriticalHits();try{conn?.close()}catch(e){}try{peer?.destroy()}catch(e){}peer=conn=null;remoteSnap=null;room='';keys.clear();me=enemy=null;fx=[];projectiles=[];pvpVortices=[];resetPvpCombo();}
 function stopNet(){
- spectating=false;spectatorSnapshot=null;spectatorBrain=null;spectatorConfig=null;pvpSpectator?.setActive(false);layer.classList.remove('spectating');$('pvpHud')?.querySelector('.pvp-side.right')?.classList.add('hidden');
+ spectating=false;spectatorSnapshot=null;spectatorBrain=null;spectatorServerCommand=null;spectatorControlSeq=0;spectatorAiBuild='';spectatorConfig=null;pvpSpectator?.setActive(false);layer.classList.remove('spectating');$('pvpHud')?.querySelector('.pvp-side.right')?.classList.add('hidden');
  aiRequestSeq++;$('pvpAiMatch').disabled=false;aiPendingCancel?.();aiPendingCancel=null;aiUnsub.forEach(f=>f());aiUnsub=[];window.EchoesMulti?.aiLeave?.();
  const m=window.EchoesMulti;if(matchWaiting)m?.pvpMatchCancel?.();matchWaiting=false;stopPeer();
  if(matchSocketOwned&&m?.connected){m.disconnect();matchSocketOwned=false;}
@@ -5826,13 +5826,10 @@ async function startAiMatch(){
 }
 async function startAiSpectate(config=pvpSpectator?.getConfig()){
  if(!pvpSpectator||!config)return;
- stopNet();const requestSeq=aiRequestSeq;spectating=true;spectatorConfig=config;
+ stopNet();const requestSeq=aiRequestSeq;spectating=true;spectatorConfig=config;spectatorSnapshot=makeSpectatorSnapshot(config.styleA);
  const button=$('pvpAiSpectateStart');button.disabled=true;
  $('pvpStatus').textContent='AI 대 AI 관전 연결 중…';
  try{
-  const browserBrainModule=await pvpSpectator.loadBrain();
-  if(requestSeq!==aiRequestSeq)return;
-  spectatorSnapshot=makeSpectatorSnapshot(config.styleA);
   const m=await ensureMatchServer(spectatorSnapshot);
   if(requestSeq!==aiRequestSeq)return;
   m.pvpMatchCancel();
@@ -5842,32 +5839,22 @@ async function startAiSpectate(config=pvpSpectator?.getConfig()){
   aiUnsub.push(m.on('pvp:aiError',msg=>{if(requestSeq!==aiRequestSeq)return;cleanup();stopNet();showLobby(msg.message||'관전 연결 실패');}));
   aiUnsub.push(m.on('pvp:aiReady',msg=>{
    if(requestSeq!==aiRequestSeq||!msg.spectate)return;
-   const browserBuild=String(browserBrainModule?.AI_BRAIN_BUILD||''),serverBuild=String(msg.aiBuild||''),buildMismatch=!!(browserBuild&&serverBuild&&browserBuild!==serverBuild);
-   if(buildMismatch){
-    console.warn('[AI VS AI] refusing mixed brain builds',browserBuild,serverBuild);
-    m.aiLeave();cleanup();stopPeer();
-    $('pvpStatus').textContent='AI 서버 두뇌 동기화 필요';
-    showLobby('AI 1과 AI 2의 두뇌 버전이 다릅니다. 서버가 최신 AI로 갱신된 뒤 다시 시작해 주세요.');
-    return;
+   if(msg.style!==config.styleB||msg.localStyle!==config.styleA){
+    m.aiLeave();cleanup();stopPeer();showLobby('AI 1·AI 2 유파 동기화에 실패했습니다. 다시 시작해 주세요.');return;
    }
-   void (async()=>{
-    try{
-     spectatorBrain=await pvpSpectator.makeBrain(config.styleA,msg.policy,config.difficultyA);
-     if(requestSeq!==aiRequestSeq)return;
-     clearTimeout(timeout);host=true;room=msg.matchId;pvpRoute='AI VS AI';
-     const handlers=new Map(),c={
-      open:true,ai:true,on(type,fn){handlers.set(type,fn)},
-      send(data){m.aiPacket(room,data)},
-      close(){m.aiLeave();cleanup();}
-     };
-     bindConn(c);
-     aiUnsub.push(m.on('pvp:aiPacket',packet=>{if(packet.matchId===room)onData(packet.data)}));
-     handlers.get('open')?.();
-     button.disabled=false;
-    }catch(e){if(requestSeq===aiRequestSeq){cleanup();stopNet();showLobby(e.message||'관전 AI 초기화 실패');}}
-   })();
+   spectatorAiBuild=String(msg.aiBuild||'');spectatorServerCommand=null;spectatorControlSeq=0;
+   clearTimeout(timeout);host=true;room=msg.matchId;pvpRoute='AI VS AI · SAME BRAIN';
+   $('pvpStatus').textContent='AI 대 AI · 동일 두뇌 '+(spectatorAiBuild||'서버');
+   const handlers=new Map(),c={
+    open:true,ai:true,on(type,fn){handlers.set(type,fn)},
+    send(data){m.aiPacket(room,data)},
+    close(){m.aiLeave();cleanup();}
+   };
+   bindConn(c);
+   aiUnsub.push(m.on('pvp:aiPacket',packet=>{if(packet.matchId===room)onData(packet.data)}));
+   handlers.get('open')?.();button.disabled=false;
   }));
-  m.aiStart(config.styleB,config.difficultyB,{spectate:true});
+  m.aiStart(config.styleB,config.difficultyB,{spectate:true,localStyle:config.styleA,localDifficulty:config.difficultyA});
  }catch(e){if(requestSeq===aiRequestSeq){stopNet();showLobby(e.message||'관전 시작 실패');}button.disabled=false;}
 }
 function stopAiSpectate(){if(!spectating)return;stopNet();showLobby('AI 관전을 종료했습니다.');}
@@ -6134,6 +6121,11 @@ function onData(m){const previous=receivingPvpVisual;receivingPvpVisual=true;try
 function processPvpData(m){if(!m||typeof m!=='object')return;
  if(conn?.ai&&!window.__AI_LIVE__&&m.t==='aiCountdown'){aiServerCountdown=true;beginAiCountdown();return;}
  if(conn?.ai&&!window.__AI_LIVE__&&m.t==='aiGo'){endAiCountdown();return;}
+ if(spectating&&m.t==='spectatorControl'){
+  const seq=Math.max(0,Math.floor(Number(m.seq)||0)),build=String(m.aiBuild||'');
+  if(seq>spectatorControlSeq&&(!spectatorAiBuild||build===spectatorAiBuild)){spectatorControlSeq=seq;spectatorServerCommand=m.command&&typeof m.command==='object'?m.command:null;}
+  return;
+ }
  if((aiCountdownUntil||aiAwaitStart)&&!['hello','helloAck','ping','pong','rematch','round'].includes(m.t))return;
  const serverAiPeer=!!(conn?.ai&&!window.__AI_LIVE__);
  if((m.t==='hello'||m.t==='helloAck')&&Number.isFinite(Number(m.v))&&Number(m.v)!==PVP_PROTOCOL&&!serverAiPeer){net({t:'protocolMismatch',v:PVP_PROTOCOL});matchPeerError('상대의 PVP 연결 방식이 너무 오래된 버전입니다. 두 플레이어 모두 새로고침 후 다시 매칭해 주세요.');return;}
@@ -7189,9 +7181,8 @@ function updateVoid3PvpExitDash(dt){
 }
 
 function controlSpectatorAi(dt){
- if(!spectating||!spectatorBrain||roundLocked||!me||!enemy)return;
- const skillContext={selfSkills:Array.from({length:5},(_,i)=>pvpSwordSkillAt(i,me)),enemySkills:Array.from({length:5},(_,i)=>pvpSwordSkillAt(i,enemy))};
- const command=spectatorBrain.step(dt,me,enemy,skillContext);if(!command)return;
+ if(!spectating||!spectatorServerCommand||roundLocked||!me||!enemy)return;
+ const command=spectatorServerCommand;
  keys.clear();for(const code of command.keys||[])keys.add(code);
  const a=Number.isFinite(command.aim)?command.aim:Math.atan2(enemy.y-me.y,enemy.x-me.x);
  mouse.active=true;mouse.lastMove=performance.now();me.a=a;
