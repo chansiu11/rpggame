@@ -222,24 +222,24 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   if(block){stats.blocks++;current={keys,aim,block:true,dash:false,basic:false};return current;}
 
   const knowledgeScores=selfMeta.map((meta,i)=>ready[i]?skillUseScore(meta,{distance:d,enemyBlock:awareness.shielding,enemySkillActive:awareness.skillActive,enemySkillIndex:awareness.skillIndex,enemySkillAge:awareness.skillAge,enemyShieldAge:awareness.shieldAge,shieldReleasedAge:awareness.shieldReleasedAge,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||awareness.skillActive,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam}):-1);
-  const bestKnowledge=Math.max(-1,...knowledgeScores);
+  const bestKnowledge=Math.max(-1,...knowledgeScores),comboBuilding=state.comboBasicCount>0&&state.comboBasicCount<4,comboSkillPending=state.comboSkillReady&&state.comboBasicCount>=4;
   const feintScore=out[10]+Math.max(0,predictedBlock)*.22-Math.max(0,bestKnowledge)*.28;
-  const feint=feintScore>.34&&!busy&&bestKnowledge<.68;
-  const stopAttack=out[9]<-.22&&(Number(me?.combo)||0)>0;
+  const feint=feintScore>.34&&!busy&&bestKnowledge<.68&&!comboBuilding&&!comboSkillPending;
+  const stopAttack=out[9]<-.22&&(Number(me?.combo)||0)>0&&!comboBuilding&&!comboSkillPending;
   const comboDrive=(Number(me?.combo)||0)>0?out[17]*.20:0;
   const attackDrive=aggression*.18+out[13]*.20+comboDrive-(feint?.38:0);
   const mistake=!options.training&&random()<settings.mistake;
   if(!busy&&!stopAttack&&!mistake){
    let bestType='none',best=-Infinity,bestSkill=-1;
    const shieldPunishWindow=!awareness.shielding&&awareness.shieldReleasedAge<.42,comboSkillReady=state.comboSkillReady&&state.comboBasicCount>=4;
-   const comboBasicBonus=!comboSkillReady&&state.comboBasicCount<4?.48:0;
+   const comboBasicBonus=!comboSkillReady&&state.comboBasicCount<4?.68:0;
    const basicScore=out[3]+attackDrive+comboBasicBonus-(awareness.shielding?.52:0)+(shieldPunishWindow?.18:0)-(awareness.skillActive&&threat.danger>.45?.28:0);
    if(!comboSkillReady&&d<190&&basicScore>best){best=basicScore;bestType='basic';}
    for(let i=0;i<5;i++)if(ready[i]){
     const knowledge=knowledgeScores[i];
     const shieldBreakBonus=awareness.shielding?(selfMeta[i]?.shieldBreak||0)*.34:0,shieldReleaseBonus=shieldPunishWindow?.12:0;
     const skillCastSafety=awareness.skillActive&&threat.danger>.55&&!(selfMeta[i]?.defensive||0)?-.22:0;
-    const comboSkillBonus=comboSkillReady?.92:-.26;
+    const comboSkillBonus=comboSkillReady?1.12:-.38;
     const score=out[4+i]+attackDrive+knowledge*.52+shieldBreakBonus+shieldReleaseBonus+skillCastSafety+comboSkillBonus;
     if(score>best){best=score;bestType='skill';bestSkill=i;}
    }
