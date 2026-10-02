@@ -9,95 +9,19 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Remove melee basic recovery delay in world and PvP
+      - name: Show current world and PvP basic timing expressions
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          assert 'const BASIC_ATTACK_WINDUP=0;' in s
-          assert 'const PVP_BASIC_WINDUP=0;' in s
-
-          old="player.attackCd=grace?Math.max(player.attackCd,w.cool,windup):Math.max(w.cool,windup);"
-          new="player.attackCd=grace?Math.max(player.attackCd,windup):windup;"
-          assert s.count(old)==1, f'world cooldown assignment count={s.count(old)}'
-          s=s.replace(old,new)
-
-          # Arena basic() has no grace path. Keep bow cooldown, but melee gets only its 0.11 s visible swing as recovery.
-          pvp_patterns=[
-            r"me\.attackCd=Math\.max\(w\.cool,windup\);",
-            r"me\.attackCd=Math\.max\(weaponData\[me\.weapon\]\.cool,windup\);"
-          ]
-          changed=0
-          for pat in pvp_patterns:
-            s,n=re.subn(pat,"me.attackCd=me.weapon===2?Math.max(windup,weaponData[me.weapon].cool):windup;",s,count=1)
-            if n:
-              changed+=n
-              break
-          assert changed==1, 'PVP basic cooldown assignment not found'
-
-          world_old="if(!p.duringSkill&&p.weapon!==2){player.strikePose=p.pose;player.attackDuration=.11;player.attackAnim=.11;}"
-          world_new="if(!p.duringSkill&&p.weapon!==2){player.strikePose=p.pose;player.attackDuration=.11;player.attackAnim=.11;player.attackCd=.11;}"
-          assert s.count(world_old)==1, f'world impact animation count={s.count(world_old)}'
-          s=s.replace(world_old,world_new)
-
-          pvp_old="if(!p.duringSkill&&p.weapon!==2){me.attackDuration=.11;me.attackAnim=.11;}"
-          pvp_new="if(!p.duringSkill&&p.weapon!==2){me.attackDuration=.11;me.attackAnim=.11;me.attackCd=.11;}"
-          assert s.count(pvp_old)==1, f'pvp impact animation count={s.count(pvp_old)}'
-          s=s.replace(pvp_old,pvp_new)
-
-          s,nw=re.subn(r"if\(p\.final&&!p\.duringSkill\)\{player\.exhaust=2;player\.comboTimer=[^;]+;\}","if(p.final&&!p.duringSkill){player.exhaust=0;player.comboTimer=0;}",s,count=1)
-          assert nw==1, 'world fifth-hit recovery not found'
-          s,np=re.subn(r"if\(p\.final&&!p\.duringSkill\)\{me\.exhaust=2;me\.comboTimer=[^;]+;\}","if(p.final&&!p.duringSkill){me.exhaust=0;me.comboTimer=0;}",s,count=1)
-          assert np==1, 'PVP fifth-hit recovery not found'
-
-          p.write_text(s,encoding='utf-8')
+          s=Path('index.html').read_text(encoding='utf-8')
+          for start,end,label in [('function attack(){','function useSkill(','WORLD'),('function basic(){','function potion(){','PVP')]:
+            a=s.index(start); b=s.index(end,a); sec=s[a:b]
+            print('---',label,'---')
+            for part in sec.split(';'):
+              if any(k in part for k in ['attackCd=','exhaust=','attackDuration=','attackAnim=','comboTimer=']):
+                print(part.strip()+';')
           PY
-      - name: Add focused regression test
-        run: |
-          cat > tests/basic-no-delay.test.mjs <<'EOF'
-          import test from 'node:test';
-          import assert from 'node:assert/strict';
-          import fs from 'node:fs';
-          const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
-          test('melee basic attacks have no extra weapon recovery delay',()=>{
-            assert.match(html,/const BASIC_ATTACK_WINDUP=0;/);
-            assert.match(html,/const PVP_BASIC_WINDUP=0;/);
-            assert.match(html,/player\.attackCd=grace\?Math\.max\(player\.attackCd,windup\):windup;/);
-            assert.match(html,/me\.attackCd=me\.weapon===2\?Math\.max\(windup,weaponData\[me\.weapon\]\.cool\):windup;/);
-            assert.match(html,/player\.attackDuration=\.11;player\.attackAnim=\.11;player\.attackCd=\.11;/);
-            assert.match(html,/me\.attackDuration=\.11;me\.attackAnim=\.11;me\.attackCd=\.11;/);
-          });
-          test('fifth melee hit has no exhaust pause',()=>{
-            assert.match(html,/if\(p\.final&&!p\.duringSkill\)\{player\.exhaust=0;player\.comboTimer=0;\}/);
-            assert.match(html,/if\(p\.final&&!p\.duringSkill\)\{me\.exhaust=0;me\.comboTimer=0;\}/);
-          });
-          EOF
-          node --test tests/basic-no-delay.test.mjs
-      - name: Check inline JavaScript syntax
-        run: |
-          node <<'NODE'
-          const fs=require('fs');
-          const html=fs.readFileSync('index.html','utf8');
-          const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].filter(m=>!(/\bsrc\s*=/.test(m[1]||''))).map(m=>m[2]);
-          for(const s of scripts)new Function(s);
-          console.log('inline scripts parsed:',scripts.length);
-          NODE
-      - name: Commit finished change
-        run: |
-          rm .github/workflows/remove-basic-delay-once.yml
-          git config user.name 'chansiu11'
-          git config user.email 'chanjoowill@gmail.com'
-          git add index.html tests/basic-no-delay.test.mjs .github/workflows/remove-basic-delay-once.yml
-          git commit -m 'Remove basic attack recovery delay'
-          git push origin HEAD:main
