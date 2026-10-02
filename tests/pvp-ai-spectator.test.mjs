@@ -57,15 +57,24 @@ test('PVP spectator uses original fighter motion, projectiles, vortex and all ac
  assert.match(pvp,/pvpOwnSnapshot\(\)/);
  assert.match(pvp,/pvpSpectator\.update\(pvpCamera,me,enemy,dt,W,H,ARENA_W,ARENA_H\)/);
 });
-test('both spectator bots receive the same current skill-aware decision path',()=>{
+test('both spectator bots are driven by the exact same server brain build',()=>{
  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const spectator=fs.readFileSync(new URL('../pvp-ai-spectator.js',import.meta.url),'utf8');
+ const worker=fs.readFileSync(new URL('../multiplayer-server/ai/live-worker.js',import.meta.url),'utf8');
+ const service=fs.readFileSync(new URL('../multiplayer-server/ai/live-service.js',import.meta.url),'utf8');
  const pvp=html.split('<script>')[2]?.split('</script>')[0]||'';
- assert.match(spectator,/brain\.js\?v=20261002-dual-bot-skill-11/,'browser-side AI must use the current shared brain build');
- assert.match(html,/pvp-ai-spectator\.js\?v=20261002-dual-bot-skill-11/,'spectator controller cache must be busted with the matching build');
- assert.match(pvp,/const skillContext=\{selfSkills:Array\.from\(\{length:5\},\(_,i\)=>pvpSwordSkillAt\(i,me\)\),enemySkills:Array\.from\(\{length:5\},\(_,i\)=>pvpSwordSkillAt\(i,enemy\)\)\}/);
- assert.match(pvp,/spectatorBrain\.step\(dt,me,enemy,skillContext\)/,'AI 1 must receive real skill metadata just like server-side AI 2');
- assert.match(pvp,/browserBuild!==serverBuild/,'AI-vs-AI must refuse to start when the browser and server brains differ');
+ assert.doesNotMatch(spectator,/import\([^\n]*brain\.js/,'spectator browser must not create its own AI brain');
+ assert.match(html,/pvp-ai-spectator\.js\?v=20261002-server-dual-brain-13/);
+ assert.match(html,/multiplayer-client\.js\?v=20261002-server-dual-brain-13/);
+ assert.match(pvp,/spectatorServerCommand/);
+ assert.match(pvp,/localStyle:config\.styleA,localDifficulty:config\.difficultyA/);
+ assert.doesNotMatch(pvp,/spectatorBrain\.step/,'AI 1 decisions must come from the server worker');
+ assert.match(worker,/createBrain\(workerData\.style/);
+ assert.match(worker,/createBrain\(workerData\.localStyle/);
+ assert.match(worker,/t:'spectatorControl'/);
+ assert.match(worker,/aiBuild:AI_BRAIN_BUILD/);
+ assert.match(service,/localStyle/);
+ assert.match(service,/String\(data\.aiBuild\|\|AI_BRAIN_BUILD\)/);
 });
 test('AI-vs-AI refuses to start unless both fighters expose five real skills',()=>{
  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
@@ -78,7 +87,7 @@ test('new AI spectator match shares trained policy and receives reliable opponen
  const events=[],service=createAiService((ws,m,opts)=>events.push({msg:m,opts}));
  const player={id:'spectate-test',clientMode:'pvp',level:100,ws:{}};
  try{
-  service.handle(player,{type:'pvp:aiStart',style:'dawn',difficulty:5,spectate:true});
+  service.handle(player,{type:'pvp:aiStart',style:'dawn',difficulty:5,spectate:true,localStyle:'gale',localDifficulty:4});
   const ready=await new Promise((resolve,reject)=>{
    const timer=setTimeout(()=>reject(Error('AI spectator worker initialization timeout')),12000);
    const poll=setInterval(()=>{
@@ -89,7 +98,8 @@ test('new AI spectator match shares trained policy and receives reliable opponen
   assert.equal(ready.msg.spectate,true);
   assert.equal(ready.msg.style,'dawn');
   assert.equal(ready.msg.difficulty,5);
-  assert.equal(ready.msg.aiBuild,'20261002-dual-bot-skill-11');
+  assert.equal(ready.msg.localStyle,'gale');assert.equal(ready.msg.localDifficulty,4);
+  assert.equal(ready.msg.aiBuild,'20261002-server-dual-brain-13');
   assert.equal(ready.msg.policy.schema,2);assert.equal(ready.msg.policy.model,'mlp-es-v1');assert.ok(ready.msg.policy.styles.dawn.network.w1.length>0);
  }finally{service.leave(player)}
 });
