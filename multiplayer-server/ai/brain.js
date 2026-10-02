@@ -132,7 +132,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
  const noiseSeed=Number.isInteger(options.noiseSeed)?options.noiseSeed>>>0:null;
  const network=noiseSeed===null?base.network:perturbNetwork(base.network,noiseSeed,base.sigma);
  const training={noiseSeed,sigma:base.sigma};
- const state={previous:null,enemyVx:0,enemyVy:0,attackEma:0,blockEma:0,dashEma:0,skillEma:0,enemyShielding:false,enemyShieldAge:0,enemyShieldReleaseAge:99,enemySkillActive:false,enemySkillAge:0,enemySkillIndex:-1,enemySkillEndedAge:99,comboBasicCount:0,lastBasicSeq:0,comboSkillReady:false,enemySkillDodgeUsed:false};
+ const state={previous:null,enemyVx:0,enemyVy:0,attackEma:0,blockEma:0,dashEma:0,skillEma:0,enemyShielding:false,enemyShieldAge:0,enemyShieldReleaseAge:99,enemySkillActive:false,enemySkillAge:0,enemySkillIndex:-1,enemySkillEndedAge:99,comboBasicCount:0,lastBasicSeq:0,comboSkillReady:false,enemySkillDodgeUsed:false,comboStallAge:0};
  let hold=-1,holdAge=0,dodgeLock=0,side=random()<.5?-1:1,moonShiftReleasePending=false;
  const stats={decisions:0,blocks:0,dodges:0,skills:0,basics:0,feints:0,releases:0,skillAwareChoices:0,threatDodges:0,enemySkillFrames:0,enemyShieldFrames:0,shieldPunishes:0,fourHitComboSkills:0};
  let current={keys:[],aim:0,block:false,dash:false,basic:false};
@@ -142,8 +142,9 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const dx=(Number(enemy?.x)||0)-(Number(me?.x)||0),dy=(Number(enemy?.y)||0)-(Number(me?.y)||0),d=Math.max(1,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);
   const ready=readySkills(me,style),selfSkills=Array.isArray(combatContext?.selfSkills)?combatContext.selfSkills:me?.swordSkills,enemySkills=Array.isArray(combatContext?.enemySkills)?combatContext.enemySkills:enemy?.swordSkills;
   const basicSeq=Math.max(0,Math.floor(Number(me?.basicSeq)||0));
+  state.comboStallAge=state.comboBasicCount<4?Math.min(4,(state.comboStallAge||0)+dt):0;
   if(basicSeq>0&&basicSeq!==state.lastBasicSeq){
-   state.lastBasicSeq=basicSeq;state.comboBasicCount=Math.min(4,state.comboBasicCount+1);
+   state.lastBasicSeq=basicSeq;state.comboBasicCount=Math.min(4,state.comboBasicCount+1);state.comboStallAge=0;
    if(state.comboBasicCount>=4)state.comboSkillReady=true;
   }else if(basicSeq===0&&state.lastBasicSeq>0&&!Number(me?.attackAnim)){
    state.lastBasicSeq=0;
@@ -160,7 +161,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   }
   state.enemyShielding=enemyShielding;state.enemySkillActive=enemySkillActive;
   const selfMeta=analyzeLoadout(selfSkills),enemyMeta=analyzeLoadout(enemySkills),activeMeta=enemySkillIndex>=0?enemyMeta[enemySkillIndex]:null;
-  const awareness={skillActive:enemySkillActive,skillIndex:enemySkillIndex,skillId:String(activeMeta?.id||enemy?.skillId||''),skillName:String(activeMeta?.name||''),skillAge:state.enemySkillAge,skillEndedAge:state.enemySkillEndedAge,shielding:enemyShielding,shieldAge:state.enemyShieldAge,shieldReleasedAge:state.enemyShieldReleaseAge,comboBasicCount:state.comboBasicCount,comboSkillReady:state.comboSkillReady};
+  const awareness={skillActive:enemySkillActive,skillIndex:enemySkillIndex,skillId:String(activeMeta?.id||enemy?.skillId||''),skillName:String(activeMeta?.name||''),skillAge:state.enemySkillAge,skillEndedAge:state.enemySkillEndedAge,shielding:enemyShielding,shieldAge:state.enemyShieldAge,shieldReleasedAge:state.enemyShieldReleaseAge,comboBasicCount:state.comboBasicCount,comboSkillReady:state.comboSkillReady,comboStallAge:state.comboStallAge};
   lastAwareness=awareness;
   const threat=activeSkillThreat(enemy,enemyMeta,d);
   const features=makeFeatures(state,me,enemy,holdAge,ready,dt,style),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
@@ -239,6 +240,24 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
 
   const knowledgeScores=selfMeta.map((meta,i)=>ready[i]?skillUseScore(meta,{distance:d,enemyBlock:awareness.shielding,enemySkillActive:awareness.skillActive,enemySkillIndex:awareness.skillIndex,enemySkillAge:awareness.skillAge,enemyShieldAge:awareness.shieldAge,shieldReleasedAge:awareness.shieldReleasedAge,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||awareness.skillActive,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam}):-1);
   const bestKnowledge=Math.max(-1,...knowledgeScores);
+  // If the four-basic chain cannot progress for a while (for example because the
+  // opponent keeps casting or kiting), use a real skill to break the stalemate,
+  // then restart the 4-basic -> skill chain. This prevents one spectator bot from
+  // becoming a permanent dodge-only fighter.
+  const comboStalled=state.comboBasicCount<4&&state.comboStallAge>=.85,canCounterSkill=!busy&&(Number(me?.dash)||0)<=0;
+  if(comboStalled&&canCounterSkill){
+   let fallbackSkill=-1,fallbackScore=-Infinity;
+   for(let i=0;i<5;i++)if(ready[i]){
+    const meta=selfMeta[i],score=knowledgeScores[i]+(awareness.skillActive?(meta?.defensive||0)*.22+(meta?.mobility||0)*.16+(meta?.tracking||0)*.08:0)+(d>180?(meta?.projectile||0)*.14+(meta?.mobility||0)*.10:0);
+    if(score>fallbackScore){fallbackScore=score;fallbackSkill=i;}
+   }
+   if(fallbackSkill>=0&&fallbackScore>-.20){
+    stats.skills++;stats.skillAwareChoices++;state.comboBasicCount=0;state.comboSkillReady=false;state.comboStallAge=0;
+    aim=leadAim(selfMeta[fallbackSkill],aim,state.enemyVx,state.enemyVy,d);
+    if(style==='moon'&&fallbackSkill===0)moonShiftReleasePending=true;else{hold=fallbackSkill;holdAge=0;}
+    current={keys,aim,block:false,dash:false,basic:false,skill:fallbackSkill};return current;
+   }
+  }
   // Four-basic combo mode: count four actual basic activations (not only confirmed hits),
   // then choose a skill instead of a fifth basic. This keeps both bots able to progress
   // their combo even when the opponent blocks or dodges one of the four swings.
@@ -261,7 +280,7 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
    }
    if(comboSkill>=0){
     stats.skills++;stats.skillAwareChoices++;stats.fourHitComboSkills++;
-    state.comboBasicCount=0;state.comboSkillReady=false;
+    state.comboBasicCount=0;state.comboSkillReady=false;state.comboStallAge=0;
     aim=leadAim(selfMeta[comboSkill],aim,state.enemyVx,state.enemyVy,d);
     if(style==='moon'&&comboSkill===0)moonShiftReleasePending=true;else{hold=comboSkill;holdAge=0;}
     current={keys,aim,block:false,dash:false,basic:false,skill:comboSkill};return current;
