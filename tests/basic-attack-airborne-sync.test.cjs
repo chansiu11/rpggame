@@ -44,7 +44,10 @@ test('PVP basic animation sync advances by attack stage instead of rewinding on 
  enemy.attackAnim=.06;
  sync(enemy,{basicSeq:11,basicStage:2,basicVisual:.09,attackAnim:.10,attackDuration:.11});
  assert.equal(enemy.attackAnim,.06,'repeated impact packets must not rewind the strike pose');
- assert.ok(html.includes("const netStep=pvpRoute==='DIRECT'?1/60:pvpRoute==='RELAY'?.025:.02;"),'existing DIRECT/RELAY state packet cadence must remain unchanged');
+ assert.ok(html.includes("const netStep=pvpStateInterval();"),'PVP state cadence must use the adaptive congestion-aware scheduler');
+ assert.ok(html.includes("if(pvpRoute==='DIRECT')return 1/60;"),'DIRECT PVP keeps full 60 Hz state updates');
+ assert.ok(html.includes("if(pvpRoute==='RELAY')return ping>160?1/30:ping>90?1/36:.025;"),'RELAY PVP reduces state pressure only when RTT rises');
+ assert.ok(html.includes("...pvpHongFxStateField()"),'large Hongryeon recovery data must not ride on every state packet');
  assert.ok(html.includes("if(pingAt<=0&&conn?.open){pingAt=1;net({t:'ping',n:performance.now()})}"),'existing ping probe cadence must remain unchanged');
 });
 test('PVP basic renderer freezes each strike pose and facing until its visual ends',()=>{
