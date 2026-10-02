@@ -57,6 +57,15 @@ test('PVP spectator uses original fighter motion, projectiles, vortex and all ac
  assert.match(pvp,/pvpOwnSnapshot\(\)/);
  assert.match(pvp,/pvpSpectator\.update\(pvpCamera,me,enemy,dt,W,H,ARENA_W,ARENA_H\)/);
 });
+test('both spectator bots receive the same current skill-aware decision path',()=>{
+ const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ const spectator=fs.readFileSync(new URL('../pvp-ai-spectator.js',import.meta.url),'utf8');
+ const pvp=html.split('<script>')[2]?.split('</script>')[0]||'';
+ assert.match(spectator,/brain\.js\?v=20261002-skill-aware-combo-3/,'browser-side AI must not reuse an older cached brain module');
+ assert.match(html,/pvp-ai-spectator\.js\?v=20261002-skill-aware-combo-3/,'spectator controller cache must be busted with the matching build');
+ assert.match(pvp,/const skillContext=\{selfSkills:Array\.from\(\{length:5\},\(_,i\)=>pvpSwordSkillAt\(i,me\)\),enemySkills:Array\.from\(\{length:5\},\(_,i\)=>pvpSwordSkillAt\(i,enemy\)\)\}/);
+ assert.match(pvp,/spectatorBrain\.step\(dt,me,enemy,skillContext\)/,'AI 1 must receive real skill metadata just like server-side AI 2');
+});
 test('new AI spectator match shares trained policy and receives reliable opponent state',{timeout:15000},async()=>{
  const events=[],service=createAiService((ws,m,opts)=>events.push({msg:m,opts}));
  const player={id:'spectate-test',clientMode:'pvp',level:100,ws:{}};
