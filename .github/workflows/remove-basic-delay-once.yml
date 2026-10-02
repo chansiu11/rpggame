@@ -1,4 +1,4 @@
-name: Remove basic attack delay once
+name: Inspect knockback snapback
 
 on:
   push:
@@ -13,9 +13,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Show exact basic timing lines
+      - name: Inspect shared-world and arena knockback paths
         run: |
-          echo '--- attackCd ---'
-          grep -n "attackCd=" index.html | head -80 || true
-          echo '--- pending basic ---'
-          grep -n -E "pendingBasic|pendingBasicAttack|exhaust=2|comboTimer=.12" index.html | head -120 || true
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          names=['applyWorldCombatResult','worldTargetControl','previewWorldControl','forceEnemyTo','receiveAttack','update']
+          for name in names:
+            marker='function '+name+'('
+            a=s.find(marker)
+            if a<0:
+              print('\n=== MISSING',name,'===')
+              continue
+            b=s.find('\nfunction ',a+len(marker))
+            if b<0:b=min(len(s),a+12000)
+            print('\n===',name,'===')
+            print(s[a:min(b,a+12000)])
+          print('\n=== force/sync grep ===')
+          for i,line in enumerate(s.splitlines(),1):
+            if any(k in line for k in ['forceDelta','forceDeltaAck','hitForce','knockState','forcedMove','forceTrack','remoteForce','player:self','world:combatResult']):
+              print(f'{i}:{line}')
+          PY
+      - name: Run knockback regressions
+        run: |
+          cd multiplayer-server && npm ci --no-audit --no-fund && cd ..
+          node --test tests/combat-latency.test.mjs tests/world-combat.test.mjs tests/gale-control-regression.test.cjs tests/pvp-relay-runtime.test.cjs
