@@ -47,7 +47,7 @@ test('two real clients enter arena without PeerJS, exchange packets, reject outs
   assert.ok(Math.hypot(fighter.x-landing.x,fighter.y-landing.y)<.01,'release stays at landing');
   qa.onData({t:'vortexLaunch',x:25,y:25,tx:100,ty:100,duration:.5});assert.equal(qa.enemy.remoteForce,null);
   qa.resetRound();
-  let states=0;const relaySend=a.c.EchoesMulti.pvpRelaySend;a.c.EchoesMulti.pvpRelaySend=(id,data)=>{if(data.t==='state')states++;return relaySend(id,data);};for(let i=0;i<60;i++)a.c.arenaTest.update(1/60);assert.ok(states>=49&&states<=51,'60 FPS must retain the 50Hz schedule: '+states);a.c.EchoesMulti.pvpRelaySend=relaySend;
+  let states=0;const relaySend=a.c.EchoesMulti.pvpRelaySend;a.c.EchoesMulti.pvpRelaySend=(id,data)=>{if(data.t==='state')states++;return relaySend(id,data);};for(let i=0;i<60;i++)a.c.arenaTest.update(1/60);assert.ok(states>=39&&states<=41,'60 FPS relay should use the uncongested 40Hz schedule: '+states);a.c.EchoesMulti.pvpRelaySend=relaySend;
   a.c.arenaTest.net({t:'state',x:800,y:900,hp:456,shield:10,stam:30});await waitFor(()=>b.c.arenaTest.enemy.hp===456);assert.equal(b.c.arenaTest.enemy.netX,800);
   // Generated random particles and geometric effects must be identical on both peers.
   const aFx=a.c.arenaTest.effects.length,bFx=b.c.arenaTest.effects.length;
@@ -71,11 +71,11 @@ test('PVP state compression and backpressure preserve critical packets',()=>{
  const state={t:'state',x:1234.1234567890123,y:2345.2345678901234,vx:177.1234567890123,vy:23.1234567890123,a:1.234567890123456,hp:2999.1234567890123,stam:123.1234567890123,attackAnim:.1234567890123};
  c.EchoesMulti.pvpRelaySend('test',state);const full=JSON.stringify({type:'pvp:relay',matchId:'test',data:state}).length,packed=sent[0].length;assert.ok(packed<full*.75);console.log('state packet bytes',full,'->',packed);
  assert.equal(JSON.parse(sent[0]).data.x,1234.123);assert.equal(state.x,1234.1234567890123);
- socket.bufferedAmount=9000;assert.equal(c.EchoesMulti.pvpRelaySend('test',state),false);
+ socket.bufferedAmount=5000;assert.equal(c.EchoesMulti.pvpRelaySend('test',state),false);
  const attack={t:'atk',d:123.123456789,x:1234.123456789};assert.equal(c.EchoesMulti.pvpRelaySend('test',attack),true);assert.equal(JSON.parse(sent.at(-1)).data.d,attack.d);
 });
 test('relay drops stale state under congestion but still delivers attacks',async()=>{
- const {createPvpRelay}=await import('../multiplayer-server/pvp-relay.js');const sent=[],players=new Map(),a={id:'a',clientMode:'pvp',ws:{bufferedAmount:0}},b={id:'b',clientMode:'pvp',ws:{bufferedAmount:9000}};players.set(a.id,a);players.set(b.id,b);const relay=createPvpRelay(players,(ws,msg)=>sent.push(msg));relay.create('match',a,b);for(const p of [a,b])relay.handle(p,{type:'pvp:relayReady',matchId:'match'},100);sent.length=0;
+ const {createPvpRelay}=await import('../multiplayer-server/pvp-relay.js');const sent=[],players=new Map(),a={id:'a',clientMode:'pvp',ws:{bufferedAmount:0}},b={id:'b',clientMode:'pvp',ws:{bufferedAmount:5000}};players.set(a.id,a);players.set(b.id,b);const relay=createPvpRelay(players,(ws,msg)=>sent.push(msg));relay.create('match',a,b);for(const p of [a,b])relay.handle(p,{type:'pvp:relayReady',matchId:'match'},100);sent.length=0;
  relay.handle(a,{type:'pvp:relay',matchId:'match',data:{t:'state',x:123}},100);assert.equal(sent.length,0);
  relay.handle(a,{type:'pvp:relay',matchId:'match',data:{t:'atk',d:50}},100);assert.equal(sent[0].data.t,'atk');
  relay.handle(a,{type:'pvp:relay',matchId:'match',data:{t:'atk',d:999}},70000);assert.equal(sent.length,1);relay.leave(a);
