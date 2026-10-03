@@ -1,0 +1,32 @@
+name: PVP force sync
+on:
+  push:
+    paths:
+      - 'index.html'
+      - 'pvp-transport.js'
+      - 'tests/pvp-transport.test.cjs'
+      - 'tests/pvp-force-ordering.test.cjs'
+      - 'tests/pvp-knockback-snapback.test.cjs'
+      - '.github/workflows/pvp-force-sync.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'pvp-transport.js'
+      - 'tests/pvp-transport.test.cjs'
+      - 'tests/pvp-force-ordering.test.cjs'
+      - 'tests/pvp-knockback-snapback.test.cjs'
+      - '.github/workflows/pvp-force-sync.yml'
+  workflow_dispatch:
+concurrency:
+  group: pvp-force-sync-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  force-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/pvp-transport.test.cjs tests/pvp-force-ordering.test.cjs tests/pvp-knockback-snapback.test.cjs
