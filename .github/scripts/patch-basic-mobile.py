@@ -46,7 +46,6 @@ css = r'''/* Mobile PVP controls */
 @media (pointer:fine) and (min-width:901px){#pvpTouch{display:none!important}}
 @media (max-height:560px){#pvpTouchStick{width:104px;height:104px;left:10px;bottom:10px}#pvpTouchKnob{width:46px;height:46px;margin:-23px}#pvpTouchActions{right:8px;bottom:8px;grid-template-columns:repeat(3,51px);gap:5px}#pvpTouchActions button{height:44px}#pvpTouch button[data-pvp-touch="attack"]{height:93px}#pvpTouchSkills{right:8px;bottom:110px;grid-template-columns:repeat(5,43px);gap:4px}#pvpTouchSkills button{height:40px}.pvp-cooldowns{bottom:160px}}
 #pvpLayer.spectating #pvpTouch{display:none!important}
-*/
 '''
 repl(css_marker, css + css_marker, label='pvp touch css')
 
