@@ -2,7 +2,7 @@
 'use strict';
 // Match-authenticated relay remains available throughout optional direct negotiation.
 window.EchoesPvpTransport={create({host,relaySend,onData,onStatus=()=>{}}){
- let pc=null,reliable=null,states=null,closed=false,resetting=false,directRtt=Infinity,relayRtt=Infinity,directAt=0,retryAt=0,serial=0,received=0,signalChain=Promise.resolve(),offerBusy=false;
+ let pc=null,reliable=null,states=null,closed=false,resetting=false,directRtt=Infinity,relayRtt=Infinity,directAt=0,retryAt=0,serial=0,received=0,reliableFloor=0,signalChain=Promise.resolve(),offerBusy=false;
  const pendingIce=[],probes=new Map(),pending=new Map(),seen=new Set();
  const ICE_SERVERS=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:stun2.l.google.com:19302'},{urls:'stun:stun3.l.google.com:19302'}];
  const clock=()=>performance.now(),smooth=(old,ms)=>Number.isFinite(old)?old*.72+ms*.28:ms;
@@ -11,11 +11,11 @@ window.EchoesPvpTransport={create({host,relaySend,onData,onStatus=()=>{}}){
  function receive(data,path){
   if(closed||!data||typeof data!=='object')return;
   if(data.t==='routeAck'){pending.delete(data.id);return;}
-  if(data.t==='routeData'){raw({t:'routeAck',id:data.id},path);if(seen.has(data.id))return;seen.add(data.id);if(seen.size>2048)seen.delete(seen.values().next().value);receive(data.data,path);return;}
+  if(data.t==='routeData'){raw({t:'routeAck',id:data.id},path);if(seen.has(data.id))return;seen.add(data.id);if(seen.size>2048)seen.delete(seen.values().next().value);if(Number.isSafeInteger(data.id))reliableFloor=Math.max(reliableFloor,data.id);receive(data.data,path);return;}
   if(data.t==='rtcSignal'){if(path==='relay')signal(data.signal);return;}
   if(data.t==='routeProbe'){raw({t:'routePong',id:data.id},path);return;}
   if(data.t==='routePong'){const probe=probes.get(data.id);if(!probe||probe.path!==path)return;probes.delete(data.id);const ms=clock()-probe.at;if(path==='direct'){directRtt=smooth(directRtt,ms);directAt=clock();}else relayRtt=smooth(relayRtt,ms);onStatus(useDirect()?'DIRECT':'RELAY');return;}
-  if(data.t==='state'&&Number.isSafeInteger(data.routeSeq)){if(data.routeSeq<=received)return;received=data.routeSeq;}
+  if(data.t==='state'&&Number.isSafeInteger(data.routeSeq)){if(data.routeSeq<=received||data.routeSeq<=reliableFloor)return;received=data.routeSeq;}
   onData(data);
  }
  function probe(path){const id=path+':'+(++serial);probes.set(id,{at:clock(),path});raw({t:'routeProbe',id},path);}
