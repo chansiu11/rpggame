@@ -4,17 +4,21 @@ on:
     paths:
       - 'index.html'
       - 'pvp-transport.js'
+      - 'multiplayer-server/world-combat.js'
       - 'tests/pvp-transport.test.cjs'
       - 'tests/pvp-force-ordering.test.cjs'
       - 'tests/pvp-knockback-snapback.test.cjs'
+      - 'tests/knockback-settle.test.mjs'
       - '.github/workflows/pvp-force-sync.yml'
   pull_request:
     paths:
       - 'index.html'
       - 'pvp-transport.js'
+      - 'multiplayer-server/world-combat.js'
       - 'tests/pvp-transport.test.cjs'
       - 'tests/pvp-force-ordering.test.cjs'
       - 'tests/pvp-knockback-snapback.test.cjs'
+      - 'tests/knockback-settle.test.mjs'
       - '.github/workflows/pvp-force-sync.yml'
   workflow_dispatch:
 concurrency:
@@ -29,4 +33,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/pvp-transport.test.cjs tests/pvp-force-ordering.test.cjs tests/pvp-knockback-snapback.test.cjs
+      - run: node --test tests/pvp-transport.test.cjs tests/pvp-force-ordering.test.cjs tests/pvp-knockback-snapback.test.cjs tests/knockback-settle.test.mjs
