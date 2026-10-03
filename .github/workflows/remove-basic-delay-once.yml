@@ -1,4 +1,4 @@
-name: Patch basic visuals and mobile PVP once
+name: Clean and verify mobile PVP patch
 
 on:
   push:
@@ -9,26 +9,28 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Patch index
-        run: python3 .github/scripts/patch-basic-mobile.py
-      - name: Verify JavaScript
+      - name: Clean CSS marker
+        run: python3 .github/scripts/cleanup-pvp-mobile-css.py
+      - name: Verify world and PVP controls
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
           checks={
-            'windup visuals removed': s.count('const basicWindupVisual=false;') >= 2,
+            'world+pvp windup visuals removed': s.count('const basicWindupVisual=false;') >= 2,
             'world touch attack retained': "function basicAttackHeld(){return mouse.down||touchAttackPointer!==null||keys.has('KeyZ');}" in s,
-            'pvp touch attack': "function pvpBasicHeld(){return mouse.down||pvpTouchAttack||keys.has(pkey('KeyZ'));}" in s,
+            'pvp touch attack hold': "function pvpBasicHeld(){return mouse.down||pvpTouchAttack||keys.has(pkey('KeyZ'));}" in s,
             'pvp joystick': 'id="pvpTouchStick"' in s and 'pvpTouchMove.x' in s,
-            'pvp skill buttons': all(f'data-pvp-touch="skill{i}"' in s for i in range(5)),
+            'pvp actions': all(f'data-pvp-touch="{x}"' in s for x in ['attack','dash','shield','sprint','potion']),
+            'pvp skills 1-5': all(f'data-pvp-touch="skill{i}"' in s for i in range(5)),
+            'no stray terminator': '#pvpLayer.spectating #pvpTouch{display:none!important}\n*/\n/* Compact combat HUD' not in s,
           }
           print(checks)
           if not all(checks.values()): raise SystemExit('verification failed')
@@ -40,15 +42,15 @@ jobs:
           for(const m of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)){if(/\bsrc\s*=/.test(m[1]))continue;const js=m[2].trim();if(js){new Function(js);n++;}}
           console.log('inline scripts parsed:',n);
           NODE
-      - name: Commit patched game
+      - name: Commit cleanup
         shell: bash
         run: |
           if git diff --quiet -- index.html; then
-            echo 'No index.html changes to commit.'
+            echo 'No index.html cleanup needed.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git commit -m 'Fix basic attack animation and add mobile PVP controls'
+          git commit -m 'Clean mobile PVP CSS and verify controls'
           git push
