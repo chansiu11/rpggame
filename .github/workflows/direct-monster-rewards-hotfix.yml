@@ -1,0 +1,136 @@
+name: Direct monster reward hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/direct-monster-rewards-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch direct monster rewards
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          index_path=Path('index.html')
+          server_path=Path('multiplayer-server/server.js')
+          index=index_path.read_text(encoding='utf-8')
+          server=server_path.read_text(encoding='utf-8')
+
+          def once(src, old, new, label):
+              count=src.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              return src.replace(old,new,1)
+
+          index=once(index,
+          "function dropMonsterLoot(x,y,kind,amount=1,serverConfirmed=false){return dropLoot(x,y,kind,amount,null,serverConfirmed,Date.now()+300000);}",
+          """function grantMonsterLoot(kind,amount=1,x=player.x,y=player.y){
+ const names={gold:'골드',ore:'별철 광석',herb:'약초',potion:'회복약'};amount=Math.max(0,Math.floor(Number(amount)||0));if(!amount)return 0;let gained=amount;
+ if(kind==='potion'){const before=player.potions;player.potions=Math.min(8,player.potions+amount);gained=player.potions-before;}
+ else if(kind==='gold')player.gold+=amount;else if(kind==='ore')player.ore+=amount;else if(kind==='herb')player.herbs+=amount;else return 0;
+ if(gained<=0)return 0;toast('<b>'+names[kind]+' 획득</b> × '+gained);sound('gather');flourish(x,y,'#f1d890',38,0);updateHUD();saveGame(false);return gained;
+}
+function dropMonsterLoot(x,y,kind,amount=1,serverConfirmed=false){return grantMonsterLoot(kind,amount,x,y);}""",
+          'monster loot direct grant')
+
+          old_restore="function restoreLoot(data){if(!Array.isArray(data))return;for(const o of data.slice(0,1000)){if(!o||!['gold','ore','herb','potion'].includes(o.lootKind)||!Number.isFinite(o.x)||!Number.isFinite(o.y)||!Number.isFinite(o.amount)||o.amount<=0)continue;dropLoot(clamp(o.x,65,WORLD.w-65),clamp(o.y,65,WORLD.h-65),o.lootKind,Math.floor(clamp(o.amount,1,1e6)));}}"
+          index=once(index,old_restore,"function restoreLoot(data){prepareLoot();}",'disable saved floor loot restore')
+
+          old_loot='loot:objects.filter(o=>o.type==="loot"&&!o.fixed).map(({x,y,lootKind,amount})=>({x,y,lootKind,amount})),savedAt:'
+          index=once(index,old_loot,'loot:[],savedAt:','stop saving floor loot')
+
+          old_load='resetWorldState();restoreLoot(data.loot);if(solidAt(player.x,player.y,player.r))'
+          index=once(index,old_load,'resetWorldState();if(solidAt(player.x,player.y,player.r))','stop loading legacy floor loot')
+
+          old_reset="function resetWorldState(keepLoot=false){const remaining=keepLoot?objects.filter(o=>o.type==='loot'&&!o.fixed).map(({x,y,lootKind,amount})=>({x,y,lootKind,amount})):[];prepareLoot();if(keepLoot)restoreLoot(remaining);"
+          index=once(index,old_reset,"function resetWorldState(keepLoot=false){prepareLoot();",'clear floor loot on world reset')
+
+          server=once(server,
+          "const SERVER_BUILD = '2026-10-02-pvp-basic-v4';",
+          "const SERVER_BUILD = '2026-10-12-direct-monster-rewards-1';",
+          'server build marker')
+
+          server=once(server,
+          "function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:worldSnapshot.items||[],updatedAt:Date.now(),revision:worldRevision,serverBuild:SERVER_BUILD,resetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION};}",
+          "function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:[],updatedAt:Date.now(),revision:worldRevision,serverBuild:SERVER_BUILD,resetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION};}",
+          'server snapshot floor loot removal')
+
+          server=once(server,
+          "function handleWorldSnapshot(player,msg){if(player.id!==worldLeaderId)return;const clean=sanitizeWorldSnapshot({items:msg.items});worldSnapshot.items=clean.items;worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=++worldRevision;broadcast({type:'world:snapshot',snapshot:serverWorldSnapshot()});}",
+          "function handleWorldSnapshot(player,msg){if(player.id!==worldLeaderId)return;worldSnapshot.items=[];worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=++worldRevision;broadcast({type:'world:snapshot',snapshot:serverWorldSnapshot()});}",
+          'ignore client floor loot snapshots')
+
+          old_spawn="""function handleItemSpawn(player,msg){
+  const raw=msg.item||{},item={
+    id:String(raw.id||'').slice(0,70),type:String(raw.type||'loot').slice(0,30),
+    x:clamp(raw.x,0,WORLD.width),y:clamp(raw.y,0,WORLD.height),
+    lootKind:String(raw.lootKind||'').slice(0,30),amount:clamp(raw.amount,1,999999),fixed:!!raw.fixed
+  };
+  if(!item.id||takenItems.has(item.id))return;
+  const i=worldSnapshot.items.findIndex(o=>o.id===item.id);
+  if(i>=0)worldSnapshot.items[i]=item;else worldSnapshot.items.push(item);
+  broadcast({type:'world:itemSpawn',item});
+}"""
+          server=once(server,old_spawn,"function handleItemSpawn(player,msg){return;}",'disable shared floor item spawn')
+
+          index_path.write_text(index,encoding='utf-8')
+          server_path.write_text(server,encoding='utf-8')
+
+          test=Path('tests/direct-monster-rewards.test.mjs')
+          test.write_text("""import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const server=fs.readFileSync(new URL('../multiplayer-server/server.js',import.meta.url),'utf8');
+test('monster loot is granted directly instead of spawning ground loot',()=>{
+ assert.match(html,/function grantMonsterLoot\(/);
+ assert.match(html,/function dropMonsterLoot\([^)]*\)\{return grantMonsterLoot\(kind,amount,x,y\);\}/);
+ assert.doesNotMatch(html,/function dropMonsterLoot\([^}]*dropLoot\(/);
+});
+test('legacy floor loot is neither saved nor restored',()=>{
+ assert.match(html,/loot:\[\],savedAt:/);
+ assert.doesNotMatch(html,/resetWorldState\(\);restoreLoot\(data\.loot\)/);
+ assert.match(html,/function resetWorldState\(keepLoot=false\)\{prepareLoot\(\);/);
+});
+test('shared server no longer distributes ground loot objects',()=>{
+ assert.match(server,/function serverWorldSnapshot\(\)\{return \{ready:mobsBootstrapped,mobs:mobSnapshot\(\),items:\[\]/);
+ assert.match(server,/function handleItemSpawn\(player,msg\)\{return;\}/);
+ assert.match(server,/2026-10-12-direct-monster-rewards-1/);
+});
+""",encoding='utf-8')
+          PY
+      - name: Validate scripts and reward behavior
+        shell: bash
+        run: |
+          node --test tests/direct-monster-rewards.test.mjs
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('index.html','utf8');
+          const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].filter(m=>!(/\bsrc\s*=/.test(m[1]||''))).map(m=>m[2]);
+          for(let i=0;i<scripts.length;i++){
+            try{new Function(scripts[i]);}
+            catch(e){console.error('inline script syntax failure',i,e);process.exit(1);}
+          }
+          console.log('inline scripts parsed:',scripts.length);
+          NODE
+          node --check multiplayer-server/server.js
+      - name: Commit verified hotfix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/direct-monster-rewards-hotfix.yml
+          git add index.html multiplayer-server/server.js tests/direct-monster-rewards.test.mjs
+          git commit -m 'Grant monster rewards directly to attacker'
+          git push origin HEAD:main
