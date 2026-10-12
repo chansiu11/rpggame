@@ -21,7 +21,7 @@ const PLAYER_LIST_MS = 2000;
 const NORMAL_MOB_RESPAWN_MS = 30 * 1000;
 const MAX_SOCKET_BUFFER = 64 * 1024;
 const SPAWN_LAYOUT_VERSION = 'regional-clusters-v8-player-balance';
-const SERVER_BUILD = '2026-10-02-pvp-basic-v4';
+const SERVER_BUILD = '2026-10-12-direct-monster-rewards-1';
 const STYLE_ADEPT_RECAST_MS = 1250;
 const STYLE_ADEPT_DAMAGE_SCALE = .725;
 const PLAYER_REFERENCE_BASE_HP = 100;
@@ -339,7 +339,7 @@ function mobPublic(m){
  return out;
 }
 function mobSnapshot(){return [...authoritativeMobs.values()].map(mobPublic);}
-function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:worldSnapshot.items||[],updatedAt:Date.now(),revision:worldRevision,serverBuild:SERVER_BUILD,resetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION};}
+function serverWorldSnapshot(){return {ready:mobsBootstrapped,mobs:mobSnapshot(),items:[],updatedAt:Date.now(),revision:worldRevision,serverBuild:SERVER_BUILD,resetEpoch:WORLD_RESET_EPOCH,spawnLayoutVersion:SPAWN_LAYOUT_VERSION};}
 function markMobDirty(m){if(m?.id)dirtyMobIds.add(m.id);}
 function syncBossMob(boss){const m=authoritativeMobs.get(boss.id);if(!m)return;m.hp=boss.hp;m.maxHp=boss.maxHp;m.dead=!boss.alive;m.respawnAt=boss.respawnAt||0;if(m.dead){m.state='dead';m.targetId=null;m.alert=false;}else if(m.state==='dead'){m.state='idle';m.x=m.sx;m.y=m.sy;}markMobDirty(m);}
 function bootstrapAuthoritativeWorld(player,msg){
@@ -723,7 +723,7 @@ function sanitizeWorldSnapshot(msg){
   })).filter(o=>o.id&&!takenItems.has(o.id)):worldSnapshot.items;
   return {mobs,items,updatedAt:Date.now()};
 }
-function handleWorldSnapshot(player,msg){if(player.id!==worldLeaderId)return;const clean=sanitizeWorldSnapshot({items:msg.items});worldSnapshot.items=clean.items;worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=++worldRevision;broadcast({type:'world:snapshot',snapshot:serverWorldSnapshot()});}
+function handleWorldSnapshot(player,msg){if(player.id!==worldLeaderId)return;worldSnapshot.items=[];worldSnapshot.updatedAt=Date.now();worldSnapshot.revision=++worldRevision;broadcast({type:'world:snapshot',snapshot:serverWorldSnapshot()});}
 function handleWorldMobDelta(player,msg){if(msg?.mobs?.length)safeSend(player.ws,{type:'world:authority',serverAuthority:true});}
 function handleItemTaken(player,msg){
   const itemId=String(msg.itemId||'').slice(0,70);if(!itemId)return;
@@ -731,17 +731,7 @@ function handleItemTaken(player,msg){
   worldSnapshot.items=worldSnapshot.items.filter(o=>o.id!==itemId);
   broadcast({type:'world:itemTaken',itemId,by:player.id});
 }
-function handleItemSpawn(player,msg){
-  const raw=msg.item||{},item={
-    id:String(raw.id||'').slice(0,70),type:String(raw.type||'loot').slice(0,30),
-    x:clamp(raw.x,0,WORLD.width),y:clamp(raw.y,0,WORLD.height),
-    lootKind:String(raw.lootKind||'').slice(0,30),amount:clamp(raw.amount,1,999999),fixed:!!raw.fixed
-  };
-  if(!item.id||takenItems.has(item.id))return;
-  const i=worldSnapshot.items.findIndex(o=>o.id===item.id);
-  if(i>=0)worldSnapshot.items[i]=item;else worldSnapshot.items.push(item);
-  broadcast({type:'world:itemSpawn',item});
-}
+function handleItemSpawn(player,msg){return;}
 function handleMobDamage(player,msg){
   const mobId=String(msg.mobId||'').slice(0,50),mob=authoritativeMobs.get(mobId);if(!mob||mob.dead||mob.kind==='boss')return;if(Math.hypot(player.x-mob.x,player.y-mob.y)>1100)return;
   const now=Date.now(),wasPassive=!mob.alert||!mob.targetId||mob.state==='idle'||mob.state==='return',damage=clamp(msg.damage,0,1800),stun=clamp(msg.stun,0,2.5),root=clamp(msg.root,0,2.5),kx=clamp(Number(msg.knockbackX)||0,-720,720),ky=clamp(Number(msg.knockbackY)||0,-720,720);if(damage<=0&&stun<=0&&root<=0&&!kx&&!ky)return;
