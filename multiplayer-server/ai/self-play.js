@@ -24,7 +24,7 @@ export function createDuelSession(styleA,styleB,policyA,policyB,seed=1,seconds=9
  ];
  const frame=f=>({x:f.x,y:f.y,a:f.a,hp:f.hp,maxHp:f.maxHp,shield:f.shield,maxShield:f.maxShield,stam:f.stam,maxStam:f.maxStam,skillPose:f.skillPose,skillKind:f.skillKind||'',block:!!f.block,dash:f.dash||0,stun:f.stun||0,attackAnim:f.attackAnim||0,attackDuration:f.attackDuration||0});
  const enabled=()=>!!onFrame&&(!onFrame.enabled||onFrame.enabled());
- const limit=Math.max(1,Math.round(seconds*60)),stallLimit=Math.round(18*60);
+ const limit=Math.max(1,Math.round(seconds*60)),stallLimit=Math.round(12*60);
  let steps=0,done=false,result=null,disposed=false,finalSent=false,lastDamageStep=0,lastHp=arenas.map(r=>r.api.me.hp);
 
  function emit(final=false){

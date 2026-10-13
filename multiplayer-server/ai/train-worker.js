@@ -18,7 +18,7 @@ function permit(){
  if(Atomics.load(gate,0)===2)process.exit(0);
 }
 function burstSize(){return Math.max(1,Math.min(100,tuning?Atomics.load(tuning,1):3));}
-function batchTarget(){return Math.max(25,burstSize());}
+function batchTarget(){return Math.max(12,burstSize());}
 // Four simultaneous bouts keeps the free server within a practical memory
 // budget while making the spectator show several genuinely active fights.
 function parallelBattles(){return Math.max(1,Math.min(4,burstSize()));}
@@ -52,7 +52,7 @@ function plannedPair(planner){
  return [a,b];
 }
 function runConcurrent(configs){
- const active=configs.map(c=>({...c,session:createDuelSession(c.a,c.b,c.policyA,c.policyB,c.seed,90,()=>{},c.watch,{explore:c.explore===true}),result:null}));
+ const active=configs.map(c=>({...c,session:createDuelSession(c.a,c.b,c.policyA,c.policyB,c.seed,c.seconds||55,()=>{},c.watch,{explore:c.explore===true}),result:null}));
  let remaining=active.length;
  try{
   while(remaining>0){
@@ -99,7 +99,7 @@ for(;;){
  }
 
  let {wins=0,losses=0,draws=0,completed:evalCompleted=0}=saved?.evaluation||{};
- const evalPairs=stylePairs(),evalRepeats=2,rounds=evalPairs.length*2*evalRepeats;
+ const evalPairs=stylePairs(),evalRepeats=1,rounds=evalPairs.length*2*evalRepeats;
  while(evalCompleted<rounds){
   permit();
   const lanes=parallelBattles(),count=Math.min(lanes,rounds-evalCompleted),configs=[];
@@ -110,7 +110,7 @@ for(;;){
     a:pair[0],b:pair[1],
     policyA:swap?baseline:policy,policyB:swap?policy:baseline,
     seed:10000+repeat*1000+pairIndex,swap,
-    watch:spectator('evaluation',i+1,pair,j,lanes)
+    watch:spectator('evaluation',i+1,pair,j,lanes),seconds:45
    });
   }
   const finished=runConcurrent(configs);

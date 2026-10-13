@@ -1,7 +1,7 @@
 import {NN_BEHAVIORS,NN_SHAPE,createNetwork,validateNetwork,forward,perturbNetwork,esUpdateNetwork,hashSeed,networkParameterCount} from './neural-policy.js?v=20261002-server-dual-brain-13';
 import {analyzeLoadout,activeSkillThreat,skillUseScore,preferredDistance,leadAim} from './skill-knowledge.js?v=20261002-server-dual-brain-13';
 export {NN_BEHAVIORS,NN_SHAPE,networkParameterCount};
-export const AI_BRAIN_BUILD='20261002-server-dual-brain-13';
+export const AI_BRAIN_BUILD='20261013-tactical-foundation-1';
 
 export const styles={
  gale:{name:'질풍'},
@@ -165,15 +165,26 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   const awareness={skillActive:enemySkillActive,skillIndex:enemySkillIndex,skillId:String(activeMeta?.id||enemy?.skillId||''),skillName:String(activeMeta?.name||''),skillAge:state.enemySkillAge,skillEndedAge:state.enemySkillEndedAge,shielding:enemyShielding,shieldAge:state.enemyShieldAge,shieldReleasedAge:state.enemyShieldReleaseAge,comboBasicCount:state.comboBasicCount,comboSkillReady:state.comboSkillReady,comboStallAge:state.comboStallAge};
   lastAwareness=awareness;
   const threat=activeSkillThreat(enemy,enemyMeta,d);
-  const features=makeFeatures(state,me,enemy,holdAge,ready,dt,style),out=addDifficultyNoise(forward(network,features),settings,random,options.training===true);
-  const aggression=out[11],neuralDesired=clamp(330+out[0]*250-aggression*75,70,650),knownDesired=preferredDistance(selfMeta,ready),desired=clamp(neuralDesired*.58+knownDesired*.42,70,650);
-  let radial=d>desired+24?1:d<desired-24?-1:out[14]*.35,lateral=clamp(out[1],-1,1);
+  const features=makeFeatures(state,me,enemy,holdAge,ready,dt,style);
+  // Every generation starts from the same reliable combat plan. The saved
+  // network learns bounded preferences; an untrained network cannot replace it.
+  const experience=Math.min(1,Math.max(0,Number(base.games)||0)/120);
+  const neuralWeight=.12+.38*experience;
+  const out=addDifficultyNoise(forward(network,features),settings,random,options.training===true)
+   .map(v=>v*neuralWeight);
+  const aggression=out[11],knownDesired=preferredDistance(selfMeta,ready);
+  const desired=clamp(knownDesired+out[0]*140-aggression*45,95,580);
+  let radial=d>desired+20?1:d<desired-20?-1:0;
+  let lateral=clamp(side*.48+out[1]*.65,-1,1);
+  // Circle while looking for an opening, instead of walking in a straight line.
+  if(d>desired+220)lateral*=.35;
+  if(d<140&&Number(enemy?.attackAnim)>0)radial=-1;
   if(Math.abs(lateral)<.08)lateral=side*.16;
   let mx=Math.cos(a)*radial-Math.sin(a)*lateral,my=Math.sin(a)*radial+Math.cos(a)*lateral;
   if((Number(me?.x)||0)<130)mx=Math.max(mx,.8);if((Number(me?.x)||0)>3470)mx=Math.min(mx,-.8);
   if((Number(me?.y)||0)<130)my=Math.max(my,.8);if((Number(me?.y)||0)>1970)my=Math.min(my,-.8);
   const keys=[];if(mx>.22)keys.push('KeyD');if(mx<-.22)keys.push('KeyA');if(my>.22)keys.push('KeyS');if(my<-.22)keys.push('KeyW');
-  let aim=a+out[12]*.62;
+  let aim=a+out[12]*.24;
   if(Number(me?.stun)>0){hold=-1;holdAge=0;moonShiftReleasePending=false;current={keys:[],aim,block:false,dash:false,basic:false};return current;}
   if(moonShiftReleasePending){moonShiftReleasePending=false;current={keys,aim,block:false,dash:false,basic:false,release:0};return current;}
 
@@ -182,8 +193,11 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
   if(hold>=0){
    holdAge+=dt;
    const heldMeta=selfMeta[hold],knowledgeCeiling=heldMeta?.hold?clamp(heldMeta.holdMax||1.6,.25,3.2):clamp(Math.max(.38,(heldMeta?.firstHit||.18)+.28),.38,.9);
-   const continueHold=out[9]+out[17]*.22+(heldMeta?.hold?.18:-.05);
-   if(continueHold<0||holdAge>=knowledgeCeiling){
+   const minimumHold=heldMeta?.hold
+    ?clamp((heldMeta.firstHit||.18)+.08,.22,knowledgeCeiling)
+    :clamp((heldMeta?.firstHit||.18)+.04,.20,knowledgeCeiling);
+   const chosenHold=clamp(minimumHold+out[9]*.28+out[17]*.12,minimumHold,knowledgeCeiling);
+   if(holdAge>=chosenHold){
     const release=hold;hold=-1;holdAge=0;stats.releases++;
     current={keys,aim,block:false,dash:false,basic:false,release};return current;
    }
@@ -242,6 +256,29 @@ export function createBrain(style,policy=seedPolicy(),random=Math.random,difficu
 
   const knowledgeScores=selfMeta.map((meta,i)=>ready[i]?skillUseScore(meta,{distance:d,enemyBlock:awareness.shielding,enemySkillActive:awareness.skillActive,enemySkillIndex:awareness.skillIndex,enemySkillAge:awareness.skillAge,enemyShieldAge:awareness.shieldAge,shieldReleasedAge:awareness.shieldReleasedAge,enemyStun:enemy?.stun||0,enemyAttacking:Number(enemy?.attackAnim)>0||awareness.skillActive,selfHpRatio:ratio(me?.hp,me?.maxHp),enemyHpRatio:ratio(enemy?.hp,enemy?.maxHp),staminaRatio:ratio(me?.stam,me?.maxStam),maxStamina:me?.maxStam}):-1);
   const bestKnowledge=Math.max(-1,...knowledgeScores);
+  // Practical opening: ranged tools at long distance, shield breakers against
+  // a held guard, then sword basics in reach. Learning ranks similarly useful
+  // skills, but a random generation cannot waste a melee cast out of range.
+  if(!busy&&!state.comboSkillReady&&!(state.comboBasicCount>0&&state.comboStallAge>=2.4)){
+   let opening=-1,openingScore=-Infinity;
+   for(let i=0;i<5;i++)if(ready[i]&&selfMeta[i]){
+    const meta=selfMeta[i],reach=meta.effectiveRange;
+    const ranged=d>170&&(meta.projectile>.3||meta.mobility>.65)&&d<=reach*.9;
+    const guard=awareness.shielding&&meta.shieldBreak>.4&&d<=reach*.85;
+    if(!ranged&&!guard)continue;
+    if(awareness.skillActive&&threat.danger>.6&&meta.defensive<.4)continue;
+    const score=knowledgeScores[i]+out[4+i]*.25+(guard?meta.shieldBreak*.3:0)
+      -(meta.ultimate&&ratio(enemy?.hp,enemy?.maxHp)>.65?.13:0);
+    if(score>openingScore){openingScore=score;opening=i;}
+   }
+   if(opening>=0&&openingScore>.38){
+    stats.skills++;stats.skillAwareChoices++;
+    aim=leadAim(selfMeta[opening],a,state.enemyVx,state.enemyVy,d);
+    if(style==='moon'&&opening===0)moonShiftReleasePending=true;
+    else{hold=opening;holdAge=0;}
+    current={keys,aim,block:false,dash:false,basic:false,skill:opening};return current;
+   }
+  }
   // Before four confirmed basic hits, skills are exceptions rather than the default.
   // Use one early only for a clear tactical reason: break a held shield, punish a
   // recent recovery/stun, defend at low HP, or rescue a combo that has genuinely
