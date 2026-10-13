@@ -128,6 +128,12 @@ function handle(msg){
   if(msg.type==='world:combatResult'&&msg.targetId===state.selfId)gameAudio.sound('hit');
   if(msg.type==='boss:defeated')gameAudio.sound('victory');
   if(msg.type==='boss:respawn')gameAudio.sound('confirm');
+  if(msg.type==='pvp:damage'||msg.type==='pvp:hit'||msg.type==='world:projectileHit')gameAudio.sound('hit');
+  if(msg.type==='pvp:blocked')gameAudio.sound('shield');
+  if(msg.type==='pvp:defeated')gameAudio.sound('victory');
+  if(msg.type==='pvp:matchFound'||msg.type==='pvp:aiReady')gameAudio.sound('confirm');
+  if(msg.type==='party:invite'||msg.type==='world:itemTaken')gameAudio.sound('pickup');
+  if(msg.type==='pvp:aiError')gameAudio.sound('error');
   if(msg.type==='pvp:relay'||msg.type==='pvp:aiPacket'){
     const packet=msg.data||msg.packet||{};
     if(packet.t==='state')gameAudio.watch('pvp:remote',packet,true);
@@ -162,7 +168,7 @@ function handle(msg){
   if(msg.type==='player:state'){
     const p=msg.player;if(!p?.id||p.id===state.selfId)return;
     const old=state.players.get(p.id)||{},merged={...old,...p,netReceivedAt:performance.now()};
-    state.players.set(p.id,merged);emit('player:state',merged);return;
+    state.players.set(p.id,merged);gameAudio.watch('world:'+p.id,merged,true);emit('player:state',merged);return;
   }
   if(msg.type==='player:join'){if(msg.player?.id!==state.selfId){state.players.set(msg.player.id,{...msg.player,netReceivedAt:performance.now()});emit('players',[...state.players.values()]);emit('notice',msg.player.name+'님이 월드에 들어왔습니다.');}return;}
   if(msg.type==='player:leave'){const p=state.players.get(msg.id);state.players.delete(msg.id);emit('players',[...state.players.values()]);if(p)emit('notice',p.name+'님이 월드에서 나갔습니다.');return;}
