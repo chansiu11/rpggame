@@ -4,7 +4,7 @@ const listeners=new Map();
 // Shared world/PVP sound system. All sounds are synthesized locally, so no media downloads or network packets are needed.
 const gameAudio=(()=>{
   const Audio=window.AudioContext||window.webkitAudioContext;
-  let ctx=null, last=new Map(), previous=new Map(), uiReady=false;
+  let ctx=null, last=new Map(), previous=new Map(), uiReady=false, selfX=NaN;
   const now=()=>performance.now();
   function unlock(){if(!Audio)return;try{ctx ||= new Audio();if(ctx.state==='suspended')ctx.resume().catch(()=>{});}catch{}}
   function tone(f,d=.09,type='sine',gain=.045,shift=0,pan=0){
@@ -49,8 +49,9 @@ const gameAudio=(()=>{
   }
   function watch(id,p,remote=false){
     if(!p||typeof p!=='object')return;
-    const old=previous.get(id)||{}, pan=remote&&Number.isFinite(p.x)&&Number.isFinite(window.EchoesMulti?.state?.profile?.x)
-      ?Math.max(-.8,Math.min(.8,(p.x-window.EchoesMulti.state.profile.x)/700)):0;
+    if(!remote&&Number.isFinite(p.x))selfX=p.x;
+    const old=previous.get(id)||{}, pan=remote&&Number.isFinite(p.x)&&Number.isFinite(selfX)
+      ?Math.max(-.8,Math.min(.8,(p.x-selfX)/700)):0;
     if(p.skillFxSeq&&p.skillFxSeq!==old.skillFxSeq)sound(remote?'remoteSkill':'skill',{id:p.skillFxId||p.skillId,slot:p.skillFxSlot,pan});
     else if(p.attackAnim&&p.attackAnim!==old.attackAnim)sound(remote?'remoteAttack':'attack',{pan});
     if(p.deathSeq&&p.deathSeq!==old.deathSeq)sound('death',{pan});
