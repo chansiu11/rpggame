@@ -1,6 +1,77 @@
 (()=>{
 'use strict';
 const listeners=new Map();
+// Shared world/PVP sound system. All sounds are synthesized locally, so no media downloads or network packets are needed.
+const gameAudio=(()=>{
+  const Audio=window.AudioContext||window.webkitAudioContext;
+  let ctx=null, last=new Map(), previous=new Map(), uiReady=false;
+  const now=()=>performance.now();
+  function unlock(){if(!Audio)return;try{ctx ||= new Audio();if(ctx.state==='suspended')ctx.resume().catch(()=>{});}catch{}}
+  function tone(f,d=.09,type='sine',gain=.045,shift=0,pan=0){
+    if(!ctx||ctx.state!=='running')return;
+    const t=ctx.currentTime, o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type;o.frequency.setValueAtTime(Math.max(30,f),t);o.frequency.exponentialRampToValueAtTime(Math.max(30,f+shift),t+d);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain),t+.008);
+    g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    if(ctx.createStereoPanner){const p=ctx.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,pan));o.connect(g).connect(p).connect(ctx.destination);}
+    else o.connect(g).connect(ctx.destination);
+    o.start(t);o.stop(t+d+.015);
+  }
+  function sound(kind,opt={}){
+    if(!ctx||ctx.state!=='running')return;
+    const limit={hit:65,attack:90,skill:150,remoteAttack:120,remoteSkill:160,step:290,click:55}[kind]||100;
+    const key=kind+':'+(opt.id||'');
+    if(now()-(last.get(key)||0)<limit)return;
+    last.set(key,now());
+    const pan=Number.isFinite(opt.pan)?opt.pan:0, slot=Number(opt.slot)||0;
+    const style=String(opt.id||'').toLowerCase();
+    let base=style.includes('thunder')||style.includes('gale')?480:style.includes('void')?185:style.includes('dawn')?720:style.includes('hong')||style.includes('flame')?310:style.includes('prism')?840:380;
+    base+=slot*45;
+    switch(kind){
+      case 'click':tone(680,.045,'sine',.022,-190);break;
+      case 'confirm':tone(520,.11,'sine',.035,340);break;
+      case 'error':tone(180,.17,'triangle',.035,-55);break;
+      case 'attack':case 'remoteAttack':tone(240,.075,'sawtooth',kind==='attack'?.033:.018,-145,pan);break;
+      case 'hit':tone(115,.12,'triangle',.055,-60,pan);tone(750,.035,'square',.012,-420,pan);break;
+      case 'shield':tone(610,.13,'triangle',.035,-190,pan);break;
+      case 'parry':tone(1050,.18,'sine',.05,380,pan);break;
+      case 'dash':tone(360,.16,'sawtooth',.025,-270,pan);break;
+      case 'death':tone(340,.45,'triangle',.06,-290,pan);break;
+      case 'victory':for(let i=0;i<3;i++)setTimeout(()=>tone([523,659,784][i],.24,'sine',.045,85,pan),i*125);break;
+      case 'skill':case 'remoteSkill':
+        tone(base,.22,style.includes('void')?'sine':'sawtooth',kind==='skill'?.043:.023,base*(slot===5?-.65:.45),pan);
+        if(slot===5) setTimeout(()=>tone(base*.65,.31,'triangle',.055,base*.8,pan),95);
+        break;
+      case 'pickup':tone(760,.08,'sine',.025,280);break;
+      case 'heal':tone(480,.18,'sine',.032,220);break;
+      case 'step':tone(95,.035,'triangle',.008,-20,pan);break;
+    }
+  }
+  function watch(id,p,remote=false){
+    if(!p||typeof p!=='object')return;
+    const old=previous.get(id)||{}, pan=remote&&Number.isFinite(p.x)&&Number.isFinite(window.EchoesMulti?.state?.profile?.x)
+      ?Math.max(-.8,Math.min(.8,(p.x-window.EchoesMulti.state.profile.x)/700)):0;
+    if(p.skillFxSeq&&p.skillFxSeq!==old.skillFxSeq)sound(remote?'remoteSkill':'skill',{id:p.skillFxId||p.skillId,slot:p.skillFxSlot,pan});
+    else if(p.attackAnim&&p.attackAnim!==old.attackAnim)sound(remote?'remoteAttack':'attack',{pan});
+    if(p.deathSeq&&p.deathSeq!==old.deathSeq)sound('death',{pan});
+    if(p.parry&&!old.parry)sound('parry',{pan});
+    if(p.dodge&&!old.dodge)sound('dash',{pan});
+    if(p.shield&&!old.shield)sound('shield',{pan});
+    previous.set(id,{skillFxSeq:p.skillFxSeq,attackAnim:p.attackAnim,deathSeq:p.deathSeq,parry:p.parry,dodge:p.dodge,shield:p.shield});
+    if(previous.size>100)previous.delete(previous.keys().next().value);
+  }
+  function init(){
+    if(uiReady)return;uiReady=true;
+    document.addEventListener('pointerdown',unlock,{passive:true,capture:true});
+    document.addEventListener('keydown',unlock,{capture:true});
+    document.addEventListener('click',e=>{
+      if(e.target.closest('button,[role="button"],input[type="button"],input[type="submit"],select,a'))sound('click');
+    },{capture:true});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  return {sound,watch,unlock};
+})();
+
 const REQUIRED_SERVER_BUILD='2026-09-27-session-stability-opt-1';
 let connectingPromise=null;
 const CLIENT_SESSION_KEY='echoes_multi_client_session_v1';
@@ -52,6 +123,17 @@ function requestWorldResync(force=false){
 }
 function handle(msg){
   if(!msg||typeof msg!=='object')return;
+  if(msg.type==='skill:fx')gameAudio.sound('remoteSkill',{id:msg.skillId,slot:msg.slot});
+  if(msg.type==='world:mobAttack')gameAudio.sound('remoteAttack');
+  if(msg.type==='world:combatResult'&&msg.targetId===state.selfId)gameAudio.sound('hit');
+  if(msg.type==='boss:defeated')gameAudio.sound('victory');
+  if(msg.type==='boss:respawn')gameAudio.sound('confirm');
+  if(msg.type==='pvp:relay'||msg.type==='pvp:aiPacket'){
+    const packet=msg.data||msg.packet||{};
+    if(packet.t==='state')gameAudio.watch('pvp:remote',packet,true);
+    else if(/hit|damage/i.test(String(packet.t||'')))gameAudio.sound('hit');
+    else if(/skill|attack/i.test(String(packet.t||'')))gameAudio.sound('remoteSkill',{id:packet.skillId,slot:packet.slot});
+  }
   if(msg.type==='net:pong'){if(msg.nonce!==state.lastPingNonce)return;const rtt=Date.now()-msg.nonce;if(rtt>=0&&rtt<3000){state.rtt=rtt;state.serverOffset=msg.serverTime-(msg.nonce+rtt/2);}return;}
   if(msg.type==='hello:ok'){
     state.lastPingAt=0;delete state.serverOffset;mobQueue=[];mobSeq=0;combatSeq=0;combatAck=0;controlAck=0;combatQueue=[];state.serverBuild=String(msg.serverBuild||'');state.deviceTrainingProtocol=Number(msg.deviceTrainingProtocol)||0;state.mobCombatProtocol=Number(msg.mobCombatProtocol)||0;state.combatProtocol=Number(msg.combatProtocol)||0;state.selfId=msg.selfId;state.world=msg.world||null;state.partyMax=msg.partyMax||4;state.pvpRuleset=String(msg.pvpRuleset||'');
@@ -71,7 +153,7 @@ function handle(msg){
   if(msg.type==='players'){
     const next=new Map();
     for(const p of msg.players||[]){if(p.id===state.selfId)continue;const old=state.players.get(p.id)||{};next.set(p.id,{...old,...p,netReceivedAt:performance.now()});}
-    state.players=next;if(Number(msg.revision)>state.worldRevision)requestWorldResync();emit('players',[...state.players.values()]);return;
+    state.players=next;for(const p of next.values())gameAudio.watch('world:'+p.id,p,true);if(Number(msg.revision)>state.worldRevision)requestWorldResync();emit('players',[...state.players.values()]);return;
   }
   if(msg.type==='world:combatResult'){if(msg.targetId===state.selfId){const rev=Number(msg.player?.combatRevision)||0;if(rev<=combatAck)return;combatAck=rev;controlAck=Math.max(controlAck,Number(msg.player?.controlRevision)||0);}else if(msg.player){const old=state.players.get(msg.targetId)||{};if((old.combatRevision||0)>(msg.player.combatRevision||0))return;state.players.set(msg.targetId,{...old,...msg.player});}emit('world:combatResult',msg);return;}
   if(msg.type==='player:self'){emit('player:self',msg);return;}
@@ -186,7 +268,7 @@ function disconnect(){
   state.connected=false;state.connecting=false;state.socket=null;state.players.clear();state.party=null;state.selfId=null;
 }
 window.EchoesMulti={
-  state,on,connect,disconnect,requestWorldResync,combatEvent,flushCombat,
+  state,on,connect,disconnect,requestWorldResync,combatEvent,flushCombat,audio:gameAudio,
   serverNow(){return Date.now()+(state.serverOffset||0);},
   packetAge(stamp){return Number.isFinite(stamp)&&Number.isFinite(state.serverOffset)?Math.max(0,Math.min(.3,(Date.now()+state.serverOffset-stamp)/1000)):0;},
   get combatAck(){return combatAck;},
@@ -194,7 +276,7 @@ window.EchoesMulti={
   get enabled(){return !!url();},
   get connected(){return state.connected||state.recovering;},
   get serverUrl(){return url();},
-  sendState(p){if(!p)return;if(!state.connected){if(state.recovering)state.pendingState=p;return;}const now=Date.now();if(now-(state.lastPingAt||0)>2000){state.lastPingAt=now;state.lastPingNonce=now;send({type:'net:ping',nonce:now});}send({type:p.teleport?'world:teleport':'state',combatAck,controlAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
+  sendState(p){if(!p)return;gameAudio.watch('self',p);if(!state.connected){if(state.recovering)state.pendingState=p;return;}const now=Date.now();if(now-(state.lastPingAt||0)>2000){state.lastPingAt=now;state.lastPingNonce=now;send({type:'net:ping',nonce:now});}send({type:p.teleport?'world:teleport':'state',combatAck,controlAck,defenseReduction:p.defenseReduction,shield:p.shield,maxShield:p.maxShield,stam:p.stam,maxStam:p.maxStam,block:p.block,parryWindow:p.parryWindow,invuln:p.invuln,stun:p.stun,shieldBroken:p.shieldBroken,shieldDelay:p.shieldDelay,skillId:p.skillId,skillKind:p.skillKind,moveSpeed:p.moveSpeed,special:p.special,
     x:p.x,y:p.y,a:p.a,hp:p.hp,maxHp:p.maxHp,level:p.level,weapon:p.weapon,
     swordStyle:p.swordStyle,swordSkills:Array.isArray(p.swordSkills)?p.swordSkills.slice(0,5):undefined,
     equippedHead:p.equippedHead,equippedChest:p.equippedChest,equippedShield:p.equippedShield,
@@ -208,21 +290,21 @@ window.EchoesMulti={
   sendMobDelta(){return false;},
   itemTaken(itemId){if(itemId)send({type:'world:itemTaken',itemId});},
   itemSpawn(item){if(item?.id)send({type:'world:itemSpawn',item});},
-  damageMob(mobId,damage,control={}){if(mobId&&state.connected)queueMobHit({mobId,damage,stun:control.stun||0,root:control.root||0,knockbackX:control.knockbackX||0,prismCast:String(control.prismCast||'').slice(0,64),knockbackY:control.knockbackY||0,duration:control.duration,replaceForce:control.replaceForce===true});},
-  skillFx(fx){if(state.connected&&fx)send({type:'skill:fx',fxSeq:fx.seq||0,slot:fx.slot,skillId:fx.skillId,weapon:fx.weapon,x:fx.x,y:fx.y,a:fx.a});},
+  damageMob(mobId,damage,control={}){if(mobId&&damage>0)gameAudio.sound('hit');if(mobId&&state.connected)queueMobHit({mobId,damage,stun:control.stun||0,root:control.root||0,knockbackX:control.knockbackX||0,prismCast:String(control.prismCast||'').slice(0,64),knockbackY:control.knockbackY||0,duration:control.duration,replaceForce:control.replaceForce===true});},
+  skillFx(fx){if(fx)gameAudio.sound('skill',{id:fx.skillId,slot:fx.slot});if(state.connected&&fx)send({type:'skill:fx',fxSeq:fx.seq||0,slot:fx.slot,skillId:fx.skillId,weapon:fx.weapon,x:fx.x,y:fx.y,a:fx.a});},
   skillEffects(packet){if(state.connected&&packet)send({type:'skill:effects',seq:packet.seq||0,effects:Array.isArray(packet.effects)?packet.effects.slice(0,90):[],projectiles:Array.isArray(packet.projectiles)?packet.projectiles.slice(0,24):[]});},
   pvpDamage(targetId,damage,range=180,kind='melee',control={}){combatEvent({targetId,kind:'attack',damage,range,...control});},
   pvpControl(targetId,dx,dy,stun=0,kind='skill-control'){combatEvent({targetId,kind:'control',dx,dy,stun});},
   pvpRelayReady(matchId){return send({type:'pvp:relayReady',matchId});},
-  pvpRelaySend(matchId,data){if(data?.t==='state'){const packed={...data};for(const key of Object.keys(packed)){const v=packed[key];if(typeof v==='number'&&Number.isFinite(v))packed[key]=Math.round(v*1000)/1000;}data=packed;}return send({type:'pvp:relay',matchId,data});},
+  pvpRelaySend(matchId,data){if(data?.t==='state')gameAudio.watch('pvp:self',data);else if(/hit|damage/i.test(String(data?.t||'')))gameAudio.sound('hit');else if(/skill|attack/i.test(String(data?.t||'')))gameAudio.sound('skill',{id:data?.skillId,slot:data?.slot});if(data?.t==='state'){const packed={...data};for(const key of Object.keys(packed)){const v=packed[key];if(typeof v==='number'&&Number.isFinite(v))packed[key]=Math.round(v*1000)/1000;}data=packed;}return send({type:'pvp:relay',matchId,data});},
   pvpRelayLeave(matchId){return send({type:'pvp:relayLeave',matchId});},
   training(type,data={}){return send({...data,type:'ai:train'+type});},
-  aiStart(style,difficulty=3,options={}){return send({type:'pvp:aiStart',style,difficulty,spectate:options.spectate===true,localStyle:options.localStyle,localDifficulty:options.localDifficulty});},
+  aiStart(style,difficulty=3,options={}){gameAudio.sound('confirm');return send({type:'pvp:aiStart',style,difficulty,spectate:options.spectate===true,localStyle:options.localStyle,localDifficulty:options.localDifficulty});},
   aiPacket(matchId,data){return send({type:'pvp:aiPacket',matchId,data});},
   aiLeave(){return send({type:'pvp:aiLeave'});},
-  pvpMatchJoin(){return send({type:'pvp:matchJoin'});},
+  pvpMatchJoin(){gameAudio.sound('confirm');return send({type:'pvp:matchJoin'});},
   pvpMatchCancel(){return send({type:'pvp:matchCancel'});},
-  damageBoss(bossId,damage,control={}){send({type:'boss:damage',bossId,damage,stun:control.stun||0,root:control.root||0,knockbackX:control.knockbackX||0,prismCast:String(control.prismCast||'').slice(0,64),knockbackY:control.knockbackY||0,duration:control.duration,replaceForce:control.replaceForce===true});},
+  damageBoss(bossId,damage,control={}){if(damage>0)gameAudio.sound('hit');send({type:'boss:damage',bossId,damage,stun:control.stun||0,root:control.root||0,knockbackX:control.knockbackX||0,prismCast:String(control.prismCast||'').slice(0,64),knockbackY:control.knockbackY||0,duration:control.duration,replaceForce:control.replaceForce===true});},
   hitPlayer(targetId,damage,range=180,kind='attack',parryable=true){combatEvent({targetId,kind:'attack',damage,range,parryable});},
   createParty(){send({type:'party:create'});},
   invite(targetId){send({type:'party:invite',targetId});},
